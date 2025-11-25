@@ -4,7 +4,7 @@ import { MessageGenerator } from './messageGenerator';
 import { TimeFlowSettings } from './settings';
 import { TimerManager } from './timerManager';
 import { ImportModal } from './importModal';
-import { Utils, SPECIAL_DAY_COLORS } from './utils';
+import { Utils, getSpecialDayColors } from './utils';
 
 export class UIBuilder {
 	data: DataManager;
@@ -20,12 +20,12 @@ export class UIBuilder {
 	timerManager: TimerManager;
 	elements: {
 		badge: HTMLElement | null;
+		timerBadge: HTMLButtonElement | null;
 		clock: HTMLElement | null;
 		dayCard: HTMLElement | null;
 		weekCard: HTMLElement | null;
 		statsCard: HTMLElement | null;
 		monthCard: HTMLElement | null;
-		timerControls: HTMLElement | null;
 	};
 
 	constructor(dataManager: DataManager, systemStatus: any, settings: TimeFlowSettings, app: App, timerManager: TimerManager) {
@@ -38,12 +38,12 @@ export class UIBuilder {
 		this.today = new Date();
 		this.elements = {
 			badge: null,
+			timerBadge: null,
 			clock: null,
 			dayCard: null,
 			weekCard: null,
 			statsCard: null,
 			monthCard: null,
-			timerControls: null,
 		};
 	}
 
@@ -53,6 +53,8 @@ export class UIBuilder {
 		container.style.maxWidth = "1200px";
 		container.style.margin = "0 auto";
 		container.style.padding = "20px";
+		// Apply theme class
+		container.className = `timeflow-theme-${this.settings.theme}`;
 		return container;
 	}
 
@@ -89,27 +91,73 @@ export class UIBuilder {
 
 			.tf-badge-section {
 				display: flex;
-				justify-content: space-between;
-				align-items: center;
-				margin-bottom: 20px;
+				align-items: stretch;
+				margin: 16px 0;
 				flex-wrap: wrap;
-				gap: 15px;
+				gap: 12px;
+			}
+
+			@media (max-width: 600px) {
+				.tf-badge-section {
+					flex-direction: column;
+					align-items: stretch;
+				}
+				.tf-badge-section > * {
+					width: 100% !important;
+					max-width: 100% !important;
+				}
 			}
 
 			.tf-badge {
-				padding: 12px 24px;
-				border-radius: 8px;
-				font-size: 20px;
-				font-weight: bold;
+				padding: 10px 18px;
+				border-radius: 12px;
+				display: inline-block;
+				white-space: normal;
 				text-align: center;
-				min-width: 200px;
+				max-width: 100%;
+				font-weight: bold;
 				box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 			}
 
 			.tf-clock {
-				font-size: 24px;
+				padding: 10px 18px;
+				border-radius: 12px;
+				display: inline-block;
+				white-space: normal;
+				text-align: center;
+				max-width: 100%;
+				background: linear-gradient(135deg, #f0f4c3, #e1f5fe);
+				color: #1a1a1a;
 				font-weight: bold;
-				color: var(--text-normal);
+				font-variant-numeric: tabular-nums;
+				box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+			}
+
+			.tf-timer-badge {
+				padding: 10px 18px;
+				border-radius: 12px;
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				gap: 8px;
+				white-space: normal;
+				text-align: center;
+				cursor: pointer;
+				transition: all 0.2s;
+				border: none;
+				font-family: inherit;
+				font-size: inherit;
+				font-weight: bold;
+				box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+			}
+
+			.tf-timer-badge:hover {
+				transform: translateY(-1px);
+				box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+			}
+
+			.tf-timer-badge:active {
+				transform: translateY(0);
 			}
 
 			.tf-summary-cards {
@@ -123,23 +171,60 @@ export class UIBuilder {
 				flex: 1;
 				min-width: 280px;
 				padding: 20px;
-				border-radius: 8px;
-				background: var(--background-primary-alt);
-				border: 1px solid var(--background-modifier-border);
-				box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+				border-radius: 12px;
+				background: linear-gradient(135deg, #f0f4c3, #e1f5fe);
+				color: #1a1a1a;
+				box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+			}
+
+			.tf-card-spaced {
+				margin-top: 24px;
 			}
 
 			.tf-card h3 {
 				margin-top: 0;
 				margin-bottom: 15px;
 				font-size: 18px;
+				color: #1a1a1a;
+			}
+
+			/* System theme - match Obsidian's theme */
+			.timeflow-theme-system .tf-card {
+				background: var(--background-primary-alt);
 				color: var(--text-normal);
+				border: 1px solid var(--background-modifier-border);
+			}
+
+			.timeflow-theme-system .tf-card h3 {
+				color: var(--text-normal);
+			}
+
+			.timeflow-theme-system .tf-card-stats {
+				background: var(--background-primary-alt) !important;
+			}
+
+			.timeflow-theme-system .tf-card-history {
+				background: var(--background-primary-alt) !important;
+			}
+
+			.timeflow-theme-system .tf-stat-item {
+				background: var(--background-secondary);
+			}
+
+			/* Dark theme mode */
+			.timeflow-theme-dark .tf-card {
+				background: linear-gradient(135deg, #1a1f1a, #1a2228);
+				color: #e0e0e0;
+			}
+
+			.timeflow-theme-dark .tf-card h3 {
+				color: #e0e0e0;
 			}
 
 			.tf-progress-bar {
 				width: 100%;
 				height: 12px;
-				background: var(--background-secondary);
+				background: #ddd;
 				border-radius: 6px;
 				overflow: hidden;
 				margin: 10px 0;
@@ -147,7 +232,7 @@ export class UIBuilder {
 
 			.tf-progress-fill {
 				height: 100%;
-				background: linear-gradient(90deg, #4caf50, #8bc34a);
+				background: linear-gradient(90deg, #81c784, #388e3c);
 				transition: width 0.3s ease;
 			}
 
@@ -165,10 +250,13 @@ export class UIBuilder {
 				justify-content: center;
 				border-radius: 6px;
 				font-size: 14px;
+				font-weight: bold;
 				cursor: pointer;
 				transition: all 0.2s;
 				position: relative;
 				border: 2px solid transparent;
+				color: #333;
+				text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
 			}
 
 			.tf-day-cell:hover {
@@ -181,6 +269,22 @@ export class UIBuilder {
 				font-weight: bold;
 			}
 
+			.tf-card-stats {
+				background: linear-gradient(135deg, #e8f5e9, #c8e6c9) !important;
+			}
+
+			.timeflow-theme-dark .tf-card-stats {
+				background: linear-gradient(135deg, #1a2d1a, #1a3d2a) !important;
+			}
+
+			.tf-card-history {
+				background: linear-gradient(135deg, #a8d5ab, #8dc491) !important;
+			}
+
+			.timeflow-theme-dark .tf-card-history {
+				background: linear-gradient(135deg, #1a2d1a, #1a3520) !important;
+			}
+
 			.tf-stats-grid {
 				display: grid;
 				grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -190,8 +294,12 @@ export class UIBuilder {
 
 			.tf-stat-item {
 				padding: 15px;
-				background: var(--background-secondary);
-				border-radius: 6px;
+				background: rgba(155,155,155,0.4);
+				border-radius: 8px;
+			}
+
+			.timeflow-theme-dark .tf-stat-item {
+				background: rgba(255,255,255,0.1);
 			}
 
 			.tf-stat-label {
@@ -344,97 +452,53 @@ export class UIBuilder {
 		badge.className = "tf-badge";
 		this.elements.badge = badge;
 
-		// Timer controls
-		const timerControls = document.createElement("div");
-		timerControls.style.display = "flex";
-		timerControls.style.gap = "10px";
-		timerControls.style.alignItems = "center";
-		this.elements.timerControls = timerControls;
-
-		this.updateTimerControls();
+		// Timer control badge
+		const timerBadge = document.createElement("button");
+		timerBadge.className = "tf-timer-badge";
+		this.elements.timerBadge = timerBadge;
 
 		const clock = document.createElement("div");
 		clock.className = "tf-clock";
 		this.elements.clock = clock;
 
 		section.appendChild(badge);
-		section.appendChild(timerControls);
+		section.appendChild(timerBadge);
 		section.appendChild(clock);
 
 		this.updateBadge();
+		this.updateTimerBadge();
 		this.updateClock();
 
 		return section;
 	}
 
-	updateTimerControls(): void {
-		if (!this.elements.timerControls) return;
-
-		this.elements.timerControls.innerHTML = '';
+	updateTimerBadge(): void {
+		if (!this.elements.timerBadge) return;
 
 		const activeTimers = this.timerManager.getActiveTimers();
 
 		if (activeTimers.length === 0) {
-			// Start button
-			const startBtn = document.createElement("button");
-			startBtn.className = "tf-button";
-			startBtn.textContent = "▶️ Start Timer";
-			startBtn.style.background = "#4caf50";
-			startBtn.style.color = "white";
-			startBtn.style.fontWeight = "bold";
-			startBtn.onclick = async () => {
+			// Start button badge
+			this.elements.timerBadge.textContent = "▶️ Start Timer";
+			this.elements.timerBadge.style.background = "linear-gradient(90deg, #4caf50, #2e7d32)";
+			this.elements.timerBadge.style.color = "white";
+			this.elements.timerBadge.onclick = async () => {
 				await this.timerManager.startTimer('jobb');
-				this.updateTimerControls();
+				this.updateTimerBadge();
 			};
-			this.elements.timerControls.appendChild(startBtn);
 		} else {
-			// Show active timers
-			activeTimers.forEach(timer => {
-				const timerDisplay = document.createElement("div");
-				timerDisplay.style.display = "flex";
-				timerDisplay.style.alignItems = "center";
-				timerDisplay.style.gap = "8px";
-				timerDisplay.style.padding = "8px 12px";
-				timerDisplay.style.background = "var(--background-primary-alt)";
-				timerDisplay.style.borderRadius = "6px";
-				timerDisplay.style.border = "2px solid #4caf50";
-
-				const runningTime = this.timerManager.getRunningTime(timer);
-				const timerText = document.createElement("span");
-				timerText.textContent = `⏱️ ${timer.name}: ${Utils.formatHoursToHM(runningTime)}`;
-				timerText.style.fontWeight = "bold";
-
-				const stopBtn = document.createElement("button");
-				stopBtn.className = "tf-button";
-				stopBtn.textContent = "⏹️ Stop";
-				stopBtn.style.background = "#f44336";
-				stopBtn.style.color = "white";
-				stopBtn.onclick = async () => {
+			// Stop button badge (active timer)
+			this.elements.timerBadge.textContent = "⏹️ Stop Timer";
+			this.elements.timerBadge.style.background = "linear-gradient(90deg, #f44336, #c62828)";
+			this.elements.timerBadge.style.color = "white";
+			this.elements.timerBadge.onclick = async () => {
+				// Stop all active timers
+				for (const timer of activeTimers) {
 					await this.timerManager.stopTimer(timer);
-					this.updateTimerControls();
-				};
-
-				timerDisplay.appendChild(timerText);
-				timerDisplay.appendChild(stopBtn);
-				this.elements.timerControls!.appendChild(timerDisplay);
-			});
+				}
+				this.updateTimerBadge();
+			};
 		}
-
-		// Import button (always visible)
-		const importBtn = document.createElement("button");
-		importBtn.className = "tf-button";
-		importBtn.textContent = "📥 Import";
-		importBtn.style.background = "#2196f3";
-		importBtn.style.color = "white";
-		importBtn.style.fontWeight = "bold";
-		importBtn.style.marginLeft = "8px";
-		importBtn.onclick = () => {
-			new ImportModal(this.app, this.timerManager, () => {
-				// Refresh will happen automatically via onTimerChange
-				new Notice('Dashboard oppdatert!');
-			}).open();
-		};
-		this.elements.timerControls.appendChild(importBtn);
 	}
 
 	buildSummaryCards(): HTMLElement {
@@ -525,7 +589,7 @@ export class UIBuilder {
 
 	createStatsCard(): HTMLElement {
 		const card = document.createElement("div");
-		card.className = "tf-card";
+		card.className = "tf-card tf-card-stats tf-card-spaced";
 
 		const header = document.createElement("h3");
 		header.textContent = "Statistikk";
@@ -562,7 +626,7 @@ export class UIBuilder {
 
 	buildInfoCard(): HTMLElement {
 		const card = document.createElement("div");
-		card.className = "tf-card";
+		card.className = "tf-card tf-card-spaced";
 
 		const header = document.createElement("div");
 		header.className = "tf-collapsible";
@@ -574,12 +638,14 @@ export class UIBuilder {
 			<div style="margin-top: 15px;">
 				<h4>Fargeforklaring</h4>
 				<div style="display: grid; gap: 8px;">
-					${Object.entries(SPECIAL_DAY_COLORS).map(([key, color]) =>
-						`<div style="display: flex; align-items: center; gap: 10px;">
+					${Object.entries(getSpecialDayColors(this.settings)).map(([key, color]) => {
+						// Use custom label if available, otherwise use the key
+						const label = this.settings.specialDayLabels[key as keyof typeof this.settings.specialDayLabels] || key;
+						return `<div style="display: flex; align-items: center; gap: 10px;">
 							<div style="width: 20px; height: 20px; background: ${color}; border-radius: 4px;"></div>
-							<span>${key}</span>
-						</div>`
-					).join('')}
+							<span>${label}</span>
+						</div>`;
+					}).join('')}
 				</div>
 			</div>
 		`;
@@ -596,7 +662,7 @@ export class UIBuilder {
 
 	buildHistoryCard(): HTMLElement {
 		const card = document.createElement("div");
-		card.className = "tf-card";
+		card.className = "tf-card tf-card-history tf-card-spaced";
 
 		const header = document.createElement("div");
 		header.style.display = "flex";
@@ -629,8 +695,22 @@ export class UIBuilder {
 			controls.appendChild(btn);
 		});
 
+		const importBtn = document.createElement("button");
+		importBtn.textContent = "📥 Import";
+		importBtn.className = "tf-button";
+		importBtn.onclick = () => {
+			new ImportModal(this.app, this.timerManager, () => {
+				new Notice('Data importert! Oppdaterer dashboard...');
+				// Trigger a full refresh
+				if (this.timerManager.onTimerChange) {
+					this.timerManager.onTimerChange();
+				}
+			}).open();
+		};
+		controls.appendChild(importBtn);
+
 		const exportBtn = document.createElement("button");
-		exportBtn.textContent = "📥 Export CSV";
+		exportBtn.textContent = "📤 Export CSV";
 		exportBtn.className = "tf-button";
 		exportBtn.onclick = () => this.exportCurrentView();
 		controls.appendChild(exportBtn);
@@ -925,13 +1005,28 @@ export class UIBuilder {
 
 			// Determine background color
 			const holidayInfo = this.data.getHolidayInfo(dateKey);
+			const dayEntries = this.data.daily[dateKey];
+			const specialDayColors = getSpecialDayColors(this.settings);
+
+			// Check for special day entries in daily data
+			const specialEntry = dayEntries?.find(e =>
+				specialDayColors[e.name.toLowerCase()]
+			);
+
 			if (holidayInfo) {
-				cell.style.background = SPECIAL_DAY_COLORS[holidayInfo.type] || "#eee";
-			} else if (this.data.daily[dateKey]) {
-				const dayFlextime = this.data.daily[dateKey].reduce((sum, e) => sum + (e.flextime || 0), 0);
+				// Holiday from holidays file
+				const colorKey = holidayInfo.halfDay ? 'halfday' : holidayInfo.type;
+				cell.style.background = specialDayColors[colorKey] || specialDayColors[holidayInfo.type] || "#eee";
+			} else if (specialEntry) {
+				// Special day from entries (ferie, studie, etc.)
+				cell.style.background = specialDayColors[specialEntry.name.toLowerCase()];
+			} else if (dayEntries) {
+				// Regular work day - show flextime color
+				const dayFlextime = dayEntries.reduce((sum, e) => sum + (e.flextime || 0), 0);
 				cell.style.background = this.flextimeColor(dayFlextime);
 			} else if (Utils.isWeekend(date)) {
-				cell.style.background = "#f5f5f5";
+				// Darker gray for weekends with no data
+				cell.style.background = "#b0b0b0";
 			} else {
 				cell.style.background = "#fff";
 			}
@@ -954,17 +1049,20 @@ export class UIBuilder {
 	}
 
 	flextimeColor(val: number): string {
-		if (val === 0) return "#fff";
-		if (val > 0) {
-			const intensity = Math.min(val / 6, 1);
-			const green = Math.floor(200 + intensity * 55);
-			const other = Math.floor(240 - intensity * 90);
-			return `rgb(${other}, ${green}, ${other})`;
+		if (val < 0) {
+			// Undertid: gradient from light blue to darker blue
+			const t = Math.min(Math.abs(val) / 6, 1);
+			const r = Math.floor(100 + 50 * t);
+			const g = Math.floor(150 + 50 * t);
+			const b = Math.floor(200 + 55 * t);
+			return `rgb(${r},${g},${b})`;
 		} else {
-			const intensity = Math.min(Math.abs(val) / 6, 1);
-			const red = Math.floor(200 + intensity * 55);
-			const other = Math.floor(240 - intensity * 90);
-			return `rgb(${red}, ${other}, ${other})`;
+			// Fleksitid: gradient from green to yellow to red
+			const t = Math.min(val / 6, 1);
+			const r = Math.floor(255 * t);
+			const g = Math.floor(200 * (1 - t));
+			const b = 150;
+			return `rgb(${r},${g},${b})`;
 		}
 	}
 
@@ -1213,7 +1311,7 @@ export class UIBuilder {
 
 	updateAll(): void {
 		this.updateBadge();
-		this.updateTimerControls();
+		this.updateTimerBadge();
 		this.updateDayCard();
 		this.updateWeekCard();
 		this.updateStatsCard();

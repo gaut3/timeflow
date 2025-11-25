@@ -1,5 +1,3 @@
-![alt text](https://github.com/gaut3/timeflow/blob/main/timeflow.png "timeflow")
-
 # TimeFlow Plugin
 
 TimeFlow is an Obsidian plugin that provides a comprehensive flextime tracking dashboard with **built-in timer functionality**, beautiful visualizations, and statistics.
@@ -77,7 +75,7 @@ TimeFlow is an Obsidian plugin that provides a comprehensive flextime tracking d
 
 #### Timer Data Storage
 
-- All timer data is stored in `TimeFlow Data.md` in your vault root
+- All timer data is stored in `timeflow/data.md` in your vault
 - Uses **Timekeep-compatible format** (backwards compatible!)
 - Data is stored in a `timekeep` codeblock as JSON
 - Format: `{"entries":[{"name":"Jobb","startTime":"...","endTime":"...","subEntries":null}]}`
@@ -89,7 +87,7 @@ TimeFlow is an Obsidian plugin that provides a comprehensive flextime tracking d
 TimeFlow uses the exact same data format as the Timekeep plugin:
 
 ```markdown
-# TimeFlow Data
+# timeflow data
 
 \`\`\`timekeep
 {
@@ -111,6 +109,25 @@ This means:
 - ✅ Support for collapsed entries and subEntries
 - ✅ Seamless migration path
 
+### File Structure
+
+TimeFlow uses a simple folder structure to organize its files:
+
+```
+Your Vault/
+└── timeflow/                     # timeflow plugin folder
+    ├── data.md                   # Timer data (Timekeep-compatible format)
+    ├── holidays.md               # Holiday and special days definitions
+    └── templates/                # Note templates
+        ├── daily-notes.md
+        ├── meeting-note.md
+        ├── project-note.md
+        ├── weekly-review.md
+        └── reflection-note.md
+```
+
+**Note**: These paths are configurable in settings. You can adjust them to match your vault structure.
+
 ### Configuration
 
 Go to Settings → TimeFlow to configure:
@@ -131,7 +148,7 @@ Go to Settings → TimeFlow to configure:
 
 ### Holiday File Format
 
-Create a file (default: `01. timeflow/timeflow/Fremtidige dager.md`) with the following format:
+Create a file (default: `timeflow/holidays.md`) with the following format:
 
 ```markdown
 - 2025-12-25: helligdag: Jul
@@ -155,11 +172,11 @@ Supported types:
 
 If you have existing Timekeep data, you can easily migrate:
 
-1. **Copy your Timekeep data**: Open your file with Timekeep codeblocks and copy the JSON data
-2. **Create TimeFlow Data.md**: In your vault root, create a file called `TimeFlow Data.md`
-3. **Paste the data**: Use this format:
+1. **Use the Import button**: In the TimeFlow dashboard, click the "📥 Import" button in the Historikk section
+2. **Paste your JSON**: Copy the JSON data from your Timekeep codeblocks and paste it into the import dialog
+3. **Or manually create the file**: Create `timeflow/data.md` with this format:
    ```markdown
-   # TimeFlow Data
+   # timeflow data
 
    \`\`\`timekeep
    {"entries":[...your entries here...]}
@@ -252,6 +269,15 @@ timeflow-plugin/
 - Ensure the file exists in your vault
 - File path should be relative to vault root
 
+## Credits
+
+Original dataview script by Gaute
+Converted to Obsidian plugin with full TypeScript implementation
+
+## License
+
+MIT License
+
 ## Support
 
 For issues and feature requests, please create an issue on GitHub.
@@ -271,8 +297,3 @@ For issues and feature requests, please create an issue on GitHub.
 - Improved performance with caching
 - Better error handling and validation
 - Self-contained solution with integrated time tracking
-
-
-
-
-

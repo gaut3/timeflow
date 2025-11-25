@@ -19,7 +19,7 @@ export class TimerManager {
 	app: App;
 	settings: TimeFlowSettings;
 	data: TimekeepData;
-	dataFile: string = 'TimeFlow Data.md'; // Main data file
+	dataFile: string = 'timeflow/data.md'; // Main data file
 	onTimerChange?: () => void;
 
 	constructor(app: App, settings: TimeFlowSettings) {
@@ -29,26 +29,38 @@ export class TimerManager {
 	}
 
 	async load(): Promise<void> {
+		console.log('TimeFlow: Starting load() from', this.dataFile);
 		try {
-			const file = this.app.vault.getAbstractFileByPath(this.dataFile);
-			if (file && file instanceof TFile) {
-				const content = await this.app.vault.read(file);
+			// Check if file exists using the adapter
+			const fileExists = await this.app.vault.adapter.exists(this.dataFile);
+			console.log('TimeFlow: File exists check:', fileExists);
+
+			if (fileExists) {
+				// Read directly using adapter (works even if vault cache isn't ready)
+				const content = await this.app.vault.adapter.read(this.dataFile);
+				console.log('TimeFlow: Read content, length:', content.length);
 				const parsed = this.parseTimekeepData(content);
+				console.log('TimeFlow: Parsed data:', parsed ? `${parsed.entries.length} entries` : 'null');
 				if (parsed) {
 					this.data = parsed;
+					console.log('TimeFlow: Loaded', this.data.entries.length, 'entries from', this.dataFile);
+				} else {
+					console.warn('TimeFlow: Could not parse data from', this.dataFile);
+					this.data = { entries: [] };
 				}
 			} else {
+				console.log('TimeFlow: Data file not found, creating new one');
 				// Create the file if it doesn't exist
 				await this.createDataFile();
 			}
 		} catch (error) {
-			console.error('Error loading timer data:', error);
+			console.error('TimeFlow: Error loading timer data:', error);
 			this.data = { entries: [] };
 		}
 	}
 
 	async createDataFile(): Promise<void> {
-		const content = `# TimeFlow Data
+		const content = `# timeflow data
 
 This file contains your time tracking data in Timekeep-compatible format.
 
@@ -56,6 +68,12 @@ This file contains your time tracking data in Timekeep-compatible format.
 ${JSON.stringify(this.data)}
 \`\`\`
 `;
+		// Ensure the folder exists
+		const folderPath = this.dataFile.substring(0, this.dataFile.lastIndexOf('/'));
+		const folderExists = await this.app.vault.adapter.exists(folderPath);
+		if (!folderExists) {
+			await this.app.vault.createFolder(folderPath);
+		}
 		await this.app.vault.create(this.dataFile, content);
 	}
 
@@ -75,7 +93,7 @@ ${JSON.stringify(this.data)}
 	async save(): Promise<void> {
 		try {
 			const file = this.app.vault.getAbstractFileByPath(this.dataFile);
-			const content = `# TimeFlow Data
+			const content = `# timeflow data
 
 This file contains your time tracking data in Timekeep-compatible format.
 
@@ -86,11 +104,19 @@ ${JSON.stringify(this.data, null, 2)}
 
 			if (file && file instanceof TFile) {
 				await this.app.vault.modify(file, content);
+				console.log('TimeFlow: Saved', this.data.entries.length, 'entries to', this.dataFile);
 			} else {
+				// Ensure folder exists before creating file
+				const folderPath = this.dataFile.substring(0, this.dataFile.lastIndexOf('/'));
+				const folderExists = await this.app.vault.adapter.exists(folderPath);
+				if (!folderExists) {
+					await this.app.vault.createFolder(folderPath);
+				}
 				await this.app.vault.create(this.dataFile, content);
+				console.log('TimeFlow: Created', this.dataFile, 'with', this.data.entries.length, 'entries');
 			}
 		} catch (error) {
-			console.error('Error saving timer data:', error);
+			console.error('TimeFlow: Error saving timer data:', error);
 		}
 	}
 

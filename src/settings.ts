@@ -3,6 +3,7 @@ import TimeFlowPlugin from './main';
 
 export interface TimeFlowSettings {
 	version: string;
+	theme: 'light' | 'dark' | 'system';
 	workPercent: number;
 	baseWorkday: number;
 	baseWorkweek: number;
@@ -18,6 +19,22 @@ export interface TimeFlowSettings {
 	defaultExportWeeks: number;
 	heatmapColumns: number;
 	noteTypes: NoteType[];
+	specialDayColors: {
+		avspasering: string;
+		ferie: string;
+		velferdspermisjon: string;
+		egenmelding: string;
+		kurs: string;
+		studie: string;
+	};
+	specialDayLabels: {
+		avspasering: string;
+		ferie: string;
+		velferdspermisjon: string;
+		egenmelding: string;
+		kurs: string;
+		studie: string;
+	};
 }
 
 export interface NoteType {
@@ -32,14 +49,15 @@ export interface NoteType {
 
 export const DEFAULT_SETTINGS: TimeFlowSettings = {
 	version: "1.0.0",
+	theme: "light",
 	workPercent: 1.0,
 	baseWorkday: 7.5,
 	baseWorkweek: 37.5,
 	updateInterval: 30000,
 	clockInterval: 1000,
-	holidaysFilePath: "01. timeflow/timeflow/Fremtidige dager.md",
+	holidaysFilePath: "timeflow/holidays.md",
 	dailyNotesFolder: "Daily Notes",
-	dailyNotesTemplatePath: "01. timeflow/timeflow/Administrasjon/Templates/Daily Notes Template.md",
+	dailyNotesTemplatePath: "timeflow/templates/daily-notes.md",
 	workdaysPerYear: 260,
 	workdaysPerMonth: 21,
 	workdaysPerWeek: 5,
@@ -52,7 +70,7 @@ export const DEFAULT_SETTINGS: TimeFlowSettings = {
 			label: "Daglig Notat",
 			icon: "📅",
 			folder: "Daily Notes",
-			template: "01. timeflow/timeflow/Administrasjon/Templates/Daily Notes Template.md",
+			template: "timeflow/templates/daily-notes.md",
 			tags: [],
 			filenamePattern: "{YYYY}-{MM}-{DD}"
 		},
@@ -61,7 +79,7 @@ export const DEFAULT_SETTINGS: TimeFlowSettings = {
 			label: "Møtenotat",
 			icon: "👥",
 			folder: "Møter",
-			template: "01. timeflow/timeflow/Administrasjon/Templates/Meeting Note template.md",
+			template: "timeflow/templates/meeting-note.md",
 			tags: ["#møte", "#timeflow"],
 			filenamePattern: "{YYYY}-{MM}-{DD} Møte"
 		},
@@ -70,7 +88,7 @@ export const DEFAULT_SETTINGS: TimeFlowSettings = {
 			label: "Prosjektnotat",
 			icon: "📋",
 			folder: "Prosjekter",
-			template: "01. timeflow/timeflow/Administrasjon/Templates/Project Note template.md",
+			template: "timeflow/templates/project-note.md",
 			tags: ["#prosjekt", "#timeflow"],
 			filenamePattern: "{YYYY}-{MM}-{DD} Prosjekt"
 		},
@@ -79,7 +97,7 @@ export const DEFAULT_SETTINGS: TimeFlowSettings = {
 			label: "Ukesoppsummering",
 			icon: "🔍",
 			folder: "Oppsummeringer",
-			template: "01. timeflow/timeflow/Administrasjon/Templates/Weekly Review template.md",
+			template: "timeflow/templates/weekly-review.md",
 			tags: ["#oppsummering", "#uke", "#timeflow"],
 			filenamePattern: "{YYYY}-{MM}-{DD} Uke {WEEK}"
 		},
@@ -88,11 +106,27 @@ export const DEFAULT_SETTINGS: TimeFlowSettings = {
 			label: "Refleksjonsnotat",
 			icon: "💭",
 			folder: "Refleksjoner",
-			template: "01. timeflow/timeflow/Administrasjon/Templates/Reflection Note template.md",
+			template: "timeflow/templates/reflection-note.md",
 			tags: ["#refleksjon", "#timeflow"],
 			filenamePattern: "{YYYY}-{MM}-{DD} Refleksjon"
 		}
-	]
+	],
+	specialDayColors: {
+		avspasering: "#ffe0b2",
+		ferie: "#b3e5fc",
+		velferdspermisjon: "#e1bee7",
+		egenmelding: "#c8e6c9",
+		kurs: "#f8bbd0",
+		studie: "#f8bbd0"
+	},
+	specialDayLabels: {
+		avspasering: "Avspasering",
+		ferie: "Ferie",
+		velferdspermisjon: "Velferdspermisjon",
+		egenmelding: "Egenmelding",
+		kurs: "Kurs",
+		studie: "Studie"
+	}
 };
 
 export class TimeFlowSettingTab extends PluginSettingTab {
@@ -103,11 +137,159 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 		this.plugin = plugin;
 	}
 
+	async refreshView() {
+		const leaves = this.plugin.app.workspace.getLeavesOfType('timeflow-view');
+		for (const leaf of leaves) {
+			const view = leaf.view as any;
+			if (view && typeof view.refresh === 'function') {
+				await view.refresh();
+			}
+		}
+	}
+
 	display(): void {
 		const { containerEl } = this;
 		containerEl.empty();
 
 		containerEl.createEl('h2', { text: 'TimeFlow Settings' });
+
+		// Appearance
+		containerEl.createEl('h3', { text: 'Appearance' });
+
+		new Setting(containerEl)
+			.setName('Theme')
+			.setDesc('Choose the color scheme for TimeFlow cards')
+			.addDropdown(dropdown => dropdown
+				.addOption('light', 'Light (Colorful gradients)')
+				.addOption('system', 'System (Match Obsidian theme)')
+				.addOption('dark', 'Dark (Dark gradients)')
+				.setValue(this.plugin.settings.theme)
+				.onChange(async (value: 'light' | 'dark' | 'system') => {
+					this.plugin.settings.theme = value;
+					await this.plugin.saveSettings();
+					await this.refreshView();
+				}));
+
+		// Special Day Types
+		containerEl.createEl('h4', { text: 'Special Day Types' });
+		containerEl.createEl('p', {
+			text: 'Customize names and colors for different types of special days. These day types affect flextime calculations.',
+			cls: 'setting-item-description'
+		});
+
+		new Setting(containerEl)
+			.setName('Time Off (Compensatory Leave)')
+			.setDesc('Day off using banked flextime hours. Withdraws logged hours from flextime balance.')
+			.addText(text => text
+				.setPlaceholder('Avspasering')
+				.setValue(this.plugin.settings.specialDayLabels.avspasering)
+				.onChange(async (value) => {
+					this.plugin.settings.specialDayLabels.avspasering = value || 'Avspasering';
+					await this.plugin.saveSettings();
+					await this.refreshView();
+				}))
+			.addColorPicker(color => color
+				.setValue(this.plugin.settings.specialDayColors.avspasering)
+				.onChange(async (value) => {
+					this.plugin.settings.specialDayColors.avspasering = value;
+					await this.plugin.saveSettings();
+					await this.refreshView();
+				}));
+
+		new Setting(containerEl)
+			.setName('Vacation')
+			.setDesc('Paid vacation day. Counts as a full workday (no flextime change).')
+			.addText(text => text
+				.setPlaceholder('Ferie')
+				.setValue(this.plugin.settings.specialDayLabels.ferie)
+				.onChange(async (value) => {
+					this.plugin.settings.specialDayLabels.ferie = value || 'Ferie';
+					await this.plugin.saveSettings();
+					await this.refreshView();
+				}))
+			.addColorPicker(color => color
+				.setValue(this.plugin.settings.specialDayColors.ferie)
+				.onChange(async (value) => {
+					this.plugin.settings.specialDayColors.ferie = value;
+					await this.plugin.saveSettings();
+					await this.refreshView();
+				}));
+
+		new Setting(containerEl)
+			.setName('Welfare Leave')
+			.setDesc('Personal/family emergency leave. Counts as a full workday (no flextime change).')
+			.addText(text => text
+				.setPlaceholder('Velferdspermisjon')
+				.setValue(this.plugin.settings.specialDayLabels.velferdspermisjon)
+				.onChange(async (value) => {
+					this.plugin.settings.specialDayLabels.velferdspermisjon = value || 'Velferdspermisjon';
+					await this.plugin.saveSettings();
+					await this.refreshView();
+				}))
+			.addColorPicker(color => color
+				.setValue(this.plugin.settings.specialDayColors.velferdspermisjon)
+				.onChange(async (value) => {
+					this.plugin.settings.specialDayColors.velferdspermisjon = value;
+					await this.plugin.saveSettings();
+					await this.refreshView();
+				}));
+
+		new Setting(containerEl)
+			.setName('Sick Leave (Self-Certified)')
+			.setDesc('Sick day without doctor\'s note. Counts as a full workday (no flextime change).')
+			.addText(text => text
+				.setPlaceholder('Egenmelding')
+				.setValue(this.plugin.settings.specialDayLabels.egenmelding)
+				.onChange(async (value) => {
+					this.plugin.settings.specialDayLabels.egenmelding = value || 'Egenmelding';
+					await this.plugin.saveSettings();
+					await this.refreshView();
+				}))
+			.addColorPicker(color => color
+				.setValue(this.plugin.settings.specialDayColors.egenmelding)
+				.onChange(async (value) => {
+					this.plugin.settings.specialDayColors.egenmelding = value;
+					await this.plugin.saveSettings();
+					await this.refreshView();
+				}));
+
+		new Setting(containerEl)
+			.setName('Course/Training')
+			.setDesc('Professional development/training day. Regular workday goal applies - hours beyond workday count as flextime.')
+			.addText(text => text
+				.setPlaceholder('Kurs')
+				.setValue(this.plugin.settings.specialDayLabels.kurs)
+				.onChange(async (value) => {
+					this.plugin.settings.specialDayLabels.kurs = value || 'Kurs';
+					await this.plugin.saveSettings();
+					await this.refreshView();
+				}))
+			.addColorPicker(color => color
+				.setValue(this.plugin.settings.specialDayColors.kurs)
+				.onChange(async (value) => {
+					this.plugin.settings.specialDayColors.kurs = value;
+					await this.plugin.saveSettings();
+					await this.refreshView();
+				}));
+
+		new Setting(containerEl)
+			.setName('Study')
+			.setDesc('Educational leave/study day. Regular workday goal applies - hours beyond workday count as flextime.')
+			.addText(text => text
+				.setPlaceholder('Studie')
+				.setValue(this.plugin.settings.specialDayLabels.studie)
+				.onChange(async (value) => {
+					this.plugin.settings.specialDayLabels.studie = value || 'Studie';
+					await this.plugin.saveSettings();
+					await this.refreshView();
+				}))
+			.addColorPicker(color => color
+				.setValue(this.plugin.settings.specialDayColors.studie)
+				.onChange(async (value) => {
+					this.plugin.settings.specialDayColors.studie = value;
+					await this.plugin.saveSettings();
+					await this.refreshView();
+				}));
 
 		// Work Configuration
 		containerEl.createEl('h3', { text: 'Work Configuration' });
@@ -123,6 +305,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 					if (!isNaN(num) && num > 0 && num <= 1) {
 						this.plugin.settings.workPercent = num;
 						await this.plugin.saveSettings();
+						await this.refreshView();
 					}
 				}));
 
@@ -138,6 +321,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 						this.plugin.settings.baseWorkday = num;
 						this.plugin.settings.baseWorkweek = num * 5;
 						await this.plugin.saveSettings();
+						await this.refreshView();
 					}
 				}));
 
@@ -148,7 +332,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 			.setName('Holidays File Path')
 			.setDesc('Path to the file containing future planned days/holidays')
 			.addText(text => text
-				.setPlaceholder('01. timeflow/timeflow/Fremtidige dager.md')
+				.setPlaceholder('timeflow/holidays.md')
 				.setValue(this.plugin.settings.holidaysFilePath)
 				.onChange(async (value) => {
 					this.plugin.settings.holidaysFilePath = value;
@@ -191,6 +375,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 					if (!isNaN(num) && num > 0) {
 						this.plugin.settings.consecutiveFlextimeWarningDays = num;
 						await this.plugin.saveSettings();
+						await this.refreshView();
 					}
 				}));
 
@@ -205,6 +390,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 					if (!isNaN(num) && num > 0) {
 						this.plugin.settings.heatmapColumns = num;
 						await this.plugin.saveSettings();
+						await this.refreshView();
 					}
 				}));
 

@@ -1,17 +1,21 @@
 // Utility functions for TimeFlow plugin
+import { TimeFlowSettings } from './settings';
 
-export const SPECIAL_DAY_COLORS: Record<string, string> = {
-	avspasering: "#ffe0b2",
-	ferie: "#b3e5fc",
-	velferdspermisjon: "#e1bee7",
-	egenmelding: "#c8e6c9",
-	kurs: "#f8bbd0",
-	studie: "#f8bbd0",
+// Constant colors for holidays (not configurable)
+export const FIXED_DAY_COLORS: Record<string, string> = {
 	helligdag: "#ef5350",
 	half: "#ffd54f",
 	halfday: "#ffd54f",
 	"Ingen registrering": "#cccccc",
 };
+
+// Function to get special day colors from settings
+export function getSpecialDayColors(settings: TimeFlowSettings): Record<string, string> {
+	return {
+		...FIXED_DAY_COLORS,
+		...settings.specialDayColors
+	};
+}
 
 export const EMOJI_MAP: Record<string, string> = {
 	avspasering: "🛌",
