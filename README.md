@@ -1,3 +1,5 @@
+![alt text](https://github.com/gaut3/timeflow/blob/main/timeflow.png] "timeflow")
+
 # TimeFlow Plugin
 
 TimeFlow is an Obsidian plugin that provides a comprehensive flextime tracking dashboard with **built-in timer functionality**, beautiful visualizations, and statistics.
@@ -269,4 +271,5 @@ For issues and feature requests, please create an issue on GitHub.
 - Improved performance with caching
 - Better error handling and validation
 - Self-contained solution with integrated time tracking
+
 
