@@ -330,31 +330,30 @@ export class UIBuilder {
 				margin-top: 15px;
 			}
 
-			/* Light theme - Day cells */
+			/* Day cells - consistent text colors across all themes since backgrounds are always the same */
 			.tf-day-cell {
 				aspect-ratio: 1;
 				display: flex;
 				align-items: center;
 				justify-content: center;
 				border-radius: 6px;
-				font-size: 14px;
+				font-size: clamp(12px, 2.5vw, 16px);
 				font-weight: bold;
 				cursor: pointer;
 				transition: all 0.2s;
 				position: relative;
 				border: 2px solid transparent;
-				color: #1a1a1a;
 				text-shadow: 0 1px 2px rgba(255, 255, 255, 0.5);
 			}
 
-			.timeflow-theme-dark .tf-day-cell {
-				color: #e0e0e0;
-				text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+			/* Days with entries - black text in all themes */
+			.tf-day-cell.has-entry {
+				color: #000000;
 			}
 
-			.timeflow-theme-system .tf-day-cell {
-				color: var(--text-normal);
-				text-shadow: none;
+			/* Days without entries - dark grey text in all themes */
+			.tf-day-cell.no-entry {
+				color: #4a4a4a;
 			}
 
 			.tf-day-cell:hover {
@@ -568,28 +567,17 @@ export class UIBuilder {
 				transform: scale(1.2);
 			}
 
-			/* Light theme - Context menu matches timeflow.js colors */
+			/* Context menu - uses same styling as submenu for consistency */
+			/* Context menu - uses Obsidian native styling for all themes */
 			.tf-context-menu {
 				position: absolute;
-				background: linear-gradient(135deg, #f0f4c3, #e1f5fe);
-				border: 2px solid #4caf50;
-				border-radius: 8px;
-				box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-				padding: 8px 0;
-				z-index: 1000;
-				min-width: 200px;
-			}
-
-			/* Dark theme - Context menu uses dark gradient */
-			.timeflow-theme-dark .tf-context-menu {
-				background: linear-gradient(135deg, #2d3a2d, #2d3d45);
-				border: 2px solid #4caf50;
-			}
-
-			/* System theme - Context menu uses Obsidian variables */
-			.timeflow-theme-system .tf-context-menu {
 				background: var(--background-primary);
 				border: 1px solid var(--background-modifier-border);
+				border-radius: 8px;
+				box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+				padding: 4px;
+				z-index: 1000;
+				min-width: 200px;
 			}
 
 			.tf-menu-item {
@@ -870,7 +858,7 @@ export class UIBuilder {
 		headerRow.style.gap = "10px";
 
 		const header = document.createElement("h3");
-		header.textContent = "📊 Statistikk";
+		header.textContent = "Statistikk";
 		header.style.margin = "0";
 		headerRow.appendChild(header);
 
@@ -920,7 +908,7 @@ export class UIBuilder {
 
 		const header = document.createElement("div");
 		header.className = "tf-collapsible";
-		header.innerHTML = "<h3 style='margin:0'>ℹ️ Informasjon</h3>";
+		header.innerHTML = "<h3 style='margin:0'>Informasjon</h3>";
 
 		const content = document.createElement("div");
 		content.className = "tf-collapsible-content";
@@ -964,7 +952,7 @@ export class UIBuilder {
 		headerRow.style.gap = "10px";
 
 		const title = document.createElement("h3");
-		title.textContent = "📜 Historikk";
+		title.textContent = "Historikk";
 		title.style.margin = "0";
 		headerRow.appendChild(title);
 
@@ -981,8 +969,7 @@ export class UIBuilder {
 
 		const views = [
 			{ id: "list", label: "Liste" },
-			{ id: "weekly", label: "Uker" },
-			{ id: "heatmap", label: "Varmekart" }
+			{ id: "heatmap", label: "Heatmap" }
 		];
 
 		views.forEach(view => {
@@ -1108,7 +1095,7 @@ export class UIBuilder {
 		this.elements.dayCard.style.color = textColor;
 
 		this.elements.dayCard.innerHTML = `
-			<h3 style="color: ${textColor};">📅 I dag</h3>
+			<h3 style="color: ${textColor};">I dag</h3>
 			<div style="font-size: 32px; font-weight: bold; margin: 10px 0;">
 				${Utils.formatHoursToHM(todayHours)}
 			</div>
@@ -1189,7 +1176,7 @@ export class UIBuilder {
 		this.elements.weekCard.style.color = textColor;
 
 		this.elements.weekCard.innerHTML = `
-			<h3 style="color: ${textColor};">📊 Denne uken</h3>
+			<h3 style="color: ${textColor};">Denne uken</h3>
 			<div style="font-size: 32px; font-weight: bold; margin: 10px 0;">
 				${Utils.formatHoursToHM(weekHours)}
 			</div>
@@ -1241,13 +1228,10 @@ export class UIBuilder {
 		// Timesaldo color
 		const sign = balance >= 0 ? '+' : '';
 		let timesaldoColor = '#4caf50';
-		let timesaldoEmoji = '🟢';
 		if (balance < -15 || balance > 95) {
 			timesaldoColor = '#f44336';
-			timesaldoEmoji = '🔴';
 		} else if ((balance >= -15 && balance < 0) || (balance >= 80 && balance <= 95)) {
 			timesaldoColor = '#ff9800';
-			timesaldoEmoji = '🟡';
 		}
 
 		// Ferie display
@@ -1272,7 +1256,7 @@ export class UIBuilder {
 
 		this.elements.statsCard.innerHTML = `
 			<div class="tf-stat-item" style="background: ${timesaldoColor}; color: white;">
-				<div class="tf-stat-label">${timesaldoEmoji} Timesaldo</div>
+				<div class="tf-stat-label">Timesaldo</div>
 				<div class="tf-stat-value">${sign}${balance.toFixed(1)}t</div>
 				<div style="font-size: 0.75em; margin-top: 4px;">Total saldo</div>
 			</div>
@@ -1318,6 +1302,11 @@ export class UIBuilder {
 				<div class="tf-stat-label">🤒 Egenmelding</div>
 				<div class="tf-stat-value" style="font-size: ${this.statsTimeframe === 'year' ? '0.9em' : '1.3em'};">${egenmeldingDisplay}</div>
 				<div style="font-size: 0.75em; margin-top: 4px;">${this.statsTimeframe === 'year' ? '(365d)' : ''}</div>
+			</div>
+			<div class="tf-stat-item">
+				<div class="tf-stat-label">🏥 Sykemelding</div>
+				<div class="tf-stat-value">${stats.sykemelding.count} ${stats.sykemelding.count === 1 ? 'dag' : 'dager'}</div>
+				<div style="font-size: 0.75em; margin-top: 4px;">${stats.sykemelding.hours.toFixed(1)}t</div>
 			</div>
 			<div class="tf-stat-item">
 				<div class="tf-stat-label">📚 Studie</div>
@@ -1419,6 +1408,9 @@ export class UIBuilder {
 				specialDayColors[e.name.toLowerCase()]
 			);
 
+			// Track if this day has any entries
+			const hasEntry = !!(holidayInfo || specialEntry || dayEntries);
+
 			if (holidayInfo) {
 				// Holiday from holidays file
 				const colorKey = holidayInfo.halfDay ? 'halfday' : holidayInfo.type;
@@ -1435,6 +1427,13 @@ export class UIBuilder {
 				cell.style.background = "#b0b0b0";
 			} else {
 				cell.style.background = "#fff";
+			}
+
+			// Add appropriate text color class
+			if (hasEntry) {
+				cell.classList.add("has-entry");
+			} else {
+				cell.classList.add("no-entry");
 			}
 
 			// Highlight today
@@ -1486,9 +1485,36 @@ export class UIBuilder {
 		const themeClass = `timeflow-theme-${this.settings.theme}`;
 		menu.classList.add(themeClass);
 
-		// Position menu at the bottom-right of the cell
-		menu.style.left = `${cellRect.right}px`;
-		menu.style.top = `${cellRect.top}px`;
+		// Position menu, but check if it goes off-screen
+		let menuLeft = cellRect.right;
+		let menuTop = cellRect.top;
+
+		// Append to body first to measure dimensions
+		document.body.appendChild(menu);
+
+		// Check if menu goes off the right edge of the window
+		const menuWidth = 200; // min-width from CSS
+		if (menuLeft + menuWidth > window.innerWidth) {
+			// Position to the left of the cell instead
+			menuLeft = cellRect.left - menuWidth;
+		}
+
+		// Check if menu goes off the bottom edge of the window
+		// Estimate menu height (will be adjusted after content is added)
+		setTimeout(() => {
+			const menuHeight = menu.offsetHeight;
+			if (menuTop + menuHeight > window.innerHeight) {
+				menu.style.top = `${Math.max(10, window.innerHeight - menuHeight - 10)}px`;
+			}
+		}, 0);
+
+		menu.style.left = `${menuLeft}px`;
+		menu.style.top = `${menuTop}px`;
+
+		// Check if there are existing entries for this date
+		const dateStr = Utils.toLocalDateStr(dateObj);
+		const dateEntries = this.data.daily[dateStr];
+		const hasWorkEntries = dateEntries && dateEntries.some(e => e.name.toLowerCase() === 'jobb');
 
 		// Add work time session option at the top
 		const workTimeItem = document.createElement('div');
@@ -1499,6 +1525,18 @@ export class UIBuilder {
 			this.showWorkTimeModal(dateObj);
 		};
 		menu.appendChild(workTimeItem);
+
+		// Add edit option if there are work entries for this day
+		if (hasWorkEntries) {
+			const editItem = document.createElement('div');
+			editItem.className = 'tf-menu-item';
+			editItem.innerHTML = `<span>✏️</span><span>Rediger arbeidstid</span>`;
+			editItem.onclick = () => {
+				menu.remove();
+				this.showEditEntriesModal(dateObj);
+			};
+			menu.appendChild(editItem);
+		}
 
 		// Add separator
 		const separator1 = document.createElement('div');
@@ -1522,54 +1560,15 @@ export class UIBuilder {
 		separator2.className = 'tf-menu-separator';
 		menu.appendChild(separator2);
 
-		// Add special day registration with submenu
+		// Add special day registration (opens modal with type selection)
 		const specialDayItem = document.createElement('div');
-		specialDayItem.className = 'tf-menu-item tf-menu-item-with-submenu';
-
-		const labelContainer = document.createElement('div');
-		labelContainer.style.display = 'flex';
-		labelContainer.style.alignItems = 'center';
-		labelContainer.style.gap = '10px';
-		labelContainer.innerHTML = `<span>📅</span><span>Registrer spesialdag</span>`;
-		specialDayItem.appendChild(labelContainer);
-
-		const arrow = document.createElement('span');
-		arrow.className = 'tf-submenu-arrow';
-		arrow.textContent = '▶';
-		specialDayItem.appendChild(arrow);
-
-		// Create submenu
-		const submenu = document.createElement('div');
-		submenu.className = 'tf-submenu';
-		submenu.classList.add(themeClass);
-
-		// Define day types with emojis (matching timeflow.js)
-		const dayTypes = [
-			{ id: 'ferie', label: '🏖️ Ferie' },
-			{ id: 'avspasering', label: '🛌 Avspasering' },
-			{ id: 'studie', label: '📖 Studie' },
-			{ id: 'kurs', label: '📚 Kurs' },
-			{ id: 'velferdspermisjon', label: '🏥 Velferdspermisjon' },
-			{ id: 'egenmelding', label: '🤒 Egenmelding' }
-		];
-
-		// Add submenu items
-		dayTypes.forEach(type => {
-			const subItem = document.createElement('div');
-			subItem.className = 'tf-menu-item';
-			subItem.textContent = type.label;
-			subItem.onclick = (e) => {
-				e.stopPropagation();
-				menu.remove();
-				this.showSpecialDayModal(dateObj, type.id, type.label);
-			};
-			submenu.appendChild(subItem);
-		});
-
-		specialDayItem.appendChild(submenu);
+		specialDayItem.className = 'tf-menu-item';
+		specialDayItem.innerHTML = `<span>📅</span><span>Registrer spesialdag</span>`;
+		specialDayItem.onclick = () => {
+			menu.remove();
+			this.showSpecialDayModal(dateObj);
+		};
 		menu.appendChild(specialDayItem);
-
-		document.body.appendChild(menu);
 
 		// Close menu on click outside
 		setTimeout(() => {
@@ -1701,6 +1700,10 @@ export class UIBuilder {
 				const duration = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60);
 				new Notice(`✅ Lagt til ${duration.toFixed(1)} timer arbeidstid for ${dateStr}`);
 
+				// Reload data to reflect changes
+				this.data.rawEntries = this.timerManager.convertToTimeEntries();
+				this.data.processEntries();
+
 				// Refresh the dashboard
 				this.updateDayCard();
 				this.updateWeekCard();
@@ -1724,7 +1727,222 @@ export class UIBuilder {
 		startInput.select();
 	}
 
-	showSpecialDayModal(dateObj: Date, dayType: string, dayLabel: string): void {
+	showEditEntriesModal(dateObj: Date): void {
+		const dateStr = Utils.toLocalDateStr(dateObj);
+
+		// Get all work entries for this date from the timer manager
+		const allEntries = this.timerManager.data.entries;
+		const workEntries = allEntries.filter(entry => {
+			if (!entry.startTime || entry.name.toLowerCase() !== 'jobb') return false;
+			const entryDate = new Date(entry.startTime);
+			return Utils.toLocalDateStr(entryDate) === dateStr;
+		});
+
+		if (workEntries.length === 0) {
+			new Notice('Ingen arbeidstidsoppføringer funnet for denne datoen');
+			return;
+		}
+
+		// Create modal
+		const modal = document.createElement('div');
+		modal.className = 'modal-container mod-dim';
+		modal.style.zIndex = '1000';
+
+		const modalBg = document.createElement('div');
+		modalBg.className = 'modal-bg';
+		modalBg.onclick = () => modal.remove();
+		modal.appendChild(modalBg);
+
+		const modalContent = document.createElement('div');
+		modalContent.className = 'modal';
+		modalContent.style.width = '500px';
+		modalContent.style.maxHeight = '80vh';
+		modalContent.style.overflow = 'auto';
+
+		// Title
+		const title = document.createElement('div');
+		title.className = 'modal-title';
+		title.textContent = `Rediger arbeidstid for ${dateStr}`;
+		modalContent.appendChild(title);
+
+		// Content
+		const content = document.createElement('div');
+		content.className = 'modal-content';
+		content.style.padding = '20px';
+
+		// List all entries with edit/delete options
+		workEntries.forEach((entry, index) => {
+			const entryDiv = document.createElement('div');
+			entryDiv.style.padding = '15px';
+			entryDiv.style.marginBottom = '10px';
+			entryDiv.style.background = 'var(--background-secondary)';
+			entryDiv.style.borderRadius = '8px';
+			entryDiv.style.border = '1px solid var(--background-modifier-border)';
+
+			const startDate = new Date(entry.startTime!);
+			const endDate = entry.endTime ? new Date(entry.endTime) : null;
+
+			const startTimeStr = `${startDate.getHours().toString().padStart(2, '0')}:${startDate.getMinutes().toString().padStart(2, '0')}`;
+			const endTimeStr = endDate ? `${endDate.getHours().toString().padStart(2, '0')}:${endDate.getMinutes().toString().padStart(2, '0')}` : 'Pågående';
+
+			const duration = endDate ? ((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60)).toFixed(1) : 'N/A';
+
+			// Entry info
+			const infoDiv = document.createElement('div');
+			infoDiv.style.marginBottom = '10px';
+			infoDiv.innerHTML = `
+				<div style="font-weight: bold; margin-bottom: 5px;">Oppføring ${index + 1}</div>
+				<div>⏰ ${startTimeStr} - ${endTimeStr}</div>
+				<div>⏱️ ${duration} timer</div>
+			`;
+			entryDiv.appendChild(infoDiv);
+
+			// Edit fields (initially hidden)
+			const editDiv = document.createElement('div');
+			editDiv.style.display = 'none';
+			editDiv.style.marginTop = '10px';
+
+			const startLabel = document.createElement('div');
+			startLabel.textContent = 'Starttid:';
+			startLabel.style.marginBottom = '5px';
+			startLabel.style.fontWeight = 'bold';
+			editDiv.appendChild(startLabel);
+
+			const startInput = document.createElement('input');
+			startInput.type = 'text';
+			startInput.value = startTimeStr;
+			startInput.style.width = '100%';
+			startInput.style.marginBottom = '10px';
+			startInput.style.padding = '6px';
+			editDiv.appendChild(startInput);
+
+			const endLabel = document.createElement('div');
+			endLabel.textContent = 'Sluttid:';
+			endLabel.style.marginBottom = '5px';
+			endLabel.style.fontWeight = 'bold';
+			editDiv.appendChild(endLabel);
+
+			const endInput = document.createElement('input');
+			endInput.type = 'text';
+			endInput.value = endTimeStr !== 'Pågående' ? endTimeStr : '';
+			endInput.style.width = '100%';
+			endInput.style.marginBottom = '10px';
+			endInput.style.padding = '6px';
+			editDiv.appendChild(endInput);
+
+			entryDiv.appendChild(editDiv);
+
+			// Buttons
+			const buttonDiv = document.createElement('div');
+			buttonDiv.style.display = 'flex';
+			buttonDiv.style.gap = '8px';
+			buttonDiv.style.marginTop = '10px';
+
+			const editBtn = document.createElement('button');
+			editBtn.textContent = '✏️ Rediger';
+			editBtn.style.flex = '1';
+			editBtn.onclick = () => {
+				if (editDiv.style.display === 'none') {
+					editDiv.style.display = 'block';
+					editBtn.textContent = '💾 Lagre';
+				} else {
+					// Save changes
+					const newStartTime = startInput.value.trim();
+					const newEndTime = endInput.value.trim();
+
+					const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+					if (!timeRegex.test(newStartTime) || (newEndTime && !timeRegex.test(newEndTime))) {
+						new Notice('❌ Ugyldig tidsformat. Bruk HH:MM format.');
+						return;
+					}
+
+					const [startHour, startMin] = newStartTime.split(':').map(Number);
+					const newStartDate = new Date(dateObj);
+					newStartDate.setHours(startHour, startMin, 0, 0);
+
+					let newEndDate: Date | null = null;
+					if (newEndTime) {
+						const [endHour, endMin] = newEndTime.split(':').map(Number);
+						newEndDate = new Date(dateObj);
+						newEndDate.setHours(endHour, endMin, 0, 0);
+
+						if (newEndDate <= newStartDate) {
+							new Notice('❌ Sluttid må være etter starttid.');
+							return;
+						}
+					}
+
+					// Update the entry
+					entry.startTime = newStartDate.toISOString();
+					entry.endTime = newEndDate ? newEndDate.toISOString() : null;
+
+					this.timerManager.save();
+					new Notice('✅ Oppføring oppdatert');
+
+					// Reload data to reflect changes
+					this.data.rawEntries = this.timerManager.convertToTimeEntries();
+					this.data.processEntries();
+
+					// Refresh the dashboard
+					this.updateDayCard();
+					this.updateWeekCard();
+					this.updateStatsCard();
+					this.updateMonthCard();
+
+					modal.remove();
+				}
+			};
+			buttonDiv.appendChild(editBtn);
+
+			const deleteBtn = document.createElement('button');
+			deleteBtn.textContent = '🗑️ Slett';
+			deleteBtn.style.flex = '1';
+			deleteBtn.onclick = () => {
+				// Find and remove the entry
+				const entryIndex = this.timerManager.data.entries.indexOf(entry);
+				if (entryIndex > -1) {
+					this.timerManager.data.entries.splice(entryIndex, 1);
+					this.timerManager.save();
+					new Notice('✅ Oppføring slettet');
+
+					// Reload data to reflect changes
+					this.data.rawEntries = this.timerManager.convertToTimeEntries();
+					this.data.processEntries();
+
+					// Refresh the dashboard
+					this.updateDayCard();
+					this.updateWeekCard();
+					this.updateStatsCard();
+					this.updateMonthCard();
+
+					modal.remove();
+				}
+			};
+			buttonDiv.appendChild(deleteBtn);
+
+			entryDiv.appendChild(buttonDiv);
+			content.appendChild(entryDiv);
+		});
+
+		// Close button
+		const closeDiv = document.createElement('div');
+		closeDiv.style.marginTop = '20px';
+		closeDiv.style.display = 'flex';
+		closeDiv.style.justifyContent = 'flex-end';
+
+		const closeBtn = document.createElement('button');
+		closeBtn.textContent = 'Lukk';
+		closeBtn.onclick = () => modal.remove();
+		closeDiv.appendChild(closeBtn);
+
+		content.appendChild(closeDiv);
+		modalContent.appendChild(content);
+		modal.appendChild(modalContent);
+
+		document.body.appendChild(modal);
+	}
+
+	showSpecialDayModal(dateObj: Date): void {
 		const dateStr = Utils.toLocalDateStr(dateObj);
 
 		// Create modal
@@ -1744,7 +1962,7 @@ export class UIBuilder {
 		// Title
 		const title = document.createElement('div');
 		title.className = 'modal-title';
-		title.textContent = `Registrer ${dayLabel}`;
+		title.textContent = 'Registrer spesialdag';
 		modalContent.appendChild(title);
 
 		// Content
@@ -1759,6 +1977,37 @@ export class UIBuilder {
 		dateDisplay.style.fontSize = '16px';
 		dateDisplay.style.fontWeight = 'bold';
 		content.appendChild(dateDisplay);
+
+		// Day type selection
+		const typeLabel = document.createElement('div');
+		typeLabel.textContent = 'Type dag:';
+		typeLabel.style.marginBottom = '5px';
+		typeLabel.style.fontWeight = 'bold';
+		content.appendChild(typeLabel);
+
+		const dayTypes = [
+			{ type: 'ferie', label: '🏖️ Ferie' },
+			{ type: 'avspasering', label: '🛌 Avspasering' },
+			{ type: 'velferdspermisjon', label: '🏥 Velferdspermisjon' },
+			{ type: 'egenmelding', label: '🤒 Egenmelding' },
+			{ type: 'sykemelding', label: '🏥 Sykemelding' },
+			{ type: 'kurs', label: '📚 Kurs' },
+			{ type: 'studie', label: '📚 Studie' }
+		];
+
+		const typeSelect = document.createElement('select');
+		typeSelect.style.width = '100%';
+		typeSelect.style.marginBottom = '15px';
+		typeSelect.style.padding = '8px';
+		typeSelect.style.fontSize = '14px';
+
+		dayTypes.forEach(({ type, label }) => {
+			const option = document.createElement('option');
+			option.value = type;
+			option.textContent = label;
+			typeSelect.appendChild(option);
+		});
+		content.appendChild(typeSelect);
 
 		// Note/comment field
 		const noteLabel = document.createElement('div');
@@ -1791,6 +2040,7 @@ export class UIBuilder {
 		addBtn.textContent = 'Legg til';
 		addBtn.className = 'mod-cta';
 		addBtn.onclick = async () => {
+			const dayType = typeSelect.value;
 			const note = noteInput.value.trim();
 			await this.addSpecialDay(dateObj, dayType, note);
 			modal.remove();
@@ -1802,7 +2052,7 @@ export class UIBuilder {
 		modal.appendChild(modalContent);
 
 		document.body.appendChild(modal);
-		noteInput.focus();
+		typeSelect.focus();
 	}
 
 	async addSpecialDay(dateObj: Date, dayType: string, note: string = ''): Promise<void> {
@@ -1957,26 +2207,71 @@ export class UIBuilder {
 				table.style.borderCollapse = 'collapse';
 				table.style.marginBottom = '15px';
 
-				table.innerHTML = `
-					<thead>
-						<tr style="background: var(--background-secondary); color: var(--text-normal);">
-							<th style="padding: 8px; color: var(--text-normal);">Dato</th>
-							<th style="padding: 8px; color: var(--text-normal);">Type</th>
-							<th style="padding: 8px; color: var(--text-normal);">Timer</th>
-							<th style="padding: 8px; color: var(--text-normal);">Fleksitid</th>
-						</tr>
-					</thead>
-					<tbody>
-						${monthEntries.map((e: any) => `
-							<tr style="border-bottom: 1px solid var(--background-modifier-border); color: var(--text-normal);">
-								<td style="padding: 8px; color: var(--text-normal);">${Utils.toLocalDateStr(e.date)}</td>
-								<td style="padding: 8px; color: var(--text-normal);">${e.name}</td>
-								<td style="padding: 8px; color: var(--text-normal);">${Utils.formatHoursToHM(e.duration || 0)}</td>
-								<td style="padding: 8px; color: var(--text-normal);">${Utils.formatHoursToHM(e.flextime || 0)}</td>
-							</tr>
-						`).join('')}
-					</tbody>
+				// Create thead
+				const thead = document.createElement('thead');
+				thead.innerHTML = `
+					<tr style="background: var(--background-secondary); color: var(--text-normal);">
+						<th style="padding: 8px; color: var(--text-normal);">Dato</th>
+						<th style="padding: 8px; color: var(--text-normal);">Type</th>
+						<th style="padding: 8px; color: var(--text-normal);">Timer</th>
+						<th style="padding: 8px; color: var(--text-normal);">Fleksitid</th>
+						<th style="padding: 8px; color: var(--text-normal);">Handling</th>
+					</tr>
 				`;
+				table.appendChild(thead);
+
+				// Create tbody
+				const tbody = document.createElement('tbody');
+				monthEntries.forEach((e: any) => {
+					const row = document.createElement('tr');
+					row.style.borderBottom = '1px solid var(--background-modifier-border)';
+					row.style.color = 'var(--text-normal)';
+
+					const dateCell = document.createElement('td');
+					dateCell.style.padding = '8px';
+					dateCell.style.color = 'var(--text-normal)';
+					dateCell.textContent = Utils.toLocalDateStr(e.date);
+					row.appendChild(dateCell);
+
+					const typeCell = document.createElement('td');
+					typeCell.style.padding = '8px';
+					typeCell.style.color = 'var(--text-normal)';
+					typeCell.textContent = e.name;
+					row.appendChild(typeCell);
+
+					const hoursCell = document.createElement('td');
+					hoursCell.style.padding = '8px';
+					hoursCell.style.color = 'var(--text-normal)';
+					hoursCell.textContent = Utils.formatHoursToHM(e.duration || 0);
+					row.appendChild(hoursCell);
+
+					const flextimeCell = document.createElement('td');
+					flextimeCell.style.padding = '8px';
+					flextimeCell.style.color = 'var(--text-normal)';
+					flextimeCell.textContent = Utils.formatHoursToHM(e.flextime || 0);
+					row.appendChild(flextimeCell);
+
+					const actionCell = document.createElement('td');
+					actionCell.style.padding = '8px';
+					actionCell.style.color = 'var(--text-normal)';
+
+					// Only add edit button for work entries
+					if (e.name.toLowerCase() === 'jobb') {
+						const editBtn = document.createElement('button');
+						editBtn.textContent = '✏️';
+						editBtn.style.padding = '4px 8px';
+						editBtn.style.cursor = 'pointer';
+						editBtn.title = 'Rediger arbeidstid';
+						editBtn.onclick = () => {
+							this.showEditEntriesModal(e.date);
+						};
+						actionCell.appendChild(editBtn);
+					}
+
+					row.appendChild(actionCell);
+					tbody.appendChild(row);
+				});
+				table.appendChild(tbody);
 
 				yearDiv.appendChild(table);
 			});

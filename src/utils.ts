@@ -4,7 +4,6 @@ import { TimeFlowSettings } from './settings';
 // Constant colors for holidays (not configurable)
 export const FIXED_DAY_COLORS: Record<string, string> = {
 	helligdag: "#ef5350",
-	half: "#ffd54f",
 	halfday: "#ffd54f",
 	"Ingen registrering": "#cccccc",
 };
@@ -24,6 +23,7 @@ export const EMOJI_MAP: Record<string, string> = {
 	ferie: "🏖️",
 	velferdspermisjon: "🏥",
 	egenmelding: "🤒",
+	sykemelding: "🏥",
 	helligdag: "🎉",
 	jobb: "💼",
 };

@@ -332,6 +332,7 @@ export class DataManager {
 			ferie: { count: 0, hours: 0, max: 25, planned: 0 },
 			velferdspermisjon: { count: 0, hours: 0, planned: 0 },
 			egenmelding: { count: 0, hours: 0, max: 24 },
+			sykemelding: { count: 0, hours: 0 },
 			studie: { count: 0, hours: 0, planned: 0 },
 			kurs: { count: 0, hours: 0, planned: 0 },
 			workDays: 0,
@@ -346,6 +347,7 @@ export class DataManager {
 			ferie: new Set(),
 			velferdspermisjon: new Set(),
 			egenmelding: new Set(),
+			sykemelding: new Set(),
 			studie: new Set(),
 			kurs: new Set(),
 		};

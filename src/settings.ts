@@ -25,6 +25,7 @@ export interface TimeFlowSettings {
 		ferie: string;
 		velferdspermisjon: string;
 		egenmelding: string;
+		sykemelding: string;
 		kurs: string;
 		studie: string;
 	};
@@ -33,6 +34,7 @@ export interface TimeFlowSettings {
 		ferie: string;
 		velferdspermisjon: string;
 		egenmelding: string;
+		sykemelding: string;
 		kurs: string;
 		studie: string;
 	};
@@ -117,6 +119,7 @@ export const DEFAULT_SETTINGS: TimeFlowSettings = {
 		ferie: "#b3e5fc",
 		velferdspermisjon: "#e1bee7",
 		egenmelding: "#c8e6c9",
+		sykemelding: "#c8e6c9",
 		kurs: "#f8bbd0",
 		studie: "#f8bbd0"
 	},
@@ -125,6 +128,7 @@ export const DEFAULT_SETTINGS: TimeFlowSettings = {
 		ferie: "Ferie",
 		velferdspermisjon: "Velferdspermisjon",
 		egenmelding: "Egenmelding",
+		sykemelding: "Sykemelding",
 		kurs: "Kurs",
 		studie: "Studie"
 	}
@@ -250,6 +254,25 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.specialDayColors.egenmelding)
 				.onChange(async (value) => {
 					this.plugin.settings.specialDayColors.egenmelding = value;
+					await this.plugin.saveSettings();
+					await this.refreshView();
+				}));
+
+		new Setting(containerEl)
+			.setName('Sick Leave (Doctor\'s Note)')
+			.setDesc('Sick day with doctor\'s note. Counts as a full workday (no flextime change).')
+			.addText(text => text
+				.setPlaceholder('Sykemelding')
+				.setValue(this.plugin.settings.specialDayLabels.sykemelding)
+				.onChange(async (value) => {
+					this.plugin.settings.specialDayLabels.sykemelding = value || 'Sykemelding';
+					await this.plugin.saveSettings();
+					await this.refreshView();
+				}))
+			.addColorPicker(color => color
+				.setValue(this.plugin.settings.specialDayColors.sykemelding)
+				.onChange(async (value) => {
+					this.plugin.settings.specialDayColors.sykemelding = value;
 					await this.plugin.saveSettings();
 					await this.refreshView();
 				}));
