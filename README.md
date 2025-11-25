@@ -1,4 +1,4 @@
-![alt text](https://github.com/gaut3/timeflow/blob/main/timeflow.png] "timeflow")
+![alt text](https://github.com/gaut3/timeflow/blob/main/timeflow.png](https://github.com/gaut3/timeflow/blob/main/timeflow.png?raw=true "timeflow")
 
 # TimeFlow Plugin
 
@@ -271,5 +271,6 @@ For issues and feature requests, please create an issue on GitHub.
 - Improved performance with caching
 - Better error handling and validation
 - Self-contained solution with integrated time tracking
+
 
 
