@@ -31,6 +31,73 @@ var import_obsidian7 = require("obsidian");
 
 // src/settings.ts
 var import_obsidian = require("obsidian");
+
+// src/utils.ts
+var FIXED_DAY_COLORS = {
+  helligdag: "#ef5350",
+  half: "#ffd54f",
+  halfday: "#ffd54f",
+  "Ingen registrering": "#cccccc"
+};
+function getSpecialDayColors(settings) {
+  return {
+    ...FIXED_DAY_COLORS,
+    ...settings.specialDayColors
+  };
+}
+var EMOJI_MAP = {
+  avspasering: "\u{1F6CC}",
+  kurs: "\u{1F4DA}",
+  studie: "\u{1F4DA}",
+  ferie: "\u{1F3D6}\uFE0F",
+  velferdspermisjon: "\u{1F3E5}",
+  egenmelding: "\u{1F912}",
+  helligdag: "\u{1F389}",
+  jobb: "\u{1F4BC}"
+};
+var Utils = {
+  parseDate: (str) => str ? new Date(str) : null,
+  hoursDiff: (start, end) => (end.getTime() - start.getTime()) / 36e5,
+  isWeekend: (date) => date ? date.getDay() === 0 || date.getDay() === 6 : false,
+  formatHoursToHM: (hours) => {
+    const h = Math.floor(hours);
+    const m = Math.round((hours - h) * 60);
+    return `${h}h ${m.toString().padStart(2, "0")}m`;
+  },
+  toLocalDateStr: (date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  },
+  getWeekNumber: (d) => {
+    const date = new Date(d.getTime());
+    date.setHours(0, 0, 0, 0);
+    date.setDate(date.getDate() + 3 - (date.getDay() + 6) % 7);
+    const week1 = new Date(date.getFullYear(), 0, 4);
+    return 1 + Math.round(
+      ((date.getTime() - week1.getTime()) / 864e5 - 3 + (week1.getDay() + 6) % 7) / 7
+    );
+  },
+  getEmoji: (entry) => {
+    const name = entry.name.toLowerCase();
+    if (EMOJI_MAP[name])
+      return EMOJI_MAP[name];
+    if (!entry.endTime)
+      return "\u23F3";
+    if (Utils.isWeekend(entry.date))
+      return "\u{1F319}";
+    return "";
+  },
+  randMsg: (arr) => arr[Math.floor(Math.random() * arr.length)],
+  getDayOfYear: (date) => {
+    const start = new Date(date.getFullYear(), 0, 0);
+    const diff = date.getTime() - start.getTime();
+    return Math.floor(diff / 864e5);
+  }
+};
+
+// src/settings.ts
 var DEFAULT_SETTINGS = {
   version: "1.0.0",
   theme: "light",
@@ -250,81 +317,125 @@ var TimeFlowSettingTab = class extends import_obsidian.PluginSettingTab {
         await this.plugin.saveSettings();
       }
     }));
+    containerEl.createEl("h3", { text: "Data Management" });
+    new import_obsidian.Setting(containerEl).setName("Export Data to CSV").setDesc("Export all your time tracking data to a CSV file").addButton((button) => button.setButtonText("Export CSV").setCta().onClick(async () => {
+      this.exportToCSV();
+    }));
+    new import_obsidian.Setting(containerEl).setName("Import Timekeep Data").setDesc("Import time tracking data from Timekeep JSON format").addButton((button) => button.setButtonText("Import Data").setCta().onClick(async () => {
+      this.showImportModal();
+    }));
+  }
+  exportToCSV() {
+    const entries = this.plugin.timerManager.convertToTimeEntries();
+    const rows = [["Name", "Start Time", "End Time", "Duration (hours)"]];
+    entries.forEach((entry) => {
+      if (entry.startTime && entry.endTime) {
+        const start = new Date(entry.startTime);
+        const end = new Date(entry.endTime);
+        const durationHours = ((end.getTime() - start.getTime()) / (1e3 * 60 * 60)).toFixed(2);
+        rows.push([
+          entry.name,
+          start.toISOString(),
+          end.toISOString(),
+          durationHours
+        ]);
+      }
+    });
+    const csv = rows.map((row) => row.map((cell) => `"${cell}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `timeflow-export-${Utils.toLocalDateStr(/* @__PURE__ */ new Date())}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    new import_obsidian.Notice("\u2705 Exported to CSV");
+  }
+  showImportModal() {
+    const modal = new import_obsidian.Modal(this.app);
+    modal.titleEl.setText("Import Timekeep Data");
+    const { contentEl } = modal;
+    contentEl.createEl("p", {
+      text: "Paste your Timekeep JSON data below. This can be from a timekeep codeblock or exported data.",
+      cls: "setting-item-description"
+    });
+    const textArea = contentEl.createEl("textarea", {
+      attr: {
+        rows: "15",
+        placeholder: '{"entries":[...]}'
+      }
+    });
+    textArea.style.width = "100%";
+    textArea.style.fontFamily = "monospace";
+    textArea.style.fontSize = "12px";
+    textArea.style.marginBottom = "15px";
+    const infoDiv = contentEl.createDiv();
+    infoDiv.style.marginBottom = "15px";
+    infoDiv.style.padding = "10px";
+    infoDiv.style.background = "var(--background-secondary)";
+    infoDiv.style.borderRadius = "5px";
+    infoDiv.createEl("strong", { text: "\u{1F4CB} How to get your data:" });
+    const list = infoDiv.createEl("ul");
+    list.createEl("li", { text: "Open your file with Timekeep codeblocks" });
+    list.createEl("li", { text: "Copy the entire JSON from inside the timekeep block" });
+    list.createEl("li", { text: "Paste it in the text area above" });
+    const buttonDiv = contentEl.createDiv();
+    buttonDiv.style.display = "flex";
+    buttonDiv.style.gap = "10px";
+    buttonDiv.style.justifyContent = "flex-end";
+    const cancelBtn = buttonDiv.createEl("button", { text: "Cancel" });
+    cancelBtn.onclick = () => modal.close();
+    const importBtn = buttonDiv.createEl("button", { text: "Import", cls: "mod-cta" });
+    importBtn.onclick = async () => {
+      const jsonText = textArea.value.trim();
+      if (!jsonText) {
+        new import_obsidian.Notice("\u26A0\uFE0F Please paste your Timekeep data");
+        return;
+      }
+      try {
+        const data = JSON.parse(jsonText);
+        if (!data.entries || !Array.isArray(data.entries)) {
+          new import_obsidian.Notice('\u26A0\uFE0F Invalid format: missing "entries" array');
+          return;
+        }
+        if (data.entries.length > 0) {
+          const firstEntry = data.entries[0];
+          if (!firstEntry.hasOwnProperty("name") || !firstEntry.hasOwnProperty("startTime")) {
+            new import_obsidian.Notice("\u26A0\uFE0F Invalid entry format: missing required fields (name, startTime)");
+            return;
+          }
+        }
+        const success = await this.plugin.timerManager.importTimekeepData(jsonText);
+        if (success) {
+          new import_obsidian.Notice(`\u2705 Successfully imported ${data.entries.length} entries!`);
+          modal.close();
+          await this.refreshView();
+        } else {
+          new import_obsidian.Notice("\u274C Failed to import data");
+        }
+      } catch (error) {
+        if (error instanceof SyntaxError) {
+          new import_obsidian.Notice("\u26A0\uFE0F Invalid JSON format. Please check your data.");
+        } else {
+          new import_obsidian.Notice(`\u274C Error: ${error.message}`);
+        }
+        console.error("Import error:", error);
+      }
+    };
+    const hint = contentEl.createEl("div");
+    hint.style.marginTop = "10px";
+    hint.style.fontSize = "12px";
+    hint.style.color = "var(--text-muted)";
+    hint.textContent = '\u{1F4A1} Tip: You can also create "TimeFlow Data.md" manually in your vault root';
+    modal.open();
   }
 };
 
 // src/view.ts
-var import_obsidian5 = require("obsidian");
+var import_obsidian4 = require("obsidian");
 
 // src/dataManager.ts
 var import_obsidian2 = require("obsidian");
-
-// src/utils.ts
-var FIXED_DAY_COLORS = {
-  helligdag: "#ef5350",
-  half: "#ffd54f",
-  halfday: "#ffd54f",
-  "Ingen registrering": "#cccccc"
-};
-function getSpecialDayColors(settings) {
-  return {
-    ...FIXED_DAY_COLORS,
-    ...settings.specialDayColors
-  };
-}
-var EMOJI_MAP = {
-  avspasering: "\u{1F6CC}",
-  kurs: "\u{1F4DA}",
-  studie: "\u{1F4DA}",
-  ferie: "\u{1F3D6}\uFE0F",
-  velferdspermisjon: "\u{1F3E5}",
-  egenmelding: "\u{1F912}",
-  helligdag: "\u{1F389}",
-  jobb: "\u{1F4BC}"
-};
-var Utils = {
-  parseDate: (str) => str ? new Date(str) : null,
-  hoursDiff: (start, end) => (end.getTime() - start.getTime()) / 36e5,
-  isWeekend: (date) => date ? date.getDay() === 0 || date.getDay() === 6 : false,
-  formatHoursToHM: (hours) => {
-    const h = Math.floor(hours);
-    const m = Math.round((hours - h) * 60);
-    return `${h}h ${m.toString().padStart(2, "0")}m`;
-  },
-  toLocalDateStr: (date) => {
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, "0");
-    const d = String(date.getDate()).padStart(2, "0");
-    return `${y}-${m}-${d}`;
-  },
-  getWeekNumber: (d) => {
-    const date = new Date(d.getTime());
-    date.setHours(0, 0, 0, 0);
-    date.setDate(date.getDate() + 3 - (date.getDay() + 6) % 7);
-    const week1 = new Date(date.getFullYear(), 0, 4);
-    return 1 + Math.round(
-      ((date.getTime() - week1.getTime()) / 864e5 - 3 + (week1.getDay() + 6) % 7) / 7
-    );
-  },
-  getEmoji: (entry) => {
-    const name = entry.name.toLowerCase();
-    if (EMOJI_MAP[name])
-      return EMOJI_MAP[name];
-    if (!entry.endTime)
-      return "\u23F3";
-    if (Utils.isWeekend(entry.date))
-      return "\u{1F319}";
-    return "";
-  },
-  randMsg: (arr) => arr[Math.floor(Math.random() * arr.length)],
-  getDayOfYear: (date) => {
-    const start = new Date(date.getFullYear(), 0, 0);
-    const diff = date.getTime() - start.getTime();
-    return Math.floor(diff / 864e5);
-  }
-};
-
-// src/dataManager.ts
 var DataManager = class {
   constructor(entries, settings, app) {
     this.daily = {};
@@ -853,7 +964,7 @@ var DataManager = class {
 };
 
 // src/uiBuilder.ts
-var import_obsidian4 = require("obsidian");
+var import_obsidian3 = require("obsidian");
 
 // src/messageGenerator.ts
 var MessageGenerator = class {
@@ -1104,97 +1215,6 @@ var MessageGenerator = class {
   }
 };
 
-// src/importModal.ts
-var import_obsidian3 = require("obsidian");
-var ImportModal = class extends import_obsidian3.Modal {
-  constructor(app, timerManager, onSuccess) {
-    super(app);
-    this.timerManager = timerManager;
-    this.onSuccess = onSuccess;
-  }
-  onOpen() {
-    const { contentEl } = this;
-    contentEl.empty();
-    contentEl.createEl("h2", { text: "Import Timekeep Data" });
-    contentEl.createEl("p", {
-      text: "Paste your Timekeep JSON data below. This can be from a timekeep codeblock or exported data.",
-      cls: "setting-item-description"
-    });
-    const textArea = contentEl.createEl("textarea", {
-      attr: {
-        rows: "15",
-        placeholder: '{"entries":[...]}'
-      }
-    });
-    textArea.style.width = "100%";
-    textArea.style.fontFamily = "monospace";
-    textArea.style.fontSize = "12px";
-    textArea.style.marginBottom = "15px";
-    const infoDiv = contentEl.createDiv();
-    infoDiv.style.marginBottom = "15px";
-    infoDiv.style.padding = "10px";
-    infoDiv.style.background = "var(--background-secondary)";
-    infoDiv.style.borderRadius = "5px";
-    infoDiv.createEl("strong", { text: "\u{1F4CB} How to get your data:" });
-    const list = infoDiv.createEl("ul");
-    list.createEl("li", { text: "Open your file with Timekeep codeblocks" });
-    list.createEl("li", { text: "Copy the entire JSON from inside the timekeep block" });
-    list.createEl("li", { text: "Paste it in the text area above" });
-    const buttonDiv = contentEl.createDiv();
-    buttonDiv.style.display = "flex";
-    buttonDiv.style.gap = "10px";
-    buttonDiv.style.justifyContent = "flex-end";
-    const cancelBtn = buttonDiv.createEl("button", { text: "Cancel" });
-    cancelBtn.onclick = () => this.close();
-    const importBtn = buttonDiv.createEl("button", { text: "Import", cls: "mod-cta" });
-    importBtn.onclick = async () => {
-      const jsonText = textArea.value.trim();
-      if (!jsonText) {
-        new import_obsidian3.Notice("\u26A0\uFE0F Please paste your Timekeep data");
-        return;
-      }
-      try {
-        const data = JSON.parse(jsonText);
-        if (!data.entries || !Array.isArray(data.entries)) {
-          new import_obsidian3.Notice('\u26A0\uFE0F Invalid format: missing "entries" array');
-          return;
-        }
-        if (data.entries.length > 0) {
-          const firstEntry = data.entries[0];
-          if (!firstEntry.hasOwnProperty("name") || !firstEntry.hasOwnProperty("startTime")) {
-            new import_obsidian3.Notice("\u26A0\uFE0F Invalid entry format: missing required fields (name, startTime)");
-            return;
-          }
-        }
-        const success = await this.timerManager.importTimekeepData(jsonText);
-        if (success) {
-          new import_obsidian3.Notice(`\u2705 Successfully imported ${data.entries.length} entries!`);
-          this.close();
-          this.onSuccess();
-        } else {
-          new import_obsidian3.Notice("\u274C Failed to import data");
-        }
-      } catch (error) {
-        if (error instanceof SyntaxError) {
-          new import_obsidian3.Notice("\u26A0\uFE0F Invalid JSON format. Please check your data.");
-        } else {
-          new import_obsidian3.Notice(`\u274C Error: ${error.message}`);
-        }
-        console.error("Import error:", error);
-      }
-    };
-    const hint = contentEl.createEl("div");
-    hint.style.marginTop = "10px";
-    hint.style.fontSize = "12px";
-    hint.style.color = "var(--text-muted)";
-    hint.textContent = '\u{1F4A1} Tip: You can also create "TimeFlow Data.md" manually in your vault root';
-  }
-  onClose() {
-    const { contentEl } = this;
-    contentEl.empty();
-  }
-};
-
 // src/uiBuilder.ts
 var UIBuilder = class {
   constructor(dataManager, systemStatus, settings, app, timerManager) {
@@ -1267,6 +1287,23 @@ var UIBuilder = class {
 				gap: 12px;
 			}
 
+			/* Desktop: timer button on top right */
+			@media (min-width: 601px) {
+				.tf-badge-section {
+					justify-content: space-between;
+				}
+				.tf-timer-badge {
+					order: 3;
+					margin-left: auto;
+				}
+				.tf-badge {
+					order: 1;
+				}
+				.tf-clock {
+					order: 2;
+				}
+			}
+
 			@media (max-width: 600px) {
 				.tf-badge-section {
 					flex-direction: column;
@@ -1281,26 +1318,46 @@ var UIBuilder = class {
 			.tf-badge {
 				padding: 10px 18px;
 				border-radius: 12px;
-				display: inline-block;
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
 				white-space: normal;
 				text-align: center;
 				max-width: 100%;
+				min-height: 44px;
 				font-weight: bold;
 				box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 			}
 
+			/* Light theme - Clock badge uses the same gradient as other light elements */
 			.tf-clock {
 				padding: 10px 18px;
 				border-radius: 12px;
-				display: inline-block;
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
 				white-space: normal;
 				text-align: center;
 				max-width: 100%;
+				min-height: 44px;
 				background: linear-gradient(135deg, #f0f4c3, #e1f5fe);
 				color: #1a1a1a;
 				font-weight: bold;
 				font-variant-numeric: tabular-nums;
 				box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+			}
+
+			/* Dark theme - Clock badge uses consistent dark gradient */
+			.timeflow-theme-dark .tf-clock {
+				background: linear-gradient(135deg, #2d3a2d, #2d3d45);
+				color: #e0e0e0;
+			}
+
+			/* System theme - Clock badge adapts to Obsidian theme */
+			.timeflow-theme-system .tf-clock {
+				background: var(--background-primary-alt);
+				color: var(--text-normal);
+				border: 1px solid var(--background-modifier-border);
 			}
 
 			.tf-timer-badge {
@@ -1312,6 +1369,7 @@ var UIBuilder = class {
 				gap: 8px;
 				white-space: normal;
 				text-align: center;
+				min-height: 44px;
 				cursor: pointer;
 				transition: all 0.2s;
 				border: none;
@@ -1319,6 +1377,7 @@ var UIBuilder = class {
 				font-size: inherit;
 				font-weight: bold;
 				box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+				/* Background colors are set dynamically based on timer state */
 			}
 
 			.tf-timer-badge:hover {
@@ -1337,6 +1396,7 @@ var UIBuilder = class {
 				flex-wrap: wrap;
 			}
 
+			/* Default card styling - used for month card */
 			.tf-card {
 				flex: 1;
 				min-width: 280px;
@@ -1358,6 +1418,12 @@ var UIBuilder = class {
 				color: #1a1a1a;
 			}
 
+			/* Daily and Weekly cards use dynamic backgrounds set in updateDayCard/updateWeekCard */
+			.tf-card-day,
+			.tf-card-week {
+				/* Background and color set dynamically based on progress */
+			}
+
 			/* System theme - match Obsidian's theme */
 			.timeflow-theme-system .tf-card {
 				background: var(--background-primary-alt);
@@ -1371,19 +1437,47 @@ var UIBuilder = class {
 
 			.timeflow-theme-system .tf-card-stats {
 				background: var(--background-primary-alt) !important;
+				color: var(--text-normal) !important;
+			}
+
+			.timeflow-theme-system .tf-card-stats h3 {
+				color: var(--text-normal) !important;
 			}
 
 			.timeflow-theme-system .tf-card-history {
 				background: var(--background-primary-alt) !important;
+				color: var(--text-normal) !important;
+			}
+
+			.timeflow-theme-system .tf-card-history h3 {
+				color: var(--text-normal) !important;
 			}
 
 			.timeflow-theme-system .tf-stat-item {
 				background: var(--background-secondary);
+				color: var(--text-normal);
 			}
 
-			/* Dark theme mode */
+			.timeflow-theme-system .tf-stat-label {
+				color: var(--text-muted);
+			}
+
+			.timeflow-theme-system .tf-stat-value {
+				color: var(--text-normal);
+			}
+
+			/* System theme - ensure all text inside stat items is readable */
+			.timeflow-theme-system .tf-stat-item div {
+				color: var(--text-normal);
+			}
+
+			.timeflow-theme-system .tf-stat-item .tf-stat-label {
+				color: var(--text-muted);
+			}
+
+			/* Dark theme - internally consistent with dark greens and blues */
 			.timeflow-theme-dark .tf-card {
-				background: linear-gradient(135deg, #1a1f1a, #1a2228);
+				background: linear-gradient(135deg, #2d3a2d, #2d3d45);
 				color: #e0e0e0;
 			}
 
@@ -1391,6 +1485,11 @@ var UIBuilder = class {
 				color: #e0e0e0;
 			}
 
+			.timeflow-theme-dark .tf-badge {
+				/* Badge colors are set dynamically in updateBadge() */
+			}
+
+			/* Light theme - Progress bar */
 			.tf-progress-bar {
 				width: 100%;
 				height: 12px;
@@ -1400,10 +1499,19 @@ var UIBuilder = class {
 				margin: 10px 0;
 			}
 
+			.timeflow-theme-dark .tf-progress-bar {
+				background: rgba(255, 255, 255, 0.1);
+			}
+
+			/* Light theme - Progress fill uses green gradient from timeflow.js */
 			.tf-progress-fill {
 				height: 100%;
-				background: linear-gradient(90deg, #81c784, #388e3c);
+				background: linear-gradient(90deg, #4caf50, #2e7d32);
 				transition: width 0.3s ease;
+			}
+
+			.timeflow-theme-dark .tf-progress-fill {
+				background: linear-gradient(90deg, #4caf50, #2e7d32);
 			}
 
 			.tf-month-grid {
@@ -1413,6 +1521,7 @@ var UIBuilder = class {
 				margin-top: 15px;
 			}
 
+			/* Light theme - Day cells */
 			.tf-day-cell {
 				aspect-ratio: 1;
 				display: flex;
@@ -1425,8 +1534,18 @@ var UIBuilder = class {
 				transition: all 0.2s;
 				position: relative;
 				border: 2px solid transparent;
-				color: #333;
-				text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+				color: #1a1a1a;
+				text-shadow: 0 1px 2px rgba(255, 255, 255, 0.5);
+			}
+
+			.timeflow-theme-dark .tf-day-cell {
+				color: #e0e0e0;
+				text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+			}
+
+			.timeflow-theme-system .tf-day-cell {
+				color: var(--text-normal);
+				text-shadow: none;
 			}
 
 			.tf-day-cell:hover {
@@ -1435,24 +1554,52 @@ var UIBuilder = class {
 			}
 
 			.tf-day-cell.today {
-				border-color: var(--interactive-accent);
+				border-color: #4caf50;
 				font-weight: bold;
 			}
 
+			.timeflow-theme-system .tf-day-cell.today {
+				border-color: var(--interactive-accent);
+			}
+
+			/* Light theme - Stats card uses green gradient from timeflow.js */
 			.tf-card-stats {
 				background: linear-gradient(135deg, #e8f5e9, #c8e6c9) !important;
+				color: #1a1a1a !important;
 			}
 
+			.tf-card-stats h3 {
+				color: #1a1a1a !important;
+			}
+
+			/* Dark theme - Stats card uses darker consistent greens */
 			.timeflow-theme-dark .tf-card-stats {
-				background: linear-gradient(135deg, #1a2d1a, #1a3d2a) !important;
+				background: linear-gradient(135deg, #253d25, #2d4d3d) !important;
+				color: #e0e0e0 !important;
 			}
 
+			.timeflow-theme-dark .tf-card-stats h3 {
+				color: #e0e0e0 !important;
+			}
+
+			/* Light theme - History card uses darker green from timeflow.js */
 			.tf-card-history {
 				background: linear-gradient(135deg, #a8d5ab, #8dc491) !important;
+				color: #1a1a1a !important;
 			}
 
+			.tf-card-history h3 {
+				color: #1a1a1a !important;
+			}
+
+			/* Dark theme - History card uses consistent dark greens */
 			.timeflow-theme-dark .tf-card-history {
-				background: linear-gradient(135deg, #1a2d1a, #1a3520) !important;
+				background: linear-gradient(135deg, #2d4528, #2d5035) !important;
+				color: #e0e0e0 !important;
+			}
+
+			.timeflow-theme-dark .tf-card-history h3 {
+				color: #e0e0e0 !important;
 			}
 
 			.tf-stats-grid {
@@ -1462,53 +1609,121 @@ var UIBuilder = class {
 				margin-top: 15px;
 			}
 
+			/* Light theme - Stat items match timeflow.js */
 			.tf-stat-item {
 				padding: 15px;
-				background: rgba(155,155,155,0.4);
+				background: rgba(155, 155, 155, 0.4);
 				border-radius: 8px;
+				color: #1a1a1a;
 			}
 
+			/* Dark theme - Stat items use semi-transparent white for consistency */
 			.timeflow-theme-dark .tf-stat-item {
-				background: rgba(255,255,255,0.1);
+				background: rgba(255, 255, 255, 0.1);
+				color: #e0e0e0;
 			}
 
 			.tf-stat-label {
 				font-size: 12px;
-				color: var(--text-muted);
 				margin-bottom: 5px;
+			}
+
+			/* Light theme - stat labels should be dark but slightly muted */
+			.tf-card-stats .tf-stat-label {
+				color: rgba(26, 26, 26, 0.7);
+			}
+
+			/* Dark theme - stat labels should be light but slightly muted */
+			.timeflow-theme-dark .tf-card-stats .tf-stat-label {
+				color: rgba(224, 224, 224, 0.7);
 			}
 
 			.tf-stat-value {
 				font-size: 20px;
 				font-weight: bold;
+			}
+
+			/* Light theme - stat values should be dark */
+			.tf-card-stats .tf-stat-value {
+				color: #1a1a1a;
+			}
+
+			/* Dark theme - stat values should be light */
+			.timeflow-theme-dark .tf-card-stats .tf-stat-value {
+				color: #e0e0e0;
+			}
+
+			/* Timeframe label styling */
+			.tf-timeframe-label {
+				color: #1a1a1a;
+			}
+
+			.timeflow-theme-dark .tf-timeframe-label {
+				color: #e0e0e0;
+			}
+
+			.timeflow-theme-system .tf-timeframe-label {
 				color: var(--text-normal);
 			}
 
 			.tf-tabs {
 				display: flex;
-				gap: 10px;
+				gap: 8px;
 				margin-bottom: 15px;
 				border-bottom: 2px solid var(--background-modifier-border);
 			}
 
 			.tf-tab {
-				padding: 8px 16px;
+				padding: 6px 12px;
 				cursor: pointer;
 				border: none;
-				background: transparent;
-				color: var(--text-muted);
-				font-size: 14px;
+				background: rgba(0, 0, 0, 0.1);
+				color: #1a1a1a !important;
+				font-size: 0.9em;
+				border-radius: 6px;
 				transition: all 0.2s;
+				font-weight: 500;
 			}
 
 			.tf-tab.active {
-				color: var(--interactive-accent);
-				border-bottom: 2px solid var(--interactive-accent);
-				margin-bottom: -2px;
+				background: rgba(0, 0, 0, 0.2);
+				color: #1a1a1a !important;
+				font-weight: bold;
 			}
 
 			.tf-tab:hover {
-				color: var(--text-normal);
+				background: rgba(0, 0, 0, 0.15);
+				color: #1a1a1a !important;
+			}
+
+			.timeflow-theme-dark .tf-tab {
+				background: rgba(255, 255, 255, 0.1);
+				color: #e0e0e0 !important;
+			}
+
+			.timeflow-theme-dark .tf-tab.active {
+				background: rgba(255, 255, 255, 0.2);
+				color: #e0e0e0 !important;
+			}
+
+			.timeflow-theme-dark .tf-tab:hover {
+				background: rgba(255, 255, 255, 0.15);
+				color: #e0e0e0 !important;
+			}
+
+			.timeflow-theme-system .tf-tab {
+				background: var(--background-modifier-border);
+				color: var(--text-normal) !important;
+			}
+
+			.timeflow-theme-system .tf-tab.active {
+				background: var(--interactive-accent);
+				color: var(--text-on-accent) !important;
+			}
+
+			.timeflow-theme-system .tf-tab:hover {
+				background: var(--background-modifier-hover);
+				color: var(--text-normal) !important;
 			}
 
 			.tf-button {
@@ -1544,15 +1759,28 @@ var UIBuilder = class {
 				transform: scale(1.2);
 			}
 
+			/* Light theme - Context menu matches timeflow.js colors */
 			.tf-context-menu {
 				position: absolute;
-				background: var(--background-primary);
-				border: 1px solid var(--background-modifier-border);
-				border-radius: 6px;
-				box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+				background: linear-gradient(135deg, #f0f4c3, #e1f5fe);
+				border: 2px solid #4caf50;
+				border-radius: 8px;
+				box-shadow: 0 4px 12px rgba(0,0,0,0.3);
 				padding: 8px 0;
 				z-index: 1000;
 				min-width: 200px;
+			}
+
+			/* Dark theme - Context menu uses dark gradient */
+			.timeflow-theme-dark .tf-context-menu {
+				background: linear-gradient(135deg, #2d3a2d, #2d3d45);
+				border: 2px solid #4caf50;
+			}
+
+			/* System theme - Context menu uses Obsidian variables */
+			.timeflow-theme-system .tf-context-menu {
+				background: var(--background-primary);
+				border: 1px solid var(--background-modifier-border);
 			}
 
 			.tf-menu-item {
@@ -1562,16 +1790,78 @@ var UIBuilder = class {
 				display: flex;
 				align-items: center;
 				gap: 10px;
+				color: #1a1a1a;
+			}
+
+			.timeflow-theme-dark .tf-menu-item {
+				color: #e0e0e0;
+			}
+
+			.timeflow-theme-system .tf-menu-item {
+				color: var(--text-normal);
 			}
 
 			.tf-menu-item:hover {
+				background: rgba(76, 175, 80, 0.2);
+			}
+
+			.timeflow-theme-system .tf-menu-item:hover {
 				background: var(--background-modifier-hover);
 			}
 
 			.tf-menu-separator {
 				height: 1px;
-				background: var(--background-modifier-border);
+				background: rgba(0, 0, 0, 0.2);
 				margin: 4px 0;
+			}
+
+			.timeflow-theme-dark .tf-menu-separator {
+				background: rgba(255, 255, 255, 0.2);
+			}
+
+			.timeflow-theme-system .tf-menu-separator {
+				background: var(--background-modifier-border);
+			}
+
+			/* Submenu styles */
+			.tf-menu-item-with-submenu {
+				position: relative;
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+			}
+
+			.tf-submenu {
+				display: none;
+				position: absolute;
+				left: 100%;
+				top: 0;
+				background: linear-gradient(135deg, #f0f4c3, #e1f5fe);
+				border: 2px solid #4caf50;
+				border-radius: 8px;
+				box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+				padding: 4px;
+				min-width: 180px;
+				z-index: 1001;
+			}
+
+			.timeflow-theme-dark .tf-submenu {
+				background: linear-gradient(135deg, #2d3a2d, #2d3d45);
+				border: 2px solid #4caf50;
+			}
+
+			.timeflow-theme-system .tf-submenu {
+				background: var(--background-primary);
+				border: 1px solid var(--background-modifier-border);
+			}
+
+			.tf-menu-item-with-submenu:hover .tf-submenu {
+				display: block;
+			}
+
+			.tf-submenu-arrow {
+				font-size: 0.8em;
+				opacity: 0.7;
 			}
 
 			.tf-status-bar {
@@ -1667,14 +1957,14 @@ var UIBuilder = class {
   }
   createDayCard() {
     const card = document.createElement("div");
-    card.className = "tf-card";
+    card.className = "tf-card tf-card-day";
     this.elements.dayCard = card;
     this.updateDayCard();
     return card;
   }
   createWeekCard() {
     const card = document.createElement("div");
-    card.className = "tf-card";
+    card.className = "tf-card tf-card-week";
     this.elements.weekCard = card;
     this.updateWeekCard();
     return card;
@@ -1729,11 +2019,21 @@ var UIBuilder = class {
   createStatsCard() {
     const card = document.createElement("div");
     card.className = "tf-card tf-card-stats tf-card-spaced";
+    const headerRow = document.createElement("div");
+    headerRow.style.display = "flex";
+    headerRow.style.justifyContent = "space-between";
+    headerRow.style.alignItems = "center";
+    headerRow.style.marginBottom = "15px";
+    headerRow.style.flexWrap = "wrap";
+    headerRow.style.gap = "10px";
     const header = document.createElement("h3");
-    header.textContent = "Statistikk";
-    card.appendChild(header);
+    header.textContent = "\u{1F4CA} Statistikk";
+    header.style.margin = "0";
+    headerRow.appendChild(header);
     const tabs = document.createElement("div");
     tabs.className = "tf-tabs";
+    tabs.style.marginBottom = "0";
+    tabs.style.borderBottom = "none";
     const timeframes = ["total", "year", "month"];
     const labels = { total: "Totalt", year: "\xC5r", month: "M\xE5ned" };
     timeframes.forEach((tf) => {
@@ -1746,7 +2046,14 @@ var UIBuilder = class {
       };
       tabs.appendChild(tab);
     });
-    card.appendChild(tabs);
+    headerRow.appendChild(tabs);
+    card.appendChild(headerRow);
+    const timeframeLabel = document.createElement("div");
+    timeframeLabel.className = "tf-timeframe-label";
+    timeframeLabel.style.marginBottom = "15px";
+    timeframeLabel.style.fontSize = "1.1em";
+    timeframeLabel.style.fontWeight = "bold";
+    card.appendChild(timeframeLabel);
     const statsContainer = document.createElement("div");
     statsContainer.className = "tf-stats-grid";
     this.elements.statsCard = statsContainer;
@@ -1786,55 +2093,43 @@ var UIBuilder = class {
   buildHistoryCard() {
     const card = document.createElement("div");
     card.className = "tf-card tf-card-history tf-card-spaced";
-    const header = document.createElement("div");
-    header.style.display = "flex";
-    header.style.justifyContent = "space-between";
-    header.style.alignItems = "center";
-    header.style.marginBottom = "15px";
+    const headerRow = document.createElement("div");
+    headerRow.style.display = "flex";
+    headerRow.style.justifyContent = "space-between";
+    headerRow.style.alignItems = "center";
+    headerRow.style.marginBottom = "15px";
+    headerRow.style.flexWrap = "wrap";
+    headerRow.style.gap = "10px";
     const title = document.createElement("h3");
-    title.textContent = "Historikk";
+    title.textContent = "\u{1F4DC} Historikk";
     title.style.margin = "0";
-    const controls = document.createElement("div");
-    controls.style.display = "flex";
-    controls.style.gap = "5px";
+    headerRow.appendChild(title);
+    const detailsElement = document.createElement("div");
+    detailsElement.style.maxHeight = "500px";
+    detailsElement.style.overflow = "auto";
+    const tabs = document.createElement("div");
+    tabs.className = "tf-tabs";
+    tabs.style.marginBottom = "0";
+    tabs.style.borderBottom = "none";
     const views = [
       { id: "list", label: "Liste" },
       { id: "weekly", label: "Uker" },
       { id: "heatmap", label: "Varmekart" }
     ];
     views.forEach((view) => {
-      const btn = document.createElement("button");
-      btn.textContent = view.label;
-      btn.className = `tf-button ${this.historyView === view.id ? "active" : ""}`;
-      btn.onclick = () => {
+      const tab = document.createElement("button");
+      tab.textContent = view.label;
+      tab.className = `tf-tab ${this.historyView === view.id ? "active" : ""}`;
+      tab.onclick = () => {
         this.historyView = view.id;
+        tabs.querySelectorAll(".tf-tab").forEach((t) => t.classList.remove("active"));
+        tab.classList.add("active");
         this.refreshHistoryView(detailsElement);
       };
-      controls.appendChild(btn);
+      tabs.appendChild(tab);
     });
-    const importBtn = document.createElement("button");
-    importBtn.textContent = "\u{1F4E5} Import";
-    importBtn.className = "tf-button";
-    importBtn.onclick = () => {
-      new ImportModal(this.app, this.timerManager, () => {
-        new import_obsidian4.Notice("Data importert! Oppdaterer dashboard...");
-        if (this.timerManager.onTimerChange) {
-          this.timerManager.onTimerChange();
-        }
-      }).open();
-    };
-    controls.appendChild(importBtn);
-    const exportBtn = document.createElement("button");
-    exportBtn.textContent = "\u{1F4E4} Export CSV";
-    exportBtn.className = "tf-button";
-    exportBtn.onclick = () => this.exportCurrentView();
-    controls.appendChild(exportBtn);
-    header.appendChild(title);
-    header.appendChild(controls);
-    card.appendChild(header);
-    const detailsElement = document.createElement("div");
-    detailsElement.style.maxHeight = "500px";
-    detailsElement.style.overflow = "auto";
+    headerRow.appendChild(tabs);
+    card.appendChild(headerRow);
     card.appendChild(detailsElement);
     this.refreshHistoryView(detailsElement);
     return card;
@@ -1911,12 +2206,26 @@ var UIBuilder = class {
       this.settings.consecutiveFlextimeWarningDays
     );
     const progress = goal > 0 ? Math.min(todayHours / goal * 100, 100) : 0;
+    let bgColor;
+    let textColor;
+    if (todayHours <= goal) {
+      bgColor = "linear-gradient(135deg, #4caf50, #81c784)";
+      textColor = "white";
+    } else if (todayHours <= goal + 1.75) {
+      bgColor = "linear-gradient(135deg, #ffeb3b, #ffc107)";
+      textColor = "black";
+    } else {
+      bgColor = "linear-gradient(135deg, #f44336, #d32f2f)";
+      textColor = "white";
+    }
+    this.elements.dayCard.style.background = bgColor;
+    this.elements.dayCard.style.color = textColor;
     this.elements.dayCard.innerHTML = `
-			<h3>\u{1F4C5} I dag</h3>
+			<h3 style="color: ${textColor};">\u{1F4C5} I dag</h3>
 			<div style="font-size: 32px; font-weight: bold; margin: 10px 0;">
 				${Utils.formatHoursToHM(todayHours)}
 			</div>
-			<div style="font-size: 14px; color: var(--text-muted); margin-bottom: 10px;">
+			<div style="font-size: 14px; opacity: 0.9; margin-bottom: 10px;">
 				M\xE5l: ${Utils.formatHoursToHM(goal)}
 			</div>
 			<div class="tf-progress-bar">
@@ -1965,12 +2274,26 @@ var UIBuilder = class {
       weekendWorkHours
     );
     const progress = adjustedGoal > 0 ? Math.min(weekHours / adjustedGoal * 100, 100) : 0;
+    let bgColor;
+    let textColor;
+    if (weekHours <= adjustedGoal) {
+      bgColor = "linear-gradient(135deg, #4caf50, #81c784)";
+      textColor = "white";
+    } else if (weekHours <= adjustedGoal + 3.5) {
+      bgColor = "linear-gradient(135deg, #ffeb3b, #ffc107)";
+      textColor = "black";
+    } else {
+      bgColor = "linear-gradient(135deg, #f44336, #d32f2f)";
+      textColor = "white";
+    }
+    this.elements.weekCard.style.background = bgColor;
+    this.elements.weekCard.style.color = textColor;
     this.elements.weekCard.innerHTML = `
-			<h3>\u{1F4CA} Denne uken</h3>
+			<h3 style="color: ${textColor};">\u{1F4CA} Denne uken</h3>
 			<div style="font-size: 32px; font-weight: bold; margin: 10px 0;">
 				${Utils.formatHoursToHM(weekHours)}
 			</div>
-			<div style="font-size: 14px; color: var(--text-muted); margin-bottom: 10px;">
+			<div style="font-size: 14px; opacity: 0.9; margin-bottom: 10px;">
 				M\xE5l: ${Utils.formatHoursToHM(adjustedGoal)}
 			</div>
 			<div class="tf-progress-bar">
@@ -1982,38 +2305,119 @@ var UIBuilder = class {
 		`;
   }
   updateStatsCard() {
-    var _a;
+    var _a, _b;
     if (!this.elements.statsCard)
       return;
     const stats = this.data.getStatistics(this.statsTimeframe);
     const balance = this.data.getCurrentBalance();
+    const { avgDaily, avgWeekly } = this.data.getAverages();
+    const workloadPct = (avgWeekly / this.settings.baseWorkweek * 100).toFixed(0);
+    let timeframeLabel = "";
+    const today = /* @__PURE__ */ new Date();
+    if (this.statsTimeframe === "year") {
+      timeframeLabel = today.getFullYear().toString();
+    } else if (this.statsTimeframe === "month") {
+      const monthName = today.toLocaleString("nb-NO", { month: "long" });
+      timeframeLabel = monthName.charAt(0).toUpperCase() + monthName.slice(1);
+    } else {
+      timeframeLabel = "Totalt";
+    }
+    const context = this.data.getContextualData(today);
+    let weekComparisonText = "";
+    if (context.lastWeekHours > 0) {
+      const currWeekHours = this.data.getCurrentWeekHours(today);
+      const diff = currWeekHours - context.lastWeekHours;
+      if (Math.abs(diff) > 2) {
+        const arrow = diff > 0 ? "\u{1F4C8}" : "\u{1F4C9}";
+        const sign2 = diff > 0 ? "+" : "";
+        weekComparisonText = `<div style="font-size: 0.75em; margin-top: 4px;">vs forrige uke: ${sign2}${diff.toFixed(1)}t ${arrow}</div>`;
+      }
+    }
+    const sign = balance >= 0 ? "+" : "";
+    let timesaldoColor = "#4caf50";
+    let timesaldoEmoji = "\u{1F7E2}";
+    if (balance < -15 || balance > 95) {
+      timesaldoColor = "#f44336";
+      timesaldoEmoji = "\u{1F534}";
+    } else if (balance >= -15 && balance < 0 || balance >= 80 && balance <= 95) {
+      timesaldoColor = "#ff9800";
+      timesaldoEmoji = "\u{1F7E1}";
+    }
+    let ferieDisplay = `${stats.ferie.count} dager`;
+    if (this.statsTimeframe === "year" && stats.ferie.max > 0) {
+      const feriePercent = (stats.ferie.count / stats.ferie.max * 100).toFixed(0);
+      ferieDisplay = `${stats.ferie.count}/${stats.ferie.max} dager (${feriePercent}%)`;
+    }
+    let egenmeldingDisplay = `${stats.egenmelding.count} dager`;
+    if (this.statsTimeframe === "year" && stats.egenmelding.max > 0) {
+      const egenmeldingPercent = (stats.egenmelding.count / stats.egenmelding.max * 100).toFixed(0);
+      egenmeldingDisplay = `${stats.egenmelding.count}/${stats.egenmelding.max} dager (${egenmeldingPercent}%)`;
+    }
+    const timeframeLabelElement = (_a = this.elements.statsCard.parentElement) == null ? void 0 : _a.querySelector(".tf-timeframe-label");
+    if (timeframeLabelElement) {
+      timeframeLabelElement.textContent = timeframeLabel;
+    }
     this.elements.statsCard.innerHTML = `
-			<div class="tf-stat-item">
-				<div class="tf-stat-label">Timesaldo</div>
-				<div class="tf-stat-value">${Utils.formatHoursToHM(Math.abs(balance))}</div>
+			<div class="tf-stat-item" style="background: ${timesaldoColor}; color: white;">
+				<div class="tf-stat-label">${timesaldoEmoji} Timesaldo</div>
+				<div class="tf-stat-value">${sign}${balance.toFixed(1)}t</div>
+				<div style="font-size: 0.75em; margin-top: 4px;">Total saldo</div>
 			</div>
 			<div class="tf-stat-item">
-				<div class="tf-stat-label">Totale timer</div>
-				<div class="tf-stat-value">${Utils.formatHoursToHM(stats.totalHours)}</div>
+				<div class="tf-stat-label">\u23F1\uFE0F Timer</div>
+				<div class="tf-stat-value">${stats.totalHours.toFixed(1)}t</div>
 			</div>
 			<div class="tf-stat-item">
-				<div class="tf-stat-label">Gjennomsnitt per dag</div>
-				<div class="tf-stat-value">${Utils.formatHoursToHM(stats.avgDailyHours)}</div>
+				<div class="tf-stat-label">\u{1F4CA} Snitt/dag</div>
+				<div class="tf-stat-value">${avgDaily.toFixed(1)}t</div>
 			</div>
 			<div class="tf-stat-item">
-				<div class="tf-stat-label">Arbeidsdager</div>
-				<div class="tf-stat-value">${stats.jobb.count}</div>
+				<div class="tf-stat-label">\u{1F4C5} Snitt/uke</div>
+				<div class="tf-stat-value">${avgWeekly.toFixed(1)}t</div>
+				${weekComparisonText}
 			</div>
 			<div class="tf-stat-item">
-				<div class="tf-stat-label">Ferie (brukt/planlagt)</div>
-				<div class="tf-stat-value">${stats.ferie.count} / ${stats.ferie.planned}</div>
+				<div class="tf-stat-label">\u{1F4AA} Arbeidsbelastning</div>
+				<div class="tf-stat-value">${workloadPct}%</div>
+				<div style="font-size: 0.75em; margin-top: 4px;">av norm</div>
 			</div>
 			<div class="tf-stat-item">
-				<div class="tf-stat-label">Avspasering</div>
-				<div class="tf-stat-value">${stats.avspasering.count}</div>
+				<div class="tf-stat-label">\u{1F4BC} Jobb</div>
+				<div class="tf-stat-value">${stats.jobb.count} ${stats.jobb.count === 1 ? "dag" : "dager"}</div>
+				<div style="font-size: 0.75em; margin-top: 4px;">${stats.jobb.hours.toFixed(1)}t</div>
+			</div>
+			<div class="tf-stat-item">
+				<div class="tf-stat-label">\u{1F6CC} Avspasering</div>
+				<div class="tf-stat-value">${stats.avspasering.count} ${stats.avspasering.count === 1 ? "dag" : "dager"}</div>
+				<div style="font-size: 0.75em; margin-top: 4px;">${stats.avspasering.hours.toFixed(1)}t${stats.avspasering.planned > 0 ? `<br>\u{1F4C5} Planlagt: ${stats.avspasering.planned}` : ""}</div>
+			</div>
+			<div class="tf-stat-item">
+				<div class="tf-stat-label">\u{1F3D6}\uFE0F Ferie</div>
+				<div class="tf-stat-value" style="font-size: ${this.statsTimeframe === "year" ? "0.9em" : "1.3em"};">${ferieDisplay}</div>
+				<div style="font-size: 0.75em; margin-top: 4px;">${stats.ferie.planned > 0 ? `\u{1F4C5} Planlagt: ${stats.ferie.planned}` : ""}</div>
+			</div>
+			<div class="tf-stat-item">
+				<div class="tf-stat-label">\u{1F3E5} Velferdspermisjon</div>
+				<div class="tf-stat-value">${stats.velferdspermisjon.count} ${stats.velferdspermisjon.count === 1 ? "dag" : "dager"}</div>
+				<div style="font-size: 0.75em; margin-top: 4px;">${stats.velferdspermisjon.planned > 0 ? `\u{1F4C5} Planlagt: ${stats.velferdspermisjon.planned}` : ""}</div>
+			</div>
+			<div class="tf-stat-item">
+				<div class="tf-stat-label">\u{1F912} Egenmelding</div>
+				<div class="tf-stat-value" style="font-size: ${this.statsTimeframe === "year" ? "0.9em" : "1.3em"};">${egenmeldingDisplay}</div>
+				<div style="font-size: 0.75em; margin-top: 4px;">${this.statsTimeframe === "year" ? "(365d)" : ""}</div>
+			</div>
+			<div class="tf-stat-item">
+				<div class="tf-stat-label">\u{1F4DA} Studie</div>
+				<div class="tf-stat-value">${stats.studie.count} ${stats.studie.count === 1 ? "dag" : "dager"}</div>
+				<div style="font-size: 0.75em; margin-top: 4px;">${stats.studie.hours.toFixed(1)}t${stats.studie.planned > 0 ? `<br>\u{1F4C5} Planlagt: ${stats.studie.planned}` : ""}</div>
+			</div>
+			<div class="tf-stat-item">
+				<div class="tf-stat-label">\u{1F4DA} Kurs</div>
+				<div class="tf-stat-value">${stats.kurs.count} ${stats.kurs.count === 1 ? "dag" : "dager"}</div>
+				<div style="font-size: 0.75em; margin-top: 4px;">${stats.kurs.hours.toFixed(1)}t${stats.kurs.planned > 0 ? `<br>\u{1F4C5} Planlagt: ${stats.kurs.planned}` : ""}</div>
 			</div>
 		`;
-    const tabs = (_a = this.elements.statsCard.parentElement) == null ? void 0 : _a.querySelectorAll(".tf-tab");
+    const tabs = (_b = this.elements.statsCard.parentElement) == null ? void 0 : _b.querySelectorAll(".tf-tab");
     tabs == null ? void 0 : tabs.forEach((tab) => {
       var _a2;
       const timeframe = (_a2 = tab.textContent) == null ? void 0 : _a2.toLowerCase();
@@ -2123,8 +2527,21 @@ var UIBuilder = class {
       existingMenu.remove();
     const menu = document.createElement("div");
     menu.className = "tf-context-menu";
+    const themeClass = `timeflow-theme-${this.settings.theme}`;
+    menu.classList.add(themeClass);
     menu.style.left = `${event.clientX}px`;
     menu.style.top = `${event.clientY}px`;
+    const workTimeItem = document.createElement("div");
+    workTimeItem.className = "tf-menu-item";
+    workTimeItem.innerHTML = `<span>\u23F1\uFE0F</span><span>Legg til arbeidstid</span>`;
+    workTimeItem.onclick = () => {
+      this.showWorkTimeDialog(dateObj);
+      menu.remove();
+    };
+    menu.appendChild(workTimeItem);
+    const separator1 = document.createElement("div");
+    separator1.className = "tf-menu-separator";
+    menu.appendChild(separator1);
     this.settings.noteTypes.forEach((noteType) => {
       const item = document.createElement("div");
       item.className = "tf-menu-item";
@@ -2135,16 +2552,43 @@ var UIBuilder = class {
       };
       menu.appendChild(item);
     });
-    const separator = document.createElement("div");
-    separator.className = "tf-menu-separator";
-    menu.appendChild(separator);
+    const separator2 = document.createElement("div");
+    separator2.className = "tf-menu-separator";
+    menu.appendChild(separator2);
     const specialDayItem = document.createElement("div");
-    specialDayItem.className = "tf-menu-item";
-    specialDayItem.textContent = "\u{1F4C5} Registrer spesialdag";
-    specialDayItem.onclick = () => {
-      new import_obsidian4.Notice("Special day registration not yet implemented");
-      menu.remove();
-    };
+    specialDayItem.className = "tf-menu-item tf-menu-item-with-submenu";
+    const labelContainer = document.createElement("div");
+    labelContainer.style.display = "flex";
+    labelContainer.style.alignItems = "center";
+    labelContainer.style.gap = "10px";
+    labelContainer.innerHTML = `<span>\u{1F4C5}</span><span>Registrer spesialdag</span>`;
+    specialDayItem.appendChild(labelContainer);
+    const arrow = document.createElement("span");
+    arrow.className = "tf-submenu-arrow";
+    arrow.textContent = "\u25B6";
+    specialDayItem.appendChild(arrow);
+    const submenu = document.createElement("div");
+    submenu.className = "tf-submenu";
+    const dayTypes = [
+      { id: "ferie", label: "\u{1F3D6}\uFE0F Ferie" },
+      { id: "avspasering", label: "\u{1F6CC} Avspasering" },
+      { id: "studie", label: "\u{1F4D6} Studie" },
+      { id: "kurs", label: "\u{1F4DA} Kurs" },
+      { id: "velferdspermisjon", label: "\u{1F3E5} Velferdspermisjon" },
+      { id: "egenmelding", label: "\u{1F912} Egenmelding" }
+    ];
+    dayTypes.forEach((type) => {
+      const subItem = document.createElement("div");
+      subItem.className = "tf-menu-item";
+      subItem.textContent = type.label;
+      subItem.onclick = async (e) => {
+        e.stopPropagation();
+        await this.addSpecialDay(dateObj, type.id);
+        menu.remove();
+      };
+      submenu.appendChild(subItem);
+    });
+    specialDayItem.appendChild(submenu);
     menu.appendChild(specialDayItem);
     document.body.appendChild(menu);
     setTimeout(() => {
@@ -2157,6 +2601,93 @@ var UIBuilder = class {
       document.addEventListener("click", closeMenu);
     }, 0);
   }
+  showWorkTimeDialog(dateObj) {
+    const dateStr = Utils.toLocalDateStr(dateObj);
+    const startTime = prompt(`Legg til arbeidstid for ${dateStr}
+
+Starttid (HH:MM):`, "08:00");
+    if (!startTime)
+      return;
+    const endTime = prompt(`Sluttid (HH:MM):`, "15:30");
+    if (!endTime)
+      return;
+    const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+    if (!timeRegex.test(startTime) || !timeRegex.test(endTime)) {
+      new import_obsidian3.Notice("\u274C Ugyldig tidsformat. Bruk HH:MM format.");
+      return;
+    }
+    const [startHour, startMin] = startTime.split(":").map(Number);
+    const [endHour, endMin] = endTime.split(":").map(Number);
+    const startDate = new Date(dateObj);
+    startDate.setHours(startHour, startMin, 0, 0);
+    const endDate = new Date(dateObj);
+    endDate.setHours(endHour, endMin, 0, 0);
+    if (endDate <= startDate) {
+      new import_obsidian3.Notice("\u274C Sluttid m\xE5 v\xE6re etter starttid.");
+      return;
+    }
+    try {
+      this.timerManager.data.entries.push({
+        name: "jobb",
+        startTime: startDate.toISOString(),
+        endTime: endDate.toISOString(),
+        subEntries: null,
+        collapsed: false
+      });
+      this.timerManager.save();
+      const duration = (endDate.getTime() - startDate.getTime()) / (1e3 * 60 * 60);
+      new import_obsidian3.Notice(`\u2705 Lagt til ${duration.toFixed(1)} timer arbeidstid for ${dateStr}`);
+      this.updateDayCard();
+      this.updateWeekCard();
+      this.updateStatsCard();
+      this.updateMonthCard();
+    } catch (error) {
+      console.error("Failed to add work time:", error);
+      new import_obsidian3.Notice("\u274C Kunne ikke legge til arbeidstid");
+    }
+  }
+  async addSpecialDay(dateObj, dayType) {
+    try {
+      const filePath = this.settings.holidaysFilePath;
+      const file = this.app.vault.getAbstractFileByPath(filePath);
+      if (!file) {
+        new import_obsidian3.Notice(`\u274C Fant ikke filen: ${filePath}`);
+        return;
+      }
+      const year = dateObj.getFullYear();
+      const month = String(dateObj.getMonth() + 1).padStart(2, "0");
+      const day = String(dateObj.getDate()).padStart(2, "0");
+      const dateStr = `${year}-${month}-${day}`;
+      let content = await this.app.vault.read(file);
+      const sectionMarker = "## Planlagte egne fridager";
+      const sectionIndex = content.indexOf(sectionMarker);
+      if (sectionIndex === -1) {
+        new import_obsidian3.Notice('\u274C Fant ikke seksjonen "Planlagte egne fridager"');
+        await this.app.workspace.getLeaf(false).openFile(file);
+        return;
+      }
+      const codeBlockStart = content.indexOf("```", sectionIndex);
+      const codeBlockEnd = content.indexOf("```", codeBlockStart + 3);
+      if (codeBlockStart === -1 || codeBlockEnd === -1) {
+        new import_obsidian3.Notice("\u274C Fant ikke kodeblokk i seksjonen");
+        await this.app.workspace.getLeaf(false).openFile(file);
+        return;
+      }
+      const newEntry = `- ${dateStr}: ${dayType}: `;
+      const beforeClosing = content.substring(0, codeBlockEnd);
+      const afterClosing = content.substring(codeBlockEnd);
+      const needsNewline = !beforeClosing.endsWith("\n");
+      content = beforeClosing + (needsNewline ? "\n" : "") + newEntry + "\n" + afterClosing;
+      await this.app.vault.modify(file, content);
+      await this.app.workspace.getLeaf(false).openFile(file);
+      const label = this.settings.specialDayLabels[dayType] || dayType;
+      new import_obsidian3.Notice(`\u2705 Lagt til ${dateStr} (${label}) i Planlagte egne fridager`);
+      this.updateMonthCard();
+    } catch (error) {
+      console.error("Failed to add special day:", error);
+      new import_obsidian3.Notice("\u274C Kunne ikke legge til spesialdag");
+    }
+  }
   async createNoteFromType(dateObj, noteType) {
     try {
       const dateStr = Utils.toLocalDateStr(dateObj);
@@ -2166,7 +2697,7 @@ var UIBuilder = class {
       const existingFile = this.app.vault.getAbstractFileByPath(filePath);
       if (existingFile) {
         await this.app.workspace.getLeaf(false).openFile(existingFile);
-        new import_obsidian4.Notice(`Opened existing note: ${filename}`);
+        new import_obsidian3.Notice(`Opened existing note: ${filename}`);
         return;
       }
       const folderPath = noteType.folder;
@@ -2175,7 +2706,7 @@ var UIBuilder = class {
       }
       let content = "";
       const templateFile = this.app.vault.getAbstractFileByPath(noteType.template);
-      if (templateFile && templateFile instanceof import_obsidian4.TFile) {
+      if (templateFile && templateFile instanceof import_obsidian3.TFile) {
         content = await this.app.vault.read(templateFile);
       }
       content = content.replace(/{date}/g, dateStr).replace(/{time}/g, (/* @__PURE__ */ new Date()).toLocaleTimeString("nb-NO")).replace(/{week}/g, weekNum.toString());
@@ -2186,9 +2717,9 @@ ${noteType.tags.join(" ")}`;
       }
       const file = await this.app.vault.create(filePath, content);
       await this.app.workspace.getLeaf(false).openFile(file);
-      new import_obsidian4.Notice(`Created note: ${filename}`);
+      new import_obsidian3.Notice(`Created note: ${filename}`);
     } catch (error) {
-      new import_obsidian4.Notice(`Error creating note: ${error.message}`);
+      new import_obsidian3.Notice(`Error creating note: ${error.message}`);
       console.error("Error creating note:", error);
     }
   }
@@ -2215,7 +2746,7 @@ ${noteType.tags.join(" ")}`;
   renderListView(container, years) {
     Object.keys(years).forEach((year) => {
       const yearDiv = document.createElement("div");
-      yearDiv.innerHTML = `<h4>${year}</h4>`;
+      yearDiv.innerHTML = `<h4 style="color: var(--text-normal);">${year}</h4>`;
       Object.keys(years[year]).forEach((month) => {
         const monthEntries = years[year][month];
         const table = document.createElement("table");
@@ -2224,20 +2755,20 @@ ${noteType.tags.join(" ")}`;
         table.style.marginBottom = "15px";
         table.innerHTML = `
 					<thead>
-						<tr style="background: var(--background-secondary);">
-							<th style="padding: 8px;">Dato</th>
-							<th style="padding: 8px;">Type</th>
-							<th style="padding: 8px;">Timer</th>
-							<th style="padding: 8px;">Fleksitid</th>
+						<tr style="background: var(--background-secondary); color: var(--text-normal);">
+							<th style="padding: 8px; color: var(--text-normal);">Dato</th>
+							<th style="padding: 8px; color: var(--text-normal);">Type</th>
+							<th style="padding: 8px; color: var(--text-normal);">Timer</th>
+							<th style="padding: 8px; color: var(--text-normal);">Fleksitid</th>
 						</tr>
 					</thead>
 					<tbody>
 						${monthEntries.map((e) => `
-							<tr style="border-bottom: 1px solid var(--background-modifier-border);">
-								<td style="padding: 8px;">${Utils.toLocalDateStr(e.date)}</td>
-								<td style="padding: 8px;">${e.name}</td>
-								<td style="padding: 8px;">${Utils.formatHoursToHM(e.duration || 0)}</td>
-								<td style="padding: 8px;">${Utils.formatHoursToHM(e.flextime || 0)}</td>
+							<tr style="border-bottom: 1px solid var(--background-modifier-border); color: var(--text-normal);">
+								<td style="padding: 8px; color: var(--text-normal);">${Utils.toLocalDateStr(e.date)}</td>
+								<td style="padding: 8px; color: var(--text-normal);">${e.name}</td>
+								<td style="padding: 8px; color: var(--text-normal);">${Utils.formatHoursToHM(e.duration || 0)}</td>
+								<td style="padding: 8px; color: var(--text-normal);">${Utils.formatHoursToHM(e.flextime || 0)}</td>
 							</tr>
 						`).join("")}
 					</tbody>
@@ -2294,7 +2825,7 @@ ${noteType.tags.join(" ")}`;
     a.download = `timeflow-export-${Utils.toLocalDateStr(/* @__PURE__ */ new Date())}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-    new import_obsidian4.Notice("Exported to CSV");
+    new import_obsidian3.Notice("Exported to CSV");
   }
   startUpdates() {
     const clockInterval = window.setInterval(() => {
@@ -2331,7 +2862,7 @@ ${noteType.tags.join(" ")}`;
 
 // src/view.ts
 var VIEW_TYPE_TIMEFLOW = "timeflow-view";
-var TimeFlowView = class extends import_obsidian5.ItemView {
+var TimeFlowView = class extends import_obsidian4.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     this.dataManager = null;
@@ -2406,7 +2937,7 @@ var TimeFlowView = class extends import_obsidian5.ItemView {
 };
 
 // src/timerManager.ts
-var import_obsidian6 = require("obsidian");
+var import_obsidian5 = require("obsidian");
 var TimerManager = class {
   constructor(app, settings) {
     this.dataFile = "timeflow/data.md";
@@ -2478,7 +3009,7 @@ This file contains your time tracking data in Timekeep-compatible format.
 ${JSON.stringify(this.data, null, 2)}
 \`\`\`
 `;
-      if (file && file instanceof import_obsidian6.TFile) {
+      if (file && file instanceof import_obsidian5.TFile) {
         await this.app.vault.modify(file, content);
         console.log("TimeFlow: Saved", this.data.entries.length, "entries to", this.dataFile);
       } else {
@@ -2506,7 +3037,7 @@ ${JSON.stringify(this.data, null, 2)}
     if (this.onTimerChange) {
       this.onTimerChange();
     }
-    new import_obsidian6.Notice(`\u23F1\uFE0F Timer started: ${name}`);
+    new import_obsidian5.Notice(`\u23F1\uFE0F Timer started: ${name}`);
     return timer;
   }
   async stopTimer(timer) {
@@ -2522,7 +3053,7 @@ ${JSON.stringify(this.data, null, 2)}
       new Date(timer.startTime),
       new Date(timer.endTime)
     );
-    new import_obsidian6.Notice(`\u2705 Timer stopped: ${timer.name} (${Utils.formatHoursToHM(duration)})`);
+    new import_obsidian5.Notice(`\u2705 Timer stopped: ${timer.name} (${Utils.formatHoursToHM(duration)})`);
     return timer;
   }
   async stopAllTimers() {
@@ -2539,7 +3070,7 @@ ${JSON.stringify(this.data, null, 2)}
       if (this.onTimerChange) {
         this.onTimerChange();
       }
-      new import_obsidian6.Notice("Timer deleted");
+      new import_obsidian5.Notice("Timer deleted");
       return true;
     }
     return false;
@@ -2629,14 +3160,105 @@ ${JSON.stringify(this.data, null, 2)}
         if (this.onTimerChange) {
           this.onTimerChange();
         }
-        new import_obsidian6.Notice(`Imported ${parsed.entries.length} entries`);
+        new import_obsidian5.Notice(`Imported ${parsed.entries.length} entries`);
         return true;
       }
     } catch (error) {
       console.error("Error importing timekeep data:", error);
-      new import_obsidian6.Notice("Error importing data");
+      new import_obsidian5.Notice("Error importing data");
     }
     return false;
+  }
+};
+
+// src/importModal.ts
+var import_obsidian6 = require("obsidian");
+var ImportModal = class extends import_obsidian6.Modal {
+  constructor(app, timerManager, onSuccess) {
+    super(app);
+    this.timerManager = timerManager;
+    this.onSuccess = onSuccess;
+  }
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.createEl("h2", { text: "Import Timekeep Data" });
+    contentEl.createEl("p", {
+      text: "Paste your Timekeep JSON data below. This can be from a timekeep codeblock or exported data.",
+      cls: "setting-item-description"
+    });
+    const textArea = contentEl.createEl("textarea", {
+      attr: {
+        rows: "15",
+        placeholder: '{"entries":[...]}'
+      }
+    });
+    textArea.style.width = "100%";
+    textArea.style.fontFamily = "monospace";
+    textArea.style.fontSize = "12px";
+    textArea.style.marginBottom = "15px";
+    const infoDiv = contentEl.createDiv();
+    infoDiv.style.marginBottom = "15px";
+    infoDiv.style.padding = "10px";
+    infoDiv.style.background = "var(--background-secondary)";
+    infoDiv.style.borderRadius = "5px";
+    infoDiv.createEl("strong", { text: "\u{1F4CB} How to get your data:" });
+    const list = infoDiv.createEl("ul");
+    list.createEl("li", { text: "Open your file with Timekeep codeblocks" });
+    list.createEl("li", { text: "Copy the entire JSON from inside the timekeep block" });
+    list.createEl("li", { text: "Paste it in the text area above" });
+    const buttonDiv = contentEl.createDiv();
+    buttonDiv.style.display = "flex";
+    buttonDiv.style.gap = "10px";
+    buttonDiv.style.justifyContent = "flex-end";
+    const cancelBtn = buttonDiv.createEl("button", { text: "Cancel" });
+    cancelBtn.onclick = () => this.close();
+    const importBtn = buttonDiv.createEl("button", { text: "Import", cls: "mod-cta" });
+    importBtn.onclick = async () => {
+      const jsonText = textArea.value.trim();
+      if (!jsonText) {
+        new import_obsidian6.Notice("\u26A0\uFE0F Please paste your Timekeep data");
+        return;
+      }
+      try {
+        const data = JSON.parse(jsonText);
+        if (!data.entries || !Array.isArray(data.entries)) {
+          new import_obsidian6.Notice('\u26A0\uFE0F Invalid format: missing "entries" array');
+          return;
+        }
+        if (data.entries.length > 0) {
+          const firstEntry = data.entries[0];
+          if (!firstEntry.hasOwnProperty("name") || !firstEntry.hasOwnProperty("startTime")) {
+            new import_obsidian6.Notice("\u26A0\uFE0F Invalid entry format: missing required fields (name, startTime)");
+            return;
+          }
+        }
+        const success = await this.timerManager.importTimekeepData(jsonText);
+        if (success) {
+          new import_obsidian6.Notice(`\u2705 Successfully imported ${data.entries.length} entries!`);
+          this.close();
+          this.onSuccess();
+        } else {
+          new import_obsidian6.Notice("\u274C Failed to import data");
+        }
+      } catch (error) {
+        if (error instanceof SyntaxError) {
+          new import_obsidian6.Notice("\u26A0\uFE0F Invalid JSON format. Please check your data.");
+        } else {
+          new import_obsidian6.Notice(`\u274C Error: ${error.message}`);
+        }
+        console.error("Import error:", error);
+      }
+    };
+    const hint = contentEl.createEl("div");
+    hint.style.marginTop = "10px";
+    hint.style.fontSize = "12px";
+    hint.style.color = "var(--text-muted)";
+    hint.textContent = '\u{1F4A1} Tip: You can also create "TimeFlow Data.md" manually in your vault root';
+  }
+  onClose() {
+    const { contentEl } = this;
+    contentEl.empty();
   }
 };
 

@@ -1,5 +1,6 @@
-import { App, PluginSettingTab, Setting } from 'obsidian';
+import { App, PluginSettingTab, Setting, Notice, Modal } from 'obsidian';
 import TimeFlowPlugin from './main';
+import { Utils } from './utils';
 
 export interface TimeFlowSettings {
 	version: string;
@@ -407,5 +408,163 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					}
 				}));
+
+		// Data Management
+		containerEl.createEl('h3', { text: 'Data Management' });
+
+		new Setting(containerEl)
+			.setName('Export Data to CSV')
+			.setDesc('Export all your time tracking data to a CSV file')
+			.addButton(button => button
+				.setButtonText('Export CSV')
+				.setCta()
+				.onClick(async () => {
+					this.exportToCSV();
+				}));
+
+		new Setting(containerEl)
+			.setName('Import Timekeep Data')
+			.setDesc('Import time tracking data from Timekeep JSON format')
+			.addButton(button => button
+				.setButtonText('Import Data')
+				.setCta()
+				.onClick(async () => {
+					this.showImportModal();
+				}));
+	}
+
+	exportToCSV(): void {
+		// Get all entries from timer manager
+		const entries = this.plugin.timerManager.convertToTimeEntries();
+		const rows: string[][] = [['Name', 'Start Time', 'End Time', 'Duration (hours)']];
+
+		entries.forEach((entry: any) => {
+			if (entry.startTime && entry.endTime) {
+				const start = new Date(entry.startTime);
+				const end = new Date(entry.endTime);
+				const durationHours = ((end.getTime() - start.getTime()) / (1000 * 60 * 60)).toFixed(2);
+
+				rows.push([
+					entry.name,
+					start.toISOString(),
+					end.toISOString(),
+					durationHours
+				]);
+			}
+		});
+
+		const csv = rows.map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+		const blob = new Blob([csv], { type: 'text/csv' });
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = `timeflow-export-${Utils.toLocalDateStr(new Date())}.csv`;
+		a.click();
+		URL.revokeObjectURL(url);
+
+		new Notice('✅ Exported to CSV');
+	}
+
+	showImportModal(): void {
+		const modal = new Modal(this.app);
+		modal.titleEl.setText('Import Timekeep Data');
+
+		const { contentEl } = modal;
+
+		contentEl.createEl('p', {
+			text: 'Paste your Timekeep JSON data below. This can be from a timekeep codeblock or exported data.',
+			cls: 'setting-item-description'
+		});
+
+		// Text area for JSON input
+		const textArea = contentEl.createEl('textarea', {
+			attr: {
+				rows: '15',
+				placeholder: '{"entries":[...]}'
+			}
+		});
+		textArea.style.width = '100%';
+		textArea.style.fontFamily = 'monospace';
+		textArea.style.fontSize = '12px';
+		textArea.style.marginBottom = '15px';
+
+		// Info section
+		const infoDiv = contentEl.createDiv();
+		infoDiv.style.marginBottom = '15px';
+		infoDiv.style.padding = '10px';
+		infoDiv.style.background = 'var(--background-secondary)';
+		infoDiv.style.borderRadius = '5px';
+
+		infoDiv.createEl('strong', { text: '📋 How to get your data:' });
+		const list = infoDiv.createEl('ul');
+		list.createEl('li', { text: 'Open your file with Timekeep codeblocks' });
+		list.createEl('li', { text: 'Copy the entire JSON from inside the timekeep block' });
+		list.createEl('li', { text: 'Paste it in the text area above' });
+
+		// Buttons
+		const buttonDiv = contentEl.createDiv();
+		buttonDiv.style.display = 'flex';
+		buttonDiv.style.gap = '10px';
+		buttonDiv.style.justifyContent = 'flex-end';
+
+		const cancelBtn = buttonDiv.createEl('button', { text: 'Cancel' });
+		cancelBtn.onclick = () => modal.close();
+
+		const importBtn = buttonDiv.createEl('button', { text: 'Import', cls: 'mod-cta' });
+		importBtn.onclick = async () => {
+			const jsonText = textArea.value.trim();
+			if (!jsonText) {
+				new Notice('⚠️ Please paste your Timekeep data');
+				return;
+			}
+
+			try {
+				// Try to parse JSON
+				const data = JSON.parse(jsonText);
+
+				// Validate structure
+				if (!data.entries || !Array.isArray(data.entries)) {
+					new Notice('⚠️ Invalid format: missing "entries" array');
+					return;
+				}
+
+				// Validate at least one entry has the right structure
+				if (data.entries.length > 0) {
+					const firstEntry = data.entries[0];
+					if (!firstEntry.hasOwnProperty('name') || !firstEntry.hasOwnProperty('startTime')) {
+						new Notice('⚠️ Invalid entry format: missing required fields (name, startTime)');
+						return;
+					}
+				}
+
+				// Import the data
+				const success = await this.plugin.timerManager.importTimekeepData(jsonText);
+
+				if (success) {
+					new Notice(`✅ Successfully imported ${data.entries.length} entries!`);
+					modal.close();
+					await this.refreshView();
+				} else {
+					new Notice('❌ Failed to import data');
+				}
+
+			} catch (error: any) {
+				if (error instanceof SyntaxError) {
+					new Notice('⚠️ Invalid JSON format. Please check your data.');
+				} else {
+					new Notice(`❌ Error: ${error.message}`);
+				}
+				console.error('Import error:', error);
+			}
+		};
+
+		// Add keyboard shortcut hint
+		const hint = contentEl.createEl('div');
+		hint.style.marginTop = '10px';
+		hint.style.fontSize = '12px';
+		hint.style.color = 'var(--text-muted)';
+		hint.textContent = '💡 Tip: You can also create "TimeFlow Data.md" manually in your vault root';
+
+		modal.open();
 	}
 }
