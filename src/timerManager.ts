@@ -1,0 +1,277 @@
+import { App, TFile, Notice } from 'obsidian';
+import { TimeFlowSettings } from './settings';
+import { Utils } from './utils';
+
+// Timekeep-compatible format
+export interface Timer {
+	name: string;
+	startTime: string | null;
+	endTime: string | null;
+	collapsed?: boolean;
+	subEntries: Timer[] | null;
+}
+
+export interface TimekeepData {
+	entries: Timer[];
+}
+
+export class TimerManager {
+	app: App;
+	settings: TimeFlowSettings;
+	data: TimekeepData;
+	dataFile: string = 'TimeFlow Data.md'; // Main data file
+	onTimerChange?: () => void;
+
+	constructor(app: App, settings: TimeFlowSettings) {
+		this.app = app;
+		this.settings = settings;
+		this.data = { entries: [] };
+	}
+
+	async load(): Promise<void> {
+		try {
+			const file = this.app.vault.getAbstractFileByPath(this.dataFile);
+			if (file && file instanceof TFile) {
+				const content = await this.app.vault.read(file);
+				const parsed = this.parseTimekeepData(content);
+				if (parsed) {
+					this.data = parsed;
+				}
+			} else {
+				// Create the file if it doesn't exist
+				await this.createDataFile();
+			}
+		} catch (error) {
+			console.error('Error loading timer data:', error);
+			this.data = { entries: [] };
+		}
+	}
+
+	async createDataFile(): Promise<void> {
+		const content = `# TimeFlow Data
+
+This file contains your time tracking data in Timekeep-compatible format.
+
+\`\`\`timekeep
+${JSON.stringify(this.data)}
+\`\`\`
+`;
+		await this.app.vault.create(this.dataFile, content);
+	}
+
+	parseTimekeepData(content: string): TimekeepData | null {
+		try {
+			// Extract JSON from timekeep codeblock
+			const match = content.match(/```timekeep\s*\n([\s\S]*?)\n```/);
+			if (match && match[1]) {
+				return JSON.parse(match[1]);
+			}
+		} catch (error) {
+			console.error('Error parsing timekeep data:', error);
+		}
+		return null;
+	}
+
+	async save(): Promise<void> {
+		try {
+			const file = this.app.vault.getAbstractFileByPath(this.dataFile);
+			const content = `# TimeFlow Data
+
+This file contains your time tracking data in Timekeep-compatible format.
+
+\`\`\`timekeep
+${JSON.stringify(this.data, null, 2)}
+\`\`\`
+`;
+
+			if (file && file instanceof TFile) {
+				await this.app.vault.modify(file, content);
+			} else {
+				await this.app.vault.create(this.dataFile, content);
+			}
+		} catch (error) {
+			console.error('Error saving timer data:', error);
+		}
+	}
+
+	async startTimer(name: string = 'Jobb'): Promise<Timer> {
+		const timer: Timer = {
+			name,
+			startTime: new Date().toISOString(),
+			endTime: null,
+			subEntries: null
+		};
+
+		this.data.entries.push(timer);
+		await this.save();
+
+		if (this.onTimerChange) {
+			this.onTimerChange();
+		}
+
+		new Notice(`⏱️ Timer started: ${name}`);
+		return timer;
+	}
+
+	async stopTimer(timer: Timer): Promise<Timer | null> {
+		if (!timer.startTime || timer.endTime) {
+			return null;
+		}
+
+		timer.endTime = new Date().toISOString();
+		await this.save();
+
+		if (this.onTimerChange) {
+			this.onTimerChange();
+		}
+
+		const duration = Utils.hoursDiff(
+			new Date(timer.startTime),
+			new Date(timer.endTime)
+		);
+
+		new Notice(`✅ Timer stopped: ${timer.name} (${Utils.formatHoursToHM(duration)})`);
+		return timer;
+	}
+
+	async stopAllTimers(): Promise<void> {
+		const activeTimers = this.getActiveTimers();
+		for (const timer of activeTimers) {
+			await this.stopTimer(timer);
+		}
+	}
+
+	async deleteTimer(timer: Timer): Promise<boolean> {
+		const index = this.data.entries.indexOf(timer);
+		if (index !== -1) {
+			this.data.entries.splice(index, 1);
+			await this.save();
+
+			if (this.onTimerChange) {
+				this.onTimerChange();
+			}
+
+			new Notice('Timer deleted');
+			return true;
+		}
+		return false;
+	}
+
+	getActiveTimers(): Timer[] {
+		return this.data.entries.filter(e => e.startTime && !e.endTime && !e.collapsed);
+	}
+
+	getCompletedTimers(): Timer[] {
+		return this.data.entries.filter(e => e.startTime && e.endTime);
+	}
+
+	getAllTimers(): Timer[] {
+		return this.data.entries;
+	}
+
+	// Flatten all entries including subEntries for DataManager
+	convertToTimeEntries(): any[] {
+		const flatEntries: any[] = [];
+
+		const flattenEntry = (entry: Timer) => {
+			if (entry.collapsed && entry.subEntries) {
+				// If collapsed, include subEntries instead of parent
+				entry.subEntries.forEach(sub => flattenEntry(sub));
+			} else if (entry.startTime) {
+				// Include the entry itself
+				flatEntries.push({
+					name: entry.name,
+					startTime: entry.startTime,
+					endTime: entry.endTime,
+					subEntries: null
+				});
+			}
+		};
+
+		this.data.entries.forEach(entry => flattenEntry(entry));
+		return flatEntries;
+	}
+
+	// Get running time for active timer
+	getRunningTime(timer: Timer): number {
+		if (!timer.startTime || timer.endTime) return 0;
+		const now = new Date();
+		const start = new Date(timer.startTime);
+		return Utils.hoursDiff(start, now);
+	}
+
+	// Get total running time for all active timers
+	getTotalRunningTime(): number {
+		return this.getActiveTimers().reduce((total, timer) => {
+			return total + this.getRunningTime(timer);
+		}, 0);
+	}
+
+	// Load data from multiple sources (daily notes with timekeep codeblocks)
+	async loadFromDailyNotes(): Promise<void> {
+		try {
+			const files = this.app.vault.getMarkdownFiles();
+			const dailyNotesFolder = this.settings.dailyNotesFolder;
+
+			let allEntries: Timer[] = [];
+
+			for (const file of files) {
+				// Check if file is in daily notes folder
+				if (file.path.startsWith(dailyNotesFolder)) {
+					const content = await this.app.vault.read(file);
+					const parsed = this.parseTimekeepData(content);
+					if (parsed && parsed.entries) {
+						allEntries = allEntries.concat(parsed.entries);
+					}
+				}
+			}
+
+			// Merge with current data (avoid duplicates)
+			const currentEntries = this.data.entries;
+			allEntries.forEach(entry => {
+				// Simple duplicate check: same name, startTime, and endTime
+				const isDuplicate = currentEntries.some(e =>
+					e.name === entry.name &&
+					e.startTime === entry.startTime &&
+					e.endTime === entry.endTime
+				);
+				if (!isDuplicate) {
+					currentEntries.push(entry);
+				}
+			});
+
+			this.data.entries = currentEntries;
+			await this.save();
+
+		} catch (error) {
+			console.error('Error loading from daily notes:', error);
+		}
+	}
+
+	// Export to Timekeep format for other tools
+	exportTimekeepFormat(): string {
+		return JSON.stringify(this.data, null, 2);
+	}
+
+	// Import from Timekeep JSON
+	async importTimekeepData(jsonData: string): Promise<boolean> {
+		try {
+			const parsed: TimekeepData = JSON.parse(jsonData);
+			if (parsed && parsed.entries) {
+				this.data = parsed;
+				await this.save();
+
+				if (this.onTimerChange) {
+					this.onTimerChange();
+				}
+
+				new Notice(`Imported ${parsed.entries.length} entries`);
+				return true;
+			}
+		} catch (error) {
+			console.error('Error importing timekeep data:', error);
+			new Notice('Error importing data');
+		}
+		return false;
+	}
+}
