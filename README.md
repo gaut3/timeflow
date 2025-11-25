@@ -250,15 +250,6 @@ timeflow-plugin/
 - Ensure the file exists in your vault
 - File path should be relative to vault root
 
-## Credits
-
-Original dataview script by Gaute
-Converted to Obsidian plugin with full TypeScript implementation
-
-## License
-
-MIT License
-
 ## Support
 
 For issues and feature requests, please create an issue on GitHub.
@@ -278,3 +269,4 @@ For issues and feature requests, please create an issue on GitHub.
 - Improved performance with caching
 - Better error handling and validation
 - Self-contained solution with integrated time tracking
+
