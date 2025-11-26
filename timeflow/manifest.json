@@ -1,0 +1,11 @@
+{
+	"id": "timeflow",
+	"name": "timeflow",
+	"version": "1.0.0",
+	"minAppVersion": "0.15.0",
+	"description": "timeflow Fleksitid Dashboard - Track flexible work hours, overtime, and time off with beautiful visualizations and statistics.",
+	"author": "Gaute",
+	"authorUrl": "",
+	"fundingUrl": "",
+	"isDesktopOnly": false
+}

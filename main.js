@@ -4070,12 +4070,12 @@ var TimeFlowPlugin = class extends import_obsidian7.Plugin {
       VIEW_TYPE_TIMEFLOW,
       (leaf) => new TimeFlowView(leaf, this)
     );
-    this.addRibbonIcon("calendar-clock", "Open TimeFlow", () => {
+    this.addRibbonIcon("calendar-clock", "Open timeflow", () => {
       this.activateView();
     });
     this.addCommand({
       id: "open-timeflow",
-      name: "Open TimeFlow Dashboard",
+      name: "Open timeflow Dashboard",
       callback: () => {
         this.activateView();
       }

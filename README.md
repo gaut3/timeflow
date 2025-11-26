@@ -1,8 +1,8 @@
-# TimeFlow Plugin
+# timeflow Plugin
 
-TimeFlow is an Obsidian plugin that provides a comprehensive flextime tracking dashboard with **built-in timer functionality**, beautiful visualizations, and extensive customization options.
+timeflow is an Obsidian plugin that provides a comprehensive flextime tracking dashboard with **built-in timer functionality**, beautiful visualizations, and extensive customization options.
 
-![TimeFlow Dashboard](timeflow.png)
+![timeflow Dashboard](timeflow.png)
 
 ## Features
 
@@ -81,7 +81,7 @@ TimeFlow is an Obsidian plugin that provides a comprehensive flextime tracking d
 ## Requirements
 
 - **Obsidian** v0.15.0 or higher
-- **No external plugins required!** - TimeFlow has its own built-in timer system
+- **No external plugins required!** - timeflow has its own built-in timer system
 
 ## Installation
 
@@ -97,7 +97,7 @@ TimeFlow is an Obsidian plugin that provides a comprehensive flextime tracking d
    npm run build
    ```
 4. Reload Obsidian
-5. Enable the TimeFlow plugin in Obsidian settings
+5. Enable the timeflow plugin in Obsidian settings
 
 ### Manual Installation
 
@@ -111,7 +111,7 @@ TimeFlow is an Obsidian plugin that provides a comprehensive flextime tracking d
 ### Opening the Dashboard
 
 - Click the calendar-clock icon in the ribbon
-- Or use the command palette: "Open TimeFlow Dashboard"
+- Or use the command palette: "Open timeflow Dashboard"
 
 ### Using Timers
 
@@ -139,7 +139,7 @@ TimeFlow is an Obsidian plugin that provides a comprehensive flextime tracking d
 
 #### Backwards Compatibility with Timekeep
 
-TimeFlow uses the exact same data format as the Timekeep plugin:
+timeflow uses the exact same data format as the Timekeep plugin:
 
 ```markdown
 # timeflow data
@@ -175,7 +175,7 @@ This means:
 
 ### File Structure
 
-TimeFlow uses a simple folder structure to organize its files:
+timeflow uses a simple folder structure to organize its files:
 
 ```
 Your Vault/
@@ -194,7 +194,7 @@ Your Vault/
 
 ## Configuration
 
-Go to Settings → TimeFlow to configure:
+Go to Settings → timeflow to configure:
 
 ### Display Settings
 - **Theme** - Choose between Light, Dark, or System theme
@@ -267,7 +267,7 @@ Supported types:
 
 If you have existing Timekeep data, you can easily migrate:
 
-1. **Use the Import button**: In the Settings → TimeFlow → Data Management section
+1. **Use the Import button**: In the Settings → timeflow → Data Management section
 2. **Paste your JSON**: Copy the JSON data from your Timekeep codeblocks
 3. **Automatic duplicate detection**: The import process will skip duplicate entries
 4. **Or manually create the file**: Create `timeflow/data.md` with the format shown above
@@ -279,7 +279,7 @@ The import feature automatically:
 
 ## Configuration Examples for Different Work Scenarios
 
-These examples show how to configure the plugin settings for common work situations. All values are set in Settings → TimeFlow.
+These examples show how to configure the plugin settings for common work situations. All values are set in Settings → timeflow.
 
 ### Standard Norwegian Worker
 ```
@@ -431,7 +431,7 @@ The dashboard adapts to different screen sizes:
 - Verify entries don't have overlapping time ranges
 
 ### Holiday file not found
-- Check the file path in settings (Settings → TimeFlow → File Paths)
+- Check the file path in settings (Settings → timeflow → File Paths)
 - Ensure the file exists in your vault
 - File path should be relative to vault root
 

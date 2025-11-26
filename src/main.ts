@@ -33,15 +33,15 @@ export default class TimeFlowPlugin extends Plugin {
 			(leaf) => new TimeFlowView(leaf, this)
 		);
 
-		// Add ribbon icon to open TimeFlow
-		this.addRibbonIcon('calendar-clock', 'Open TimeFlow', () => {
+		// Add ribbon icon to open timeflow
+		this.addRibbonIcon('calendar-clock', 'Open timeflow', () => {
 			this.activateView();
 		});
 
-		// Add command to open TimeFlow
+		// Add command to open timeflow
 		this.addCommand({
 			id: 'open-timeflow',
-			name: 'Open TimeFlow Dashboard',
+			name: 'Open timeflow Dashboard',
 			callback: () => {
 				this.activateView();
 			}
