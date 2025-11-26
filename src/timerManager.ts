@@ -13,6 +13,7 @@ export interface Timer {
 
 export interface TimekeepData {
 	entries: Timer[];
+	settings?: Partial<TimeFlowSettings>;
 }
 
 export class TimerManager {
@@ -28,7 +29,7 @@ export class TimerManager {
 		this.data = { entries: [] };
 	}
 
-	async load(): Promise<void> {
+	async load(): Promise<TimeFlowSettings | null> {
 		console.log('TimeFlow: Starting load() from', this.dataFile);
 		try {
 			// Check if file exists using the adapter
@@ -44,6 +45,12 @@ export class TimerManager {
 				if (parsed) {
 					this.data = parsed;
 					console.log('TimeFlow: Loaded', this.data.entries.length, 'entries from', this.dataFile);
+
+					// Return settings from data file if they exist
+					if (parsed.settings) {
+						console.log('TimeFlow: Found synced settings in data file');
+						return parsed.settings as TimeFlowSettings;
+					}
 				} else {
 					console.warn('TimeFlow: Could not parse data from', this.dataFile);
 					this.data = { entries: [] };
@@ -57,6 +64,7 @@ export class TimerManager {
 			console.error('TimeFlow: Error loading timer data:', error);
 			this.data = { entries: [] };
 		}
+		return null;
 	}
 
 	async createDataFile(): Promise<void> {
@@ -118,6 +126,14 @@ ${JSON.stringify(this.data, null, 2)}
 		} catch (error) {
 			console.error('TimeFlow: Error saving timer data:', error);
 		}
+	}
+
+	// Save settings to the data file for cross-device sync
+	async saveSettings(settings: TimeFlowSettings): Promise<void> {
+		this.settings = settings;
+		this.data.settings = settings;
+		await this.save();
+		console.log('TimeFlow: Saved settings to data file for sync');
 	}
 
 	async startTimer(name: string = 'Jobb'): Promise<Timer> {
@@ -284,19 +300,45 @@ ${JSON.stringify(this.data, null, 2)}
 		try {
 			const parsed: TimekeepData = JSON.parse(jsonData);
 			if (parsed && parsed.entries) {
-				this.data = parsed;
+				// Merge with current data, avoiding duplicates
+				const currentEntries = this.data.entries;
+				let addedCount = 0;
+				let skippedCount = 0;
+
+				parsed.entries.forEach(entry => {
+					// Check for duplicates: same name, startTime, and endTime
+					const isDuplicate = currentEntries.some(e =>
+						e.name === entry.name &&
+						e.startTime === entry.startTime &&
+						e.endTime === entry.endTime
+					);
+
+					if (!isDuplicate) {
+						currentEntries.push(entry);
+						addedCount++;
+					} else {
+						skippedCount++;
+					}
+				});
+
+				this.data.entries = currentEntries;
 				await this.save();
 
 				if (this.onTimerChange) {
 					this.onTimerChange();
 				}
 
-				new Notice(`Imported ${parsed.entries.length} entries`);
+				// Show detailed notice about import results
+				if (skippedCount > 0) {
+					new Notice(`✅ Imported ${addedCount} entries, skipped ${skippedCount} duplicates`);
+				} else {
+					new Notice(`✅ Imported ${addedCount} entries`);
+				}
 				return true;
 			}
 		} catch (error) {
 			console.error('Error importing timekeep data:', error);
-			new Notice('Error importing data');
+			new Notice('❌ Error importing data');
 		}
 		return false;
 	}

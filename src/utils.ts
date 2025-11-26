@@ -33,13 +33,21 @@ export const Utils = {
 
 	hoursDiff: (start: Date, end: Date): number => (end.getTime() - start.getTime()) / 3600000,
 
-	isWeekend: (date: Date | null): boolean =>
-		date ? (date.getDay() === 0 || date.getDay() === 6) : false,
+	isWeekend: (date: Date | null, settings?: TimeFlowSettings): boolean => {
+		if (!date) return false;
+		const day = date.getDay();
+		// If no settings provided, use default behavior (Saturday = 6, Sunday = 0)
+		if (!settings) return day === 0 || day === 6;
+		// Check if Saturday or Sunday should be considered weekend based on settings
+		const isSaturday = day === 6 && !settings.includeSaturdayInWorkWeek;
+		const isSunday = day === 0 && !settings.includeSundayInWorkWeek;
+		return isSaturday || isSunday;
+	},
 
-	formatHoursToHM: (hours: number): string => {
+	formatHoursToHM: (hours: number, unit: 'h' | 't' = 'h'): string => {
 		const h = Math.floor(hours);
 		const m = Math.round((hours - h) * 60);
-		return `${h}h ${m.toString().padStart(2, "0")}m`;
+		return `${h}${unit} ${m.toString().padStart(2, "0")}m`;
 	},
 
 	toLocalDateStr: (date: Date): string => {

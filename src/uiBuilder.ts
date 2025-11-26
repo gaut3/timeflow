@@ -67,9 +67,8 @@ export class UIBuilder {
 			/* TimeFlow Dashboard Styles */
 			.timeflow-dashboard {
 				font-family: var(--font-text);
-				max-width: 1200px;
-				margin: 0 auto;
 				padding: 20px;
+				width: 100%;
 			}
 
 			.timeflow-error, .timeflow-warning {
@@ -86,6 +85,18 @@ export class UIBuilder {
 			.timeflow-warning {
 				background: var(--background-modifier-warning);
 				color: var(--text-warning);
+			}
+
+			/* Pulse animation for active entry indicator */
+			@keyframes pulse {
+				0%, 100% {
+					opacity: 1;
+					transform: scale(1);
+				}
+				50% {
+					opacity: 0.6;
+					transform: scale(1.1);
+				}
 			}
 
 			.tf-badge-section {
@@ -199,16 +210,30 @@ export class UIBuilder {
 			}
 
 			.tf-summary-cards {
-				display: flex;
+				display: grid;
+				grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 				gap: 15px;
 				margin-bottom: 20px;
-				flex-wrap: wrap;
+			}
+
+			/* Day and week cards stay side-by-side in row 1, calendar always below in row 2 */
+			.tf-card-month {
+				grid-column: 1 / -1; /* Calendar takes full width below */
+			}
+
+			/* On mobile, stack everything vertically */
+			@media (max-width: 500px) {
+				.tf-summary-cards {
+					grid-template-columns: 1fr;
+				}
+
+				.tf-card-month {
+					grid-column: 1;
+				}
 			}
 
 			/* Default card styling - used for month card */
 			.tf-card {
-				flex: 1;
-				min-width: 280px;
 				padding: 20px;
 				border-radius: 12px;
 				background: linear-gradient(135deg, #f0f4c3, #e1f5fe);
@@ -326,7 +351,7 @@ export class UIBuilder {
 			.tf-month-grid {
 				display: grid;
 				grid-template-columns: repeat(7, 1fr);
-				gap: 8px;
+				gap: 12px;
 				margin-top: 15px;
 			}
 
@@ -578,6 +603,42 @@ export class UIBuilder {
 				padding: 4px;
 				z-index: 1000;
 				min-width: 200px;
+				display: flex;
+				gap: 0;
+			}
+
+			.tf-context-menu-main {
+				flex: 0 0 auto;
+				min-width: 200px;
+			}
+
+			.tf-context-menu-info {
+				flex: 0 0 auto;
+				width: 250px;
+				padding: 12px;
+				border-left: 1px solid var(--background-modifier-border);
+				background: var(--background-secondary);
+				font-size: 0.85em;
+				line-height: 1.4;
+			}
+
+			.timeflow-theme-dark .tf-context-menu-info {
+				background: rgba(0, 0, 0, 0.2);
+			}
+
+			.tf-context-menu-info h4 {
+				margin: 0 0 8px 0;
+				font-size: 0.95em;
+				color: var(--text-normal);
+			}
+
+			.tf-context-menu-info p {
+				margin: 4px 0;
+				color: var(--text-muted);
+			}
+
+			.tf-context-menu-info strong {
+				color: var(--text-normal);
 			}
 
 			.tf-menu-item {
@@ -685,10 +746,6 @@ export class UIBuilder {
 			}
 
 			@media (max-width: 768px) {
-				.tf-summary-cards {
-					flex-direction: column;
-				}
-
 				.tf-stats-grid {
 					grid-template-columns: 1fr;
 				}
@@ -736,7 +793,7 @@ export class UIBuilder {
 
 		if (activeTimers.length === 0) {
 			// Start button badge
-			this.elements.timerBadge.textContent = "▶️ Start Timer";
+			this.elements.timerBadge.textContent = "Start";
 			this.elements.timerBadge.style.background = "linear-gradient(90deg, #4caf50, #2e7d32)";
 			this.elements.timerBadge.style.color = "white";
 			this.elements.timerBadge.onclick = async () => {
@@ -745,7 +802,7 @@ export class UIBuilder {
 			};
 		} else {
 			// Stop button badge (active timer)
-			this.elements.timerBadge.textContent = "⏹️ Stop Timer";
+			this.elements.timerBadge.textContent = "Stopp";
 			this.elements.timerBadge.style.background = "linear-gradient(90deg, #f44336, #c62828)";
 			this.elements.timerBadge.style.color = "white";
 			this.elements.timerBadge.onclick = async () => {
@@ -787,7 +844,7 @@ export class UIBuilder {
 
 	createMonthCard(): HTMLElement {
 		const card = document.createElement("div");
-		card.className = "tf-card";
+		card.className = "tf-card tf-card-month";
 
 		const header = document.createElement("div");
 		header.style.display = "flex";
@@ -912,18 +969,83 @@ export class UIBuilder {
 
 		const content = document.createElement("div");
 		content.className = "tf-collapsible-content";
+
+		// Special day types with explanations
+		const specialDayInfo = [
+			{ key: "avspasering", emoji: "🛌", desc: "Trekkes fra fleksitid" },
+			{ key: "egenmelding", emoji: "🤒", desc: "Påvirker ikke fleksitid" },
+			{ key: "ferie", emoji: "🏖️", desc: "Påvirker ikke fleksitid" },
+			{ key: "velferdspermisjon", emoji: "🏥", desc: "Påvirker ikke fleksitid" },
+			{ key: "studie", emoji: "📖", desc: "Teller som fleksitid ved mer enn 7,5t" },
+			{ key: "kurs", emoji: "📚", desc: "Teller som fleksitid ved mer enn 7,5t" },
+			{ key: "helligdag", emoji: "🎉", desc: "Offentlig fridag - påvirker ikke fleksitid" },
+			{ key: "halfday", emoji: "⏰", desc: "Halv arbeidsdag (4t) - reduserer ukemålet med 4t" },
+			{ key: "Ingen registrering", emoji: "⚪", desc: "Ingen data for den dagen" }
+		];
+
 		content.innerHTML = `
 			<div style="margin-top: 15px;">
-				<h4>Fargeforklaring</h4>
-				<div style="display: grid; gap: 8px;">
-					${Object.entries(getSpecialDayColors(this.settings)).map(([key, color]) => {
-						// Use custom label if available, otherwise use the key
-						const label = this.settings.specialDayLabels[key as keyof typeof this.settings.specialDayLabels] || key;
-						return `<div style="display: flex; align-items: center; gap: 10px;">
-							<div style="width: 20px; height: 20px; background: ${color}; border-radius: 4px;"></div>
-							<span>${label}</span>
-						</div>`;
+				<h4>Spesielle dagtyper</h4>
+				<ul style="list-style: none; padding-left: 0; margin-bottom: 20px;">
+					${specialDayInfo.map(item => {
+						const color = getSpecialDayColors(this.settings)[item.key] || "transparent";
+						const label = this.settings.specialDayLabels[item.key as keyof typeof this.settings.specialDayLabels] || item.key;
+						return `<li style="display: flex; align-items: center; margin-bottom: 8px; font-size: 0.95em;">
+							<div style="width: 16px; height: 16px; background: ${color}; border-radius: 3px; border: 1px solid var(--background-modifier-border); margin-right: 8px; flex-shrink: 0;"></div>
+							<span>${item.emoji} <strong>${label}</strong>: ${item.desc}</span>
+						</li>`;
 					}).join('')}
+				</ul>
+
+				<div style="margin-top: 20px; padding: 12px; background: var(--background-primary); border-radius: 8px;">
+					<h4 style="margin-top: 0;">Kalenderkontekstmeny</h4>
+					<p style="margin: 8px 0; font-size: 0.9em;">
+						Høyreklikk på en dag i kalenderen for å få opp en meny med flere alternativer:
+					</p>
+					<ul style="margin: 8px 0 0 20px; font-size: 0.9em;">
+						<li>Opprett daglig notat for valgt dag</li>
+						<li>Opprett møtenotat, prosjektnotat eller refleksjonsnotat</li>
+						<li>Rediger fleksitid for dagen manuelt</li>
+						<li>Registrer spesielle dagtyper (ferie, kurs, avspasering, etc.)</li>
+					</ul>
+				</div>
+
+				<div style="margin-top: 20px; padding: 12px; background: var(--background-primary); border-radius: 8px;">
+					<h4 style="margin-top: 0;">Timesaldo - advarselsoner</h4>
+					<div style="display: flex; flex-direction: column; gap: 8px; font-size: 0.9em;">
+						<div style="display: flex; align-items: center; gap: 8px;">
+							<span style="display: inline-block; width: 20px; height: 20px; border-radius: 4px; background: #4caf50; flex-shrink: 0;"></span>
+							<span><strong>Grønn sone:</strong> 0t til +80t (trygg)</span>
+						</div>
+						<div style="display: flex; align-items: center; gap: 8px;">
+							<span style="display: inline-block; width: 20px; height: 20px; border-radius: 4px; background: #ff9800; flex-shrink: 0;"></span>
+							<span><strong>Gul sone:</strong> -15t til -1t ELLER +80t til +95t (forsiktig)</span>
+						</div>
+						<div style="display: flex; align-items: center; gap: 8px;">
+							<span style="display: inline-block; width: 20px; height: 20px; border-radius: 4px; background: #f44336; flex-shrink: 0;"></span>
+							<span><strong>Rød sone:</strong> Under -15t ELLER over +95t (kritisk)</span>
+						</div>
+					</div>
+					<div style="margin-top: 10px; font-size: 0.85em; opacity: 0.8;">
+						<em>Grenser: -20t til +100t</em>
+					</div>
+				</div>
+
+				<div style="margin-top: 20px;">
+					<h4>Arbeidsdager - fargegradient</h4>
+					<p style="margin: 8px 0; font-size: 0.9em;">
+						Arbeidsdager vises med farge basert på hvor mye du jobbet i forhold til dagens mål (${this.settings.baseWorkday}t):
+					</p>
+					<div style="margin-top: 10px;">
+						<div style="height: 16px; border-radius: 8px; background: linear-gradient(to right, rgb(0,200,100), rgb(255,255,0), rgb(255,0,0)); margin: 4px 0; border: 1px solid var(--background-modifier-border);"></div>
+						<div style="display: flex; justify-content: space-between; font-size: 0.85em; color: var(--text-muted); margin-bottom: 12px;">
+							<span>0t over mål</span><span>+1,5t</span><span>+3t eller mer</span>
+						</div>
+						<div style="height: 16px; border-radius: 8px; background: linear-gradient(to right, rgb(100,150,255), rgb(150,200,255), rgb(200,220,255)); margin: 4px 0; border: 1px solid var(--background-modifier-border);"></div>
+						<div style="display: flex; justify-content: space-between; font-size: 0.85em; color: var(--text-muted);">
+							<span>-3t eller mindre</span><span>-1,5t</span><span>0t fra mål</span>
+						</div>
+					</div>
 				</div>
 			</div>
 		`;
@@ -1033,7 +1155,7 @@ export class UIBuilder {
 	updateBadge(): void {
 		if (!this.elements.badge) return;
 		const balance = this.data.getCurrentBalance();
-		const formatted = Utils.formatHoursToHM(Math.abs(balance));
+		const formatted = Utils.formatHoursToHM(Math.abs(balance), this.settings.hourUnit);
 		const sign = balance >= 0 ? "+" : "-";
 
 		let color = "#4caf50"; // green
@@ -1045,7 +1167,7 @@ export class UIBuilder {
 
 		this.elements.badge.style.background = color;
 		this.elements.badge.style.color = "white";
-		this.elements.badge.textContent = `⏱️ Timesaldo: ${sign}${formatted}`;
+		this.elements.badge.textContent = `Timesaldo: ${sign}${formatted}`;
 	}
 
 	updateDayCard(): void {
@@ -1055,7 +1177,7 @@ export class UIBuilder {
 		const todayKey = Utils.toLocalDateStr(today);
 		const todayHours = this.data.getTodayHours(today);
 		const goal = this.data.getDailyGoal(todayKey);
-		const isWeekendDay = Utils.isWeekend(today);
+		const isWeekendDay = Utils.isWeekend(today, this.settings);
 		const context = this.data.getContextualData(today);
 		const { avgDaily } = this.data.getAverages();
 
@@ -1097,10 +1219,10 @@ export class UIBuilder {
 		this.elements.dayCard.innerHTML = `
 			<h3 style="color: ${textColor};">I dag</h3>
 			<div style="font-size: 32px; font-weight: bold; margin: 10px 0;">
-				${Utils.formatHoursToHM(todayHours)}
+				${Utils.formatHoursToHM(todayHours, this.settings.hourUnit)}
 			</div>
 			<div style="font-size: 14px; opacity: 0.9; margin-bottom: 10px;">
-				Mål: ${Utils.formatHoursToHM(goal)}
+				Mål: ${Utils.formatHoursToHM(goal, this.settings.hourUnit)}
 			</div>
 			<div class="tf-progress-bar">
 				<div class="tf-progress-fill" style="width: ${progress}%"></div>
@@ -1141,7 +1263,7 @@ export class UIBuilder {
 				specials.push(holidayInfo.type);
 			}
 
-			if (Utils.isWeekend(d)) {
+			if (Utils.isWeekend(d, this.settings)) {
 				const dayEntries = this.data.daily[dayKey] || [];
 				weekendWorkHours += dayEntries.reduce((sum, e) => sum + (e.duration || 0), 0);
 			}
@@ -1178,10 +1300,10 @@ export class UIBuilder {
 		this.elements.weekCard.innerHTML = `
 			<h3 style="color: ${textColor};">Denne uken</h3>
 			<div style="font-size: 32px; font-weight: bold; margin: 10px 0;">
-				${Utils.formatHoursToHM(weekHours)}
+				${Utils.formatHoursToHM(weekHours, this.settings.hourUnit)}
 			</div>
 			<div style="font-size: 14px; opacity: 0.9; margin-bottom: 10px;">
-				Mål: ${Utils.formatHoursToHM(adjustedGoal)}
+				Mål: ${Utils.formatHoursToHM(adjustedGoal, this.settings.hourUnit)}
 			</div>
 			<div class="tf-progress-bar">
 				<div class="tf-progress-fill" style="width: ${progress}%"></div>
@@ -1283,6 +1405,11 @@ export class UIBuilder {
 				<div class="tf-stat-value">${stats.jobb.count} ${stats.jobb.count === 1 ? 'dag' : 'dager'}</div>
 				<div style="font-size: 0.75em; margin-top: 4px;">${stats.jobb.hours.toFixed(1)}t</div>
 			</div>
+			${stats.weekendDays > 0 ? `<div class="tf-stat-item">
+				<div class="tf-stat-label">🌙 Helgedager jobbet</div>
+				<div class="tf-stat-value">${stats.weekendDays} ${stats.weekendDays === 1 ? 'dag' : 'dager'}</div>
+				<div style="font-size: 0.75em; margin-top: 4px;">${stats.weekendHours.toFixed(1)}t</div>
+			</div>` : ''}
 			<div class="tf-stat-item">
 				<div class="tf-stat-label">🛌 Avspasering</div>
 				<div class="tf-stat-value">${stats.avspasering.count} ${stats.avspasering.count === 1 ? 'dag' : 'dager'}</div>
@@ -1422,11 +1549,23 @@ export class UIBuilder {
 				// Regular work day - show flextime color
 				const dayFlextime = dayEntries.reduce((sum, e) => sum + (e.flextime || 0), 0);
 				cell.style.background = this.flextimeColor(dayFlextime);
-			} else if (Utils.isWeekend(date)) {
+			} else if (Utils.isWeekend(date, this.settings)) {
 				// Darker gray for weekends with no data
 				cell.style.background = "#b0b0b0";
 			} else {
-				cell.style.background = "#fff";
+				// Check if date is in the past
+				const today = new Date();
+				today.setHours(0, 0, 0, 0);
+				const cellDate = new Date(date);
+				cellDate.setHours(0, 0, 0, 0);
+
+				if (cellDate < today) {
+					// Light gray for past empty weekdays
+					cell.style.background = "#e0e0e0";
+				} else {
+					// Transparent for future empty weekdays
+					cell.style.background = "transparent";
+				}
 			}
 
 			// Add appropriate text color class
@@ -1434,11 +1573,37 @@ export class UIBuilder {
 				cell.classList.add("has-entry");
 			} else {
 				cell.classList.add("no-entry");
+				// White text for future empty weekdays only
+				const today = new Date();
+				today.setHours(0, 0, 0, 0);
+				const cellDate = new Date(date);
+				cellDate.setHours(0, 0, 0, 0);
+
+				if (!Utils.isWeekend(date, this.settings) && cellDate >= today) {
+					cell.style.color = "#ffffff";
+				}
 			}
 
 			// Highlight today
 			if (dateKey === todayKey) {
 				cell.classList.add("today");
+			}
+
+			// Check for active entries (timers without end time)
+			const hasActiveEntry = dayEntries?.some(e => !e.endTime);
+			if (hasActiveEntry) {
+				// Add pulsing indicator for active entry
+				const indicator = document.createElement("div");
+				indicator.style.position = "absolute";
+				indicator.style.top = "4px";
+				indicator.style.right = "4px";
+				indicator.style.width = "8px";
+				indicator.style.height = "8px";
+				indicator.style.borderRadius = "50%";
+				indicator.style.background = "#4caf50";
+				indicator.style.animation = "pulse 2s infinite";
+				indicator.style.boxShadow = "0 0 4px rgba(76, 175, 80, 0.8)";
+				cell.appendChild(indicator);
 			}
 
 			// Add click handler
@@ -1457,15 +1622,15 @@ export class UIBuilder {
 
 	flextimeColor(val: number): string {
 		if (val < 0) {
-			// Undertid: gradient from light blue to darker blue
-			const t = Math.min(Math.abs(val) / 6, 1);
+			// Negative hours from goal: gradient from light blue to darker blue
+			const t = Math.min(Math.abs(val) / 3, 1);
 			const r = Math.floor(100 + 50 * t);
 			const g = Math.floor(150 + 50 * t);
 			const b = Math.floor(200 + 55 * t);
 			return `rgb(${r},${g},${b})`;
 		} else {
-			// Fleksitid: gradient from green to yellow to red
-			const t = Math.min(val / 6, 1);
+			// Positive hours over goal: gradient from green to yellow to red
+			const t = Math.min(val / 3, 1);
 			const r = Math.floor(255 * t);
 			const g = Math.floor(200 * (1 - t));
 			const b = 150;
@@ -1485,6 +1650,10 @@ export class UIBuilder {
 		const themeClass = `timeflow-theme-${this.settings.theme}`;
 		menu.classList.add(themeClass);
 
+		// Create main menu container
+		const menuMain = document.createElement('div');
+		menuMain.className = 'tf-context-menu-main';
+
 		// Position menu, but check if it goes off-screen
 		let menuLeft = cellRect.right;
 		let menuTop = cellRect.top;
@@ -1493,7 +1662,7 @@ export class UIBuilder {
 		document.body.appendChild(menu);
 
 		// Check if menu goes off the right edge of the window
-		const menuWidth = 200; // min-width from CSS
+		const menuWidth = 450; // Account for both menu and info panel
 		if (menuLeft + menuWidth > window.innerWidth) {
 			// Position to the left of the cell instead
 			menuLeft = cellRect.left - menuWidth;
@@ -1514,7 +1683,15 @@ export class UIBuilder {
 		// Check if there are existing entries for this date
 		const dateStr = Utils.toLocalDateStr(dateObj);
 		const dateEntries = this.data.daily[dateStr];
-		const hasWorkEntries = dateEntries && dateEntries.some(e => e.name.toLowerCase() === 'jobb');
+
+		// Check both processed daily data and raw timer entries (for running timers)
+		const hasWorkEntriesInDaily = dateEntries && dateEntries.some(e => e.name.toLowerCase() === 'jobb');
+		const hasRunningTimerForDate = this.timerManager.data.entries.some(entry => {
+			if (!entry.startTime || entry.name.toLowerCase() !== 'jobb') return false;
+			const entryDate = new Date(entry.startTime);
+			return Utils.toLocalDateStr(entryDate) === dateStr;
+		});
+		const hasWorkEntries = hasWorkEntriesInDaily || hasRunningTimerForDate;
 
 		// Add work time session option at the top
 		const workTimeItem = document.createElement('div');
@@ -1524,7 +1701,7 @@ export class UIBuilder {
 			menu.remove();
 			this.showWorkTimeModal(dateObj);
 		};
-		menu.appendChild(workTimeItem);
+		menuMain.appendChild(workTimeItem);
 
 		// Add edit option if there are work entries for this day
 		if (hasWorkEntries) {
@@ -1535,13 +1712,23 @@ export class UIBuilder {
 				menu.remove();
 				this.showEditEntriesModal(dateObj);
 			};
-			menu.appendChild(editItem);
+			menuMain.appendChild(editItem);
 		}
+
+		// Add special day registration right after edit (opens modal with type selection)
+		const specialDayItem = document.createElement('div');
+		specialDayItem.className = 'tf-menu-item';
+		specialDayItem.innerHTML = `<span>📅</span><span>Registrer spesialdag</span>`;
+		specialDayItem.onclick = () => {
+			menu.remove();
+			this.showSpecialDayModal(dateObj);
+		};
+		menuMain.appendChild(specialDayItem);
 
 		// Add separator
 		const separator1 = document.createElement('div');
 		separator1.className = 'tf-menu-separator';
-		menu.appendChild(separator1);
+		menuMain.appendChild(separator1);
 
 		// Create note options
 		this.settings.noteTypes.forEach(noteType => {
@@ -1552,23 +1739,82 @@ export class UIBuilder {
 				await this.createNoteFromType(dateObj, noteType);
 				menu.remove();
 			};
-			menu.appendChild(item);
+			menuMain.appendChild(item);
 		});
 
-		// Add separator
-		const separator2 = document.createElement('div');
-		separator2.className = 'tf-menu-separator';
-		menu.appendChild(separator2);
+		// Append main menu to menu container
+		menu.appendChild(menuMain);
 
-		// Add special day registration (opens modal with type selection)
-		const specialDayItem = document.createElement('div');
-		specialDayItem.className = 'tf-menu-item';
-		specialDayItem.innerHTML = `<span>📅</span><span>Registrer spesialdag</span>`;
-		specialDayItem.onclick = () => {
-			menu.remove();
-			this.showSpecialDayModal(dateObj);
-		};
-		menu.appendChild(specialDayItem);
+		// Create info section
+		const menuInfo = document.createElement('div');
+		menuInfo.className = 'tf-context-menu-info';
+
+		// Get information about this day
+		const allEntries = dateEntries || [];
+		const plannedInfo = this.data.getHolidayInfo(dateStr);
+		const isPlannedDay = plannedInfo !== null;
+		const isPastDay = dateObj < new Date();
+		const isFutureDay = dateObj > new Date();
+
+		// Get running timers for this date
+		const runningTimersForDate = this.timerManager.data.entries.filter(entry => {
+			if (!entry.startTime || !entry.endTime === false || entry.name.toLowerCase() !== 'jobb') return false;
+			const entryDate = new Date(entry.startTime);
+			return Utils.toLocalDateStr(entryDate) === dateStr && !entry.endTime;
+		});
+
+		// Build info content
+		let infoHTML = `<h4>📅 ${dateStr}</h4>`;
+
+		// Show planned day information if exists
+		if (isPlannedDay && plannedInfo) {
+			const emoji = Utils.getEmoji({ name: plannedInfo.type, date: dateObj });
+			const halfDayText = plannedInfo.halfDay ? ' (halv dag)' : '';
+			infoHTML += `<p><strong>${emoji} ${plannedInfo.description}${halfDayText}</strong></p>`;
+		}
+
+		// Show running timers first
+		if (runningTimersForDate.length > 0) {
+			infoHTML += '<p><strong>Pågående timer:</strong></p>';
+			runningTimersForDate.forEach(timer => {
+				const startTime = new Date(timer.startTime!);
+				const startTimeStr = `${startTime.getHours().toString().padStart(2, '0')}:${startTime.getMinutes().toString().padStart(2, '0')}`;
+				const now = new Date();
+				const elapsed = ((now.getTime() - startTime.getTime()) / (1000 * 60 * 60)).toFixed(1);
+				infoHTML += `<p style="margin-left: 8px;">⏱️ ${timer.name}: ${startTimeStr} - Pågår (${elapsed}t)</p>`;
+			});
+		}
+
+		// Show completed entries for this day (filter out running timers - those without duration)
+		const completedEntries = allEntries.filter(e => e.duration && e.duration > 0);
+		if (completedEntries.length > 0) {
+			infoHTML += '<p><strong>Registreringer:</strong></p>';
+			completedEntries.forEach(e => {
+				const emoji = Utils.getEmoji(e);
+				const duration = `${e.duration!.toFixed(1)}t`;
+				infoHTML += `<p style="margin-left: 8px;">${emoji} ${e.name}: ${duration}</p>`;
+			});
+
+			// Add balance information for past days
+			if (!isFutureDay) {
+				const totalHours = allEntries.reduce((sum, e) => sum + (e.duration || 0), 0);
+				const dayGoal = this.data.getDailyGoal(dateStr);
+				const dailyDelta = dayGoal === 0 ? totalHours : (totalHours - dayGoal);
+				const runningBalance = this.data.getBalanceUpToDate(dateStr);
+
+				infoHTML += `<p style="margin-top: 8px;"><strong>Mål:</strong> ${dayGoal.toFixed(1)}t</p>`;
+				infoHTML += `<p><strong>Dagssaldo:</strong> ${dailyDelta >= 0 ? '+' : ''}${dailyDelta.toFixed(1)}t</p>`;
+				infoHTML += `<p><strong>Løpende saldo:</strong> ${runningBalance >= 0 ? '+' : ''}${Utils.formatHoursToHM(runningBalance, this.settings.hourUnit)}</p>`;
+			}
+		} else if (isPastDay && !isPlannedDay && runningTimersForDate.length === 0) {
+			infoHTML += '<p style="color: var(--text-muted);">Ingen registrering</p>';
+		}
+
+		// Add helpful tip
+		infoHTML += '<p style="margin-top: 12px; font-size: 0.8em; color: var(--text-muted); border-top: 1px solid var(--background-modifier-border); padding-top: 8px;">💡 Velg et alternativ fra menyen til venstre</p>';
+
+		menuInfo.innerHTML = infoHTML;
+		menu.appendChild(menuInfo);
 
 		// Close menu on click outside
 		setTimeout(() => {
@@ -1986,13 +2232,13 @@ export class UIBuilder {
 		content.appendChild(typeLabel);
 
 		const dayTypes = [
-			{ type: 'ferie', label: '🏖️ Ferie' },
-			{ type: 'avspasering', label: '🛌 Avspasering' },
-			{ type: 'velferdspermisjon', label: '🏥 Velferdspermisjon' },
-			{ type: 'egenmelding', label: '🤒 Egenmelding' },
-			{ type: 'sykemelding', label: '🏥 Sykemelding' },
-			{ type: 'kurs', label: '📚 Kurs' },
-			{ type: 'studie', label: '📚 Studie' }
+			{ type: 'ferie', label: `🏖️ ${this.settings.specialDayLabels.ferie}` },
+			{ type: 'avspasering', label: `🛌 ${this.settings.specialDayLabels.avspasering}` },
+			{ type: 'velferdspermisjon', label: `🏥 ${this.settings.specialDayLabels.velferdspermisjon}` },
+			{ type: 'egenmelding', label: `🤒 ${this.settings.specialDayLabels.egenmelding}` },
+			{ type: 'sykemelding', label: `🏥 ${this.settings.specialDayLabels.sykemelding}` },
+			{ type: 'kurs', label: `📚 ${this.settings.specialDayLabels.kurs}` },
+			{ type: 'studie', label: `📖 ${this.settings.specialDayLabels.studie}` }
 		];
 
 		const typeSelect = document.createElement('select');
@@ -2236,19 +2482,22 @@ export class UIBuilder {
 					const typeCell = document.createElement('td');
 					typeCell.style.padding = '8px';
 					typeCell.style.color = 'var(--text-normal)';
-					typeCell.textContent = e.name;
+					// Use custom label if available, otherwise use the entry name
+					const entryNameLower = e.name.toLowerCase();
+					const customLabel = this.settings.specialDayLabels[entryNameLower as keyof typeof this.settings.specialDayLabels];
+					typeCell.textContent = customLabel || e.name;
 					row.appendChild(typeCell);
 
 					const hoursCell = document.createElement('td');
 					hoursCell.style.padding = '8px';
 					hoursCell.style.color = 'var(--text-normal)';
-					hoursCell.textContent = Utils.formatHoursToHM(e.duration || 0);
+					hoursCell.textContent = Utils.formatHoursToHM(e.duration || 0, this.settings.hourUnit);
 					row.appendChild(hoursCell);
 
 					const flextimeCell = document.createElement('td');
 					flextimeCell.style.padding = '8px';
 					flextimeCell.style.color = 'var(--text-normal)';
-					flextimeCell.textContent = Utils.formatHoursToHM(e.flextime || 0);
+					flextimeCell.textContent = Utils.formatHoursToHM(e.flextime || 0, this.settings.hourUnit);
 					row.appendChild(flextimeCell);
 
 					const actionCell = document.createElement('td');

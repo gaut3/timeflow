@@ -5,9 +5,15 @@ import { Utils } from './utils';
 export interface TimeFlowSettings {
 	version: string;
 	theme: 'light' | 'dark' | 'system';
+	hourUnit: 'h' | 't';
 	workPercent: number;
 	baseWorkday: number;
 	baseWorkweek: number;
+	lunchBreakMinutes: number;
+	includeSaturdayInWorkWeek: boolean;
+	includeSundayInWorkWeek: boolean;
+	maxEgenmeldingDays: number;
+	maxFerieDays: number;
 	updateInterval: number;
 	clockInterval: number;
 	holidaysFilePath: string;
@@ -53,9 +59,15 @@ export interface NoteType {
 export const DEFAULT_SETTINGS: TimeFlowSettings = {
 	version: "1.0.0",
 	theme: "light",
+	hourUnit: "t",
 	workPercent: 1.0,
 	baseWorkday: 7.5,
 	baseWorkweek: 37.5,
+	lunchBreakMinutes: 0,
+	includeSaturdayInWorkWeek: false,
+	includeSundayInWorkWeek: false,
+	maxEgenmeldingDays: 8,
+	maxFerieDays: 25,
 	updateInterval: 30000,
 	clockInterval: 1000,
 	holidaysFilePath: "timeflow/holidays.md",
@@ -171,6 +183,19 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.theme)
 				.onChange(async (value: 'light' | 'dark' | 'system') => {
 					this.plugin.settings.theme = value;
+					await this.plugin.saveSettings();
+					await this.refreshView();
+				}));
+
+		new Setting(containerEl)
+			.setName('Hour Unit')
+			.setDesc('Choose the unit symbol for displaying hours: "h" for hours or "t" for timer')
+			.addDropdown(dropdown => dropdown
+				.addOption('h', 'h (hours)')
+				.addOption('t', 't (timer)')
+				.setValue(this.plugin.settings.hourUnit)
+				.onChange(async (value: 'h' | 't') => {
+					this.plugin.settings.hourUnit = value;
 					await this.plugin.saveSettings();
 					await this.refreshView();
 				}));
@@ -318,6 +343,18 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 		// Work Configuration
 		containerEl.createEl('h3', { text: 'Work Configuration' });
 
+		// Settings sync info
+		const syncInfo = containerEl.createDiv();
+		syncInfo.style.marginBottom = '15px';
+		syncInfo.style.padding = '10px';
+		syncInfo.style.background = 'var(--background-secondary)';
+		syncInfo.style.borderRadius = '5px';
+		syncInfo.style.fontSize = '0.9em';
+		syncInfo.innerHTML = `
+			<strong>📱 Cross-Device Settings Sync</strong><br>
+			Settings are automatically saved to <code>timeflow/data.md</code> and will sync across devices when using Obsidian Sync or any other vault sync solution. When you open the plugin on another device, your settings will be automatically loaded.
+		`;
+
 		new Setting(containerEl)
 			.setName('Work Percentage')
 			.setDesc('Your employment percentage (1.0 = 100%, 0.8 = 80%, etc.)')
@@ -335,7 +372,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Base Workday Hours')
-			.setDesc('Standard hours for a full workday')
+			.setDesc('Standard hours for a full workday (e.g., 7.5 for standard, 6 for 6-hour days)')
 			.addText(text => text
 				.setPlaceholder('7.5')
 				.setValue(this.plugin.settings.baseWorkday.toString())
@@ -343,7 +380,95 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 					const num = parseFloat(value);
 					if (!isNaN(num) && num > 0) {
 						this.plugin.settings.baseWorkday = num;
-						this.plugin.settings.baseWorkweek = num * 5;
+						await this.plugin.saveSettings();
+						await this.refreshView();
+					}
+				}));
+
+		new Setting(containerEl)
+			.setName('Base Workweek Hours')
+			.setDesc('Standard hours for a full workweek (e.g., 37.5 for 5 days, 30 for 4 days)')
+			.addText(text => text
+				.setPlaceholder('37.5')
+				.setValue(this.plugin.settings.baseWorkweek.toString())
+				.onChange(async (value) => {
+					const num = parseFloat(value);
+					if (!isNaN(num) && num > 0) {
+						this.plugin.settings.baseWorkweek = num;
+						await this.plugin.saveSettings();
+						await this.refreshView();
+					}
+				}));
+
+		new Setting(containerEl)
+			.setName('Lunch Break Duration')
+			.setDesc('Daily lunch break in minutes (e.g., 30 for 30 minutes). This will be deducted from your work hours automatically.')
+			.addText(text => text
+				.setPlaceholder('0')
+				.setValue(this.plugin.settings.lunchBreakMinutes.toString())
+				.onChange(async (value) => {
+					const num = parseInt(value);
+					if (!isNaN(num) && num >= 0) {
+						this.plugin.settings.lunchBreakMinutes = num;
+						await this.plugin.saveSettings();
+						await this.refreshView();
+					}
+				}));
+
+		new Setting(containerEl)
+			.setName('Include Saturday in Work Week')
+			.setDesc('Enable if you work Saturdays as part of your normal work week')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.includeSaturdayInWorkWeek)
+				.onChange(async (value) => {
+					this.plugin.settings.includeSaturdayInWorkWeek = value;
+					await this.plugin.saveSettings();
+					await this.refreshView();
+				}));
+
+		new Setting(containerEl)
+			.setName('Include Sunday in Work Week')
+			.setDesc('Enable if you work Sundays as part of your normal work week')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.includeSundayInWorkWeek)
+				.onChange(async (value) => {
+					this.plugin.settings.includeSundayInWorkWeek = value;
+					await this.plugin.saveSettings();
+					await this.refreshView();
+				}));
+
+		// Leave Limits
+		containerEl.createEl('h4', { text: 'Leave Limits' });
+		containerEl.createEl('p', {
+			text: 'Set maximum allowed days for different leave types per year. The dashboard will warn you when you approach or exceed these limits.',
+			cls: 'setting-item-description'
+		});
+
+		new Setting(containerEl)
+			.setName('Max Sick Leave Days (Self-Reported)')
+			.setDesc('Maximum self-reported sick days (egenmelding) allowed per year (typically 8 in Norway)')
+			.addText(text => text
+				.setPlaceholder('8')
+				.setValue(this.plugin.settings.maxEgenmeldingDays.toString())
+				.onChange(async (value) => {
+					const num = parseInt(value);
+					if (!isNaN(num) && num >= 0) {
+						this.plugin.settings.maxEgenmeldingDays = num;
+						await this.plugin.saveSettings();
+						await this.refreshView();
+					}
+				}));
+
+		new Setting(containerEl)
+			.setName('Max Vacation Days')
+			.setDesc('Maximum vacation days (ferie) per year based on your contract (typically 25 in Norway)')
+			.addText(text => text
+				.setPlaceholder('25')
+				.setValue(this.plugin.settings.maxFerieDays.toString())
+				.onChange(async (value) => {
+					const num = parseInt(value);
+					if (!isNaN(num) && num >= 0) {
+						this.plugin.settings.maxFerieDays = num;
 						await this.plugin.saveSettings();
 						await this.refreshView();
 					}
@@ -430,6 +555,44 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 						this.plugin.settings.updateInterval = num;
 						await this.plugin.saveSettings();
 					}
+				}));
+
+		// Note Types Configuration
+		containerEl.createEl('h3', { text: 'Note Types' });
+		containerEl.createEl('p', {
+			text: 'Configure the types of notes available in the calendar context menu. Each note type can have its own template, folder, and filename pattern.',
+			cls: 'setting-item-description'
+		});
+
+		// Display existing note types
+		this.plugin.settings.noteTypes.forEach((noteType, index) => {
+			new Setting(containerEl)
+				.setName(`${noteType.icon} ${noteType.label}`)
+				.setDesc(`Folder: ${noteType.folder} | Template: ${noteType.template}`)
+				.addButton(button => button
+					.setButtonText('Edit')
+					.onClick(() => {
+						this.showNoteTypeModal(noteType, index);
+					}))
+				.addButton(button => button
+					.setButtonText('Delete')
+					.setWarning()
+					.onClick(async () => {
+						this.plugin.settings.noteTypes.splice(index, 1);
+						await this.plugin.saveSettings();
+						await this.refreshView();
+						this.display(); // Refresh settings display
+					}));
+		});
+
+		new Setting(containerEl)
+			.setName('Add New Note Type')
+			.setDesc('Create a new note type for the context menu')
+			.addButton(button => button
+				.setButtonText('+ Add Note Type')
+				.setCta()
+				.onClick(() => {
+					this.showNoteTypeModal(null, -1);
 				}));
 
 		// Data Management
@@ -560,15 +723,12 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 					}
 				}
 
-				// Import the data
+				// Import the data (the function will show its own success/duplicate message)
 				const success = await this.plugin.timerManager.importTimekeepData(jsonText);
 
 				if (success) {
-					new Notice(`✅ Successfully imported ${data.entries.length} entries!`);
 					modal.close();
 					await this.refreshView();
-				} else {
-					new Notice('❌ Failed to import data');
 				}
 
 			} catch (error: any) {
@@ -587,6 +747,181 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 		hint.style.fontSize = '12px';
 		hint.style.color = 'var(--text-muted)';
 		hint.textContent = '💡 Tip: You can also create "TimeFlow Data.md" manually in your vault root';
+
+		modal.open();
+	}
+
+	showNoteTypeModal(noteType: NoteType | null, index: number): void {
+		const modal = new Modal(this.app);
+		modal.titleEl.setText(noteType ? 'Edit Note Type' : 'Add Note Type');
+
+		const { contentEl } = modal;
+
+		// Create form fields
+		const formData = {
+			id: noteType?.id || '',
+			label: noteType?.label || '',
+			icon: noteType?.icon || '📄',
+			folder: noteType?.folder || '',
+			template: noteType?.template || '',
+			tags: noteType?.tags.join(', ') || '',
+			filenamePattern: noteType?.filenamePattern || '{YYYY}-{MM}-{DD}'
+		};
+
+		// ID field (only for new notes, readonly for existing)
+		new Setting(contentEl)
+			.setName('ID')
+			.setDesc('Unique identifier for this note type (lowercase, no spaces)')
+			.addText(text => {
+				text.setPlaceholder('meeting')
+					.setValue(formData.id)
+					.onChange((value) => {
+						formData.id = value.toLowerCase().replace(/\s+/g, '-');
+					});
+
+				if (noteType) {
+					text.inputEl.disabled = true;
+				}
+			});
+
+		// Label field
+		new Setting(contentEl)
+			.setName('Label')
+			.setDesc('Display name shown in the context menu')
+			.addText(text => text
+				.setPlaceholder('Møtenotat')
+				.setValue(formData.label)
+				.onChange((value) => {
+					formData.label = value;
+				}));
+
+		// Icon field
+		new Setting(contentEl)
+			.setName('Icon')
+			.setDesc('Emoji or icon to display (single character)')
+			.addText(text => text
+				.setPlaceholder('👥')
+				.setValue(formData.icon)
+				.onChange((value) => {
+					formData.icon = value;
+				}));
+
+		// Folder field
+		new Setting(contentEl)
+			.setName('Folder')
+			.setDesc('Folder where notes will be created')
+			.addText(text => text
+				.setPlaceholder('Møter')
+				.setValue(formData.folder)
+				.onChange((value) => {
+					formData.folder = value;
+				}));
+
+		// Template field
+		new Setting(contentEl)
+			.setName('Template Path')
+			.setDesc('Path to the template file (relative to vault root)')
+			.addText(text => text
+				.setPlaceholder('timeflow/templates/meeting-note.md')
+				.setValue(formData.template)
+				.onChange((value) => {
+					formData.template = value;
+				}));
+
+		// Tags field
+		new Setting(contentEl)
+			.setName('Tags')
+			.setDesc('Comma-separated tags to add to notes (e.g., #møte, #timeflow)')
+			.addText(text => text
+				.setPlaceholder('#møte, #timeflow')
+				.setValue(formData.tags)
+				.onChange((value) => {
+					formData.tags = value;
+				}));
+
+		// Filename pattern field
+		new Setting(contentEl)
+			.setName('Filename Pattern')
+			.setDesc('Pattern for note filenames. Available: {YYYY}, {MM}, {DD}, {WEEK}')
+			.addText(text => text
+				.setPlaceholder('{YYYY}-{MM}-{DD} Møte')
+				.setValue(formData.filenamePattern)
+				.onChange((value) => {
+					formData.filenamePattern = value;
+				}));
+
+		// Info section
+		const infoDiv = contentEl.createDiv();
+		infoDiv.style.marginTop = '15px';
+		infoDiv.style.padding = '10px';
+		infoDiv.style.background = 'var(--background-secondary)';
+		infoDiv.style.borderRadius = '5px';
+		infoDiv.style.fontSize = '0.9em';
+		infoDiv.innerHTML = `
+			<strong>📋 Pattern Variables:</strong>
+			<ul style="margin: 8px 0 0 20px;">
+				<li><code>{YYYY}</code> - Four-digit year (e.g., 2025)</li>
+				<li><code>{MM}</code> - Two-digit month (e.g., 01)</li>
+				<li><code>{DD}</code> - Two-digit day (e.g., 15)</li>
+				<li><code>{WEEK}</code> - ISO week number (e.g., 07)</li>
+			</ul>
+		`;
+
+		// Buttons
+		const buttonDiv = contentEl.createDiv();
+		buttonDiv.style.display = 'flex';
+		buttonDiv.style.gap = '10px';
+		buttonDiv.style.justifyContent = 'flex-end';
+		buttonDiv.style.marginTop = '20px';
+
+		const cancelBtn = buttonDiv.createEl('button', { text: 'Cancel' });
+		cancelBtn.onclick = () => modal.close();
+
+		const saveBtn = buttonDiv.createEl('button', { text: 'Save', cls: 'mod-cta' });
+		saveBtn.onclick = async () => {
+			// Validate required fields
+			if (!formData.id || !formData.label || !formData.folder) {
+				new Notice('⚠️ Please fill in all required fields (ID, Label, Folder)');
+				return;
+			}
+
+			// Parse tags
+			const tagsArray = formData.tags
+				.split(',')
+				.map(t => t.trim())
+				.filter(t => t.length > 0);
+
+			const newNoteType: NoteType = {
+				id: formData.id,
+				label: formData.label,
+				icon: formData.icon || '📄',
+				folder: formData.folder,
+				template: formData.template,
+				tags: tagsArray,
+				filenamePattern: formData.filenamePattern || '{YYYY}-{MM}-{DD}'
+			};
+
+			// Add or update note type
+			if (index >= 0) {
+				// Edit existing
+				this.plugin.settings.noteTypes[index] = newNoteType;
+			} else {
+				// Check if ID already exists
+				const existingIndex = this.plugin.settings.noteTypes.findIndex(nt => nt.id === newNoteType.id);
+				if (existingIndex >= 0) {
+					new Notice('⚠️ A note type with this ID already exists');
+					return;
+				}
+				// Add new
+				this.plugin.settings.noteTypes.push(newNoteType);
+			}
+
+			await this.plugin.saveSettings();
+			await this.refreshView();
+			modal.close();
+			this.display(); // Refresh settings display
+			new Notice(`✅ Note type ${noteType ? 'updated' : 'added'} successfully`);
+		};
 
 		modal.open();
 	}

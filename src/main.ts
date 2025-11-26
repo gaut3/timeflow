@@ -16,7 +16,16 @@ export default class TimeFlowPlugin extends Plugin {
 
 		// Initialize timer manager
 		this.timerManager = new TimerManager(this.app, this.settings);
-		await this.timerManager.load();
+		const syncedSettings = await this.timerManager.load();
+
+		// If settings are in the data file, merge them with local settings
+		// Data file settings take precedence for cross-device sync
+		if (syncedSettings) {
+			console.log('TimeFlow: Merging synced settings from data file');
+			this.settings = Object.assign({}, DEFAULT_SETTINGS, this.settings, syncedSettings);
+			this.timerManager.settings = this.settings;
+			await this.saveSettings();
+		}
 
 		// Register the TimeFlow view
 		this.registerView(
@@ -89,6 +98,8 @@ export default class TimeFlowPlugin extends Plugin {
 
 	async saveSettings() {
 		await this.saveData(this.settings);
+		// Also save to data file for cross-device sync
+		await this.timerManager.saveSettings(this.settings);
 	}
 
 	async activateView() {

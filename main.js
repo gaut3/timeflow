@@ -58,11 +58,20 @@ var EMOJI_MAP = {
 var Utils = {
   parseDate: (str) => str ? new Date(str) : null,
   hoursDiff: (start, end) => (end.getTime() - start.getTime()) / 36e5,
-  isWeekend: (date) => date ? date.getDay() === 0 || date.getDay() === 6 : false,
-  formatHoursToHM: (hours) => {
+  isWeekend: (date, settings) => {
+    if (!date)
+      return false;
+    const day = date.getDay();
+    if (!settings)
+      return day === 0 || day === 6;
+    const isSaturday = day === 6 && !settings.includeSaturdayInWorkWeek;
+    const isSunday = day === 0 && !settings.includeSundayInWorkWeek;
+    return isSaturday || isSunday;
+  },
+  formatHoursToHM: (hours, unit = "h") => {
     const h = Math.floor(hours);
     const m = Math.round((hours - h) * 60);
-    return `${h}h ${m.toString().padStart(2, "0")}m`;
+    return `${h}${unit} ${m.toString().padStart(2, "0")}m`;
   },
   toLocalDateStr: (date) => {
     const y = date.getFullYear();
@@ -101,9 +110,15 @@ var Utils = {
 var DEFAULT_SETTINGS = {
   version: "1.0.0",
   theme: "light",
+  hourUnit: "t",
   workPercent: 1,
   baseWorkday: 7.5,
   baseWorkweek: 37.5,
+  lunchBreakMinutes: 0,
+  includeSaturdayInWorkWeek: false,
+  includeSundayInWorkWeek: false,
+  maxEgenmeldingDays: 8,
+  maxFerieDays: 25,
   updateInterval: 3e4,
   clockInterval: 1e3,
   holidaysFilePath: "timeflow/holidays.md",
@@ -205,6 +220,11 @@ var TimeFlowSettingTab = class extends import_obsidian.PluginSettingTab {
       await this.plugin.saveSettings();
       await this.refreshView();
     }));
+    new import_obsidian.Setting(containerEl).setName("Hour Unit").setDesc('Choose the unit symbol for displaying hours: "h" for hours or "t" for timer').addDropdown((dropdown) => dropdown.addOption("h", "h (hours)").addOption("t", "t (timer)").setValue(this.plugin.settings.hourUnit).onChange(async (value) => {
+      this.plugin.settings.hourUnit = value;
+      await this.plugin.saveSettings();
+      await this.refreshView();
+    }));
     containerEl.createEl("h4", { text: "Special Day Types" });
     containerEl.createEl("p", {
       text: "Customize names and colors for different types of special days. These day types affect flextime calculations.",
@@ -274,6 +294,16 @@ var TimeFlowSettingTab = class extends import_obsidian.PluginSettingTab {
       await this.refreshView();
     }));
     containerEl.createEl("h3", { text: "Work Configuration" });
+    const syncInfo = containerEl.createDiv();
+    syncInfo.style.marginBottom = "15px";
+    syncInfo.style.padding = "10px";
+    syncInfo.style.background = "var(--background-secondary)";
+    syncInfo.style.borderRadius = "5px";
+    syncInfo.style.fontSize = "0.9em";
+    syncInfo.innerHTML = `
+			<strong>\u{1F4F1} Cross-Device Settings Sync</strong><br>
+			Settings are automatically saved to <code>timeflow/data.md</code> and will sync across devices when using Obsidian Sync or any other vault sync solution. When you open the plugin on another device, your settings will be automatically loaded.
+		`;
     new import_obsidian.Setting(containerEl).setName("Work Percentage").setDesc("Your employment percentage (1.0 = 100%, 0.8 = 80%, etc.)").addText((text) => text.setPlaceholder("1.0").setValue(this.plugin.settings.workPercent.toString()).onChange(async (value) => {
       const num = parseFloat(value);
       if (!isNaN(num) && num > 0 && num <= 1) {
@@ -282,11 +312,57 @@ var TimeFlowSettingTab = class extends import_obsidian.PluginSettingTab {
         await this.refreshView();
       }
     }));
-    new import_obsidian.Setting(containerEl).setName("Base Workday Hours").setDesc("Standard hours for a full workday").addText((text) => text.setPlaceholder("7.5").setValue(this.plugin.settings.baseWorkday.toString()).onChange(async (value) => {
+    new import_obsidian.Setting(containerEl).setName("Base Workday Hours").setDesc("Standard hours for a full workday (e.g., 7.5 for standard, 6 for 6-hour days)").addText((text) => text.setPlaceholder("7.5").setValue(this.plugin.settings.baseWorkday.toString()).onChange(async (value) => {
       const num = parseFloat(value);
       if (!isNaN(num) && num > 0) {
         this.plugin.settings.baseWorkday = num;
-        this.plugin.settings.baseWorkweek = num * 5;
+        await this.plugin.saveSettings();
+        await this.refreshView();
+      }
+    }));
+    new import_obsidian.Setting(containerEl).setName("Base Workweek Hours").setDesc("Standard hours for a full workweek (e.g., 37.5 for 5 days, 30 for 4 days)").addText((text) => text.setPlaceholder("37.5").setValue(this.plugin.settings.baseWorkweek.toString()).onChange(async (value) => {
+      const num = parseFloat(value);
+      if (!isNaN(num) && num > 0) {
+        this.plugin.settings.baseWorkweek = num;
+        await this.plugin.saveSettings();
+        await this.refreshView();
+      }
+    }));
+    new import_obsidian.Setting(containerEl).setName("Lunch Break Duration").setDesc("Daily lunch break in minutes (e.g., 30 for 30 minutes). This will be deducted from your work hours automatically.").addText((text) => text.setPlaceholder("0").setValue(this.plugin.settings.lunchBreakMinutes.toString()).onChange(async (value) => {
+      const num = parseInt(value);
+      if (!isNaN(num) && num >= 0) {
+        this.plugin.settings.lunchBreakMinutes = num;
+        await this.plugin.saveSettings();
+        await this.refreshView();
+      }
+    }));
+    new import_obsidian.Setting(containerEl).setName("Include Saturday in Work Week").setDesc("Enable if you work Saturdays as part of your normal work week").addToggle((toggle) => toggle.setValue(this.plugin.settings.includeSaturdayInWorkWeek).onChange(async (value) => {
+      this.plugin.settings.includeSaturdayInWorkWeek = value;
+      await this.plugin.saveSettings();
+      await this.refreshView();
+    }));
+    new import_obsidian.Setting(containerEl).setName("Include Sunday in Work Week").setDesc("Enable if you work Sundays as part of your normal work week").addToggle((toggle) => toggle.setValue(this.plugin.settings.includeSundayInWorkWeek).onChange(async (value) => {
+      this.plugin.settings.includeSundayInWorkWeek = value;
+      await this.plugin.saveSettings();
+      await this.refreshView();
+    }));
+    containerEl.createEl("h4", { text: "Leave Limits" });
+    containerEl.createEl("p", {
+      text: "Set maximum allowed days for different leave types per year. The dashboard will warn you when you approach or exceed these limits.",
+      cls: "setting-item-description"
+    });
+    new import_obsidian.Setting(containerEl).setName("Max Sick Leave Days (Self-Reported)").setDesc("Maximum self-reported sick days (egenmelding) allowed per year (typically 8 in Norway)").addText((text) => text.setPlaceholder("8").setValue(this.plugin.settings.maxEgenmeldingDays.toString()).onChange(async (value) => {
+      const num = parseInt(value);
+      if (!isNaN(num) && num >= 0) {
+        this.plugin.settings.maxEgenmeldingDays = num;
+        await this.plugin.saveSettings();
+        await this.refreshView();
+      }
+    }));
+    new import_obsidian.Setting(containerEl).setName("Max Vacation Days").setDesc("Maximum vacation days (ferie) per year based on your contract (typically 25 in Norway)").addText((text) => text.setPlaceholder("25").setValue(this.plugin.settings.maxFerieDays.toString()).onChange(async (value) => {
+      const num = parseInt(value);
+      if (!isNaN(num) && num >= 0) {
+        this.plugin.settings.maxFerieDays = num;
         await this.plugin.saveSettings();
         await this.refreshView();
       }
@@ -327,6 +403,24 @@ var TimeFlowSettingTab = class extends import_obsidian.PluginSettingTab {
         this.plugin.settings.updateInterval = num;
         await this.plugin.saveSettings();
       }
+    }));
+    containerEl.createEl("h3", { text: "Note Types" });
+    containerEl.createEl("p", {
+      text: "Configure the types of notes available in the calendar context menu. Each note type can have its own template, folder, and filename pattern.",
+      cls: "setting-item-description"
+    });
+    this.plugin.settings.noteTypes.forEach((noteType, index) => {
+      new import_obsidian.Setting(containerEl).setName(`${noteType.icon} ${noteType.label}`).setDesc(`Folder: ${noteType.folder} | Template: ${noteType.template}`).addButton((button) => button.setButtonText("Edit").onClick(() => {
+        this.showNoteTypeModal(noteType, index);
+      })).addButton((button) => button.setButtonText("Delete").setWarning().onClick(async () => {
+        this.plugin.settings.noteTypes.splice(index, 1);
+        await this.plugin.saveSettings();
+        await this.refreshView();
+        this.display();
+      }));
+    });
+    new import_obsidian.Setting(containerEl).setName("Add New Note Type").setDesc("Create a new note type for the context menu").addButton((button) => button.setButtonText("+ Add Note Type").setCta().onClick(() => {
+      this.showNoteTypeModal(null, -1);
     }));
     containerEl.createEl("h3", { text: "Data Management" });
     new import_obsidian.Setting(containerEl).setName("Export Data to CSV").setDesc("Export all your time tracking data to a CSV file").addButton((button) => button.setButtonText("Export CSV").setCta().onClick(async () => {
@@ -418,11 +512,8 @@ var TimeFlowSettingTab = class extends import_obsidian.PluginSettingTab {
         }
         const success = await this.plugin.timerManager.importTimekeepData(jsonText);
         if (success) {
-          new import_obsidian.Notice(`\u2705 Successfully imported ${data.entries.length} entries!`);
           modal.close();
           await this.refreshView();
-        } else {
-          new import_obsidian.Notice("\u274C Failed to import data");
         }
       } catch (error) {
         if (error instanceof SyntaxError) {
@@ -438,6 +529,101 @@ var TimeFlowSettingTab = class extends import_obsidian.PluginSettingTab {
     hint.style.fontSize = "12px";
     hint.style.color = "var(--text-muted)";
     hint.textContent = '\u{1F4A1} Tip: You can also create "TimeFlow Data.md" manually in your vault root';
+    modal.open();
+  }
+  showNoteTypeModal(noteType, index) {
+    const modal = new import_obsidian.Modal(this.app);
+    modal.titleEl.setText(noteType ? "Edit Note Type" : "Add Note Type");
+    const { contentEl } = modal;
+    const formData = {
+      id: (noteType == null ? void 0 : noteType.id) || "",
+      label: (noteType == null ? void 0 : noteType.label) || "",
+      icon: (noteType == null ? void 0 : noteType.icon) || "\u{1F4C4}",
+      folder: (noteType == null ? void 0 : noteType.folder) || "",
+      template: (noteType == null ? void 0 : noteType.template) || "",
+      tags: (noteType == null ? void 0 : noteType.tags.join(", ")) || "",
+      filenamePattern: (noteType == null ? void 0 : noteType.filenamePattern) || "{YYYY}-{MM}-{DD}"
+    };
+    new import_obsidian.Setting(contentEl).setName("ID").setDesc("Unique identifier for this note type (lowercase, no spaces)").addText((text) => {
+      text.setPlaceholder("meeting").setValue(formData.id).onChange((value) => {
+        formData.id = value.toLowerCase().replace(/\s+/g, "-");
+      });
+      if (noteType) {
+        text.inputEl.disabled = true;
+      }
+    });
+    new import_obsidian.Setting(contentEl).setName("Label").setDesc("Display name shown in the context menu").addText((text) => text.setPlaceholder("M\xF8tenotat").setValue(formData.label).onChange((value) => {
+      formData.label = value;
+    }));
+    new import_obsidian.Setting(contentEl).setName("Icon").setDesc("Emoji or icon to display (single character)").addText((text) => text.setPlaceholder("\u{1F465}").setValue(formData.icon).onChange((value) => {
+      formData.icon = value;
+    }));
+    new import_obsidian.Setting(contentEl).setName("Folder").setDesc("Folder where notes will be created").addText((text) => text.setPlaceholder("M\xF8ter").setValue(formData.folder).onChange((value) => {
+      formData.folder = value;
+    }));
+    new import_obsidian.Setting(contentEl).setName("Template Path").setDesc("Path to the template file (relative to vault root)").addText((text) => text.setPlaceholder("timeflow/templates/meeting-note.md").setValue(formData.template).onChange((value) => {
+      formData.template = value;
+    }));
+    new import_obsidian.Setting(contentEl).setName("Tags").setDesc("Comma-separated tags to add to notes (e.g., #m\xF8te, #timeflow)").addText((text) => text.setPlaceholder("#m\xF8te, #timeflow").setValue(formData.tags).onChange((value) => {
+      formData.tags = value;
+    }));
+    new import_obsidian.Setting(contentEl).setName("Filename Pattern").setDesc("Pattern for note filenames. Available: {YYYY}, {MM}, {DD}, {WEEK}").addText((text) => text.setPlaceholder("{YYYY}-{MM}-{DD} M\xF8te").setValue(formData.filenamePattern).onChange((value) => {
+      formData.filenamePattern = value;
+    }));
+    const infoDiv = contentEl.createDiv();
+    infoDiv.style.marginTop = "15px";
+    infoDiv.style.padding = "10px";
+    infoDiv.style.background = "var(--background-secondary)";
+    infoDiv.style.borderRadius = "5px";
+    infoDiv.style.fontSize = "0.9em";
+    infoDiv.innerHTML = `
+			<strong>\u{1F4CB} Pattern Variables:</strong>
+			<ul style="margin: 8px 0 0 20px;">
+				<li><code>{YYYY}</code> - Four-digit year (e.g., 2025)</li>
+				<li><code>{MM}</code> - Two-digit month (e.g., 01)</li>
+				<li><code>{DD}</code> - Two-digit day (e.g., 15)</li>
+				<li><code>{WEEK}</code> - ISO week number (e.g., 07)</li>
+			</ul>
+		`;
+    const buttonDiv = contentEl.createDiv();
+    buttonDiv.style.display = "flex";
+    buttonDiv.style.gap = "10px";
+    buttonDiv.style.justifyContent = "flex-end";
+    buttonDiv.style.marginTop = "20px";
+    const cancelBtn = buttonDiv.createEl("button", { text: "Cancel" });
+    cancelBtn.onclick = () => modal.close();
+    const saveBtn = buttonDiv.createEl("button", { text: "Save", cls: "mod-cta" });
+    saveBtn.onclick = async () => {
+      if (!formData.id || !formData.label || !formData.folder) {
+        new import_obsidian.Notice("\u26A0\uFE0F Please fill in all required fields (ID, Label, Folder)");
+        return;
+      }
+      const tagsArray = formData.tags.split(",").map((t) => t.trim()).filter((t) => t.length > 0);
+      const newNoteType = {
+        id: formData.id,
+        label: formData.label,
+        icon: formData.icon || "\u{1F4C4}",
+        folder: formData.folder,
+        template: formData.template,
+        tags: tagsArray,
+        filenamePattern: formData.filenamePattern || "{YYYY}-{MM}-{DD}"
+      };
+      if (index >= 0) {
+        this.plugin.settings.noteTypes[index] = newNoteType;
+      } else {
+        const existingIndex = this.plugin.settings.noteTypes.findIndex((nt) => nt.id === newNoteType.id);
+        if (existingIndex >= 0) {
+          new import_obsidian.Notice("\u26A0\uFE0F A note type with this ID already exists");
+          return;
+        }
+        this.plugin.settings.noteTypes.push(newNoteType);
+      }
+      await this.plugin.saveSettings();
+      await this.refreshView();
+      modal.close();
+      this.display();
+      new import_obsidian.Notice(`\u2705 Note type ${noteType ? "updated" : "added"} successfully`);
+    };
     modal.open();
   }
 };
@@ -504,7 +690,7 @@ var DataManager = class {
   }
   getDailyGoal(dateStr) {
     const date = new Date(dateStr);
-    const isWeekend = Utils.isWeekend(date);
+    const isWeekend = Utils.isWeekend(date, this.settings);
     if (isWeekend)
       return 0;
     const holidayInfo = this.getHolidayInfo(dateStr);
@@ -537,7 +723,11 @@ var DataManager = class {
       const end = Utils.parseDate(e.endTime);
       if (!start || !end)
         return;
-      const duration = Utils.hoursDiff(start, end);
+      let duration = Utils.hoursDiff(start, end);
+      if (e.name.toLowerCase() === "jobb" && this.settings.lunchBreakMinutes > 0) {
+        const lunchBreakHours = this.settings.lunchBreakMinutes / 60;
+        duration = Math.max(0, duration - lunchBreakHours);
+      }
       const dayKey = Utils.toLocalDateStr(start);
       if (!this.daily[dayKey])
         this.daily[dayKey] = [];
@@ -648,16 +838,20 @@ var DataManager = class {
     const today = /* @__PURE__ */ new Date();
     const todayKey = Utils.toLocalDateStr(today);
     const pastKeys = Object.keys(this.daily).filter((d) => d < todayKey);
-    const totalHoursWorked = pastKeys.reduce(
+    const weekdayKeys = pastKeys.filter((dk) => {
+      const date = Utils.parseDate(dk);
+      return date && !Utils.isWeekend(date, this.settings);
+    });
+    const totalHoursWorked = weekdayKeys.reduce(
       (sum, dk) => sum + this.daily[dk].reduce((s, e) => s + (e.duration || 0), 0),
       0
     );
-    const avgDaily = pastKeys.length > 0 ? totalHoursWorked / pastKeys.length : 0;
-    const avgWeekly = totalHoursWorked / (pastKeys.length / this.settings.workdaysPerWeek || 1);
+    const avgDaily = weekdayKeys.length > 0 ? totalHoursWorked / weekdayKeys.length : 0;
+    const avgWeekly = totalHoursWorked / (weekdayKeys.length / this.settings.workdaysPerWeek || 1);
     this._cachedAverages = {
       avgDaily,
       avgWeekly,
-      totalDaysWorked: pastKeys.length,
+      totalDaysWorked: weekdayKeys.length,
       totalHoursWorked
     };
     return this._cachedAverages;
@@ -693,6 +887,7 @@ var DataManager = class {
       kurs: { count: 0, hours: 0, planned: 0 },
       workDays: 0,
       weekendDays: 0,
+      weekendHours: 0,
       avgDailyHours: 0,
       workloadPercent: 0
     };
@@ -715,8 +910,9 @@ var DataManager = class {
       uniqueDays.add(dayKey);
       dayEntries.forEach((e) => {
         const name = e.name.toLowerCase();
-        if (e.date && Utils.isWeekend(e.date)) {
+        if (e.date && Utils.isWeekend(e.date, this.settings)) {
           weekendDaysSet.add(dayKey);
+          stats.weekendHours += e.duration || 0;
         } else {
           workDaysSet.add(dayKey);
         }
@@ -1271,9 +1467,8 @@ var UIBuilder = class {
 			/* TimeFlow Dashboard Styles */
 			.timeflow-dashboard {
 				font-family: var(--font-text);
-				max-width: 1200px;
-				margin: 0 auto;
 				padding: 20px;
+				width: 100%;
 			}
 
 			.timeflow-error, .timeflow-warning {
@@ -1290,6 +1485,18 @@ var UIBuilder = class {
 			.timeflow-warning {
 				background: var(--background-modifier-warning);
 				color: var(--text-warning);
+			}
+
+			/* Pulse animation for active entry indicator */
+			@keyframes pulse {
+				0%, 100% {
+					opacity: 1;
+					transform: scale(1);
+				}
+				50% {
+					opacity: 0.6;
+					transform: scale(1.1);
+				}
 			}
 
 			.tf-badge-section {
@@ -1403,16 +1610,30 @@ var UIBuilder = class {
 			}
 
 			.tf-summary-cards {
-				display: flex;
+				display: grid;
+				grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 				gap: 15px;
 				margin-bottom: 20px;
-				flex-wrap: wrap;
+			}
+
+			/* Day and week cards stay side-by-side in row 1, calendar always below in row 2 */
+			.tf-card-month {
+				grid-column: 1 / -1; /* Calendar takes full width below */
+			}
+
+			/* On mobile, stack everything vertically */
+			@media (max-width: 500px) {
+				.tf-summary-cards {
+					grid-template-columns: 1fr;
+				}
+
+				.tf-card-month {
+					grid-column: 1;
+				}
 			}
 
 			/* Default card styling - used for month card */
 			.tf-card {
-				flex: 1;
-				min-width: 280px;
 				padding: 20px;
 				border-radius: 12px;
 				background: linear-gradient(135deg, #f0f4c3, #e1f5fe);
@@ -1530,7 +1751,7 @@ var UIBuilder = class {
 			.tf-month-grid {
 				display: grid;
 				grid-template-columns: repeat(7, 1fr);
-				gap: 8px;
+				gap: 12px;
 				margin-top: 15px;
 			}
 
@@ -1782,6 +2003,42 @@ var UIBuilder = class {
 				padding: 4px;
 				z-index: 1000;
 				min-width: 200px;
+				display: flex;
+				gap: 0;
+			}
+
+			.tf-context-menu-main {
+				flex: 0 0 auto;
+				min-width: 200px;
+			}
+
+			.tf-context-menu-info {
+				flex: 0 0 auto;
+				width: 250px;
+				padding: 12px;
+				border-left: 1px solid var(--background-modifier-border);
+				background: var(--background-secondary);
+				font-size: 0.85em;
+				line-height: 1.4;
+			}
+
+			.timeflow-theme-dark .tf-context-menu-info {
+				background: rgba(0, 0, 0, 0.2);
+			}
+
+			.tf-context-menu-info h4 {
+				margin: 0 0 8px 0;
+				font-size: 0.95em;
+				color: var(--text-normal);
+			}
+
+			.tf-context-menu-info p {
+				margin: 4px 0;
+				color: var(--text-muted);
+			}
+
+			.tf-context-menu-info strong {
+				color: var(--text-normal);
 			}
 
 			.tf-menu-item {
@@ -1889,10 +2146,6 @@ var UIBuilder = class {
 			}
 
 			@media (max-width: 768px) {
-				.tf-summary-cards {
-					flex-direction: column;
-				}
-
 				.tf-stats-grid {
 					grid-template-columns: 1fr;
 				}
@@ -1929,7 +2182,7 @@ var UIBuilder = class {
       return;
     const activeTimers = this.timerManager.getActiveTimers();
     if (activeTimers.length === 0) {
-      this.elements.timerBadge.textContent = "\u25B6\uFE0F Start Timer";
+      this.elements.timerBadge.textContent = "Start";
       this.elements.timerBadge.style.background = "linear-gradient(90deg, #4caf50, #2e7d32)";
       this.elements.timerBadge.style.color = "white";
       this.elements.timerBadge.onclick = async () => {
@@ -1937,7 +2190,7 @@ var UIBuilder = class {
         this.updateTimerBadge();
       };
     } else {
-      this.elements.timerBadge.textContent = "\u23F9\uFE0F Stop Timer";
+      this.elements.timerBadge.textContent = "Stopp";
       this.elements.timerBadge.style.background = "linear-gradient(90deg, #f44336, #c62828)";
       this.elements.timerBadge.style.color = "white";
       this.elements.timerBadge.onclick = async () => {
@@ -1972,7 +2225,7 @@ var UIBuilder = class {
   }
   createMonthCard() {
     const card = document.createElement("div");
-    card.className = "tf-card";
+    card.className = "tf-card tf-card-month";
     const header = document.createElement("div");
     header.style.display = "flex";
     header.style.justifyContent = "space-between";
@@ -2070,17 +2323,80 @@ var UIBuilder = class {
     header.innerHTML = "<h3 style='margin:0'>Informasjon</h3>";
     const content = document.createElement("div");
     content.className = "tf-collapsible-content";
+    const specialDayInfo = [
+      { key: "avspasering", emoji: "\u{1F6CC}", desc: "Trekkes fra fleksitid" },
+      { key: "egenmelding", emoji: "\u{1F912}", desc: "P\xE5virker ikke fleksitid" },
+      { key: "ferie", emoji: "\u{1F3D6}\uFE0F", desc: "P\xE5virker ikke fleksitid" },
+      { key: "velferdspermisjon", emoji: "\u{1F3E5}", desc: "P\xE5virker ikke fleksitid" },
+      { key: "studie", emoji: "\u{1F4D6}", desc: "Teller som fleksitid ved mer enn 7,5t" },
+      { key: "kurs", emoji: "\u{1F4DA}", desc: "Teller som fleksitid ved mer enn 7,5t" },
+      { key: "helligdag", emoji: "\u{1F389}", desc: "Offentlig fridag - p\xE5virker ikke fleksitid" },
+      { key: "halfday", emoji: "\u23F0", desc: "Halv arbeidsdag (4t) - reduserer ukem\xE5let med 4t" },
+      { key: "Ingen registrering", emoji: "\u26AA", desc: "Ingen data for den dagen" }
+    ];
     content.innerHTML = `
 			<div style="margin-top: 15px;">
-				<h4>Fargeforklaring</h4>
-				<div style="display: grid; gap: 8px;">
-					${Object.entries(getSpecialDayColors(this.settings)).map(([key, color]) => {
-      const label = this.settings.specialDayLabels[key] || key;
-      return `<div style="display: flex; align-items: center; gap: 10px;">
-							<div style="width: 20px; height: 20px; background: ${color}; border-radius: 4px;"></div>
-							<span>${label}</span>
-						</div>`;
+				<h4>Spesielle dagtyper</h4>
+				<ul style="list-style: none; padding-left: 0; margin-bottom: 20px;">
+					${specialDayInfo.map((item) => {
+      const color = getSpecialDayColors(this.settings)[item.key] || "transparent";
+      const label = this.settings.specialDayLabels[item.key] || item.key;
+      return `<li style="display: flex; align-items: center; margin-bottom: 8px; font-size: 0.95em;">
+							<div style="width: 16px; height: 16px; background: ${color}; border-radius: 3px; border: 1px solid var(--background-modifier-border); margin-right: 8px; flex-shrink: 0;"></div>
+							<span>${item.emoji} <strong>${label}</strong>: ${item.desc}</span>
+						</li>`;
     }).join("")}
+				</ul>
+
+				<div style="margin-top: 20px; padding: 12px; background: var(--background-primary); border-radius: 8px;">
+					<h4 style="margin-top: 0;">Kalenderkontekstmeny</h4>
+					<p style="margin: 8px 0; font-size: 0.9em;">
+						H\xF8yreklikk p\xE5 en dag i kalenderen for \xE5 f\xE5 opp en meny med flere alternativer:
+					</p>
+					<ul style="margin: 8px 0 0 20px; font-size: 0.9em;">
+						<li>Opprett daglig notat for valgt dag</li>
+						<li>Opprett m\xF8tenotat, prosjektnotat eller refleksjonsnotat</li>
+						<li>Rediger fleksitid for dagen manuelt</li>
+						<li>Registrer spesielle dagtyper (ferie, kurs, avspasering, etc.)</li>
+					</ul>
+				</div>
+
+				<div style="margin-top: 20px; padding: 12px; background: var(--background-primary); border-radius: 8px;">
+					<h4 style="margin-top: 0;">Timesaldo - advarselsoner</h4>
+					<div style="display: flex; flex-direction: column; gap: 8px; font-size: 0.9em;">
+						<div style="display: flex; align-items: center; gap: 8px;">
+							<span style="display: inline-block; width: 20px; height: 20px; border-radius: 4px; background: #4caf50; flex-shrink: 0;"></span>
+							<span><strong>Gr\xF8nn sone:</strong> 0t til +80t (trygg)</span>
+						</div>
+						<div style="display: flex; align-items: center; gap: 8px;">
+							<span style="display: inline-block; width: 20px; height: 20px; border-radius: 4px; background: #ff9800; flex-shrink: 0;"></span>
+							<span><strong>Gul sone:</strong> -15t til -1t ELLER +80t til +95t (forsiktig)</span>
+						</div>
+						<div style="display: flex; align-items: center; gap: 8px;">
+							<span style="display: inline-block; width: 20px; height: 20px; border-radius: 4px; background: #f44336; flex-shrink: 0;"></span>
+							<span><strong>R\xF8d sone:</strong> Under -15t ELLER over +95t (kritisk)</span>
+						</div>
+					</div>
+					<div style="margin-top: 10px; font-size: 0.85em; opacity: 0.8;">
+						<em>Grenser: -20t til +100t</em>
+					</div>
+				</div>
+
+				<div style="margin-top: 20px;">
+					<h4>Arbeidsdager - fargegradient</h4>
+					<p style="margin: 8px 0; font-size: 0.9em;">
+						Arbeidsdager vises med farge basert p\xE5 hvor mye du jobbet i forhold til dagens m\xE5l (${this.settings.baseWorkday}t):
+					</p>
+					<div style="margin-top: 10px;">
+						<div style="height: 16px; border-radius: 8px; background: linear-gradient(to right, rgb(0,200,100), rgb(255,255,0), rgb(255,0,0)); margin: 4px 0; border: 1px solid var(--background-modifier-border);"></div>
+						<div style="display: flex; justify-content: space-between; font-size: 0.85em; color: var(--text-muted); margin-bottom: 12px;">
+							<span>0t over m\xE5l</span><span>+1,5t</span><span>+3t eller mer</span>
+						</div>
+						<div style="height: 16px; border-radius: 8px; background: linear-gradient(to right, rgb(100,150,255), rgb(150,200,255), rgb(200,220,255)); margin: 4px 0; border: 1px solid var(--background-modifier-border);"></div>
+						<div style="display: flex; justify-content: space-between; font-size: 0.85em; color: var(--text-muted);">
+							<span>-3t eller mindre</span><span>-1,5t</span><span>0t fra m\xE5l</span>
+						</div>
+					</div>
 				</div>
 			</div>
 		`;
@@ -2169,7 +2485,7 @@ var UIBuilder = class {
     if (!this.elements.badge)
       return;
     const balance = this.data.getCurrentBalance();
-    const formatted = Utils.formatHoursToHM(Math.abs(balance));
+    const formatted = Utils.formatHoursToHM(Math.abs(balance), this.settings.hourUnit);
     const sign = balance >= 0 ? "+" : "-";
     let color = "#4caf50";
     if (balance < -15 || balance > 95) {
@@ -2179,7 +2495,7 @@ var UIBuilder = class {
     }
     this.elements.badge.style.background = color;
     this.elements.badge.style.color = "white";
-    this.elements.badge.textContent = `\u23F1\uFE0F Timesaldo: ${sign}${formatted}`;
+    this.elements.badge.textContent = `Timesaldo: ${sign}${formatted}`;
   }
   updateDayCard() {
     if (!this.elements.dayCard)
@@ -2188,7 +2504,7 @@ var UIBuilder = class {
     const todayKey = Utils.toLocalDateStr(today);
     const todayHours = this.data.getTodayHours(today);
     const goal = this.data.getDailyGoal(todayKey);
-    const isWeekendDay = Utils.isWeekend(today);
+    const isWeekendDay = Utils.isWeekend(today, this.settings);
     const context = this.data.getContextualData(today);
     const { avgDaily } = this.data.getAverages();
     const specials = [];
@@ -2223,10 +2539,10 @@ var UIBuilder = class {
     this.elements.dayCard.innerHTML = `
 			<h3 style="color: ${textColor};">I dag</h3>
 			<div style="font-size: 32px; font-weight: bold; margin: 10px 0;">
-				${Utils.formatHoursToHM(todayHours)}
+				${Utils.formatHoursToHM(todayHours, this.settings.hourUnit)}
 			</div>
 			<div style="font-size: 14px; opacity: 0.9; margin-bottom: 10px;">
-				M\xE5l: ${Utils.formatHoursToHM(goal)}
+				M\xE5l: ${Utils.formatHoursToHM(goal, this.settings.hourUnit)}
 			</div>
 			<div class="tf-progress-bar">
 				<div class="tf-progress-fill" style="width: ${progress}%"></div>
@@ -2260,7 +2576,7 @@ var UIBuilder = class {
       if (holidayInfo) {
         specials.push(holidayInfo.type);
       }
-      if (Utils.isWeekend(d)) {
+      if (Utils.isWeekend(d, this.settings)) {
         const dayEntries = this.data.daily[dayKey] || [];
         weekendWorkHours += dayEntries.reduce((sum, e) => sum + (e.duration || 0), 0);
       }
@@ -2291,10 +2607,10 @@ var UIBuilder = class {
     this.elements.weekCard.innerHTML = `
 			<h3 style="color: ${textColor};">Denne uken</h3>
 			<div style="font-size: 32px; font-weight: bold; margin: 10px 0;">
-				${Utils.formatHoursToHM(weekHours)}
+				${Utils.formatHoursToHM(weekHours, this.settings.hourUnit)}
 			</div>
 			<div style="font-size: 14px; opacity: 0.9; margin-bottom: 10px;">
-				M\xE5l: ${Utils.formatHoursToHM(adjustedGoal)}
+				M\xE5l: ${Utils.formatHoursToHM(adjustedGoal, this.settings.hourUnit)}
 			</div>
 			<div class="tf-progress-bar">
 				<div class="tf-progress-fill" style="width: ${progress}%"></div>
@@ -2383,6 +2699,11 @@ var UIBuilder = class {
 				<div class="tf-stat-value">${stats.jobb.count} ${stats.jobb.count === 1 ? "dag" : "dager"}</div>
 				<div style="font-size: 0.75em; margin-top: 4px;">${stats.jobb.hours.toFixed(1)}t</div>
 			</div>
+			${stats.weekendDays > 0 ? `<div class="tf-stat-item">
+				<div class="tf-stat-label">\u{1F319} Helgedager jobbet</div>
+				<div class="tf-stat-value">${stats.weekendDays} ${stats.weekendDays === 1 ? "dag" : "dager"}</div>
+				<div style="font-size: 0.75em; margin-top: 4px;">${stats.weekendHours.toFixed(1)}t</div>
+			</div>` : ""}
 			<div class="tf-stat-item">
 				<div class="tf-stat-label">\u{1F6CC} Avspasering</div>
 				<div class="tf-stat-value">${stats.avspasering.count} ${stats.avspasering.count === 1 ? "dag" : "dager"}</div>
@@ -2493,18 +2814,47 @@ var UIBuilder = class {
       } else if (dayEntries) {
         const dayFlextime = dayEntries.reduce((sum, e) => sum + (e.flextime || 0), 0);
         cell.style.background = this.flextimeColor(dayFlextime);
-      } else if (Utils.isWeekend(date)) {
+      } else if (Utils.isWeekend(date, this.settings)) {
         cell.style.background = "#b0b0b0";
       } else {
-        cell.style.background = "#fff";
+        const today = /* @__PURE__ */ new Date();
+        today.setHours(0, 0, 0, 0);
+        const cellDate = new Date(date);
+        cellDate.setHours(0, 0, 0, 0);
+        if (cellDate < today) {
+          cell.style.background = "#e0e0e0";
+        } else {
+          cell.style.background = "transparent";
+        }
       }
       if (hasEntry) {
         cell.classList.add("has-entry");
       } else {
         cell.classList.add("no-entry");
+        const today = /* @__PURE__ */ new Date();
+        today.setHours(0, 0, 0, 0);
+        const cellDate = new Date(date);
+        cellDate.setHours(0, 0, 0, 0);
+        if (!Utils.isWeekend(date, this.settings) && cellDate >= today) {
+          cell.style.color = "#ffffff";
+        }
       }
       if (dateKey === todayKey) {
         cell.classList.add("today");
+      }
+      const hasActiveEntry = dayEntries == null ? void 0 : dayEntries.some((e) => !e.endTime);
+      if (hasActiveEntry) {
+        const indicator = document.createElement("div");
+        indicator.style.position = "absolute";
+        indicator.style.top = "4px";
+        indicator.style.right = "4px";
+        indicator.style.width = "8px";
+        indicator.style.height = "8px";
+        indicator.style.borderRadius = "50%";
+        indicator.style.background = "#4caf50";
+        indicator.style.animation = "pulse 2s infinite";
+        indicator.style.boxShadow = "0 0 4px rgba(76, 175, 80, 0.8)";
+        cell.appendChild(indicator);
       }
       cell.onclick = (e) => {
         e.stopPropagation();
@@ -2518,13 +2868,13 @@ var UIBuilder = class {
   }
   flextimeColor(val) {
     if (val < 0) {
-      const t = Math.min(Math.abs(val) / 6, 1);
+      const t = Math.min(Math.abs(val) / 3, 1);
       const r = Math.floor(100 + 50 * t);
       const g = Math.floor(150 + 50 * t);
       const b = Math.floor(200 + 55 * t);
       return `rgb(${r},${g},${b})`;
     } else {
-      const t = Math.min(val / 6, 1);
+      const t = Math.min(val / 3, 1);
       const r = Math.floor(255 * t);
       const g = Math.floor(200 * (1 - t));
       const b = 150;
@@ -2539,10 +2889,12 @@ var UIBuilder = class {
     menu.className = "tf-context-menu";
     const themeClass = `timeflow-theme-${this.settings.theme}`;
     menu.classList.add(themeClass);
+    const menuMain = document.createElement("div");
+    menuMain.className = "tf-context-menu-main";
     let menuLeft = cellRect.right;
     let menuTop = cellRect.top;
     document.body.appendChild(menu);
-    const menuWidth = 200;
+    const menuWidth = 450;
     if (menuLeft + menuWidth > window.innerWidth) {
       menuLeft = cellRect.left - menuWidth;
     }
@@ -2556,7 +2908,14 @@ var UIBuilder = class {
     menu.style.top = `${menuTop}px`;
     const dateStr = Utils.toLocalDateStr(dateObj);
     const dateEntries = this.data.daily[dateStr];
-    const hasWorkEntries = dateEntries && dateEntries.some((e) => e.name.toLowerCase() === "jobb");
+    const hasWorkEntriesInDaily = dateEntries && dateEntries.some((e) => e.name.toLowerCase() === "jobb");
+    const hasRunningTimerForDate = this.timerManager.data.entries.some((entry) => {
+      if (!entry.startTime || entry.name.toLowerCase() !== "jobb")
+        return false;
+      const entryDate = new Date(entry.startTime);
+      return Utils.toLocalDateStr(entryDate) === dateStr;
+    });
+    const hasWorkEntries = hasWorkEntriesInDaily || hasRunningTimerForDate;
     const workTimeItem = document.createElement("div");
     workTimeItem.className = "tf-menu-item";
     workTimeItem.innerHTML = `<span>\u23F1\uFE0F</span><span>Legg til arbeidstid</span>`;
@@ -2564,7 +2923,7 @@ var UIBuilder = class {
       menu.remove();
       this.showWorkTimeModal(dateObj);
     };
-    menu.appendChild(workTimeItem);
+    menuMain.appendChild(workTimeItem);
     if (hasWorkEntries) {
       const editItem = document.createElement("div");
       editItem.className = "tf-menu-item";
@@ -2573,11 +2932,19 @@ var UIBuilder = class {
         menu.remove();
         this.showEditEntriesModal(dateObj);
       };
-      menu.appendChild(editItem);
+      menuMain.appendChild(editItem);
     }
+    const specialDayItem = document.createElement("div");
+    specialDayItem.className = "tf-menu-item";
+    specialDayItem.innerHTML = `<span>\u{1F4C5}</span><span>Registrer spesialdag</span>`;
+    specialDayItem.onclick = () => {
+      menu.remove();
+      this.showSpecialDayModal(dateObj);
+    };
+    menuMain.appendChild(specialDayItem);
     const separator1 = document.createElement("div");
     separator1.className = "tf-menu-separator";
-    menu.appendChild(separator1);
+    menuMain.appendChild(separator1);
     this.settings.noteTypes.forEach((noteType) => {
       const item = document.createElement("div");
       item.className = "tf-menu-item";
@@ -2586,19 +2953,61 @@ var UIBuilder = class {
         await this.createNoteFromType(dateObj, noteType);
         menu.remove();
       };
-      menu.appendChild(item);
+      menuMain.appendChild(item);
     });
-    const separator2 = document.createElement("div");
-    separator2.className = "tf-menu-separator";
-    menu.appendChild(separator2);
-    const specialDayItem = document.createElement("div");
-    specialDayItem.className = "tf-menu-item";
-    specialDayItem.innerHTML = `<span>\u{1F4C5}</span><span>Registrer spesialdag</span>`;
-    specialDayItem.onclick = () => {
-      menu.remove();
-      this.showSpecialDayModal(dateObj);
-    };
-    menu.appendChild(specialDayItem);
+    menu.appendChild(menuMain);
+    const menuInfo = document.createElement("div");
+    menuInfo.className = "tf-context-menu-info";
+    const allEntries = dateEntries || [];
+    const plannedInfo = this.data.getHolidayInfo(dateStr);
+    const isPlannedDay = plannedInfo !== null;
+    const isPastDay = dateObj < /* @__PURE__ */ new Date();
+    const isFutureDay = dateObj > /* @__PURE__ */ new Date();
+    const runningTimersForDate = this.timerManager.data.entries.filter((entry) => {
+      if (!entry.startTime || !entry.endTime === false || entry.name.toLowerCase() !== "jobb")
+        return false;
+      const entryDate = new Date(entry.startTime);
+      return Utils.toLocalDateStr(entryDate) === dateStr && !entry.endTime;
+    });
+    let infoHTML = `<h4>\u{1F4C5} ${dateStr}</h4>`;
+    if (isPlannedDay && plannedInfo) {
+      const emoji = Utils.getEmoji({ name: plannedInfo.type, date: dateObj });
+      const halfDayText = plannedInfo.halfDay ? " (halv dag)" : "";
+      infoHTML += `<p><strong>${emoji} ${plannedInfo.description}${halfDayText}</strong></p>`;
+    }
+    if (runningTimersForDate.length > 0) {
+      infoHTML += "<p><strong>P\xE5g\xE5ende timer:</strong></p>";
+      runningTimersForDate.forEach((timer) => {
+        const startTime = new Date(timer.startTime);
+        const startTimeStr = `${startTime.getHours().toString().padStart(2, "0")}:${startTime.getMinutes().toString().padStart(2, "0")}`;
+        const now = /* @__PURE__ */ new Date();
+        const elapsed = ((now.getTime() - startTime.getTime()) / (1e3 * 60 * 60)).toFixed(1);
+        infoHTML += `<p style="margin-left: 8px;">\u23F1\uFE0F ${timer.name}: ${startTimeStr} - P\xE5g\xE5r (${elapsed}t)</p>`;
+      });
+    }
+    const completedEntries = allEntries.filter((e) => e.duration && e.duration > 0);
+    if (completedEntries.length > 0) {
+      infoHTML += "<p><strong>Registreringer:</strong></p>";
+      completedEntries.forEach((e) => {
+        const emoji = Utils.getEmoji(e);
+        const duration = `${e.duration.toFixed(1)}t`;
+        infoHTML += `<p style="margin-left: 8px;">${emoji} ${e.name}: ${duration}</p>`;
+      });
+      if (!isFutureDay) {
+        const totalHours = allEntries.reduce((sum, e) => sum + (e.duration || 0), 0);
+        const dayGoal = this.data.getDailyGoal(dateStr);
+        const dailyDelta = dayGoal === 0 ? totalHours : totalHours - dayGoal;
+        const runningBalance = this.data.getBalanceUpToDate(dateStr);
+        infoHTML += `<p style="margin-top: 8px;"><strong>M\xE5l:</strong> ${dayGoal.toFixed(1)}t</p>`;
+        infoHTML += `<p><strong>Dagssaldo:</strong> ${dailyDelta >= 0 ? "+" : ""}${dailyDelta.toFixed(1)}t</p>`;
+        infoHTML += `<p><strong>L\xF8pende saldo:</strong> ${runningBalance >= 0 ? "+" : ""}${Utils.formatHoursToHM(runningBalance, this.settings.hourUnit)}</p>`;
+      }
+    } else if (isPastDay && !isPlannedDay && runningTimersForDate.length === 0) {
+      infoHTML += '<p style="color: var(--text-muted);">Ingen registrering</p>';
+    }
+    infoHTML += '<p style="margin-top: 12px; font-size: 0.8em; color: var(--text-muted); border-top: 1px solid var(--background-modifier-border); padding-top: 8px;">\u{1F4A1} Velg et alternativ fra menyen til venstre</p>';
+    menuInfo.innerHTML = infoHTML;
+    menu.appendChild(menuInfo);
     setTimeout(() => {
       const closeMenu = (e) => {
         if (!menu.contains(e.target)) {
@@ -2908,13 +3317,13 @@ var UIBuilder = class {
     typeLabel.style.fontWeight = "bold";
     content.appendChild(typeLabel);
     const dayTypes = [
-      { type: "ferie", label: "\u{1F3D6}\uFE0F Ferie" },
-      { type: "avspasering", label: "\u{1F6CC} Avspasering" },
-      { type: "velferdspermisjon", label: "\u{1F3E5} Velferdspermisjon" },
-      { type: "egenmelding", label: "\u{1F912} Egenmelding" },
-      { type: "sykemelding", label: "\u{1F3E5} Sykemelding" },
-      { type: "kurs", label: "\u{1F4DA} Kurs" },
-      { type: "studie", label: "\u{1F4DA} Studie" }
+      { type: "ferie", label: `\u{1F3D6}\uFE0F ${this.settings.specialDayLabels.ferie}` },
+      { type: "avspasering", label: `\u{1F6CC} ${this.settings.specialDayLabels.avspasering}` },
+      { type: "velferdspermisjon", label: `\u{1F3E5} ${this.settings.specialDayLabels.velferdspermisjon}` },
+      { type: "egenmelding", label: `\u{1F912} ${this.settings.specialDayLabels.egenmelding}` },
+      { type: "sykemelding", label: `\u{1F3E5} ${this.settings.specialDayLabels.sykemelding}` },
+      { type: "kurs", label: `\u{1F4DA} ${this.settings.specialDayLabels.kurs}` },
+      { type: "studie", label: `\u{1F4D6} ${this.settings.specialDayLabels.studie}` }
     ];
     const typeSelect = document.createElement("select");
     typeSelect.style.width = "100%";
@@ -3093,17 +3502,19 @@ ${noteType.tags.join(" ")}`;
           const typeCell = document.createElement("td");
           typeCell.style.padding = "8px";
           typeCell.style.color = "var(--text-normal)";
-          typeCell.textContent = e.name;
+          const entryNameLower = e.name.toLowerCase();
+          const customLabel = this.settings.specialDayLabels[entryNameLower];
+          typeCell.textContent = customLabel || e.name;
           row.appendChild(typeCell);
           const hoursCell = document.createElement("td");
           hoursCell.style.padding = "8px";
           hoursCell.style.color = "var(--text-normal)";
-          hoursCell.textContent = Utils.formatHoursToHM(e.duration || 0);
+          hoursCell.textContent = Utils.formatHoursToHM(e.duration || 0, this.settings.hourUnit);
           row.appendChild(hoursCell);
           const flextimeCell = document.createElement("td");
           flextimeCell.style.padding = "8px";
           flextimeCell.style.color = "var(--text-normal)";
-          flextimeCell.textContent = Utils.formatHoursToHM(e.flextime || 0);
+          flextimeCell.textContent = Utils.formatHoursToHM(e.flextime || 0, this.settings.hourUnit);
           row.appendChild(flextimeCell);
           const actionCell = document.createElement("td");
           actionCell.style.padding = "8px";
@@ -3308,6 +3719,10 @@ var TimerManager = class {
         if (parsed) {
           this.data = parsed;
           console.log("TimeFlow: Loaded", this.data.entries.length, "entries from", this.dataFile);
+          if (parsed.settings) {
+            console.log("TimeFlow: Found synced settings in data file");
+            return parsed.settings;
+          }
         } else {
           console.warn("TimeFlow: Could not parse data from", this.dataFile);
           this.data = { entries: [] };
@@ -3320,6 +3735,7 @@ var TimerManager = class {
       console.error("TimeFlow: Error loading timer data:", error);
       this.data = { entries: [] };
     }
+    return null;
   }
   async createDataFile() {
     const content = `# timeflow data
@@ -3374,6 +3790,13 @@ ${JSON.stringify(this.data, null, 2)}
     } catch (error) {
       console.error("TimeFlow: Error saving timer data:", error);
     }
+  }
+  // Save settings to the data file for cross-device sync
+  async saveSettings(settings) {
+    this.settings = settings;
+    this.data.settings = settings;
+    await this.save();
+    console.log("TimeFlow: Saved settings to data file for sync");
   }
   async startTimer(name = "Jobb") {
     const timer = {
@@ -3505,17 +3928,35 @@ ${JSON.stringify(this.data, null, 2)}
     try {
       const parsed = JSON.parse(jsonData);
       if (parsed && parsed.entries) {
-        this.data = parsed;
+        const currentEntries = this.data.entries;
+        let addedCount = 0;
+        let skippedCount = 0;
+        parsed.entries.forEach((entry) => {
+          const isDuplicate = currentEntries.some(
+            (e) => e.name === entry.name && e.startTime === entry.startTime && e.endTime === entry.endTime
+          );
+          if (!isDuplicate) {
+            currentEntries.push(entry);
+            addedCount++;
+          } else {
+            skippedCount++;
+          }
+        });
+        this.data.entries = currentEntries;
         await this.save();
         if (this.onTimerChange) {
           this.onTimerChange();
         }
-        new import_obsidian5.Notice(`Imported ${parsed.entries.length} entries`);
+        if (skippedCount > 0) {
+          new import_obsidian5.Notice(`\u2705 Imported ${addedCount} entries, skipped ${skippedCount} duplicates`);
+        } else {
+          new import_obsidian5.Notice(`\u2705 Imported ${addedCount} entries`);
+        }
         return true;
       }
     } catch (error) {
       console.error("Error importing timekeep data:", error);
-      new import_obsidian5.Notice("Error importing data");
+      new import_obsidian5.Notice("\u274C Error importing data");
     }
     return false;
   }
@@ -3618,7 +4059,13 @@ var TimeFlowPlugin = class extends import_obsidian7.Plugin {
     console.log("Loading TimeFlow plugin");
     await this.loadSettings();
     this.timerManager = new TimerManager(this.app, this.settings);
-    await this.timerManager.load();
+    const syncedSettings = await this.timerManager.load();
+    if (syncedSettings) {
+      console.log("TimeFlow: Merging synced settings from data file");
+      this.settings = Object.assign({}, DEFAULT_SETTINGS, this.settings, syncedSettings);
+      this.timerManager.settings = this.settings;
+      await this.saveSettings();
+    }
     this.registerView(
       VIEW_TYPE_TIMEFLOW,
       (leaf) => new TimeFlowView(leaf, this)
@@ -3673,6 +4120,7 @@ var TimeFlowPlugin = class extends import_obsidian7.Plugin {
   }
   async saveSettings() {
     await this.saveData(this.settings);
+    await this.timerManager.saveSettings(this.settings);
   }
   async activateView() {
     const { workspace } = this.app;

@@ -107,7 +107,7 @@ export class DataManager {
 
 	getDailyGoal(dateStr: string): number {
 		const date = new Date(dateStr);
-		const isWeekend = Utils.isWeekend(date);
+		const isWeekend = Utils.isWeekend(date, this.settings);
 
 		if (isWeekend) return 0;
 
@@ -141,7 +141,14 @@ export class DataManager {
 			const end = Utils.parseDate(e.endTime);
 			if (!start || !end) return;
 
-			const duration = Utils.hoursDiff(start, end);
+			let duration = Utils.hoursDiff(start, end);
+
+			// Deduct lunch break for work entries (jobb)
+			if (e.name.toLowerCase() === 'jobb' && this.settings.lunchBreakMinutes > 0) {
+				const lunchBreakHours = this.settings.lunchBreakMinutes / 60;
+				duration = Math.max(0, duration - lunchBreakHours);
+			}
+
 			const dayKey = Utils.toLocalDateStr(start);
 			if (!this.daily[dayKey]) this.daily[dayKey] = [];
 			this.daily[dayKey].push({ ...e, duration, date: start });
@@ -285,18 +292,25 @@ export class DataManager {
 		const today = new Date();
 		const todayKey = Utils.toLocalDateStr(today);
 		const pastKeys = Object.keys(this.daily).filter((d) => d < todayKey);
-		const totalHoursWorked = pastKeys.reduce(
+
+		// Filter out weekends from the calculation
+		const weekdayKeys = pastKeys.filter(dk => {
+			const date = Utils.parseDate(dk);
+			return date && !Utils.isWeekend(date, this.settings);
+		});
+
+		const totalHoursWorked = weekdayKeys.reduce(
 			(sum, dk) => sum + this.daily[dk].reduce((s, e) => s + (e.duration || 0), 0),
 			0
 		);
 		const avgDaily =
-			pastKeys.length > 0 ? totalHoursWorked / pastKeys.length : 0;
-		const avgWeekly = totalHoursWorked / (pastKeys.length / this.settings.workdaysPerWeek || 1);
+			weekdayKeys.length > 0 ? totalHoursWorked / weekdayKeys.length : 0;
+		const avgWeekly = totalHoursWorked / (weekdayKeys.length / this.settings.workdaysPerWeek || 1);
 
 		this._cachedAverages = {
 			avgDaily,
 			avgWeekly,
-			totalDaysWorked: pastKeys.length,
+			totalDaysWorked: weekdayKeys.length,
 			totalHoursWorked,
 		};
 
@@ -337,6 +351,7 @@ export class DataManager {
 			kurs: { count: 0, hours: 0, planned: 0 },
 			workDays: 0,
 			weekendDays: 0,
+			weekendHours: 0,
 			avgDailyHours: 0,
 			workloadPercent: 0,
 		};
@@ -364,8 +379,9 @@ export class DataManager {
 
 			dayEntries.forEach((e) => {
 				const name = e.name.toLowerCase();
-				if (e.date && Utils.isWeekend(e.date)) {
+				if (e.date && Utils.isWeekend(e.date, this.settings)) {
 					weekendDaysSet.add(dayKey);
+					stats.weekendHours += e.duration || 0;
 				} else {
 					workDaysSet.add(dayKey);
 				}
