@@ -317,19 +317,19 @@ export class DataManager {
 		return this._cachedAverages;
 	}
 
-	getStatistics(timeframe: string = "total"): any {
+	getStatistics(timeframe: string = "total", year?: number, month?: number): any {
 		const today = new Date();
 		let filterFn: (dateStr: string) => boolean;
 
 		if (timeframe === "year") {
-			const currentYear = today.getFullYear();
-			filterFn = (dateStr) => new Date(dateStr).getFullYear() === currentYear;
+			const targetYear = year !== undefined ? year : today.getFullYear();
+			filterFn = (dateStr) => new Date(dateStr).getFullYear() === targetYear;
 		} else if (timeframe === "month") {
-			const currentYear = today.getFullYear();
-			const currentMonth = today.getMonth();
+			const targetYear = year !== undefined ? year : today.getFullYear();
+			const targetMonth = month !== undefined ? month : today.getMonth();
 			filterFn = (dateStr) => {
 				const d = new Date(dateStr);
-				return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
+				return d.getFullYear() === targetYear && d.getMonth() === targetMonth;
 			};
 		} else {
 			filterFn = () => true;
@@ -442,6 +442,26 @@ export class DataManager {
 		}
 
 		return stats;
+	}
+
+	getAvailableYears(): number[] {
+		const years = new Set<number>();
+		Object.keys(this.daily).forEach(dateStr => {
+			const year = new Date(dateStr).getFullYear();
+			years.add(year);
+		});
+		return Array.from(years).sort((a, b) => b - a); // Descending order
+	}
+
+	getAvailableMonthsForYear(year: number): number[] {
+		const months = new Set<number>();
+		Object.keys(this.daily).forEach(dateStr => {
+			const date = new Date(dateStr);
+			if (date.getFullYear() === year) {
+				months.add(date.getMonth());
+			}
+		});
+		return Array.from(months).sort((a, b) => a - b); // Ascending order
 	}
 
 	getContextualData(today: Date): any {

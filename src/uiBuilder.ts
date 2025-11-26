@@ -11,6 +11,8 @@ export class UIBuilder {
 	intervals: number[] = [];
 	today: Date;
 	statsTimeframe: string = "total";
+	selectedYear: number;
+	selectedMonth: number;
 	historyView: string = "list";
 	currentMonthOffset: number = 0;
 	systemStatus: any;
@@ -35,6 +37,8 @@ export class UIBuilder {
 		this.timerManager = timerManager;
 		this.container = this.createContainer();
 		this.today = new Date();
+		this.selectedYear = this.today.getFullYear();
+		this.selectedMonth = this.today.getMonth();
 		this.elements = {
 			badge: null,
 			timerBadge: null,
@@ -52,6 +56,7 @@ export class UIBuilder {
 		container.style.maxWidth = "1200px";
 		container.style.margin = "0 auto";
 		container.style.padding = "20px";
+		container.style.boxSizing = "border-box";
 		// Apply theme class
 		container.className = `timeflow-theme-${this.settings.theme}`;
 		return container;
@@ -214,6 +219,8 @@ export class UIBuilder {
 				grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 				gap: 15px;
 				margin-bottom: 20px;
+				width: 100%;
+				box-sizing: border-box;
 			}
 
 			/* Day and week cards stay side-by-side in row 1, calendar always below in row 2 */
@@ -225,10 +232,15 @@ export class UIBuilder {
 			@media (max-width: 500px) {
 				.tf-summary-cards {
 					grid-template-columns: 1fr;
+					gap: 12px;
 				}
 
 				.tf-card-month {
 					grid-column: 1;
+				}
+
+				.tf-card {
+					padding: 16px;
 				}
 			}
 
@@ -239,6 +251,9 @@ export class UIBuilder {
 				background: linear-gradient(135deg, #f0f4c3, #e1f5fe);
 				color: #1a1a1a;
 				box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+				box-sizing: border-box;
+				min-width: 0;
+				overflow: hidden;
 			}
 
 			.tf-card-spaced {
@@ -353,6 +368,15 @@ export class UIBuilder {
 				grid-template-columns: repeat(7, 1fr);
 				gap: 12px;
 				margin-top: 15px;
+				width: 100%;
+				box-sizing: border-box;
+			}
+
+			/* Reduce gap on mobile to fit better */
+			@media (max-width: 500px) {
+				.tf-month-grid {
+					gap: 6px;
+				}
 			}
 
 			/* Day cells - consistent text colors across all themes since backgrounds are always the same */
@@ -595,7 +619,7 @@ export class UIBuilder {
 			/* Context menu - uses same styling as submenu for consistency */
 			/* Context menu - uses Obsidian native styling for all themes */
 			.tf-context-menu {
-				position: absolute;
+				position: fixed;
 				background: var(--background-primary);
 				border: 1px solid var(--background-modifier-border);
 				border-radius: 8px;
@@ -603,13 +627,16 @@ export class UIBuilder {
 				padding: 4px;
 				z-index: 1000;
 				min-width: 200px;
+				max-width: calc(100vw - 20px);
 				display: flex;
 				gap: 0;
+				box-sizing: border-box;
 			}
 
 			.tf-context-menu-main {
 				flex: 0 0 auto;
 				min-width: 200px;
+				box-sizing: border-box;
 			}
 
 			.tf-context-menu-info {
@@ -620,6 +647,27 @@ export class UIBuilder {
 				background: var(--background-secondary);
 				font-size: 0.85em;
 				line-height: 1.4;
+				box-sizing: border-box;
+			}
+
+			/* On mobile, stack menu vertically and make it full width */
+			@media (max-width: 500px) {
+				.tf-context-menu {
+					flex-direction: column;
+					width: calc(100vw - 20px);
+					max-height: calc(100vh - 40px);
+					overflow-y: auto;
+				}
+
+				.tf-context-menu-main {
+					width: 100%;
+				}
+
+				.tf-context-menu-info {
+					width: 100%;
+					border-left: none;
+					border-top: 1px solid var(--background-modifier-border);
+				}
 			}
 
 			.timeflow-theme-dark .tf-context-menu-info {
@@ -941,13 +989,15 @@ export class UIBuilder {
 		headerRow.appendChild(tabs);
 		card.appendChild(headerRow);
 
-		// Timeframe label container
-		const timeframeLabel = document.createElement("div");
-		timeframeLabel.className = "tf-timeframe-label";
-		timeframeLabel.style.marginBottom = "15px";
-		timeframeLabel.style.fontSize = "1.1em";
-		timeframeLabel.style.fontWeight = "bold";
-		card.appendChild(timeframeLabel);
+		// Timeframe selector container
+		const timeframeSelectorContainer = document.createElement("div");
+		timeframeSelectorContainer.className = "tf-timeframe-selector";
+		timeframeSelectorContainer.style.marginBottom = "15px";
+		timeframeSelectorContainer.style.display = "flex";
+		timeframeSelectorContainer.style.gap = "10px";
+		timeframeSelectorContainer.style.alignItems = "center";
+		timeframeSelectorContainer.style.flexWrap = "wrap";
+		card.appendChild(timeframeSelectorContainer);
 
 		const statsContainer = document.createElement("div");
 		statsContainer.className = "tf-stats-grid";
@@ -1067,24 +1117,30 @@ export class UIBuilder {
 		const card = document.createElement("div");
 		card.className = "tf-card tf-card-history tf-card-spaced";
 
-		// Header with title and view tabs (matching stats card layout)
-		const headerRow = document.createElement("div");
-		headerRow.style.display = "flex";
-		headerRow.style.justifyContent = "space-between";
-		headerRow.style.alignItems = "center";
-		headerRow.style.marginBottom = "15px";
-		headerRow.style.flexWrap = "wrap";
-		headerRow.style.gap = "10px";
+		// Collapsible header
+		const header = document.createElement("div");
+		header.className = "tf-collapsible";
+		header.style.display = "flex";
+		header.style.justifyContent = "space-between";
+		header.style.alignItems = "center";
+		header.style.flexWrap = "wrap";
+		header.style.gap = "10px";
+		header.style.marginBottom = "15px";
 
 		const title = document.createElement("h3");
 		title.textContent = "Historikk";
 		title.style.margin = "0";
-		headerRow.appendChild(title);
+		header.appendChild(title);
 
-		// Create details element first (needed by tab onclick handlers)
-		const detailsElement = document.createElement("div");
-		detailsElement.style.maxHeight = "500px";
-		detailsElement.style.overflow = "auto";
+		// Collapsible content container
+		const content = document.createElement("div");
+		content.className = "tf-collapsible-content"; // Start closed (no 'open' class)
+
+		// Header row with tabs inside collapsible content
+		const tabsRow = document.createElement("div");
+		tabsRow.style.display = "flex";
+		tabsRow.style.justifyContent = "flex-end";
+		tabsRow.style.marginBottom = "15px";
 
 		// View tabs (matching stats card style)
 		const tabs = document.createElement("div");
@@ -1096,6 +1152,11 @@ export class UIBuilder {
 			{ id: "list", label: "Liste" },
 			{ id: "heatmap", label: "Heatmap" }
 		];
+
+		// Create details element first (needed by tab onclick handlers)
+		const detailsElement = document.createElement("div");
+		detailsElement.style.maxHeight = "500px";
+		detailsElement.style.overflow = "auto";
 
 		views.forEach(view => {
 			const tab = document.createElement("button");
@@ -1111,9 +1172,17 @@ export class UIBuilder {
 			tabs.appendChild(tab);
 		});
 
-		headerRow.appendChild(tabs);
-		card.appendChild(headerRow);
-		card.appendChild(detailsElement);
+		tabsRow.appendChild(tabs);
+		content.appendChild(tabsRow);
+		content.appendChild(detailsElement);
+
+		// Toggle collapse on header click
+		header.onclick = () => {
+			content.classList.toggle('open');
+		};
+
+		card.appendChild(header);
+		card.appendChild(content);
 
 		this.refreshHistoryView(detailsElement);
 
@@ -1320,28 +1389,126 @@ export class UIBuilder {
 	updateStatsCard(): void {
 		if (!this.elements.statsCard) return;
 
-		const stats = this.data.getStatistics(this.statsTimeframe);
+		const stats = this.data.getStatistics(this.statsTimeframe, this.selectedYear, this.selectedMonth);
 		const balance = this.data.getCurrentBalance();
 		const { avgDaily, avgWeekly } = this.data.getAverages();
 		const workloadPct = ((avgWeekly / this.settings.baseWorkweek) * 100).toFixed(0);
 
-		// Timeframe label
-		let timeframeLabel = "";
-		const today = new Date();
-		if (this.statsTimeframe === "year") {
-			timeframeLabel = today.getFullYear().toString();
-		} else if (this.statsTimeframe === "month") {
-			const monthName = today.toLocaleString("nb-NO", { month: "long" });
-			timeframeLabel = monthName.charAt(0).toUpperCase() + monthName.slice(1);
-		} else {
-			timeframeLabel = "Totalt";
+		// Update timeframe selector
+		const selectorContainer = this.elements.statsCard.parentElement?.querySelector('.tf-timeframe-selector');
+		if (selectorContainer) {
+			selectorContainer.innerHTML = '';
+
+			if (this.statsTimeframe === "year") {
+				// Year dropdown
+				const availableYears = this.data.getAvailableYears();
+				if (availableYears.length > 0) {
+					const yearSelect = document.createElement("select");
+					yearSelect.style.padding = "4px 8px";
+					yearSelect.style.fontSize = "1em";
+					yearSelect.style.fontWeight = "bold";
+					yearSelect.style.border = "1px solid var(--background-modifier-border)";
+					yearSelect.style.borderRadius = "4px";
+					yearSelect.style.background = "var(--background-primary)";
+					yearSelect.style.color = "var(--text-normal)";
+					yearSelect.style.cursor = "pointer";
+
+					availableYears.forEach(year => {
+						const option = document.createElement("option");
+						option.value = year.toString();
+						option.textContent = year.toString();
+						option.selected = year === this.selectedYear;
+						yearSelect.appendChild(option);
+					});
+
+					yearSelect.onchange = () => {
+						this.selectedYear = parseInt(yearSelect.value);
+						this.updateStatsCard();
+					};
+
+					selectorContainer.appendChild(yearSelect);
+				}
+			} else if (this.statsTimeframe === "month") {
+				// Year dropdown
+				const availableYears = this.data.getAvailableYears();
+				if (availableYears.length > 0) {
+					const yearSelect = document.createElement("select");
+					yearSelect.style.padding = "4px 8px";
+					yearSelect.style.fontSize = "1em";
+					yearSelect.style.fontWeight = "bold";
+					yearSelect.style.border = "1px solid var(--background-modifier-border)";
+					yearSelect.style.borderRadius = "4px";
+					yearSelect.style.background = "var(--background-primary)";
+					yearSelect.style.color = "var(--text-normal)";
+					yearSelect.style.cursor = "pointer";
+
+					availableYears.forEach(year => {
+						const option = document.createElement("option");
+						option.value = year.toString();
+						option.textContent = year.toString();
+						option.selected = year === this.selectedYear;
+						yearSelect.appendChild(option);
+					});
+
+					yearSelect.onchange = () => {
+						this.selectedYear = parseInt(yearSelect.value);
+						// Reset to first available month for new year
+						const months = this.data.getAvailableMonthsForYear(this.selectedYear);
+						if (months.length > 0) {
+							this.selectedMonth = months[months.length - 1]; // Most recent month
+						}
+						this.updateStatsCard();
+					};
+
+					selectorContainer.appendChild(yearSelect);
+
+					// Month dropdown
+					const availableMonths = this.data.getAvailableMonthsForYear(this.selectedYear);
+					if (availableMonths.length > 0) {
+						const monthSelect = document.createElement("select");
+						monthSelect.style.padding = "4px 8px";
+						monthSelect.style.fontSize = "1em";
+						monthSelect.style.fontWeight = "bold";
+						monthSelect.style.border = "1px solid var(--background-modifier-border)";
+						monthSelect.style.borderRadius = "4px";
+						monthSelect.style.background = "var(--background-primary)";
+						monthSelect.style.color = "var(--text-normal)";
+						monthSelect.style.cursor = "pointer";
+
+						const monthNames = ["Januar", "Februar", "Mars", "April", "Mai", "Juni",
+							"Juli", "August", "September", "Oktober", "November", "Desember"];
+
+						availableMonths.forEach(month => {
+							const option = document.createElement("option");
+							option.value = month.toString();
+							option.textContent = monthNames[month];
+							option.selected = month === this.selectedMonth;
+							monthSelect.appendChild(option);
+						});
+
+						monthSelect.onchange = () => {
+							this.selectedMonth = parseInt(monthSelect.value);
+							this.updateStatsCard();
+						};
+
+						selectorContainer.appendChild(monthSelect);
+					}
+				}
+			} else {
+				// Total - just show label
+				const label = document.createElement("div");
+				label.style.fontSize = "1.1em";
+				label.style.fontWeight = "bold";
+				label.textContent = "Totalt";
+				selectorContainer.appendChild(label);
+			}
 		}
 
 		// Week comparison
-		const context = this.data.getContextualData(today);
+		const context = this.data.getContextualData(this.today);
 		let weekComparisonText = "";
 		if (context.lastWeekHours > 0) {
-			const currWeekHours = this.data.getCurrentWeekHours(today);
+			const currWeekHours = this.data.getCurrentWeekHours(this.today);
 			const diff = currWeekHours - context.lastWeekHours;
 			if (Math.abs(diff) > 2) {
 				const arrow = diff > 0 ? "📈" : "📉";
@@ -1371,12 +1538,6 @@ export class UIBuilder {
 		if (this.statsTimeframe === "year" && stats.egenmelding.max > 0) {
 			const egenmeldingPercent = ((stats.egenmelding.count / stats.egenmelding.max) * 100).toFixed(0);
 			egenmeldingDisplay = `${stats.egenmelding.count}/${stats.egenmelding.max} dager (${egenmeldingPercent}%)`;
-		}
-
-		// Update timeframe label
-		const timeframeLabelElement = this.elements.statsCard.parentElement?.querySelector('.tf-timeframe-label');
-		if (timeframeLabelElement) {
-			timeframeLabelElement.textContent = timeframeLabel;
 		}
 
 		this.elements.statsCard.innerHTML = `
@@ -1436,7 +1597,6 @@ export class UIBuilder {
 			<div class="tf-stat-item">
 				<div class="tf-stat-label">🏥 Sykemelding</div>
 				<div class="tf-stat-value">${stats.sykemelding.count} ${stats.sykemelding.count === 1 ? 'dag' : 'dager'}</div>
-				<div style="font-size: 0.75em; margin-top: 4px;">${stats.sykemelding.hours.toFixed(1)}t</div>
 			</div>
 			<div class="tf-stat-item">
 				<div class="tf-stat-label">📚 Studie</div>
@@ -1659,17 +1819,38 @@ export class UIBuilder {
 		menuMain.className = 'tf-context-menu-main';
 
 		// Position menu, but check if it goes off-screen
+		// Note: Using fixed positioning, so coordinates are relative to viewport
 		let menuLeft = cellRect.right;
 		let menuTop = cellRect.top;
 
 		// Append to body first to measure dimensions
 		document.body.appendChild(menu);
 
-		// Check if menu goes off the right edge of the window
-		const menuWidth = 450; // Account for both menu and info panel
-		if (menuLeft + menuWidth > window.innerWidth) {
-			// Position to the left of the cell instead
-			menuLeft = cellRect.left - menuWidth;
+		// Check screen width for mobile
+		const isMobile = window.innerWidth <= 500;
+
+		if (isMobile) {
+			// On mobile, center horizontally with margins
+			menuLeft = 10;
+			menu.style.left = `${menuLeft}px`;
+			menu.style.right = '10px';
+			menu.style.width = 'calc(100vw - 20px)';
+		} else {
+			// Desktop positioning logic
+			const menuWidth = 450; // Account for both menu and info panel
+
+			// Check if menu goes off the right edge
+			if (menuLeft + menuWidth > window.innerWidth) {
+				// Try positioning to the left of the cell
+				menuLeft = cellRect.left - menuWidth;
+
+				// If still off-screen on the left, clamp to viewport
+				if (menuLeft < 10) {
+					menuLeft = 10;
+				}
+			}
+
+			menu.style.left = `${menuLeft}px`;
 		}
 
 		// Check if menu goes off the bottom edge of the window
@@ -1677,11 +1858,18 @@ export class UIBuilder {
 		setTimeout(() => {
 			const menuHeight = menu.offsetHeight;
 			if (menuTop + menuHeight > window.innerHeight) {
-				menu.style.top = `${Math.max(10, window.innerHeight - menuHeight - 10)}px`;
+				// Position so bottom of menu is 10px from bottom of viewport
+				menuTop = Math.max(10, window.innerHeight - menuHeight - 10);
 			}
+
+			// Also check if menu goes off the top
+			if (menuTop < 10) {
+				menuTop = 10;
+			}
+
+			menu.style.top = `${menuTop}px`;
 		}, 0);
 
-		menu.style.left = `${menuLeft}px`;
 		menu.style.top = `${menuTop}px`;
 
 		// Check if there are existing entries for this date

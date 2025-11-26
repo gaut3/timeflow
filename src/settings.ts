@@ -16,6 +16,7 @@ export interface TimeFlowSettings {
 	maxFerieDays: number;
 	updateInterval: number;
 	clockInterval: number;
+	dataFilePath: string;
 	holidaysFilePath: string;
 	dailyNotesFolder: string;
 	dailyNotesTemplatePath: string;
@@ -70,6 +71,7 @@ export const DEFAULT_SETTINGS: TimeFlowSettings = {
 	maxFerieDays: 25,
 	updateInterval: 30000,
 	clockInterval: 1000,
+	dataFilePath: "timeflow/data.md",
 	holidaysFilePath: "timeflow/holidays.md",
 	dailyNotesFolder: "Daily Notes",
 	dailyNotesTemplatePath: "timeflow/templates/daily-notes.md",
@@ -476,6 +478,19 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 
 		// File Paths
 		containerEl.createEl('h3', { text: 'File Paths' });
+
+		new Setting(containerEl)
+			.setName('Data File Path')
+			.setDesc('Path to the file containing timer data and settings')
+			.addText(text => text
+				.setPlaceholder('timeflow/data.md')
+				.setValue(this.plugin.settings.dataFilePath)
+				.onChange(async (value) => {
+					this.plugin.settings.dataFilePath = value;
+					await this.plugin.saveSettings();
+					// Update timer manager to use new path
+					this.plugin.timerManager.dataFile = value;
+				}));
 
 		new Setting(containerEl)
 			.setName('Holidays File Path')

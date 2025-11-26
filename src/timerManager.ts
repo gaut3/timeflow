@@ -20,12 +20,13 @@ export class TimerManager {
 	app: App;
 	settings: TimeFlowSettings;
 	data: TimekeepData;
-	dataFile: string = 'timeflow/data.md'; // Main data file
+	dataFile: string; // Main data file - uses settings.dataFilePath
 	onTimerChange?: () => void;
 
 	constructor(app: App, settings: TimeFlowSettings) {
 		this.app = app;
 		this.settings = settings;
+		this.dataFile = settings.dataFilePath;
 		this.data = { entries: [] };
 	}
 

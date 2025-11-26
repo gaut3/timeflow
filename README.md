@@ -1,6 +1,6 @@
 # timeflow Plugin
 
-timeflow is an Obsidian plugin that provides a comprehensive flextime tracking dashboard with **built-in timer functionality**, beautiful visualizations, and extensive customization options.
+timeflow provides a comprehensive flextime tracking dashboard with **built-in timer functionality**, beautiful visualizations, and extensive customization options.
 
 ![timeflow Dashboard](timeflow.png)
 
@@ -73,14 +73,12 @@ timeflow is an Obsidian plugin that provides a comprehensive flextime tracking d
   - Hour unit preference (h or t for "timer")
 
 ### 📱 Cross-Device Sync
-- **Automatic Settings Sync** - Settings are saved in `timeflow/data.md` alongside your timer data
-- **Works with Obsidian Sync** - Settings sync automatically across all your devices
+- **Automatic Settings Sync** - Settings are saved in `timeflow/data.md` alongside your timer data, so if you have Obsidian set up with syncing, timeflow will automatically use the settings specified in `timeflow/data.md`
 - **Zero Configuration** - No manual setup required, just enable the plugin on another device
 
 ## Requirements
 
 - **Obsidian** v0.15.0 or higher
-- **No external plugins required!** - timeflow has its own built-in timer system
 
 ## Installation
 
@@ -116,14 +114,14 @@ timeflow is an Obsidian plugin that provides a comprehensive flextime tracking d
 
 #### Starting a Timer
 
-1. **From the Dashboard**: Click the **"▶️ Start Timer"** button in the top banner
+1. **From the Dashboard**: Click the **Start"** button in the top banner
 2. **From Command Palette**: Run "Start Timer" command
 3. The timer will appear in the banner with a live duration display
 
 #### Stopping a Timer
 
 1. Click the timer badge in the top banner to see all running timers
-2. Click **"⏹️ Stop"** button next to the timer you want to stop
+2. Click **Stop** button next to the timer you want to stop
 3. Or use "Stop All Timers" from the command palette
 4. The timer data will be automatically saved to `timeflow/data.md`
 
@@ -135,10 +133,6 @@ timeflow is an Obsidian plugin that provides a comprehensive flextime tracking d
 - Format: `{"entries":[...],"settings":{...}}`
 - Settings are automatically synced for cross-device use
 - You can import existing Timekeep data with duplicate detection
-
-#### Backwards Compatibility with Timekeep
-
-timeflow uses the exact same data format as the Timekeep plugin:
 
 ```markdown
 # timeflow data
@@ -399,14 +393,6 @@ timeflow-plugin/
 - Progress bars showing percentage of goal completion
 - Contextual messages based on work patterns
 
-## Responsive Layout
-
-The dashboard adapts to different screen sizes:
-
-- **Wide screens (1200px+)**: Day, Week, and Calendar cards in a 3-column layout
-- **Medium screens (768-1200px)**: Day and Week cards side-by-side, Calendar below
-- **Mobile (<768px)**: All cards stacked vertically
-
 ## Troubleshooting
 
 ### Dashboard not loading
@@ -437,7 +423,7 @@ The dashboard adapts to different screen sizes:
 ## Credits
 
 Original dataview script by Gaute
-Converted to Obsidian plugin with full TypeScript implementation
+Converted to Obsidian plugin with full TypeScript implementation with AI
 
 ## License
 

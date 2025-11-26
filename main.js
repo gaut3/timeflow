@@ -121,6 +121,7 @@ var DEFAULT_SETTINGS = {
   maxFerieDays: 25,
   updateInterval: 3e4,
   clockInterval: 1e3,
+  dataFilePath: "timeflow/data.md",
   holidaysFilePath: "timeflow/holidays.md",
   dailyNotesFolder: "Daily Notes",
   dailyNotesTemplatePath: "timeflow/templates/daily-notes.md",
@@ -368,6 +369,11 @@ var TimeFlowSettingTab = class extends import_obsidian.PluginSettingTab {
       }
     }));
     containerEl.createEl("h3", { text: "File Paths" });
+    new import_obsidian.Setting(containerEl).setName("Data File Path").setDesc("Path to the file containing timer data and settings").addText((text) => text.setPlaceholder("timeflow/data.md").setValue(this.plugin.settings.dataFilePath).onChange(async (value) => {
+      this.plugin.settings.dataFilePath = value;
+      await this.plugin.saveSettings();
+      this.plugin.timerManager.dataFile = value;
+    }));
     new import_obsidian.Setting(containerEl).setName("Holidays File Path").setDesc("Path to the file containing future planned days/holidays").addText((text) => text.setPlaceholder("timeflow/holidays.md").setValue(this.plugin.settings.holidaysFilePath).onChange(async (value) => {
       this.plugin.settings.holidaysFilePath = value;
       await this.plugin.saveSettings();
@@ -856,18 +862,18 @@ var DataManager = class {
     };
     return this._cachedAverages;
   }
-  getStatistics(timeframe = "total") {
+  getStatistics(timeframe = "total", year, month) {
     const today = /* @__PURE__ */ new Date();
     let filterFn;
     if (timeframe === "year") {
-      const currentYear = today.getFullYear();
-      filterFn = (dateStr) => new Date(dateStr).getFullYear() === currentYear;
+      const targetYear = year !== void 0 ? year : today.getFullYear();
+      filterFn = (dateStr) => new Date(dateStr).getFullYear() === targetYear;
     } else if (timeframe === "month") {
-      const currentYear = today.getFullYear();
-      const currentMonth = today.getMonth();
+      const targetYear = year !== void 0 ? year : today.getFullYear();
+      const targetMonth = month !== void 0 ? month : today.getMonth();
       filterFn = (dateStr) => {
         const d = new Date(dateStr);
-        return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
+        return d.getFullYear() === targetYear && d.getMonth() === targetMonth;
       };
     } else {
       filterFn = () => true;
@@ -959,6 +965,24 @@ var DataManager = class {
       stats.workloadPercent = expectedHours > 0 ? stats.totalHours / expectedHours * 100 : 0;
     }
     return stats;
+  }
+  getAvailableYears() {
+    const years = /* @__PURE__ */ new Set();
+    Object.keys(this.daily).forEach((dateStr) => {
+      const year = new Date(dateStr).getFullYear();
+      years.add(year);
+    });
+    return Array.from(years).sort((a, b) => b - a);
+  }
+  getAvailableMonthsForYear(year) {
+    const months = /* @__PURE__ */ new Set();
+    Object.keys(this.daily).forEach((dateStr) => {
+      const date = new Date(dateStr);
+      if (date.getFullYear() === year) {
+        months.add(date.getMonth());
+      }
+    });
+    return Array.from(months).sort((a, b) => a - b);
   }
   getContextualData(today) {
     const todayKey = Utils.toLocalDateStr(today);
@@ -1438,6 +1462,8 @@ var UIBuilder = class {
     this.timerManager = timerManager;
     this.container = this.createContainer();
     this.today = /* @__PURE__ */ new Date();
+    this.selectedYear = this.today.getFullYear();
+    this.selectedMonth = this.today.getMonth();
     this.elements = {
       badge: null,
       timerBadge: null,
@@ -1454,6 +1480,7 @@ var UIBuilder = class {
     container.style.maxWidth = "1200px";
     container.style.margin = "0 auto";
     container.style.padding = "20px";
+    container.style.boxSizing = "border-box";
     container.className = `timeflow-theme-${this.settings.theme}`;
     return container;
   }
@@ -1614,6 +1641,8 @@ var UIBuilder = class {
 				grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 				gap: 15px;
 				margin-bottom: 20px;
+				width: 100%;
+				box-sizing: border-box;
 			}
 
 			/* Day and week cards stay side-by-side in row 1, calendar always below in row 2 */
@@ -1625,10 +1654,15 @@ var UIBuilder = class {
 			@media (max-width: 500px) {
 				.tf-summary-cards {
 					grid-template-columns: 1fr;
+					gap: 12px;
 				}
 
 				.tf-card-month {
 					grid-column: 1;
+				}
+
+				.tf-card {
+					padding: 16px;
 				}
 			}
 
@@ -1639,6 +1673,9 @@ var UIBuilder = class {
 				background: linear-gradient(135deg, #f0f4c3, #e1f5fe);
 				color: #1a1a1a;
 				box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+				box-sizing: border-box;
+				min-width: 0;
+				overflow: hidden;
 			}
 
 			.tf-card-spaced {
@@ -1753,6 +1790,15 @@ var UIBuilder = class {
 				grid-template-columns: repeat(7, 1fr);
 				gap: 12px;
 				margin-top: 15px;
+				width: 100%;
+				box-sizing: border-box;
+			}
+
+			/* Reduce gap on mobile to fit better */
+			@media (max-width: 500px) {
+				.tf-month-grid {
+					gap: 6px;
+				}
 			}
 
 			/* Day cells - consistent text colors across all themes since backgrounds are always the same */
@@ -1995,7 +2041,7 @@ var UIBuilder = class {
 			/* Context menu - uses same styling as submenu for consistency */
 			/* Context menu - uses Obsidian native styling for all themes */
 			.tf-context-menu {
-				position: absolute;
+				position: fixed;
 				background: var(--background-primary);
 				border: 1px solid var(--background-modifier-border);
 				border-radius: 8px;
@@ -2003,13 +2049,16 @@ var UIBuilder = class {
 				padding: 4px;
 				z-index: 1000;
 				min-width: 200px;
+				max-width: calc(100vw - 20px);
 				display: flex;
 				gap: 0;
+				box-sizing: border-box;
 			}
 
 			.tf-context-menu-main {
 				flex: 0 0 auto;
 				min-width: 200px;
+				box-sizing: border-box;
 			}
 
 			.tf-context-menu-info {
@@ -2020,6 +2069,27 @@ var UIBuilder = class {
 				background: var(--background-secondary);
 				font-size: 0.85em;
 				line-height: 1.4;
+				box-sizing: border-box;
+			}
+
+			/* On mobile, stack menu vertically and make it full width */
+			@media (max-width: 500px) {
+				.tf-context-menu {
+					flex-direction: column;
+					width: calc(100vw - 20px);
+					max-height: calc(100vh - 40px);
+					overflow-y: auto;
+				}
+
+				.tf-context-menu-main {
+					width: 100%;
+				}
+
+				.tf-context-menu-info {
+					width: 100%;
+					border-left: none;
+					border-top: 1px solid var(--background-modifier-border);
+				}
 			}
 
 			.timeflow-theme-dark .tf-context-menu-info {
@@ -2302,12 +2372,14 @@ var UIBuilder = class {
     });
     headerRow.appendChild(tabs);
     card.appendChild(headerRow);
-    const timeframeLabel = document.createElement("div");
-    timeframeLabel.className = "tf-timeframe-label";
-    timeframeLabel.style.marginBottom = "15px";
-    timeframeLabel.style.fontSize = "1.1em";
-    timeframeLabel.style.fontWeight = "bold";
-    card.appendChild(timeframeLabel);
+    const timeframeSelectorContainer = document.createElement("div");
+    timeframeSelectorContainer.className = "tf-timeframe-selector";
+    timeframeSelectorContainer.style.marginBottom = "15px";
+    timeframeSelectorContainer.style.display = "flex";
+    timeframeSelectorContainer.style.gap = "10px";
+    timeframeSelectorContainer.style.alignItems = "center";
+    timeframeSelectorContainer.style.flexWrap = "wrap";
+    card.appendChild(timeframeSelectorContainer);
     const statsContainer = document.createElement("div");
     statsContainer.className = "tf-stats-grid";
     this.elements.statsCard = statsContainer;
@@ -2412,20 +2484,24 @@ var UIBuilder = class {
   buildHistoryCard() {
     const card = document.createElement("div");
     card.className = "tf-card tf-card-history tf-card-spaced";
-    const headerRow = document.createElement("div");
-    headerRow.style.display = "flex";
-    headerRow.style.justifyContent = "space-between";
-    headerRow.style.alignItems = "center";
-    headerRow.style.marginBottom = "15px";
-    headerRow.style.flexWrap = "wrap";
-    headerRow.style.gap = "10px";
+    const header = document.createElement("div");
+    header.className = "tf-collapsible";
+    header.style.display = "flex";
+    header.style.justifyContent = "space-between";
+    header.style.alignItems = "center";
+    header.style.flexWrap = "wrap";
+    header.style.gap = "10px";
+    header.style.marginBottom = "15px";
     const title = document.createElement("h3");
     title.textContent = "Historikk";
     title.style.margin = "0";
-    headerRow.appendChild(title);
-    const detailsElement = document.createElement("div");
-    detailsElement.style.maxHeight = "500px";
-    detailsElement.style.overflow = "auto";
+    header.appendChild(title);
+    const content = document.createElement("div");
+    content.className = "tf-collapsible-content";
+    const tabsRow = document.createElement("div");
+    tabsRow.style.display = "flex";
+    tabsRow.style.justifyContent = "flex-end";
+    tabsRow.style.marginBottom = "15px";
     const tabs = document.createElement("div");
     tabs.className = "tf-tabs";
     tabs.style.marginBottom = "0";
@@ -2434,6 +2510,9 @@ var UIBuilder = class {
       { id: "list", label: "Liste" },
       { id: "heatmap", label: "Heatmap" }
     ];
+    const detailsElement = document.createElement("div");
+    detailsElement.style.maxHeight = "500px";
+    detailsElement.style.overflow = "auto";
     views.forEach((view) => {
       const tab = document.createElement("button");
       tab.textContent = view.label;
@@ -2446,9 +2525,14 @@ var UIBuilder = class {
       };
       tabs.appendChild(tab);
     });
-    headerRow.appendChild(tabs);
-    card.appendChild(headerRow);
-    card.appendChild(detailsElement);
+    tabsRow.appendChild(tabs);
+    content.appendChild(tabsRow);
+    content.appendChild(detailsElement);
+    header.onclick = () => {
+      content.classList.toggle("open");
+    };
+    card.appendChild(header);
+    card.appendChild(content);
     this.refreshHistoryView(detailsElement);
     return card;
   }
@@ -2626,24 +2710,117 @@ var UIBuilder = class {
     var _a, _b;
     if (!this.elements.statsCard)
       return;
-    const stats = this.data.getStatistics(this.statsTimeframe);
+    const stats = this.data.getStatistics(this.statsTimeframe, this.selectedYear, this.selectedMonth);
     const balance = this.data.getCurrentBalance();
     const { avgDaily, avgWeekly } = this.data.getAverages();
     const workloadPct = (avgWeekly / this.settings.baseWorkweek * 100).toFixed(0);
-    let timeframeLabel = "";
-    const today = /* @__PURE__ */ new Date();
-    if (this.statsTimeframe === "year") {
-      timeframeLabel = today.getFullYear().toString();
-    } else if (this.statsTimeframe === "month") {
-      const monthName = today.toLocaleString("nb-NO", { month: "long" });
-      timeframeLabel = monthName.charAt(0).toUpperCase() + monthName.slice(1);
-    } else {
-      timeframeLabel = "Totalt";
+    const selectorContainer = (_a = this.elements.statsCard.parentElement) == null ? void 0 : _a.querySelector(".tf-timeframe-selector");
+    if (selectorContainer) {
+      selectorContainer.innerHTML = "";
+      if (this.statsTimeframe === "year") {
+        const availableYears = this.data.getAvailableYears();
+        if (availableYears.length > 0) {
+          const yearSelect = document.createElement("select");
+          yearSelect.style.padding = "4px 8px";
+          yearSelect.style.fontSize = "1em";
+          yearSelect.style.fontWeight = "bold";
+          yearSelect.style.border = "1px solid var(--background-modifier-border)";
+          yearSelect.style.borderRadius = "4px";
+          yearSelect.style.background = "var(--background-primary)";
+          yearSelect.style.color = "var(--text-normal)";
+          yearSelect.style.cursor = "pointer";
+          availableYears.forEach((year) => {
+            const option = document.createElement("option");
+            option.value = year.toString();
+            option.textContent = year.toString();
+            option.selected = year === this.selectedYear;
+            yearSelect.appendChild(option);
+          });
+          yearSelect.onchange = () => {
+            this.selectedYear = parseInt(yearSelect.value);
+            this.updateStatsCard();
+          };
+          selectorContainer.appendChild(yearSelect);
+        }
+      } else if (this.statsTimeframe === "month") {
+        const availableYears = this.data.getAvailableYears();
+        if (availableYears.length > 0) {
+          const yearSelect = document.createElement("select");
+          yearSelect.style.padding = "4px 8px";
+          yearSelect.style.fontSize = "1em";
+          yearSelect.style.fontWeight = "bold";
+          yearSelect.style.border = "1px solid var(--background-modifier-border)";
+          yearSelect.style.borderRadius = "4px";
+          yearSelect.style.background = "var(--background-primary)";
+          yearSelect.style.color = "var(--text-normal)";
+          yearSelect.style.cursor = "pointer";
+          availableYears.forEach((year) => {
+            const option = document.createElement("option");
+            option.value = year.toString();
+            option.textContent = year.toString();
+            option.selected = year === this.selectedYear;
+            yearSelect.appendChild(option);
+          });
+          yearSelect.onchange = () => {
+            this.selectedYear = parseInt(yearSelect.value);
+            const months = this.data.getAvailableMonthsForYear(this.selectedYear);
+            if (months.length > 0) {
+              this.selectedMonth = months[months.length - 1];
+            }
+            this.updateStatsCard();
+          };
+          selectorContainer.appendChild(yearSelect);
+          const availableMonths = this.data.getAvailableMonthsForYear(this.selectedYear);
+          if (availableMonths.length > 0) {
+            const monthSelect = document.createElement("select");
+            monthSelect.style.padding = "4px 8px";
+            monthSelect.style.fontSize = "1em";
+            monthSelect.style.fontWeight = "bold";
+            monthSelect.style.border = "1px solid var(--background-modifier-border)";
+            monthSelect.style.borderRadius = "4px";
+            monthSelect.style.background = "var(--background-primary)";
+            monthSelect.style.color = "var(--text-normal)";
+            monthSelect.style.cursor = "pointer";
+            const monthNames = [
+              "Januar",
+              "Februar",
+              "Mars",
+              "April",
+              "Mai",
+              "Juni",
+              "Juli",
+              "August",
+              "September",
+              "Oktober",
+              "November",
+              "Desember"
+            ];
+            availableMonths.forEach((month) => {
+              const option = document.createElement("option");
+              option.value = month.toString();
+              option.textContent = monthNames[month];
+              option.selected = month === this.selectedMonth;
+              monthSelect.appendChild(option);
+            });
+            monthSelect.onchange = () => {
+              this.selectedMonth = parseInt(monthSelect.value);
+              this.updateStatsCard();
+            };
+            selectorContainer.appendChild(monthSelect);
+          }
+        }
+      } else {
+        const label = document.createElement("div");
+        label.style.fontSize = "1.1em";
+        label.style.fontWeight = "bold";
+        label.textContent = "Totalt";
+        selectorContainer.appendChild(label);
+      }
     }
-    const context = this.data.getContextualData(today);
+    const context = this.data.getContextualData(this.today);
     let weekComparisonText = "";
     if (context.lastWeekHours > 0) {
-      const currWeekHours = this.data.getCurrentWeekHours(today);
+      const currWeekHours = this.data.getCurrentWeekHours(this.today);
       const diff = currWeekHours - context.lastWeekHours;
       if (Math.abs(diff) > 2) {
         const arrow = diff > 0 ? "\u{1F4C8}" : "\u{1F4C9}";
@@ -2667,10 +2844,6 @@ var UIBuilder = class {
     if (this.statsTimeframe === "year" && stats.egenmelding.max > 0) {
       const egenmeldingPercent = (stats.egenmelding.count / stats.egenmelding.max * 100).toFixed(0);
       egenmeldingDisplay = `${stats.egenmelding.count}/${stats.egenmelding.max} dager (${egenmeldingPercent}%)`;
-    }
-    const timeframeLabelElement = (_a = this.elements.statsCard.parentElement) == null ? void 0 : _a.querySelector(".tf-timeframe-label");
-    if (timeframeLabelElement) {
-      timeframeLabelElement.textContent = timeframeLabel;
     }
     this.elements.statsCard.innerHTML = `
 			<div class="tf-stat-item" style="background: ${timesaldoColor}; color: white;">
@@ -2729,7 +2902,6 @@ var UIBuilder = class {
 			<div class="tf-stat-item">
 				<div class="tf-stat-label">\u{1F3E5} Sykemelding</div>
 				<div class="tf-stat-value">${stats.sykemelding.count} ${stats.sykemelding.count === 1 ? "dag" : "dager"}</div>
-				<div style="font-size: 0.75em; margin-top: 4px;">${stats.sykemelding.hours.toFixed(1)}t</div>
 			</div>
 			<div class="tf-stat-item">
 				<div class="tf-stat-label">\u{1F4DA} Studie</div>
@@ -2896,17 +3068,32 @@ var UIBuilder = class {
     let menuLeft = cellRect.right;
     let menuTop = cellRect.top;
     document.body.appendChild(menu);
-    const menuWidth = 450;
-    if (menuLeft + menuWidth > window.innerWidth) {
-      menuLeft = cellRect.left - menuWidth;
+    const isMobile = window.innerWidth <= 500;
+    if (isMobile) {
+      menuLeft = 10;
+      menu.style.left = `${menuLeft}px`;
+      menu.style.right = "10px";
+      menu.style.width = "calc(100vw - 20px)";
+    } else {
+      const menuWidth = 450;
+      if (menuLeft + menuWidth > window.innerWidth) {
+        menuLeft = cellRect.left - menuWidth;
+        if (menuLeft < 10) {
+          menuLeft = 10;
+        }
+      }
+      menu.style.left = `${menuLeft}px`;
     }
     setTimeout(() => {
       const menuHeight = menu.offsetHeight;
       if (menuTop + menuHeight > window.innerHeight) {
-        menu.style.top = `${Math.max(10, window.innerHeight - menuHeight - 10)}px`;
+        menuTop = Math.max(10, window.innerHeight - menuHeight - 10);
       }
+      if (menuTop < 10) {
+        menuTop = 10;
+      }
+      menu.style.top = `${menuTop}px`;
     }, 0);
-    menu.style.left = `${menuLeft}px`;
     menu.style.top = `${menuTop}px`;
     const dateStr = Utils.toLocalDateStr(dateObj);
     const dateEntries = this.data.daily[dateStr];
@@ -3703,9 +3890,9 @@ var TimeFlowView = class extends import_obsidian4.ItemView {
 var import_obsidian5 = require("obsidian");
 var TimerManager = class {
   constructor(app, settings) {
-    this.dataFile = "timeflow/data.md";
     this.app = app;
     this.settings = settings;
+    this.dataFile = settings.dataFilePath;
     this.data = { entries: [] };
   }
   async load() {
