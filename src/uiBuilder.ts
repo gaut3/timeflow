@@ -971,15 +971,18 @@ export class UIBuilder {
 		content.className = "tf-collapsible-content";
 
 		// Special day types with explanations
+		const halfDayHours = this.settings.baseWorkday / 2;
+		const halfDayReduction = this.settings.baseWorkday - halfDayHours;
+
 		const specialDayInfo = [
 			{ key: "avspasering", emoji: "🛌", desc: "Trekkes fra fleksitid" },
 			{ key: "egenmelding", emoji: "🤒", desc: "Påvirker ikke fleksitid" },
 			{ key: "ferie", emoji: "🏖️", desc: "Påvirker ikke fleksitid" },
 			{ key: "velferdspermisjon", emoji: "🏥", desc: "Påvirker ikke fleksitid" },
-			{ key: "studie", emoji: "📖", desc: "Teller som fleksitid ved mer enn 7,5t" },
-			{ key: "kurs", emoji: "📚", desc: "Teller som fleksitid ved mer enn 7,5t" },
+			{ key: "studie", emoji: "📖", desc: `Teller som fleksitid ved mer enn ${this.settings.baseWorkday}t` },
+			{ key: "kurs", emoji: "📚", desc: `Teller som fleksitid ved mer enn ${this.settings.baseWorkday}t` },
 			{ key: "helligdag", emoji: "🎉", desc: "Offentlig fridag - påvirker ikke fleksitid" },
-			{ key: "halfday", emoji: "⏰", desc: "Halv arbeidsdag (4t) - reduserer ukemålet med 4t" },
+			{ key: "halfday", emoji: "⏰", desc: `Halv arbeidsdag (${halfDayHours}t) - reduserer ukemålet med ${halfDayReduction}t` },
 			{ key: "Ingen registrering", emoji: "⚪", desc: "Ingen data for den dagen" }
 		];
 
@@ -1037,7 +1040,7 @@ export class UIBuilder {
 						Arbeidsdager vises med farge basert på hvor mye du jobbet i forhold til dagens mål (${this.settings.baseWorkday}t):
 					</p>
 					<div style="margin-top: 10px;">
-						<div style="height: 16px; border-radius: 8px; background: linear-gradient(to right, rgb(0,200,100), rgb(255,255,0), rgb(255,0,0)); margin: 4px 0; border: 1px solid var(--background-modifier-border);"></div>
+						<div style="height: 16px; border-radius: 8px; background: linear-gradient(to right, rgb(144,238,144), rgb(89,188,89), rgb(34,139,34)); margin: 4px 0; border: 1px solid var(--background-modifier-border);"></div>
 						<div style="display: flex; justify-content: space-between; font-size: 0.85em; color: var(--text-muted); margin-bottom: 12px;">
 							<span>0t over mål</span><span>+1,5t</span><span>+3t eller mer</span>
 						</div>
@@ -1629,11 +1632,12 @@ export class UIBuilder {
 			const b = Math.floor(200 + 55 * t);
 			return `rgb(${r},${g},${b})`;
 		} else {
-			// Positive hours over goal: gradient from green to yellow to red
+			// Positive hours over goal: gradient from light green to dark green
 			const t = Math.min(val / 3, 1);
-			const r = Math.floor(255 * t);
-			const g = Math.floor(200 * (1 - t));
-			const b = 150;
+			// Light green (144, 238, 144) to dark green (34, 139, 34)
+			const r = Math.floor(144 - 110 * t);  // 144 -> 34
+			const g = Math.floor(238 - 99 * t);   // 238 -> 139
+			const b = Math.floor(144 - 110 * t);  // 144 -> 34
 			return `rgb(${r},${g},${b})`;
 		}
 	}

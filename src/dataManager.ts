@@ -117,7 +117,7 @@ export class DataManager {
 				return 0;
 			}
 			if (holidayInfo.halfDay) {
-				return 4;
+				return this.workdayHours / 2;
 			}
 		}
 
@@ -343,9 +343,9 @@ export class DataManager {
 			totalFlextime: allEntries.reduce((sum, e) => sum + (e.flextime || 0), 0),
 			jobb: { count: 0, hours: 0 },
 			avspasering: { count: 0, hours: 0, planned: 0 },
-			ferie: { count: 0, hours: 0, max: 25, planned: 0 },
+			ferie: { count: 0, hours: 0, max: this.settings.maxFerieDays, planned: 0 },
 			velferdspermisjon: { count: 0, hours: 0, planned: 0 },
-			egenmelding: { count: 0, hours: 0, max: 24 },
+			egenmelding: { count: 0, hours: 0, max: this.settings.maxEgenmeldingDays },
 			sykemelding: { count: 0, hours: 0 },
 			studie: { count: 0, hours: 0, planned: 0 },
 			kurs: { count: 0, hours: 0, planned: 0 },

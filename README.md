@@ -7,8 +7,7 @@ timeflow is an Obsidian plugin that provides a comprehensive flextime tracking d
 ## Features
 
 ### ⏱️ Built-in Timer System
-- **Start/Stop Timers** - No external plugins needed! Start and stop work timers directly from the dashboard
-- **Multiple Timer Support** - Run multiple timers simultaneously for different tasks
+- **Start/Stop Timers** - Start and stop work timers directly from the dashboard
 - **Live Timer Display** - See running timers with real-time duration updates in the top banner
 - **Automatic Logging** - Completed timers are automatically saved to your data file
 - **Quick Access** - Start/stop timers via command palette or dashboard buttons
@@ -17,12 +16,12 @@ timeflow is an Obsidian plugin that provides a comprehensive flextime tracking d
 - **Real-time Flextime Balance Tracking** - See your current flextime balance with color-coded indicators
 - **Daily, Weekly, and Monthly Views** - Track your work hours with intuitive cards and responsive layout
 - **Interactive Month Calendar** - Visual calendar with color-coded days for planned holidays and flextime
-  - Right-click context menu for quick actions
+  - Click any date for quick actions
   - Edit work time, register special days, create notes
   - View running timers and day summaries in info panel
 - **Comprehensive Statistics** - View statistics for total, yearly, and monthly periods
 - **Contextual Messages** - Get motivational and informative messages based on your work patterns
-- **Multiple History Views** - List, weekly, and heatmap visualizations of your work history
+- **Multiple History Views** - List and heatmap visualizations of your work history
 
 ### 🎯 Planning & Organization
 - **Holiday Planning** - Integrate planned holidays and special days from a markdown file
@@ -30,7 +29,7 @@ timeflow is an Obsidian plugin that provides a comprehensive flextime tracking d
   - Daily notes, meeting notes, project notes, weekly reviews, reflections
   - Custom folders, templates, tags, and filename patterns
   - Add/edit/delete note types through settings
-- **Calendar Context Menu** - Right-click any date to:
+- **Calendar Context Menu** - Click any date to:
   - Add work time entries
   - Edit existing entries (with running timer support)
   - Register special days (vacation, sick leave, courses, etc.)
@@ -54,7 +53,7 @@ timeflow is an Obsidian plugin that provides a comprehensive flextime tracking d
 - **Configurable Leave Limits**
   - Maximum sick leave days (egenmelding) - default: 8 days
   - Maximum vacation days (ferie) - default: 25 days
-  - Dashboard warnings when approaching/exceeding limits
+  - Dashboard displays usage against configured limits
 
 #### Special Day Types
 - **Fully Customizable** - Change names and colors for all special day types:
@@ -388,8 +387,8 @@ timeflow-plugin/
 - 🔴 **Red**: < -15 or > 95 hours (outside recommended range)
 
 ### Calendar Days
-- **Green gradient**: Positive flextime (overtid) - stronger color = more hours
-- **Red gradient**: Negative flextime (undertid) - stronger color = more deficit
+- **Light to dark green gradient**: Positive flextime (overtid) - darker green = more hours worked beyond goal
+- **Light to dark blue gradient**: Negative flextime (undertid) - darker blue = more deficit
 - **Special colors**: Customizable colors for vacation, sick leave, courses, etc.
 - **Border**: Today's date has a colored border
 - **Gray**: Weekends with no work (unless weekend work is enabled)

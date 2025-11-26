@@ -228,7 +228,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Vacation')
-			.setDesc('Paid vacation day. Counts as a full workday (no flextime change).')
+			.setDesc('Paid vacation day (no flextime change).')
 			.addText(text => text
 				.setPlaceholder('Ferie')
 				.setValue(this.plugin.settings.specialDayLabels.ferie)
@@ -247,7 +247,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Welfare Leave')
-			.setDesc('Personal/family emergency leave. Counts as a full workday (no flextime change).')
+			.setDesc('Personal/family emergency leave (no flextime change).')
 			.addText(text => text
 				.setPlaceholder('Velferdspermisjon')
 				.setValue(this.plugin.settings.specialDayLabels.velferdspermisjon)
@@ -266,7 +266,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Sick Leave (Self-Certified)')
-			.setDesc('Sick day without doctor\'s note. Counts as a full workday (no flextime change).')
+			.setDesc('Sick day without doctor\'s note (no flextime change).')
 			.addText(text => text
 				.setPlaceholder('Egenmelding')
 				.setValue(this.plugin.settings.specialDayLabels.egenmelding)
@@ -285,7 +285,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Sick Leave (Doctor\'s Note)')
-			.setDesc('Sick day with doctor\'s note. Counts as a full workday (no flextime change).')
+			.setDesc('Sick day with doctor\'s note (no flextime change).')
 			.addText(text => text
 				.setPlaceholder('Sykemelding')
 				.setValue(this.plugin.settings.specialDayLabels.sykemelding)
@@ -440,7 +440,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 		// Leave Limits
 		containerEl.createEl('h4', { text: 'Leave Limits' });
 		containerEl.createEl('p', {
-			text: 'Set maximum allowed days for different leave types per year. The dashboard will warn you when you approach or exceed these limits.',
+			text: 'Set maximum allowed days for different leave types per year. The dashboard displays your usage against these limits in the yearly statistics view.',
 			cls: 'setting-item-description'
 		});
 

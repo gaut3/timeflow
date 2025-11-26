@@ -239,7 +239,7 @@ var TimeFlowSettingTab = class extends import_obsidian.PluginSettingTab {
       await this.plugin.saveSettings();
       await this.refreshView();
     }));
-    new import_obsidian.Setting(containerEl).setName("Vacation").setDesc("Paid vacation day. Counts as a full workday (no flextime change).").addText((text) => text.setPlaceholder("Ferie").setValue(this.plugin.settings.specialDayLabels.ferie).onChange(async (value) => {
+    new import_obsidian.Setting(containerEl).setName("Vacation").setDesc("Paid vacation day (no flextime change).").addText((text) => text.setPlaceholder("Ferie").setValue(this.plugin.settings.specialDayLabels.ferie).onChange(async (value) => {
       this.plugin.settings.specialDayLabels.ferie = value || "Ferie";
       await this.plugin.saveSettings();
       await this.refreshView();
@@ -248,7 +248,7 @@ var TimeFlowSettingTab = class extends import_obsidian.PluginSettingTab {
       await this.plugin.saveSettings();
       await this.refreshView();
     }));
-    new import_obsidian.Setting(containerEl).setName("Welfare Leave").setDesc("Personal/family emergency leave. Counts as a full workday (no flextime change).").addText((text) => text.setPlaceholder("Velferdspermisjon").setValue(this.plugin.settings.specialDayLabels.velferdspermisjon).onChange(async (value) => {
+    new import_obsidian.Setting(containerEl).setName("Welfare Leave").setDesc("Personal/family emergency leave (no flextime change).").addText((text) => text.setPlaceholder("Velferdspermisjon").setValue(this.plugin.settings.specialDayLabels.velferdspermisjon).onChange(async (value) => {
       this.plugin.settings.specialDayLabels.velferdspermisjon = value || "Velferdspermisjon";
       await this.plugin.saveSettings();
       await this.refreshView();
@@ -257,7 +257,7 @@ var TimeFlowSettingTab = class extends import_obsidian.PluginSettingTab {
       await this.plugin.saveSettings();
       await this.refreshView();
     }));
-    new import_obsidian.Setting(containerEl).setName("Sick Leave (Self-Certified)").setDesc("Sick day without doctor's note. Counts as a full workday (no flextime change).").addText((text) => text.setPlaceholder("Egenmelding").setValue(this.plugin.settings.specialDayLabels.egenmelding).onChange(async (value) => {
+    new import_obsidian.Setting(containerEl).setName("Sick Leave (Self-Certified)").setDesc("Sick day without doctor's note (no flextime change).").addText((text) => text.setPlaceholder("Egenmelding").setValue(this.plugin.settings.specialDayLabels.egenmelding).onChange(async (value) => {
       this.plugin.settings.specialDayLabels.egenmelding = value || "Egenmelding";
       await this.plugin.saveSettings();
       await this.refreshView();
@@ -266,7 +266,7 @@ var TimeFlowSettingTab = class extends import_obsidian.PluginSettingTab {
       await this.plugin.saveSettings();
       await this.refreshView();
     }));
-    new import_obsidian.Setting(containerEl).setName("Sick Leave (Doctor's Note)").setDesc("Sick day with doctor's note. Counts as a full workday (no flextime change).").addText((text) => text.setPlaceholder("Sykemelding").setValue(this.plugin.settings.specialDayLabels.sykemelding).onChange(async (value) => {
+    new import_obsidian.Setting(containerEl).setName("Sick Leave (Doctor's Note)").setDesc("Sick day with doctor's note (no flextime change).").addText((text) => text.setPlaceholder("Sykemelding").setValue(this.plugin.settings.specialDayLabels.sykemelding).onChange(async (value) => {
       this.plugin.settings.specialDayLabels.sykemelding = value || "Sykemelding";
       await this.plugin.saveSettings();
       await this.refreshView();
@@ -348,7 +348,7 @@ var TimeFlowSettingTab = class extends import_obsidian.PluginSettingTab {
     }));
     containerEl.createEl("h4", { text: "Leave Limits" });
     containerEl.createEl("p", {
-      text: "Set maximum allowed days for different leave types per year. The dashboard will warn you when you approach or exceed these limits.",
+      text: "Set maximum allowed days for different leave types per year. The dashboard displays your usage against these limits in the yearly statistics view.",
       cls: "setting-item-description"
     });
     new import_obsidian.Setting(containerEl).setName("Max Sick Leave Days (Self-Reported)").setDesc("Maximum self-reported sick days (egenmelding) allowed per year (typically 8 in Norway)").addText((text) => text.setPlaceholder("8").setValue(this.plugin.settings.maxEgenmeldingDays.toString()).onChange(async (value) => {
@@ -699,7 +699,7 @@ var DataManager = class {
         return 0;
       }
       if (holidayInfo.halfDay) {
-        return 4;
+        return this.workdayHours / 2;
       }
     }
     return this.workdayHours;
@@ -879,9 +879,9 @@ var DataManager = class {
       totalFlextime: allEntries.reduce((sum, e) => sum + (e.flextime || 0), 0),
       jobb: { count: 0, hours: 0 },
       avspasering: { count: 0, hours: 0, planned: 0 },
-      ferie: { count: 0, hours: 0, max: 25, planned: 0 },
+      ferie: { count: 0, hours: 0, max: this.settings.maxFerieDays, planned: 0 },
       velferdspermisjon: { count: 0, hours: 0, planned: 0 },
-      egenmelding: { count: 0, hours: 0, max: 24 },
+      egenmelding: { count: 0, hours: 0, max: this.settings.maxEgenmeldingDays },
       sykemelding: { count: 0, hours: 0 },
       studie: { count: 0, hours: 0, planned: 0 },
       kurs: { count: 0, hours: 0, planned: 0 },
@@ -2323,15 +2323,17 @@ var UIBuilder = class {
     header.innerHTML = "<h3 style='margin:0'>Informasjon</h3>";
     const content = document.createElement("div");
     content.className = "tf-collapsible-content";
+    const halfDayHours = this.settings.baseWorkday / 2;
+    const halfDayReduction = this.settings.baseWorkday - halfDayHours;
     const specialDayInfo = [
       { key: "avspasering", emoji: "\u{1F6CC}", desc: "Trekkes fra fleksitid" },
       { key: "egenmelding", emoji: "\u{1F912}", desc: "P\xE5virker ikke fleksitid" },
       { key: "ferie", emoji: "\u{1F3D6}\uFE0F", desc: "P\xE5virker ikke fleksitid" },
       { key: "velferdspermisjon", emoji: "\u{1F3E5}", desc: "P\xE5virker ikke fleksitid" },
-      { key: "studie", emoji: "\u{1F4D6}", desc: "Teller som fleksitid ved mer enn 7,5t" },
-      { key: "kurs", emoji: "\u{1F4DA}", desc: "Teller som fleksitid ved mer enn 7,5t" },
+      { key: "studie", emoji: "\u{1F4D6}", desc: `Teller som fleksitid ved mer enn ${this.settings.baseWorkday}t` },
+      { key: "kurs", emoji: "\u{1F4DA}", desc: `Teller som fleksitid ved mer enn ${this.settings.baseWorkday}t` },
       { key: "helligdag", emoji: "\u{1F389}", desc: "Offentlig fridag - p\xE5virker ikke fleksitid" },
-      { key: "halfday", emoji: "\u23F0", desc: "Halv arbeidsdag (4t) - reduserer ukem\xE5let med 4t" },
+      { key: "halfday", emoji: "\u23F0", desc: `Halv arbeidsdag (${halfDayHours}t) - reduserer ukem\xE5let med ${halfDayReduction}t` },
       { key: "Ingen registrering", emoji: "\u26AA", desc: "Ingen data for den dagen" }
     ];
     content.innerHTML = `
@@ -2388,7 +2390,7 @@ var UIBuilder = class {
 						Arbeidsdager vises med farge basert p\xE5 hvor mye du jobbet i forhold til dagens m\xE5l (${this.settings.baseWorkday}t):
 					</p>
 					<div style="margin-top: 10px;">
-						<div style="height: 16px; border-radius: 8px; background: linear-gradient(to right, rgb(0,200,100), rgb(255,255,0), rgb(255,0,0)); margin: 4px 0; border: 1px solid var(--background-modifier-border);"></div>
+						<div style="height: 16px; border-radius: 8px; background: linear-gradient(to right, rgb(144,238,144), rgb(89,188,89), rgb(34,139,34)); margin: 4px 0; border: 1px solid var(--background-modifier-border);"></div>
 						<div style="display: flex; justify-content: space-between; font-size: 0.85em; color: var(--text-muted); margin-bottom: 12px;">
 							<span>0t over m\xE5l</span><span>+1,5t</span><span>+3t eller mer</span>
 						</div>
@@ -2875,9 +2877,9 @@ var UIBuilder = class {
       return `rgb(${r},${g},${b})`;
     } else {
       const t = Math.min(val / 3, 1);
-      const r = Math.floor(255 * t);
-      const g = Math.floor(200 * (1 - t));
-      const b = 150;
+      const r = Math.floor(144 - 110 * t);
+      const g = Math.floor(238 - 99 * t);
+      const b = Math.floor(144 - 110 * t);
       return `rgb(${r},${g},${b})`;
     }
   }
