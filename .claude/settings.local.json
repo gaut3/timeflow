@@ -9,7 +9,8 @@
       "Bash(xcopy:*)",
       "Bash(copy:*)",
       "Bash(cmd /c copy /Y:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(if not exist \"timeflow\" mkdir \"timeflow\")"
     ],
     "deny": [],
     "ask": []
