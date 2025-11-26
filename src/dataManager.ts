@@ -125,6 +125,14 @@ export class DataManager {
 	}
 
 	processEntries(): void {
+		// Clear existing data to prevent duplicates when reprocessing
+		this.daily = {};
+		this.activeEntries = [];
+		this.activeEntriesByDate = {};
+		this.months = {};
+		this._cachedAverages = null;
+		this._cachedContextData = {};
+
 		this.rawEntries.forEach((e) => {
 			if (!e.startTime) return;
 			if (!e.endTime) {
@@ -666,6 +674,79 @@ export class DataManager {
 					));
 				}
 			});
+
+			// Check for overlapping entries on the same day
+			if (dayEntries.length > 1) {
+				const sortedEntries = [...dayEntries]
+					.filter(e => e.startTime && e.endTime)
+					.sort((a, b) => {
+						const aStart = new Date(a.startTime!);
+						const bStart = new Date(b.startTime!);
+						return aStart.getTime() - bStart.getTime();
+					});
+
+				for (let i = 0; i < sortedEntries.length - 1; i++) {
+					const current = sortedEntries[i];
+					const next = sortedEntries[i + 1];
+
+					if (current.startTime && current.endTime && next.startTime && next.endTime) {
+						const currentEnd = new Date(current.endTime);
+						const nextStart = new Date(next.startTime);
+
+						if (currentEnd > nextStart) {
+							const overlapMinutes = Math.round((currentEnd.getTime() - nextStart.getTime()) / 60000);
+							issues.errors.push({
+								severity: 'error',
+								type: 'Overlapping Entries',
+								description: `Entries overlap by ${overlapMinutes} minutes`,
+								date: dayKey,
+								entry: {
+									name: `${current.name} → ${next.name}`,
+									startTime: current.startTime,
+									endTime: next.endTime
+								}
+							});
+							issues.stats.entriesWithIssues++;
+						}
+					}
+				}
+			}
+		}
+
+		// Check for missing workday entries (after first entry date)
+		const allDates = Object.keys(this.daily).sort();
+		if (allDates.length > 0) {
+			const firstDate = new Date(allDates[0]);
+			const lastDate = today;
+
+			// Iterate through all dates from first entry to today
+			for (let d = new Date(firstDate); d <= lastDate; d.setDate(d.getDate() + 1)) {
+				const dateStr = Utils.toLocalDateStr(d);
+				const isWeekend = Utils.isWeekend(d, this.settings);
+				const holidayInfo = this.getHolidayInfo(dateStr);
+				const hasEntries = this.daily[dateStr] && this.daily[dateStr].length > 0;
+
+				// Skip if it's a weekend (unless weekend work is enabled)
+				if (isWeekend) continue;
+
+				// Skip if it's a holiday that counts as a workday (ferie, egenmelding, etc.)
+				if (holidayInfo && ['ferie', 'helligdag', 'egenmelding', 'sykemelding', 'velferdspermisjon'].includes(holidayInfo.type)) {
+					continue;
+				}
+
+				// Skip today and future dates
+				if (dateStr >= todayStr) continue;
+
+				// If no entries on a past workday, flag it
+				if (!hasEntries) {
+					issues.warnings.push({
+						severity: 'warning',
+						type: 'Missing Entry',
+						description: 'No work entries registered for this workday',
+						date: dateStr
+					});
+				}
+			}
 		}
 
 		// Validate active entries

@@ -840,19 +840,73 @@ export class UIBuilder {
 		const activeTimers = this.timerManager.getActiveTimers();
 
 		if (activeTimers.length === 0) {
-			// Start button badge
-			this.elements.timerBadge.textContent = "Start";
-			this.elements.timerBadge.style.background = "linear-gradient(90deg, #4caf50, #2e7d32)";
-			this.elements.timerBadge.style.color = "white";
-			this.elements.timerBadge.onclick = async () => {
+			// Segmented start button: main part starts "jobb", arrow opens menu
+			this.elements.timerBadge.innerHTML = '';
+			this.elements.timerBadge.style.background = "transparent";
+			this.elements.timerBadge.style.display = "flex";
+			this.elements.timerBadge.style.alignItems = "stretch";
+			this.elements.timerBadge.style.gap = "0";
+			this.elements.timerBadge.style.padding = "0";
+			this.elements.timerBadge.style.position = "relative";
+			this.elements.timerBadge.onclick = null;
+
+			// Main "Start" button (starts jobb)
+			const startBtn = document.createElement("div");
+			startBtn.textContent = "Start";
+			startBtn.style.background = "linear-gradient(90deg, #4caf50, #2e7d32)";
+			startBtn.style.color = "white";
+			startBtn.style.padding = "8px 12px";
+			startBtn.style.cursor = "pointer";
+			startBtn.style.borderRadius = "12px 0 0 12px";
+			startBtn.style.display = "flex";
+			startBtn.style.alignItems = "center";
+			startBtn.style.transition = "filter 0.2s";
+			startBtn.onmouseover = () => {
+				startBtn.style.filter = "brightness(1.1)";
+			};
+			startBtn.onmouseout = () => {
+				startBtn.style.filter = "";
+			};
+			startBtn.onclick = async (e) => {
+				e.stopPropagation();
 				await this.timerManager.startTimer('jobb');
 				this.updateTimerBadge();
 			};
+
+			// Arrow dropdown button
+			const arrowBtn = document.createElement("div");
+			arrowBtn.textContent = "▼";
+			arrowBtn.style.background = "linear-gradient(90deg, #388e3c, #1b5e20)";
+			arrowBtn.style.color = "white";
+			arrowBtn.style.padding = "8px 8px";
+			arrowBtn.style.cursor = "pointer";
+			arrowBtn.style.borderRadius = "0 12px 12px 0";
+			arrowBtn.style.fontSize = "0.8em";
+			arrowBtn.style.display = "flex";
+			arrowBtn.style.alignItems = "center";
+			arrowBtn.style.borderLeft = "1px solid rgba(255,255,255,0.3)";
+			arrowBtn.style.transition = "filter 0.2s";
+			arrowBtn.onmouseover = () => {
+				arrowBtn.style.filter = "brightness(1.1)";
+			};
+			arrowBtn.onmouseout = () => {
+				arrowBtn.style.filter = "";
+			};
+			arrowBtn.onclick = (e) => {
+				e.stopPropagation();
+				this.showTimerTypeMenu(arrowBtn);
+			};
+
+			this.elements.timerBadge.appendChild(startBtn);
+			this.elements.timerBadge.appendChild(arrowBtn);
 		} else {
 			// Stop button badge (active timer)
+			this.elements.timerBadge.innerHTML = '';
 			this.elements.timerBadge.textContent = "Stopp";
 			this.elements.timerBadge.style.background = "linear-gradient(90deg, #f44336, #c62828)";
 			this.elements.timerBadge.style.color = "white";
+			this.elements.timerBadge.style.display = "block";
+			this.elements.timerBadge.style.padding = "";
 			this.elements.timerBadge.onclick = async () => {
 				// Stop all active timers
 				for (const timer of activeTimers) {
@@ -861,6 +915,104 @@ export class UIBuilder {
 				this.updateTimerBadge();
 			};
 		}
+	}
+
+	showTimerTypeMenu(button: HTMLElement): void {
+		// Remove any existing menu
+		const existingMenu = document.querySelector('.tf-timer-type-menu');
+		if (existingMenu) {
+			existingMenu.remove();
+			return;
+		}
+
+		const menu = document.createElement('div');
+		menu.className = 'tf-timer-type-menu';
+		menu.style.position = 'fixed';
+		menu.style.background = 'var(--background-primary)';
+		menu.style.border = '1px solid var(--background-modifier-border)';
+		menu.style.borderRadius = '8px';
+		menu.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+		menu.style.zIndex = '1000';
+		menu.style.minWidth = '150px';
+		menu.style.overflow = 'hidden';
+
+		const timerTypes = [
+			{ name: 'jobb', icon: '💼', label: 'Jobb' },
+			{ name: 'kurs', icon: '📚', label: this.settings.specialDayLabels.kurs },
+			{ name: 'studie', icon: '🎓', label: this.settings.specialDayLabels.studie }
+		];
+
+		timerTypes.forEach(type => {
+			const item = document.createElement('div');
+			item.style.padding = '10px 15px';
+			item.style.cursor = 'pointer';
+			item.style.display = 'flex';
+			item.style.alignItems = 'center';
+			item.style.gap = '8px';
+			item.style.transition = 'background 0.2s';
+			item.innerHTML = `<span>${type.icon}</span><span>${type.label}</span>`;
+
+			item.onmouseover = () => {
+				item.style.background = 'var(--background-modifier-hover)';
+			};
+			item.onmouseout = () => {
+				item.style.background = '';
+			};
+
+			item.onclick = async () => {
+				await this.timerManager.startTimer(type.name);
+				this.updateTimerBadge();
+				menu.remove();
+			};
+
+			menu.appendChild(item);
+		});
+
+		document.body.appendChild(menu);
+
+		// Position the menu below the button with viewport boundary checks
+		const rect = button.getBoundingClientRect();
+		const menuRect = menu.getBoundingClientRect();
+		const viewportWidth = window.innerWidth;
+		const viewportHeight = window.innerHeight;
+		const margin = 10;
+
+		let top = rect.bottom + 5;
+		let left = rect.left;
+
+		// Check if menu overflows bottom
+		if (top + menuRect.height + margin > viewportHeight) {
+			// Position above button instead
+			top = rect.top - menuRect.height - 5;
+		}
+
+		// Check if menu overflows right
+		if (left + menuRect.width + margin > viewportWidth) {
+			// Align to right edge
+			left = viewportWidth - menuRect.width - margin;
+		}
+
+		// Check if menu overflows left
+		if (left < margin) {
+			left = margin;
+		}
+
+		// Check if menu overflows top (after possible repositioning)
+		if (top < margin) {
+			top = margin;
+		}
+
+		menu.style.top = `${top}px`;
+		menu.style.left = `${left}px`;
+
+		// Close menu when clicking outside
+		const closeMenu = (e: MouseEvent) => {
+			if (!menu.contains(e.target as Node)) {
+				menu.remove();
+				document.removeEventListener('click', closeMenu);
+			}
+		};
+		setTimeout(() => document.addEventListener('click', closeMenu), 0);
 	}
 
 	buildSummaryCards(): HTMLElement {
@@ -2171,7 +2323,7 @@ export class UIBuilder {
 		// Get all work entries for this date from the timer manager
 		const allEntries = this.timerManager.data.entries;
 		const workEntries = allEntries.filter(entry => {
-			if (!entry.startTime || entry.name.toLowerCase() !== 'jobb') return false;
+			if (!entry.startTime) return false;
 			const entryDate = new Date(entry.startTime);
 			return Utils.toLocalDateStr(entryDate) === dateStr;
 		});
@@ -2668,7 +2820,25 @@ export class UIBuilder {
 					const dateCell = document.createElement('td');
 					dateCell.style.padding = '8px';
 					dateCell.style.color = 'var(--text-normal)';
-					dateCell.textContent = Utils.toLocalDateStr(e.date);
+
+					// Check if this date has a planned non-working day
+					const dateStr = Utils.toLocalDateStr(e.date);
+					const holidayInfo = this.data.getHolidayInfo(dateStr);
+					const hasConflict = holidayInfo &&
+						['ferie', 'helligdag', 'egenmelding', 'sykemelding', 'velferdspermisjon'].includes(holidayInfo.type) &&
+						e.name.toLowerCase() !== 'avspasering'; // Don't flag avspasering entries
+
+					if (hasConflict) {
+						// Add warning flag icon
+						const flagIcon = document.createElement('span');
+						flagIcon.textContent = '⚠️ ';
+						flagIcon.title = `Arbeid registrert på ${this.settings.specialDayLabels[holidayInfo!.type as keyof typeof this.settings.specialDayLabels] || holidayInfo!.type}`;
+						flagIcon.style.cursor = 'help';
+						dateCell.appendChild(flagIcon);
+					}
+
+					const dateText = document.createTextNode(dateStr);
+					dateCell.appendChild(dateText);
 					row.appendChild(dateCell);
 
 					const typeCell = document.createElement('td');
@@ -2696,18 +2866,16 @@ export class UIBuilder {
 					actionCell.style.padding = '8px';
 					actionCell.style.color = 'var(--text-normal)';
 
-					// Only add edit button for work entries
-					if (e.name.toLowerCase() === 'jobb') {
-						const editBtn = document.createElement('button');
-						editBtn.textContent = '✏️';
-						editBtn.style.padding = '4px 8px';
-						editBtn.style.cursor = 'pointer';
-						editBtn.title = 'Rediger arbeidstid';
-						editBtn.onclick = () => {
-							this.showEditEntriesModal(e.date);
-						};
-						actionCell.appendChild(editBtn);
-					}
+					// Add edit button for all entries
+					const editBtn = document.createElement('button');
+					editBtn.textContent = '✏️';
+					editBtn.style.padding = '4px 8px';
+					editBtn.style.cursor = 'pointer';
+					editBtn.title = 'Rediger arbeidstid';
+					editBtn.onclick = () => {
+						this.showEditEntriesModal(e.date);
+					};
+					actionCell.appendChild(editBtn);
 
 					row.appendChild(actionCell);
 					tbody.appendChild(row);

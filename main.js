@@ -711,6 +711,12 @@ var DataManager = class {
     return this.workdayHours;
   }
   processEntries() {
+    this.daily = {};
+    this.activeEntries = [];
+    this.activeEntriesByDate = {};
+    this.months = {};
+    this._cachedAverages = null;
+    this._cachedContextData = {};
     this.rawEntries.forEach((e) => {
       if (!e.startTime)
         return;
@@ -1153,6 +1159,62 @@ var DataManager = class {
           ));
         }
       });
+      if (dayEntries.length > 1) {
+        const sortedEntries = [...dayEntries].filter((e) => e.startTime && e.endTime).sort((a, b) => {
+          const aStart = new Date(a.startTime);
+          const bStart = new Date(b.startTime);
+          return aStart.getTime() - bStart.getTime();
+        });
+        for (let i = 0; i < sortedEntries.length - 1; i++) {
+          const current = sortedEntries[i];
+          const next = sortedEntries[i + 1];
+          if (current.startTime && current.endTime && next.startTime && next.endTime) {
+            const currentEnd = new Date(current.endTime);
+            const nextStart = new Date(next.startTime);
+            if (currentEnd > nextStart) {
+              const overlapMinutes = Math.round((currentEnd.getTime() - nextStart.getTime()) / 6e4);
+              issues.errors.push({
+                severity: "error",
+                type: "Overlapping Entries",
+                description: `Entries overlap by ${overlapMinutes} minutes`,
+                date: dayKey,
+                entry: {
+                  name: `${current.name} \u2192 ${next.name}`,
+                  startTime: current.startTime,
+                  endTime: next.endTime
+                }
+              });
+              issues.stats.entriesWithIssues++;
+            }
+          }
+        }
+      }
+    }
+    const allDates = Object.keys(this.daily).sort();
+    if (allDates.length > 0) {
+      const firstDate = new Date(allDates[0]);
+      const lastDate = today;
+      for (let d = new Date(firstDate); d <= lastDate; d.setDate(d.getDate() + 1)) {
+        const dateStr = Utils.toLocalDateStr(d);
+        const isWeekend = Utils.isWeekend(d, this.settings);
+        const holidayInfo = this.getHolidayInfo(dateStr);
+        const hasEntries = this.daily[dateStr] && this.daily[dateStr].length > 0;
+        if (isWeekend)
+          continue;
+        if (holidayInfo && ["ferie", "helligdag", "egenmelding", "sykemelding", "velferdspermisjon"].includes(holidayInfo.type)) {
+          continue;
+        }
+        if (dateStr >= todayStr)
+          continue;
+        if (!hasEntries) {
+          issues.warnings.push({
+            severity: "warning",
+            type: "Missing Entry",
+            description: "No work entries registered for this workday",
+            date: dateStr
+          });
+        }
+      }
     }
     issues.stats.totalEntries += this.activeEntries.length;
     this.activeEntries.forEach((entry) => {
@@ -2252,17 +2314,66 @@ var UIBuilder = class {
       return;
     const activeTimers = this.timerManager.getActiveTimers();
     if (activeTimers.length === 0) {
-      this.elements.timerBadge.textContent = "Start";
-      this.elements.timerBadge.style.background = "linear-gradient(90deg, #4caf50, #2e7d32)";
-      this.elements.timerBadge.style.color = "white";
-      this.elements.timerBadge.onclick = async () => {
+      this.elements.timerBadge.innerHTML = "";
+      this.elements.timerBadge.style.background = "transparent";
+      this.elements.timerBadge.style.display = "flex";
+      this.elements.timerBadge.style.alignItems = "stretch";
+      this.elements.timerBadge.style.gap = "0";
+      this.elements.timerBadge.style.padding = "0";
+      this.elements.timerBadge.style.position = "relative";
+      this.elements.timerBadge.onclick = null;
+      const startBtn = document.createElement("div");
+      startBtn.textContent = "Start";
+      startBtn.style.background = "linear-gradient(90deg, #4caf50, #2e7d32)";
+      startBtn.style.color = "white";
+      startBtn.style.padding = "8px 12px";
+      startBtn.style.cursor = "pointer";
+      startBtn.style.borderRadius = "12px 0 0 12px";
+      startBtn.style.display = "flex";
+      startBtn.style.alignItems = "center";
+      startBtn.style.transition = "filter 0.2s";
+      startBtn.onmouseover = () => {
+        startBtn.style.filter = "brightness(1.1)";
+      };
+      startBtn.onmouseout = () => {
+        startBtn.style.filter = "";
+      };
+      startBtn.onclick = async (e) => {
+        e.stopPropagation();
         await this.timerManager.startTimer("jobb");
         this.updateTimerBadge();
       };
+      const arrowBtn = document.createElement("div");
+      arrowBtn.textContent = "\u25BC";
+      arrowBtn.style.background = "linear-gradient(90deg, #388e3c, #1b5e20)";
+      arrowBtn.style.color = "white";
+      arrowBtn.style.padding = "8px 8px";
+      arrowBtn.style.cursor = "pointer";
+      arrowBtn.style.borderRadius = "0 12px 12px 0";
+      arrowBtn.style.fontSize = "0.8em";
+      arrowBtn.style.display = "flex";
+      arrowBtn.style.alignItems = "center";
+      arrowBtn.style.borderLeft = "1px solid rgba(255,255,255,0.3)";
+      arrowBtn.style.transition = "filter 0.2s";
+      arrowBtn.onmouseover = () => {
+        arrowBtn.style.filter = "brightness(1.1)";
+      };
+      arrowBtn.onmouseout = () => {
+        arrowBtn.style.filter = "";
+      };
+      arrowBtn.onclick = (e) => {
+        e.stopPropagation();
+        this.showTimerTypeMenu(arrowBtn);
+      };
+      this.elements.timerBadge.appendChild(startBtn);
+      this.elements.timerBadge.appendChild(arrowBtn);
     } else {
+      this.elements.timerBadge.innerHTML = "";
       this.elements.timerBadge.textContent = "Stopp";
       this.elements.timerBadge.style.background = "linear-gradient(90deg, #f44336, #c62828)";
       this.elements.timerBadge.style.color = "white";
+      this.elements.timerBadge.style.display = "block";
+      this.elements.timerBadge.style.padding = "";
       this.elements.timerBadge.onclick = async () => {
         for (const timer of activeTimers) {
           await this.timerManager.stopTimer(timer);
@@ -2270,6 +2381,79 @@ var UIBuilder = class {
         this.updateTimerBadge();
       };
     }
+  }
+  showTimerTypeMenu(button) {
+    const existingMenu = document.querySelector(".tf-timer-type-menu");
+    if (existingMenu) {
+      existingMenu.remove();
+      return;
+    }
+    const menu = document.createElement("div");
+    menu.className = "tf-timer-type-menu";
+    menu.style.position = "fixed";
+    menu.style.background = "var(--background-primary)";
+    menu.style.border = "1px solid var(--background-modifier-border)";
+    menu.style.borderRadius = "8px";
+    menu.style.boxShadow = "0 4px 12px rgba(0,0,0,0.15)";
+    menu.style.zIndex = "1000";
+    menu.style.minWidth = "150px";
+    menu.style.overflow = "hidden";
+    const timerTypes = [
+      { name: "jobb", icon: "\u{1F4BC}", label: "Jobb" },
+      { name: "kurs", icon: "\u{1F4DA}", label: this.settings.specialDayLabels.kurs },
+      { name: "studie", icon: "\u{1F393}", label: this.settings.specialDayLabels.studie }
+    ];
+    timerTypes.forEach((type) => {
+      const item = document.createElement("div");
+      item.style.padding = "10px 15px";
+      item.style.cursor = "pointer";
+      item.style.display = "flex";
+      item.style.alignItems = "center";
+      item.style.gap = "8px";
+      item.style.transition = "background 0.2s";
+      item.innerHTML = `<span>${type.icon}</span><span>${type.label}</span>`;
+      item.onmouseover = () => {
+        item.style.background = "var(--background-modifier-hover)";
+      };
+      item.onmouseout = () => {
+        item.style.background = "";
+      };
+      item.onclick = async () => {
+        await this.timerManager.startTimer(type.name);
+        this.updateTimerBadge();
+        menu.remove();
+      };
+      menu.appendChild(item);
+    });
+    document.body.appendChild(menu);
+    const rect = button.getBoundingClientRect();
+    const menuRect = menu.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const margin = 10;
+    let top = rect.bottom + 5;
+    let left = rect.left;
+    if (top + menuRect.height + margin > viewportHeight) {
+      top = rect.top - menuRect.height - 5;
+    }
+    if (left + menuRect.width + margin > viewportWidth) {
+      left = viewportWidth - menuRect.width - margin;
+    }
+    if (left < margin) {
+      left = margin;
+    }
+    if (top < margin) {
+      top = margin;
+    }
+    menu.style.top = `${top}px`;
+    menu.style.left = `${left}px`;
+    const closeMenu = (e) => {
+      if (!menu.contains(e.target)) {
+        menu.remove();
+        document.removeEventListener("click", closeMenu);
+      }
+    };
+    setTimeout(() => document.addEventListener("click", closeMenu), 0);
   }
   buildSummaryCards() {
     const container = document.createElement("div");
@@ -3318,7 +3502,7 @@ var UIBuilder = class {
     const dateStr = Utils.toLocalDateStr(dateObj);
     const allEntries = this.timerManager.data.entries;
     const workEntries = allEntries.filter((entry) => {
-      if (!entry.startTime || entry.name.toLowerCase() !== "jobb")
+      if (!entry.startTime)
         return false;
       const entryDate = new Date(entry.startTime);
       return Utils.toLocalDateStr(entryDate) === dateStr;
@@ -3686,7 +3870,18 @@ ${noteType.tags.join(" ")}`;
           const dateCell = document.createElement("td");
           dateCell.style.padding = "8px";
           dateCell.style.color = "var(--text-normal)";
-          dateCell.textContent = Utils.toLocalDateStr(e.date);
+          const dateStr = Utils.toLocalDateStr(e.date);
+          const holidayInfo = this.data.getHolidayInfo(dateStr);
+          const hasConflict = holidayInfo && ["ferie", "helligdag", "egenmelding", "sykemelding", "velferdspermisjon"].includes(holidayInfo.type) && e.name.toLowerCase() !== "avspasering";
+          if (hasConflict) {
+            const flagIcon = document.createElement("span");
+            flagIcon.textContent = "\u26A0\uFE0F ";
+            flagIcon.title = `Arbeid registrert p\xE5 ${this.settings.specialDayLabels[holidayInfo.type] || holidayInfo.type}`;
+            flagIcon.style.cursor = "help";
+            dateCell.appendChild(flagIcon);
+          }
+          const dateText = document.createTextNode(dateStr);
+          dateCell.appendChild(dateText);
           row.appendChild(dateCell);
           const typeCell = document.createElement("td");
           typeCell.style.padding = "8px";
@@ -3708,17 +3903,15 @@ ${noteType.tags.join(" ")}`;
           const actionCell = document.createElement("td");
           actionCell.style.padding = "8px";
           actionCell.style.color = "var(--text-normal)";
-          if (e.name.toLowerCase() === "jobb") {
-            const editBtn = document.createElement("button");
-            editBtn.textContent = "\u270F\uFE0F";
-            editBtn.style.padding = "4px 8px";
-            editBtn.style.cursor = "pointer";
-            editBtn.title = "Rediger arbeidstid";
-            editBtn.onclick = () => {
-              this.showEditEntriesModal(e.date);
-            };
-            actionCell.appendChild(editBtn);
-          }
+          const editBtn = document.createElement("button");
+          editBtn.textContent = "\u270F\uFE0F";
+          editBtn.style.padding = "4px 8px";
+          editBtn.style.cursor = "pointer";
+          editBtn.title = "Rediger arbeidstid";
+          editBtn.onclick = () => {
+            this.showEditEntriesModal(e.date);
+          };
+          actionCell.appendChild(editBtn);
           row.appendChild(actionCell);
           tbody.appendChild(row);
         });
