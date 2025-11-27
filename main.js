@@ -1613,6 +1613,7 @@ var UIBuilder = class {
 				.tf-timer-badge, .tf-clock {
 					flex: 1 1 calc(50% - 6px);
 					min-width: 0;
+					max-width: calc(50% - 6px) !important;
 				}
 			}
 
@@ -2077,8 +2078,8 @@ var UIBuilder = class {
 			/* Make buttons smaller on mobile to prevent overflow */
 			@media (max-width: 500px) {
 				.tf-button {
-					padding: 6px 10px;
-					font-size: 12px;
+					padding: 4px 8px;
+					font-size: 11px;
 					min-width: unset;
 				}
 			}
@@ -2099,6 +2100,13 @@ var UIBuilder = class {
 
 			.tf-heatmap-cell:hover {
 				transform: scale(1.2);
+			}
+
+			/* Make heatmap cells larger on mobile */
+			@media (max-width: 600px) {
+				.tf-heatmap {
+					grid-template-columns: repeat(20, 1fr) !important;
+				}
 			}
 
 			/* Context menu - uses same styling as submenu for consistency */
@@ -2622,7 +2630,7 @@ var UIBuilder = class {
 				<div style="margin-top: 20px; padding: 12px; background: var(--background-primary); border-radius: 8px;">
 					<h4 style="margin-top: 0;">Kalenderkontekstmeny</h4>
 					<p style="margin: 8px 0; font-size: 0.9em;">
-						H\xF8yreklikk p\xE5 en dag i kalenderen for \xE5 f\xE5 opp en meny med flere alternativer:
+						Trykk p\xE5 en dag i kalenderen for \xE5 f\xE5 opp en meny med flere alternativer:
 					</p>
 					<ul style="margin: 8px 0 0 20px; font-size: 0.9em;">
 						<li>Opprett daglig notat for valgt dag</li>
@@ -3791,6 +3799,7 @@ var UIBuilder = class {
       await this.app.vault.modify(file, content);
       const label = this.settings.specialDayLabels[dayType] || dayType;
       new import_obsidian3.Notice(`\u2705 Lagt til ${dateStr} (${label})`);
+      await this.data.loadHolidays();
       this.updateMonthCard();
     } catch (error) {
       console.error("Failed to add special day:", error);
@@ -4512,7 +4521,6 @@ var TimeFlowPlugin = class extends import_obsidian7.Plugin {
   }
   onunload() {
     console.log("Unloading TimeFlow plugin");
-    this.timerManager.stopAllTimers();
   }
   async loadSettings() {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());

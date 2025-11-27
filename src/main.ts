@@ -109,8 +109,7 @@ export default class TimeFlowPlugin extends Plugin {
 
 	onunload() {
 		console.log('Unloading TimeFlow plugin');
-		// Stop all timers before unloading
-		this.timerManager.stopAllTimers();
+		// Don't stop timers on unload - they should persist across reloads
 	}
 
 	async loadSettings() {

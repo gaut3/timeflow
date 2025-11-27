@@ -45,6 +45,22 @@ export interface TimeFlowSettings {
 		kurs: string;
 		studie: string;
 	};
+	// Advanced configuration settings
+	balanceStartDate: string;
+	halfDayHours: number;
+	halfDayMode: 'fixed' | 'percentage';
+	balanceThresholds: {
+		criticalLow: number;
+		warningLow: number;
+		warningHigh: number;
+		criticalHigh: number;
+	};
+	validationThresholds: {
+		longRunningTimerHours: number;
+		veryLongSessionHours: number;
+		maxDurationHours: number;
+		highWeeklyTotalHours: number;
+	};
 }
 
 export interface NoteType {
@@ -145,6 +161,22 @@ export const DEFAULT_SETTINGS: TimeFlowSettings = {
 		sykemelding: "Sykemelding",
 		kurs: "Kurs",
 		studie: "Studie"
+	},
+	// Advanced configuration settings
+	balanceStartDate: "2025-01-01",
+	halfDayHours: 4,
+	halfDayMode: 'fixed',
+	balanceThresholds: {
+		criticalLow: -15,
+		warningLow: 0,
+		warningHigh: 80,
+		criticalHigh: 95
+	},
+	validationThresholds: {
+		longRunningTimerHours: 12,
+		veryLongSessionHours: 16,
+		maxDurationHours: 24,
+		highWeeklyTotalHours: 60
 	}
 };
 
@@ -434,6 +466,201 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 					this.plugin.settings.includeSundayInWorkWeek = value;
 					await this.plugin.saveSettings();
 					await this.refreshView();
+				}));
+
+		// Advanced Configuration
+		new Setting(containerEl)
+			.setName('Advanced Configuration')
+			.setHeading();
+
+		const advancedInfo = containerEl.createDiv();
+		advancedInfo.style.marginBottom = '15px';
+		advancedInfo.style.padding = '10px';
+		advancedInfo.style.background = 'var(--background-secondary)';
+		advancedInfo.style.borderRadius = '5px';
+		advancedInfo.style.fontSize = '0.9em';
+		advancedInfo.innerHTML = `
+			<strong>⚙️ Advanced Settings</strong><br>
+			These settings affect balance calculations and visual indicators. Settings sync across devices via your data file.
+		`;
+
+		// Balance Calculation
+		new Setting(containerEl)
+			.setName('Balance start date')
+			.setDesc('Set the date from which flextime balance is calculated. Earlier entries are ignored in balance calculations. Format: YYYY-MM-DD')
+			.addText(text => text
+				.setPlaceholder('2025-01-01')
+				.setValue(this.plugin.settings.balanceStartDate)
+				.onChange(async (value) => {
+					// Validate date format
+					if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+						const date = new Date(value);
+						if (!isNaN(date.getTime())) {
+							this.plugin.settings.balanceStartDate = value;
+							await this.plugin.saveSettings();
+							await this.refreshView();
+						}
+					}
+				}));
+
+		// Half-Day Settings
+		new Setting(containerEl)
+			.setName('Half-day calculation mode')
+			.setDesc('How half-day hours should be calculated')
+			.addDropdown(dropdown => dropdown
+				.addOption('fixed', 'Fixed hours (set specific value)')
+				.addOption('percentage', 'Percentage (half of base workday)')
+				.setValue(this.plugin.settings.halfDayMode)
+				.onChange(async (value: 'fixed' | 'percentage') => {
+					this.plugin.settings.halfDayMode = value;
+					await this.plugin.saveSettings();
+					await this.refreshView();
+					this.display(); // Refresh to show/hide fixed hours input
+				}));
+
+		if (this.plugin.settings.halfDayMode === 'fixed') {
+			new Setting(containerEl)
+				.setName('Half-day hours')
+				.setDesc('Hours counted for a half workday')
+				.addText(text => text
+					.setPlaceholder('4.0')
+					.setValue(this.plugin.settings.halfDayHours.toString())
+					.onChange(async (value) => {
+						const num = parseFloat(value);
+						if (!isNaN(num) && num > 0 && num < this.plugin.settings.baseWorkday) {
+							this.plugin.settings.halfDayHours = num;
+							await this.plugin.saveSettings();
+							await this.refreshView();
+						}
+					}));
+		}
+
+		// Balance Color Thresholds
+		new Setting(containerEl)
+			.setName('Balance color thresholds')
+			.setDesc('Configure the hour thresholds for balance indicator colors')
+			.setHeading();
+
+		new Setting(containerEl)
+			.setName('Critical low threshold (red)')
+			.setDesc('Balance below this value shows in red')
+			.addText(text => text
+				.setPlaceholder('-15')
+				.setValue(this.plugin.settings.balanceThresholds.criticalLow.toString())
+				.onChange(async (value) => {
+					const num = parseFloat(value);
+					if (!isNaN(num) && num < this.plugin.settings.balanceThresholds.warningLow) {
+						this.plugin.settings.balanceThresholds.criticalLow = num;
+						await this.plugin.saveSettings();
+						await this.refreshView();
+					}
+				}));
+
+		new Setting(containerEl)
+			.setName('Warning low threshold (yellow)')
+			.setDesc('Balance below this value shows in yellow')
+			.addText(text => text
+				.setPlaceholder('0')
+				.setValue(this.plugin.settings.balanceThresholds.warningLow.toString())
+				.onChange(async (value) => {
+					const num = parseFloat(value);
+					if (!isNaN(num) && num > this.plugin.settings.balanceThresholds.criticalLow && num < this.plugin.settings.balanceThresholds.warningHigh) {
+						this.plugin.settings.balanceThresholds.warningLow = num;
+						await this.plugin.saveSettings();
+						await this.refreshView();
+					}
+				}));
+
+		new Setting(containerEl)
+			.setName('Warning high threshold (yellow)')
+			.setDesc('Balance above this value shows in yellow')
+			.addText(text => text
+				.setPlaceholder('80')
+				.setValue(this.plugin.settings.balanceThresholds.warningHigh.toString())
+				.onChange(async (value) => {
+					const num = parseFloat(value);
+					if (!isNaN(num) && num > this.plugin.settings.balanceThresholds.warningLow && num < this.plugin.settings.balanceThresholds.criticalHigh) {
+						this.plugin.settings.balanceThresholds.warningHigh = num;
+						await this.plugin.saveSettings();
+						await this.refreshView();
+					}
+				}));
+
+		new Setting(containerEl)
+			.setName('Critical high threshold (red)')
+			.setDesc('Balance above this value shows in red')
+			.addText(text => text
+				.setPlaceholder('95')
+				.setValue(this.plugin.settings.balanceThresholds.criticalHigh.toString())
+				.onChange(async (value) => {
+					const num = parseFloat(value);
+					if (!isNaN(num) && num > this.plugin.settings.balanceThresholds.warningHigh) {
+						this.plugin.settings.balanceThresholds.criticalHigh = num;
+						await this.plugin.saveSettings();
+						await this.refreshView();
+					}
+				}));
+
+		// Data Validation Thresholds
+		new Setting(containerEl)
+			.setName('Data validation thresholds')
+			.setDesc('Configure warnings and errors for data validation')
+			.setHeading();
+
+		new Setting(containerEl)
+			.setName('Long-running timer warning (hours)')
+			.setDesc('Warn if active timer exceeds this duration')
+			.addText(text => text
+				.setPlaceholder('12')
+				.setValue(this.plugin.settings.validationThresholds.longRunningTimerHours.toString())
+				.onChange(async (value) => {
+					const num = parseFloat(value);
+					if (!isNaN(num) && num > 0) {
+						this.plugin.settings.validationThresholds.longRunningTimerHours = num;
+						await this.plugin.saveSettings();
+					}
+				}));
+
+		new Setting(containerEl)
+			.setName('Very long session warning (hours)')
+			.setDesc('Warn if completed session exceeds this duration')
+			.addText(text => text
+				.setPlaceholder('16')
+				.setValue(this.plugin.settings.validationThresholds.veryLongSessionHours.toString())
+				.onChange(async (value) => {
+					const num = parseFloat(value);
+					if (!isNaN(num) && num > 0) {
+						this.plugin.settings.validationThresholds.veryLongSessionHours = num;
+						await this.plugin.saveSettings();
+					}
+				}));
+
+		new Setting(containerEl)
+			.setName('Maximum session duration (hours)')
+			.setDesc('Error if session exceeds this (likely data entry error)')
+			.addText(text => text
+				.setPlaceholder('24')
+				.setValue(this.plugin.settings.validationThresholds.maxDurationHours.toString())
+				.onChange(async (value) => {
+					const num = parseFloat(value);
+					if (!isNaN(num) && num > 0) {
+						this.plugin.settings.validationThresholds.maxDurationHours = num;
+						await this.plugin.saveSettings();
+					}
+				}));
+
+		new Setting(containerEl)
+			.setName('High weekly total info (hours)')
+			.setDesc('Show info notice if week total exceeds this')
+			.addText(text => text
+				.setPlaceholder('60')
+				.setValue(this.plugin.settings.validationThresholds.highWeeklyTotalHours.toString())
+				.onChange(async (value) => {
+					const num = parseFloat(value);
+					if (!isNaN(num) && num > 0) {
+						this.plugin.settings.validationThresholds.highWeeklyTotalHours = num;
+						await this.plugin.saveSettings();
+					}
 				}));
 
 		// Leave limits

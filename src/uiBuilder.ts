@@ -607,8 +607,8 @@ export class UIBuilder {
 			/* Make buttons smaller on mobile to prevent overflow */
 			@media (max-width: 500px) {
 				.tf-button {
-					padding: 6px 10px;
-					font-size: 12px;
+					padding: 4px 8px;
+					font-size: 11px;
 					min-width: unset;
 				}
 			}
@@ -629,6 +629,13 @@ export class UIBuilder {
 
 			.tf-heatmap-cell:hover {
 				transform: scale(1.2);
+			}
+
+			/* Make heatmap cells larger on mobile */
+			@media (max-width: 600px) {
+				.tf-heatmap {
+					grid-template-columns: repeat(20, 1fr) !important;
+				}
 			}
 
 			/* Context menu - uses same styling as submenu for consistency */
@@ -1239,7 +1246,7 @@ export class UIBuilder {
 				<div style="margin-top: 20px; padding: 12px; background: var(--background-primary); border-radius: 8px;">
 					<h4 style="margin-top: 0;">Kalenderkontekstmeny</h4>
 					<p style="margin: 8px 0; font-size: 0.9em;">
-						Høyreklikk på en dag i kalenderen for å få opp en meny med flere alternativer:
+						Trykk på en dag i kalenderen for å få opp en meny med flere alternativer:
 					</p>
 					<ul style="margin: 8px 0 0 20px; font-size: 0.9em;">
 						<li>Opprett daglig notat for valgt dag</li>
@@ -2730,6 +2737,9 @@ export class UIBuilder {
 			// Get the label for the day type
 			const label = this.settings.specialDayLabels[dayType as keyof typeof this.settings.specialDayLabels] || dayType;
 			new Notice(`✅ Lagt til ${dateStr} (${label})`);
+
+			// Reload holidays to pick up the new entry
+			await this.data.loadHolidays();
 
 			// Refresh the dashboard to show the special day
 			this.updateMonthCard();

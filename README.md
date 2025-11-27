@@ -248,12 +248,12 @@ Create a file (default: `timeflow/holidays.md`) with the following format:
 Format: `- YYYY-MM-DD: type[:half]: description`
 
 Supported types:
-- `helligdag` - Public holiday (counts as full workday)
-- `ferie` - Vacation (withdraws from flextime)
+- `helligdag` - Public holiday (counts as full workday, no flextime change)
+- `ferie` - Vacation (counts as full workday, no flextime change)
 - `avspasering` - Comp time (withdraws from flextime)
-- `egenmelding` - Self-reported sick leave (counts as full workday)
-- `sykemelding` - Doctor's note sick leave (counts as full workday)
-- `velferdspermisjon` - Welfare leave (counts as full workday)
+- `egenmelding` - Self-reported sick leave (counts as full workday, no flextime change)
+- `sykemelding` - Doctor's note sick leave (counts as full workday, no flextime change)
+- `velferdspermisjon` - Welfare leave (counts as full workday, no flextime change)
 - `kurs` - Course/Training (regular workday applies)
 - `studie` - Study leave (regular workday applies)
 - `half` - Half day modifier (4 hours instead of full workday)
@@ -456,7 +456,7 @@ For issues and feature requests, please create an issue on GitHub.
   - Settings automatically sync via data file
   - Works with Obsidian Sync and other sync solutions
 - **Enhanced Calendar**
-  - Right-click context menu with quick actions
+  - Click on calendar days for quick actions menu
   - Edit work time and running timers
   - Register special days
   - Create custom note types

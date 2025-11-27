@@ -117,8 +117,11 @@ export class DataManager {
 				return 0;
 			}
 			if (holidayInfo.halfDay) {
-				// Half day is 4 hours workday (not half of workday hours)
-				return 4;
+				// Calculate half-day hours based on settings
+				const halfDayHours = this.settings.halfDayMode === 'percentage'
+					? this.settings.baseWorkday / 2
+					: this.settings.halfDayHours;
+				return halfDayHours;
 			}
 		}
 
@@ -210,7 +213,7 @@ export class DataManager {
 
 	getBalanceUpToDate(endDate: string): number {
 		let balance = 0;
-		const startDate = "2025-11-05";
+		const startDate = this.settings.balanceStartDate;
 
 		const sortedDays = Object.keys(this.daily)
 			.filter(day => day >= startDate && day <= endDate)
@@ -635,21 +638,22 @@ export class DataManager {
 					));
 				}
 
-				if ((entry.duration || 0) > 24) {
+				if ((entry.duration || 0) > this.settings.validationThresholds.maxDurationHours) {
 					issues.errors.push(createIssue(
 						'error',
 						'Excessive Duration',
-						`Entry spans more than 24 hours (${entry.duration?.toFixed(1)}h)`,
+						`Entry spans more than ${this.settings.validationThresholds.maxDurationHours} hours (${entry.duration?.toFixed(1)}h)`,
 						entry,
 						dayKey
 					));
 				}
 
-				if ((entry.duration || 0) > 16 && (entry.duration || 0) <= 24) {
+				if ((entry.duration || 0) > this.settings.validationThresholds.veryLongSessionHours
+					&& (entry.duration || 0) <= this.settings.validationThresholds.maxDurationHours) {
 					issues.warnings.push(createIssue(
 						'warning',
 						'Very Long Session',
-						`Entry duration exceeds 16 hours (${entry.duration?.toFixed(1)}h)`,
+						`Entry duration exceeds ${this.settings.validationThresholds.veryLongSessionHours} hours (${entry.duration?.toFixed(1)}h)`,
 						entry,
 						dayKey
 					));
@@ -760,11 +764,11 @@ export class DataManager {
 				const now = new Date();
 				const hoursRunning = Utils.hoursDiff(startTime, now);
 
-				if (hoursRunning > 12) {
+				if (hoursRunning > this.settings.validationThresholds.longRunningTimerHours) {
 					issues.warnings.push({
 						severity: 'warning',
 						type: 'Long-Running Timer',
-						description: `Active timer has been running for ${hoursRunning.toFixed(1)} hours`,
+						description: `Active timer has been running for ${hoursRunning.toFixed(1)} hours (threshold: ${this.settings.validationThresholds.longRunningTimerHours}h)`,
 						date: Utils.toLocalDateStr(startTime),
 						entry: {
 							name: entry.name,
