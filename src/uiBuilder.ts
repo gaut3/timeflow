@@ -142,6 +142,7 @@ export class UIBuilder {
 				.tf-timer-badge, .tf-clock {
 					flex: 1 1 calc(50% - 6px);
 					min-width: 0;
+					max-width: calc(50% - 6px) !important;
 				}
 			}
 

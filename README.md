@@ -6,6 +6,8 @@ timeflow provides a comprehensive flextime tracking dashboard with **built-in ti
 
 ## Features
 
+**Most of the language in this plugin is in norwegian at the minute, but im thinking of adding english later.**
+
 ### ⏱️ Built-in Timer System
 - **Start/Stop Timers** - Start and stop work timers directly from the dashboard
 - **Live Timer Display** - See running timers with real-time duration updates in the top banner
