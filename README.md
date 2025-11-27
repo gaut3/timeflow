@@ -1,22 +1,22 @@
-# timeflow Plugin
+![timeflow Dashboard](https://github.com/gaut3/timeflow/blob/main/images/timeflow.png?raw=true)
 
 timeflow provides a comprehensive flextime tracking dashboard with **built-in timer functionality**, beautiful visualizations, and extensive customization options.
-
-![timeflow Dashboard](timeflow.png)
 
 ## Features
 
 **Most of the language in this plugin is in norwegian at the minute, but im thinking of adding english later.**
 
 ### ⏱️ Built-in Timer System
+![timeflow-day-week-month](https://github.com/gaut3/timeflow/blob/main/images/timeflow%20day-week-month.png?raw=true)
 - **Start/Stop Timers** - Start and stop work timers directly from the dashboard
-- **Live Timer Display** - See running timers with real-time duration updates in the top banner
+- **Live Timer Display** - See running timers with real-time duration updates in the day/week cards.
 - **Automatic Logging** - Completed timers are automatically saved to your data file
 - **Quick Access** - Start/stop timers via command palette or dashboard buttons
 
 ### 📊 Tracking & Visualization
+![timeflow-stats](https://github.com/gaut3/timeflow/blob/main/images/timeflow%20stats.png?raw=true)
 - **Real-time Flextime Balance Tracking** - See your current flextime balance with color-coded indicators
-- **Daily, Weekly, and Monthly Views** - Track your work hours with intuitive cards and responsive layout
+- **Daily, Weekly, Monthly and Yearly Views** - Track your work hours with intuitive cards and responsive layout
 - **Interactive Month Calendar** - Visual calendar with color-coded days for planned holidays and flextime
   - Click any date for quick actions
   - Edit work time, register special days, create notes
@@ -24,8 +24,10 @@ timeflow provides a comprehensive flextime tracking dashboard with **built-in ti
 - **Comprehensive Statistics** - View statistics for total, yearly, and monthly periods
 - **Contextual Messages** - Get motivational and informative messages based on your work patterns
 - **Multiple History Views** - List and heatmap visualizations of your work history
+![timeflow-history-info](https://github.com/gaut3/timeflow/blob/main/images/timeflow%20info-history.png?raw=true)
 
 ### 🎯 Planning & Organization
+![timeflow-context](https://github.com/gaut3/timeflow/blob/main/images/timeflow%20context.png?raw=true)
 - **Holiday Planning** - Integrate planned holidays and special days from a markdown file
 - **Customizable Note Types** - Create and manage custom note templates with flexible configuration
   - Daily notes, meeting notes, project notes, weekly reviews, reflections
@@ -42,7 +44,7 @@ timeflow provides a comprehensive flextime tracking dashboard with **built-in ti
 - **Import/Export** - Import existing Timekeep data with duplicate detection
 
 ### ⚙️ Advanced Customization
-
+![timeflow-settings](https://github.com/gaut3/timeflow/blob/main/images/timeflow-settings.png?raw=true)
 #### Work Configuration
 - **Flexible Work Schedules**
   - Configurable workday hours (e.g., 7.5, 8, 6-hour days)
@@ -105,28 +107,6 @@ timeflow provides a comprehensive flextime tracking dashboard with **built-in ti
 3. Reload Obsidian
 4. Enable the TimeFlow plugin in Obsidian settings
 
-## Usage
-
-### Opening the Dashboard
-
-- Click the calendar-clock icon in the ribbon
-- Or use the command palette: "Open timeflow Dashboard"
-
-### Using Timers
-
-#### Starting a Timer
-
-1. **From the Dashboard**: Click the **Start"** button in the top banner
-2. **From Command Palette**: Run "Start Timer" command
-3. The timer will appear in the banner with a live duration display
-
-#### Stopping a Timer
-
-1. Click the timer badge in the top banner to see all running timers
-2. Click **Stop** button next to the timer you want to stop
-3. Or use "Stop All Timers" from the command palette
-4. The timer data will be automatically saved to `timeflow/data.md`
-
 #### Timer Data Storage
 
 - All timer data is stored in `timeflow/data.md` in your vault
@@ -162,11 +142,9 @@ This file contains your time tracking data in Timekeep-compatible format.
 ```
 
 This means:
-- ✅ You can import your existing Timekeep data
+- ✅ You can import existing Timekeep data
 - ✅ Data can be read by Timekeep plugin if you switch back
 - ✅ Support for collapsed entries and subEntries
-- ✅ Settings sync across devices automatically
-- ✅ Seamless migration path
 
 ### File Structure
 
@@ -317,40 +295,6 @@ Base Workday: 7.5 hours
 Base Workweek: 18.75 hours (37.5 * 0.5)
 ```
 
-## Development
-
-### Project Structure
-
-```
-timeflow-plugin/
-├── src/
-│   ├── main.ts              # Plugin entry point
-│   ├── view.ts              # Main dashboard view
-│   ├── settings.ts          # Plugin settings with sync support
-│   ├── timerManager.ts      # Timer management (Timekeep-compatible)
-│   ├── dataManager.ts       # Data processing and calculations
-│   ├── messageGenerator.ts  # Contextual message generation
-│   ├── uiBuilder.ts         # UI component builder with responsive layout
-│   ├── utils.ts             # Utility functions
-│   └── importModal.ts       # Data import with duplicate detection
-├── styles.css               # Plugin styles (injected in uiBuilder)
-├── manifest.json            # Plugin manifest
-├── package.json             # Dependencies
-├── tsconfig.json            # TypeScript configuration
-└── esbuild.config.mjs       # Build configuration
-```
-
-### Building
-
-- **Development mode (watch)**: `npm run dev`
-- **Production build**: `npm run build`
-
-### Scripts
-
-- `npm run dev` - Start development with watch mode
-- `npm run build` - Build production version
-- `npm run version` - Bump version and update manifest
-
 ## How It Works
 
 1. **Data Source**: The plugin stores timer data in `timeflow/data.md`
@@ -424,7 +368,7 @@ timeflow-plugin/
 
 ## Credits
 
-Original dataview script by Gaute
+Originally a dataview script that used TimeKeep data for tracking time.
 Converted to Obsidian plugin with full TypeScript implementation with AI
 
 ## License
@@ -434,44 +378,3 @@ MIT License
 ## Support
 
 For issues and feature requests, please create an issue on GitHub.
-
-## Version History
-
-### 1.0.0
-- Initial release
-- Full conversion from dataview script to native plugin
-- **Built-in Timer System** - No dependency on external plugins
-  - Start/stop timers directly from dashboard
-  - Live timer display with running duration
-  - Automatic saving to data file
-  - Multiple concurrent timer support
-- **Customization Features**
-  - Configurable special day types (names and colors)
-  - Customizable note types with templates
-  - Flexible work schedules (workday/workweek hours)
-  - Lunch break deduction
-  - Weekend work configuration
-  - Leave limits tracking
-- **Cross-Device Sync**
-  - Settings automatically sync via data file
-  - Works with Obsidian Sync and other sync solutions
-- **Enhanced Calendar**
-  - Click on calendar days for quick actions menu
-  - Edit work time and running timers
-  - Register special days
-  - Create custom note types
-  - Info panel with day summary
-- **Import/Export**
-  - Import Timekeep data with duplicate detection
-  - Export to CSV for analysis
-- **Responsive Layout**
-  - Grid-based layout that adapts to screen size
-  - Day and Week cards stay side-by-side
-  - Calendar moves up on wide screens
-- **Theme Support**
-  - Light, Dark, and System themes
-  - Configurable hour units (h or t)
-- Improved performance with caching
-- Better error handling and validation
-- Comprehensive settings panel
-- Self-contained solution with integrated time tracking
