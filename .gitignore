@@ -23,3 +23,4 @@ npm-debug.log*
 *.tmp
 *.temp
 .claude/settings.local.json
+/Obsidian developer guidelines

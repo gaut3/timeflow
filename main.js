@@ -214,23 +214,18 @@ var TimeFlowSettingTab = class extends import_obsidian.PluginSettingTab {
   display() {
     const { containerEl } = this;
     containerEl.empty();
-    containerEl.createEl("h2", { text: "TimeFlow Settings" });
-    containerEl.createEl("h3", { text: "Appearance" });
+    new import_obsidian.Setting(containerEl).setName("Appearance").setHeading();
     new import_obsidian.Setting(containerEl).setName("Theme").setDesc("Choose the color scheme for TimeFlow cards").addDropdown((dropdown) => dropdown.addOption("light", "Light (Colorful gradients)").addOption("system", "System (Match Obsidian theme)").addOption("dark", "Dark (Dark gradients)").setValue(this.plugin.settings.theme).onChange(async (value) => {
       this.plugin.settings.theme = value;
       await this.plugin.saveSettings();
       await this.refreshView();
     }));
-    new import_obsidian.Setting(containerEl).setName("Hour Unit").setDesc('Choose the unit symbol for displaying hours: "h" for hours or "t" for timer').addDropdown((dropdown) => dropdown.addOption("h", "h (hours)").addOption("t", "t (timer)").setValue(this.plugin.settings.hourUnit).onChange(async (value) => {
+    new import_obsidian.Setting(containerEl).setName("Hour unit").setDesc('Choose the unit symbol for displaying hours: "h" for hours or "t" for timer').addDropdown((dropdown) => dropdown.addOption("h", "h (hours)").addOption("t", "t (timer)").setValue(this.plugin.settings.hourUnit).onChange(async (value) => {
       this.plugin.settings.hourUnit = value;
       await this.plugin.saveSettings();
       await this.refreshView();
     }));
-    containerEl.createEl("h4", { text: "Special Day Types" });
-    containerEl.createEl("p", {
-      text: "Customize names and colors for different types of special days. These day types affect flextime calculations.",
-      cls: "setting-item-description"
-    });
+    new import_obsidian.Setting(containerEl).setName("Special day types").setDesc("Customize names and colors for different types of special days. These day types affect flextime calculations.").setHeading();
     new import_obsidian.Setting(containerEl).setName("Time Off (Compensatory Leave)").setDesc("Day off using banked flextime hours. Withdraws logged hours from flextime balance.").addText((text) => text.setPlaceholder("Avspasering").setValue(this.plugin.settings.specialDayLabels.avspasering).onChange(async (value) => {
       this.plugin.settings.specialDayLabels.avspasering = value || "Avspasering";
       await this.plugin.saveSettings();
@@ -294,7 +289,7 @@ var TimeFlowSettingTab = class extends import_obsidian.PluginSettingTab {
       await this.plugin.saveSettings();
       await this.refreshView();
     }));
-    containerEl.createEl("h3", { text: "Work Configuration" });
+    new import_obsidian.Setting(containerEl).setName("Work configuration").setHeading();
     const syncInfo = containerEl.createDiv();
     syncInfo.style.marginBottom = "15px";
     syncInfo.style.padding = "10px";
@@ -305,7 +300,7 @@ var TimeFlowSettingTab = class extends import_obsidian.PluginSettingTab {
 			<strong>\u{1F4F1} Cross-Device Settings Sync</strong><br>
 			Settings are automatically saved to <code>timeflow/data.md</code> and will sync across devices when using Obsidian Sync or any other vault sync solution. When you open the plugin on another device, your settings will be automatically loaded.
 		`;
-    new import_obsidian.Setting(containerEl).setName("Work Percentage").setDesc("Your employment percentage (1.0 = 100%, 0.8 = 80%, etc.)").addText((text) => text.setPlaceholder("1.0").setValue(this.plugin.settings.workPercent.toString()).onChange(async (value) => {
+    new import_obsidian.Setting(containerEl).setName("Work percentage").setDesc("Your employment percentage (1.0 = 100%, 0.8 = 80%, etc.)").addText((text) => text.setPlaceholder("1.0").setValue(this.plugin.settings.workPercent.toString()).onChange(async (value) => {
       const num = parseFloat(value);
       if (!isNaN(num) && num > 0 && num <= 1) {
         this.plugin.settings.workPercent = num;
@@ -313,7 +308,7 @@ var TimeFlowSettingTab = class extends import_obsidian.PluginSettingTab {
         await this.refreshView();
       }
     }));
-    new import_obsidian.Setting(containerEl).setName("Base Workday Hours").setDesc("Standard hours for a full workday (e.g., 7.5 for standard, 6 for 6-hour days)").addText((text) => text.setPlaceholder("7.5").setValue(this.plugin.settings.baseWorkday.toString()).onChange(async (value) => {
+    new import_obsidian.Setting(containerEl).setName("Base workday hours").setDesc("Standard hours for a full workday (e.g., 7.5 for standard, 6 for 6-hour days)").addText((text) => text.setPlaceholder("7.5").setValue(this.plugin.settings.baseWorkday.toString()).onChange(async (value) => {
       const num = parseFloat(value);
       if (!isNaN(num) && num > 0) {
         this.plugin.settings.baseWorkday = num;
@@ -321,7 +316,7 @@ var TimeFlowSettingTab = class extends import_obsidian.PluginSettingTab {
         await this.refreshView();
       }
     }));
-    new import_obsidian.Setting(containerEl).setName("Base Workweek Hours").setDesc("Standard hours for a full workweek (e.g., 37.5 for 5 days, 30 for 4 days)").addText((text) => text.setPlaceholder("37.5").setValue(this.plugin.settings.baseWorkweek.toString()).onChange(async (value) => {
+    new import_obsidian.Setting(containerEl).setName("Base workweek hours").setDesc("Standard hours for a full workweek (e.g., 37.5 for 5 days, 30 for 4 days)").addText((text) => text.setPlaceholder("37.5").setValue(this.plugin.settings.baseWorkweek.toString()).onChange(async (value) => {
       const num = parseFloat(value);
       if (!isNaN(num) && num > 0) {
         this.plugin.settings.baseWorkweek = num;
@@ -329,7 +324,7 @@ var TimeFlowSettingTab = class extends import_obsidian.PluginSettingTab {
         await this.refreshView();
       }
     }));
-    new import_obsidian.Setting(containerEl).setName("Lunch Break Duration").setDesc("Daily lunch break in minutes (e.g., 30 for 30 minutes). This will be deducted from your work hours automatically.").addText((text) => text.setPlaceholder("0").setValue(this.plugin.settings.lunchBreakMinutes.toString()).onChange(async (value) => {
+    new import_obsidian.Setting(containerEl).setName("Lunch break duration").setDesc("Daily lunch break in minutes (e.g., 30 for 30 minutes). This will be deducted from your work hours automatically.").addText((text) => text.setPlaceholder("0").setValue(this.plugin.settings.lunchBreakMinutes.toString()).onChange(async (value) => {
       const num = parseInt(value);
       if (!isNaN(num) && num >= 0) {
         this.plugin.settings.lunchBreakMinutes = num;
@@ -337,22 +332,18 @@ var TimeFlowSettingTab = class extends import_obsidian.PluginSettingTab {
         await this.refreshView();
       }
     }));
-    new import_obsidian.Setting(containerEl).setName("Include Saturday in Work Week").setDesc("Enable if you work Saturdays as part of your normal work week").addToggle((toggle) => toggle.setValue(this.plugin.settings.includeSaturdayInWorkWeek).onChange(async (value) => {
+    new import_obsidian.Setting(containerEl).setName("Include Saturday in work week").setDesc("Enable if you work Saturdays as part of your normal work week").addToggle((toggle) => toggle.setValue(this.plugin.settings.includeSaturdayInWorkWeek).onChange(async (value) => {
       this.plugin.settings.includeSaturdayInWorkWeek = value;
       await this.plugin.saveSettings();
       await this.refreshView();
     }));
-    new import_obsidian.Setting(containerEl).setName("Include Sunday in Work Week").setDesc("Enable if you work Sundays as part of your normal work week").addToggle((toggle) => toggle.setValue(this.plugin.settings.includeSundayInWorkWeek).onChange(async (value) => {
+    new import_obsidian.Setting(containerEl).setName("Include Sunday in work week").setDesc("Enable if you work Sundays as part of your normal work week").addToggle((toggle) => toggle.setValue(this.plugin.settings.includeSundayInWorkWeek).onChange(async (value) => {
       this.plugin.settings.includeSundayInWorkWeek = value;
       await this.plugin.saveSettings();
       await this.refreshView();
     }));
-    containerEl.createEl("h4", { text: "Leave Limits" });
-    containerEl.createEl("p", {
-      text: "Set maximum allowed days for different leave types per year. The dashboard displays your usage against these limits in the yearly statistics view.",
-      cls: "setting-item-description"
-    });
-    new import_obsidian.Setting(containerEl).setName("Max Sick Leave Days (Self-Reported)").setDesc("Maximum self-reported sick days (egenmelding) allowed per year (typically 8 in Norway)").addText((text) => text.setPlaceholder("8").setValue(this.plugin.settings.maxEgenmeldingDays.toString()).onChange(async (value) => {
+    new import_obsidian.Setting(containerEl).setName("Leave limits").setDesc("Set maximum allowed days for different leave types per year. The dashboard displays your usage against these limits in the yearly statistics view.").setHeading();
+    new import_obsidian.Setting(containerEl).setName("Max sick leave days (self-reported)").setDesc("Maximum self-reported sick days (egenmelding) allowed per year (typically 8 in Norway)").addText((text) => text.setPlaceholder("8").setValue(this.plugin.settings.maxEgenmeldingDays.toString()).onChange(async (value) => {
       const num = parseInt(value);
       if (!isNaN(num) && num >= 0) {
         this.plugin.settings.maxEgenmeldingDays = num;
@@ -360,7 +351,7 @@ var TimeFlowSettingTab = class extends import_obsidian.PluginSettingTab {
         await this.refreshView();
       }
     }));
-    new import_obsidian.Setting(containerEl).setName("Max Vacation Days").setDesc("Maximum vacation days (ferie) per year based on your contract (typically 25 in Norway)").addText((text) => text.setPlaceholder("25").setValue(this.plugin.settings.maxFerieDays.toString()).onChange(async (value) => {
+    new import_obsidian.Setting(containerEl).setName("Max vacation days").setDesc("Maximum vacation days (ferie) per year based on your contract (typically 25 in Norway)").addText((text) => text.setPlaceholder("25").setValue(this.plugin.settings.maxFerieDays.toString()).onChange(async (value) => {
       const num = parseInt(value);
       if (!isNaN(num) && num >= 0) {
         this.plugin.settings.maxFerieDays = num;
@@ -368,26 +359,26 @@ var TimeFlowSettingTab = class extends import_obsidian.PluginSettingTab {
         await this.refreshView();
       }
     }));
-    containerEl.createEl("h3", { text: "File Paths" });
-    new import_obsidian.Setting(containerEl).setName("Data File Path").setDesc("Path to the file containing timer data and settings").addText((text) => text.setPlaceholder("timeflow/data.md").setValue(this.plugin.settings.dataFilePath).onChange(async (value) => {
+    new import_obsidian.Setting(containerEl).setName("File paths").setHeading();
+    new import_obsidian.Setting(containerEl).setName("Data file path").setDesc("Path to the file containing timer data and settings").addText((text) => text.setPlaceholder("timeflow/data.md").setValue(this.plugin.settings.dataFilePath).onChange(async (value) => {
       this.plugin.settings.dataFilePath = value;
       await this.plugin.saveSettings();
       this.plugin.timerManager.dataFile = value;
     }));
-    new import_obsidian.Setting(containerEl).setName("Holidays File Path").setDesc("Path to the file containing future planned days/holidays").addText((text) => text.setPlaceholder("timeflow/holidays.md").setValue(this.plugin.settings.holidaysFilePath).onChange(async (value) => {
+    new import_obsidian.Setting(containerEl).setName("Holidays file path").setDesc("Path to the file containing future planned days/holidays").addText((text) => text.setPlaceholder("timeflow/holidays.md").setValue(this.plugin.settings.holidaysFilePath).onChange(async (value) => {
       this.plugin.settings.holidaysFilePath = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian.Setting(containerEl).setName("Daily Notes Folder").setDesc("Folder where daily notes are stored").addText((text) => text.setPlaceholder("Daily Notes").setValue(this.plugin.settings.dailyNotesFolder).onChange(async (value) => {
+    new import_obsidian.Setting(containerEl).setName("Daily notes folder").setDesc("Folder where daily notes are stored").addText((text) => text.setPlaceholder("Daily Notes").setValue(this.plugin.settings.dailyNotesFolder).onChange(async (value) => {
       this.plugin.settings.dailyNotesFolder = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian.Setting(containerEl).setName("Daily Notes Template Path").setDesc("Path to the template for daily notes").addText((text) => text.setPlaceholder("Templates/Daily Notes Template.md").setValue(this.plugin.settings.dailyNotesTemplatePath).onChange(async (value) => {
+    new import_obsidian.Setting(containerEl).setName("Daily notes template path").setDesc("Path to the template for daily notes").addText((text) => text.setPlaceholder("Templates/Daily Notes Template.md").setValue(this.plugin.settings.dailyNotesTemplatePath).onChange(async (value) => {
       this.plugin.settings.dailyNotesTemplatePath = value;
       await this.plugin.saveSettings();
     }));
-    containerEl.createEl("h3", { text: "Display Settings" });
-    new import_obsidian.Setting(containerEl).setName("Consecutive Flextime Warning Days").setDesc("Number of consecutive days with flextime before showing a warning").addText((text) => text.setPlaceholder("5").setValue(this.plugin.settings.consecutiveFlextimeWarningDays.toString()).onChange(async (value) => {
+    new import_obsidian.Setting(containerEl).setName("Display settings").setHeading();
+    new import_obsidian.Setting(containerEl).setName("Consecutive flextime warning days").setDesc("Number of consecutive days with flextime before showing a warning").addText((text) => text.setPlaceholder("5").setValue(this.plugin.settings.consecutiveFlextimeWarningDays.toString()).onChange(async (value) => {
       const num = parseInt(value);
       if (!isNaN(num) && num > 0) {
         this.plugin.settings.consecutiveFlextimeWarningDays = num;
@@ -395,7 +386,7 @@ var TimeFlowSettingTab = class extends import_obsidian.PluginSettingTab {
         await this.refreshView();
       }
     }));
-    new import_obsidian.Setting(containerEl).setName("Heatmap Columns").setDesc("Number of columns in the heatmap view (adjust for your screen width)").addText((text) => text.setPlaceholder("48").setValue(this.plugin.settings.heatmapColumns.toString()).onChange(async (value) => {
+    new import_obsidian.Setting(containerEl).setName("Heatmap columns").setDesc("Number of columns in the heatmap view (adjust for your screen width)").addText((text) => text.setPlaceholder("48").setValue(this.plugin.settings.heatmapColumns.toString()).onChange(async (value) => {
       const num = parseInt(value);
       if (!isNaN(num) && num > 0) {
         this.plugin.settings.heatmapColumns = num;
@@ -403,18 +394,14 @@ var TimeFlowSettingTab = class extends import_obsidian.PluginSettingTab {
         await this.refreshView();
       }
     }));
-    new import_obsidian.Setting(containerEl).setName("Update Interval (ms)").setDesc("How often to update the dashboard data (in milliseconds)").addText((text) => text.setPlaceholder("30000").setValue(this.plugin.settings.updateInterval.toString()).onChange(async (value) => {
+    new import_obsidian.Setting(containerEl).setName("Update interval (ms)").setDesc("How often to update the dashboard data (in milliseconds)").addText((text) => text.setPlaceholder("30000").setValue(this.plugin.settings.updateInterval.toString()).onChange(async (value) => {
       const num = parseInt(value);
       if (!isNaN(num) && num >= 1e3) {
         this.plugin.settings.updateInterval = num;
         await this.plugin.saveSettings();
       }
     }));
-    containerEl.createEl("h3", { text: "Note Types" });
-    containerEl.createEl("p", {
-      text: "Configure the types of notes available in the calendar context menu. Each note type can have its own template, folder, and filename pattern.",
-      cls: "setting-item-description"
-    });
+    new import_obsidian.Setting(containerEl).setName("Note types").setDesc("Configure the types of notes available in the calendar context menu. Each note type can have its own template, folder, and filename pattern.").setHeading();
     this.plugin.settings.noteTypes.forEach((noteType, index) => {
       new import_obsidian.Setting(containerEl).setName(`${noteType.icon} ${noteType.label}`).setDesc(`Folder: ${noteType.folder} | Template: ${noteType.template}`).addButton((button) => button.setButtonText("Edit").onClick(() => {
         this.showNoteTypeModal(noteType, index);
@@ -425,14 +412,14 @@ var TimeFlowSettingTab = class extends import_obsidian.PluginSettingTab {
         this.display();
       }));
     });
-    new import_obsidian.Setting(containerEl).setName("Add New Note Type").setDesc("Create a new note type for the context menu").addButton((button) => button.setButtonText("+ Add Note Type").setCta().onClick(() => {
+    new import_obsidian.Setting(containerEl).setName("Add new note type").setDesc("Create a new note type for the context menu").addButton((button) => button.setButtonText("+ Add note type").setCta().onClick(() => {
       this.showNoteTypeModal(null, -1);
     }));
-    containerEl.createEl("h3", { text: "Data Management" });
-    new import_obsidian.Setting(containerEl).setName("Export Data to CSV").setDesc("Export all your time tracking data to a CSV file").addButton((button) => button.setButtonText("Export CSV").setCta().onClick(async () => {
+    new import_obsidian.Setting(containerEl).setName("Data management").setHeading();
+    new import_obsidian.Setting(containerEl).setName("Export data to CSV").setDesc("Export all your time tracking data to a CSV file").addButton((button) => button.setButtonText("Export CSV").setCta().onClick(async () => {
       this.exportToCSV();
     }));
-    new import_obsidian.Setting(containerEl).setName("Import Timekeep Data").setDesc("Import time tracking data from Timekeep JSON format").addButton((button) => button.setButtonText("Import Data").setCta().onClick(async () => {
+    new import_obsidian.Setting(containerEl).setName("Import Timekeep data").setDesc("Import time tracking data from Timekeep JSON format").addButton((button) => button.setButtonText("Import data").setCta().onClick(async () => {
       this.showImportModal();
     }));
   }
@@ -705,7 +692,7 @@ var DataManager = class {
         return 0;
       }
       if (holidayInfo.halfDay) {
-        return this.workdayHours / 2;
+        return 4;
       }
     }
     return this.workdayHours;
@@ -1615,12 +1602,17 @@ var UIBuilder = class {
 
 			@media (max-width: 600px) {
 				.tf-badge-section {
-					flex-direction: column;
+					flex-direction: row;
+					flex-wrap: wrap;
 					align-items: stretch;
 				}
-				.tf-badge-section > * {
+				.tf-badge {
 					width: 100% !important;
-					max-width: 100% !important;
+					flex: 1 1 100%;
+				}
+				.tf-timer-badge, .tf-clock {
+					flex: 1 1 calc(50% - 6px);
+					min-width: 0;
 				}
 			}
 
@@ -2082,16 +2074,25 @@ var UIBuilder = class {
 				background: var(--interactive-hover);
 			}
 
+			/* Make buttons smaller on mobile to prevent overflow */
+			@media (max-width: 500px) {
+				.tf-button {
+					padding: 6px 10px;
+					font-size: 12px;
+					min-width: unset;
+				}
+			}
+
 			.tf-heatmap {
 				display: grid;
-				gap: 4px;
+				gap: 2px;
 				margin-top: 15px;
 			}
 
 			.tf-heatmap-cell {
 				width: 100%;
 				aspect-ratio: 1;
-				border-radius: 3px;
+				border-radius: 4px;
 				cursor: pointer;
 				transition: transform 0.2s;
 			}
@@ -2324,7 +2325,7 @@ var UIBuilder = class {
       this.elements.timerBadge.onclick = null;
       const startBtn = document.createElement("div");
       startBtn.textContent = "Start";
-      startBtn.style.background = "linear-gradient(90deg, #4caf50, #2e7d32)";
+      startBtn.style.background = "#4caf50";
       startBtn.style.color = "white";
       startBtn.style.padding = "8px 12px";
       startBtn.style.cursor = "pointer";
@@ -2345,7 +2346,7 @@ var UIBuilder = class {
       };
       const arrowBtn = document.createElement("div");
       arrowBtn.textContent = "\u25BC";
-      arrowBtn.style.background = "linear-gradient(90deg, #388e3c, #1b5e20)";
+      arrowBtn.style.background = "#388e3c";
       arrowBtn.style.color = "white";
       arrowBtn.style.padding = "8px 8px";
       arrowBtn.style.cursor = "pointer";
@@ -2370,7 +2371,7 @@ var UIBuilder = class {
     } else {
       this.elements.timerBadge.innerHTML = "";
       this.elements.timerBadge.textContent = "Stopp";
-      this.elements.timerBadge.style.background = "linear-gradient(90deg, #f44336, #c62828)";
+      this.elements.timerBadge.style.background = "#f44336";
       this.elements.timerBadge.style.color = "white";
       this.elements.timerBadge.style.display = "block";
       this.elements.timerBadge.style.padding = "";
@@ -2492,7 +2493,7 @@ var UIBuilder = class {
     controls.style.display = "flex";
     controls.style.gap = "5px";
     const prevBtn = document.createElement("button");
-    prevBtn.textContent = "\u2190";
+    prevBtn.textContent = "\u25C4";
     prevBtn.className = "tf-button";
     prevBtn.onclick = () => {
       this.currentMonthOffset--;
@@ -2506,7 +2507,7 @@ var UIBuilder = class {
       this.updateMonthCard();
     };
     const nextBtn = document.createElement("button");
-    nextBtn.textContent = "\u2192";
+    nextBtn.textContent = "\u25BA";
     nextBtn.className = "tf-button";
     nextBtn.onclick = () => {
       this.currentMonthOffset++;
@@ -2527,11 +2528,13 @@ var UIBuilder = class {
   createStatsCard() {
     const card = document.createElement("div");
     card.className = "tf-card tf-card-stats tf-card-spaced";
+    const contentWrapper = document.createElement("div");
+    contentWrapper.className = "tf-collapsible-content open";
     const headerRow = document.createElement("div");
+    headerRow.className = "tf-collapsible";
     headerRow.style.display = "flex";
     headerRow.style.justifyContent = "space-between";
     headerRow.style.alignItems = "center";
-    headerRow.style.marginBottom = "15px";
     headerRow.style.flexWrap = "wrap";
     headerRow.style.gap = "10px";
     const header = document.createElement("h3");
@@ -2550,6 +2553,11 @@ var UIBuilder = class {
       tab.textContent = labels[tf];
       tab.onclick = () => {
         this.statsTimeframe = tf;
+        tabs.querySelectorAll(".tf-tab").forEach((t) => t.classList.remove("active"));
+        tab.classList.add("active");
+        if (!contentWrapper.classList.contains("open")) {
+          contentWrapper.classList.add("open");
+        }
         this.updateStatsCard();
       };
       tabs.appendChild(tab);
@@ -2563,11 +2571,16 @@ var UIBuilder = class {
     timeframeSelectorContainer.style.gap = "10px";
     timeframeSelectorContainer.style.alignItems = "center";
     timeframeSelectorContainer.style.flexWrap = "wrap";
-    card.appendChild(timeframeSelectorContainer);
+    contentWrapper.appendChild(timeframeSelectorContainer);
     const statsContainer = document.createElement("div");
     statsContainer.className = "tf-stats-grid";
     this.elements.statsCard = statsContainer;
-    card.appendChild(statsContainer);
+    contentWrapper.appendChild(statsContainer);
+    card.appendChild(contentWrapper);
+    header.onclick = () => {
+      contentWrapper.classList.toggle("open");
+    };
+    header.style.cursor = "pointer";
     this.updateStatsCard();
     return card;
   }
@@ -2579,7 +2592,7 @@ var UIBuilder = class {
     header.innerHTML = "<h3 style='margin:0'>Informasjon</h3>";
     const content = document.createElement("div");
     content.className = "tf-collapsible-content";
-    const halfDayHours = this.settings.baseWorkday / 2;
+    const halfDayHours = 4;
     const halfDayReduction = this.settings.baseWorkday - halfDayHours;
     const specialDayInfo = [
       { key: "avspasering", emoji: "\u{1F6CC}", desc: "Trekkes fra fleksitid" },
@@ -2675,17 +2688,10 @@ var UIBuilder = class {
     header.style.alignItems = "center";
     header.style.flexWrap = "wrap";
     header.style.gap = "10px";
-    header.style.marginBottom = "15px";
     const title = document.createElement("h3");
     title.textContent = "Historikk";
     title.style.margin = "0";
     header.appendChild(title);
-    const content = document.createElement("div");
-    content.className = "tf-collapsible-content";
-    const tabsRow = document.createElement("div");
-    tabsRow.style.display = "flex";
-    tabsRow.style.justifyContent = "flex-end";
-    tabsRow.style.marginBottom = "15px";
     const tabs = document.createElement("div");
     tabs.className = "tf-tabs";
     tabs.style.marginBottom = "0";
@@ -2694,6 +2700,8 @@ var UIBuilder = class {
       { id: "list", label: "Liste" },
       { id: "heatmap", label: "Heatmap" }
     ];
+    const content = document.createElement("div");
+    content.className = "tf-collapsible-content";
     const detailsElement = document.createElement("div");
     detailsElement.style.maxHeight = "500px";
     detailsElement.style.overflow = "auto";
@@ -2705,16 +2713,19 @@ var UIBuilder = class {
         this.historyView = view.id;
         tabs.querySelectorAll(".tf-tab").forEach((t) => t.classList.remove("active"));
         tab.classList.add("active");
+        if (!content.classList.contains("open")) {
+          content.classList.add("open");
+        }
         this.refreshHistoryView(detailsElement);
       };
       tabs.appendChild(tab);
     });
-    tabsRow.appendChild(tabs);
-    content.appendChild(tabsRow);
+    header.appendChild(tabs);
     content.appendChild(detailsElement);
-    header.onclick = () => {
+    title.onclick = () => {
       content.classList.toggle("open");
     };
+    title.style.cursor = "pointer";
     card.appendChild(header);
     card.appendChild(content);
     this.refreshHistoryView(detailsElement);
@@ -3125,7 +3136,7 @@ var UIBuilder = class {
     const container = document.createElement("div");
     const monthTitle = document.createElement("div");
     monthTitle.textContent = monthName;
-    monthTitle.style.textAlign = "center";
+    monthTitle.style.textAlign = "left";
     monthTitle.style.fontWeight = "bold";
     monthTitle.style.marginBottom = "10px";
     container.appendChild(monthTitle);
@@ -4089,20 +4100,14 @@ var TimerManager = class {
     this.data = { entries: [] };
   }
   async load() {
-    console.log("TimeFlow: Starting load() from", this.dataFile);
     try {
       const fileExists = await this.app.vault.adapter.exists(this.dataFile);
-      console.log("TimeFlow: File exists check:", fileExists);
       if (fileExists) {
         const content = await this.app.vault.adapter.read(this.dataFile);
-        console.log("TimeFlow: Read content, length:", content.length);
         const parsed = this.parseTimekeepData(content);
-        console.log("TimeFlow: Parsed data:", parsed ? `${parsed.entries.length} entries` : "null");
         if (parsed) {
           this.data = parsed;
-          console.log("TimeFlow: Loaded", this.data.entries.length, "entries from", this.dataFile);
           if (parsed.settings) {
-            console.log("TimeFlow: Found synced settings in data file");
             return parsed.settings;
           }
         } else {
@@ -4110,7 +4115,6 @@ var TimerManager = class {
           this.data = { entries: [] };
         }
       } else {
-        console.log("TimeFlow: Data file not found, creating new one");
         await this.createDataFile();
       }
     } catch (error) {
@@ -4159,7 +4163,6 @@ ${JSON.stringify(this.data, null, 2)}
 `;
       if (file && file instanceof import_obsidian5.TFile) {
         await this.app.vault.modify(file, content);
-        console.log("TimeFlow: Saved", this.data.entries.length, "entries to", this.dataFile);
       } else {
         const folderPath = this.dataFile.substring(0, this.dataFile.lastIndexOf("/"));
         const folderExists = await this.app.vault.adapter.exists(folderPath);
@@ -4167,7 +4170,6 @@ ${JSON.stringify(this.data, null, 2)}
           await this.app.vault.createFolder(folderPath);
         }
         await this.app.vault.create(this.dataFile, content);
-        console.log("TimeFlow: Created", this.dataFile, "with", this.data.entries.length, "entries");
       }
     } catch (error) {
       console.error("TimeFlow: Error saving timer data:", error);
@@ -4178,7 +4180,6 @@ ${JSON.stringify(this.data, null, 2)}
     this.settings = settings;
     this.data.settings = settings;
     await this.save();
-    console.log("TimeFlow: Saved settings to data file for sync");
   }
   async startTimer(name = "Jobb") {
     const timer = {
@@ -4492,6 +4493,22 @@ var TimeFlowPlugin = class extends import_obsidian7.Plugin {
       }
     });
     this.addSettingTab(new TimeFlowSettingTab(this.app, this));
+    this.app.workspace.onLayoutReady(() => {
+      this.registerEvent(
+        this.app.vault.on("modify", async (file) => {
+          if (file.path === this.settings.dataFilePath) {
+            await this.timerManager.load();
+            const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_TIMEFLOW);
+            leaves.forEach((leaf) => {
+              const view = leaf.view;
+              if (view && view.refresh) {
+                view.refresh();
+              }
+            });
+          }
+        })
+      );
+    });
   }
   onunload() {
     console.log("Unloading TimeFlow plugin");

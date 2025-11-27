@@ -131,12 +131,17 @@ export class UIBuilder {
 
 			@media (max-width: 600px) {
 				.tf-badge-section {
-					flex-direction: column;
+					flex-direction: row;
+					flex-wrap: wrap;
 					align-items: stretch;
 				}
-				.tf-badge-section > * {
+				.tf-badge {
 					width: 100% !important;
-					max-width: 100% !important;
+					flex: 1 1 100%;
+				}
+				.tf-timer-badge, .tf-clock {
+					flex: 1 1 calc(50% - 6px);
+					min-width: 0;
 				}
 			}
 
@@ -598,16 +603,25 @@ export class UIBuilder {
 				background: var(--interactive-hover);
 			}
 
+			/* Make buttons smaller on mobile to prevent overflow */
+			@media (max-width: 500px) {
+				.tf-button {
+					padding: 6px 10px;
+					font-size: 12px;
+					min-width: unset;
+				}
+			}
+
 			.tf-heatmap {
 				display: grid;
-				gap: 4px;
+				gap: 2px;
 				margin-top: 15px;
 			}
 
 			.tf-heatmap-cell {
 				width: 100%;
 				aspect-ratio: 1;
-				border-radius: 3px;
+				border-radius: 4px;
 				cursor: pointer;
 				transition: transform 0.2s;
 			}
@@ -853,7 +867,7 @@ export class UIBuilder {
 			// Main "Start" button (starts jobb)
 			const startBtn = document.createElement("div");
 			startBtn.textContent = "Start";
-			startBtn.style.background = "linear-gradient(90deg, #4caf50, #2e7d32)";
+			startBtn.style.background = "#4caf50";
 			startBtn.style.color = "white";
 			startBtn.style.padding = "8px 12px";
 			startBtn.style.cursor = "pointer";
@@ -876,7 +890,7 @@ export class UIBuilder {
 			// Arrow dropdown button
 			const arrowBtn = document.createElement("div");
 			arrowBtn.textContent = "▼";
-			arrowBtn.style.background = "linear-gradient(90deg, #388e3c, #1b5e20)";
+			arrowBtn.style.background = "#388e3c";
 			arrowBtn.style.color = "white";
 			arrowBtn.style.padding = "8px 8px";
 			arrowBtn.style.cursor = "pointer";
@@ -903,7 +917,7 @@ export class UIBuilder {
 			// Stop button badge (active timer)
 			this.elements.timerBadge.innerHTML = '';
 			this.elements.timerBadge.textContent = "Stopp";
-			this.elements.timerBadge.style.background = "linear-gradient(90deg, #f44336, #c62828)";
+			this.elements.timerBadge.style.background = "#f44336";
 			this.elements.timerBadge.style.color = "white";
 			this.elements.timerBadge.style.display = "block";
 			this.elements.timerBadge.style.padding = "";
@@ -1061,7 +1075,7 @@ export class UIBuilder {
 		controls.style.gap = "5px";
 
 		const prevBtn = document.createElement("button");
-		prevBtn.textContent = "←";
+		prevBtn.textContent = "◄";
 		prevBtn.className = "tf-button";
 		prevBtn.onclick = () => {
 			this.currentMonthOffset--;
@@ -1077,7 +1091,7 @@ export class UIBuilder {
 		};
 
 		const nextBtn = document.createElement("button");
-		nextBtn.textContent = "→";
+		nextBtn.textContent = "►";
 		nextBtn.className = "tf-button";
 		nextBtn.onclick = () => {
 			this.currentMonthOffset++;
@@ -1105,12 +1119,16 @@ export class UIBuilder {
 		const card = document.createElement("div");
 		card.className = "tf-card tf-card-stats tf-card-spaced";
 
-		// Header with title and tabs
+		// Content wrapper for collapsible content (defined early so tabs can reference it)
+		const contentWrapper = document.createElement("div");
+		contentWrapper.className = "tf-collapsible-content open";
+
+		// Header with title and tabs (collapsible)
 		const headerRow = document.createElement("div");
+		headerRow.className = "tf-collapsible";
 		headerRow.style.display = "flex";
 		headerRow.style.justifyContent = "space-between";
 		headerRow.style.alignItems = "center";
-		headerRow.style.marginBottom = "15px";
 		headerRow.style.flexWrap = "wrap";
 		headerRow.style.gap = "10px";
 
@@ -1133,6 +1151,13 @@ export class UIBuilder {
 			tab.textContent = labels[tf as keyof typeof labels];
 			tab.onclick = () => {
 				this.statsTimeframe = tf;
+				// Update active state
+				tabs.querySelectorAll('.tf-tab').forEach(t => t.classList.remove('active'));
+				tab.classList.add('active');
+				// Open section if collapsed
+				if (!contentWrapper.classList.contains('open')) {
+					contentWrapper.classList.add('open');
+				}
 				this.updateStatsCard();
 			};
 			tabs.appendChild(tab);
@@ -1149,12 +1174,20 @@ export class UIBuilder {
 		timeframeSelectorContainer.style.gap = "10px";
 		timeframeSelectorContainer.style.alignItems = "center";
 		timeframeSelectorContainer.style.flexWrap = "wrap";
-		card.appendChild(timeframeSelectorContainer);
+		contentWrapper.appendChild(timeframeSelectorContainer);
 
 		const statsContainer = document.createElement("div");
 		statsContainer.className = "tf-stats-grid";
 		this.elements.statsCard = statsContainer;
-		card.appendChild(statsContainer);
+		contentWrapper.appendChild(statsContainer);
+
+		card.appendChild(contentWrapper);
+
+		// Add click handler to toggle collapsible (only on header, not tabs)
+		header.onclick = () => {
+			contentWrapper.classList.toggle('open');
+		};
+		header.style.cursor = 'pointer';
 
 		this.updateStatsCard();
 
@@ -1173,7 +1206,7 @@ export class UIBuilder {
 		content.className = "tf-collapsible-content";
 
 		// Special day types with explanations
-		const halfDayHours = this.settings.baseWorkday / 2;
+		const halfDayHours = 4; // Half day is 4 hours workday
 		const halfDayReduction = this.settings.baseWorkday - halfDayHours;
 
 		const specialDayInfo = [
@@ -1269,7 +1302,7 @@ export class UIBuilder {
 		const card = document.createElement("div");
 		card.className = "tf-card tf-card-history tf-card-spaced";
 
-		// Collapsible header
+		// Collapsible header with title and tabs
 		const header = document.createElement("div");
 		header.className = "tf-collapsible";
 		header.style.display = "flex";
@@ -1277,24 +1310,13 @@ export class UIBuilder {
 		header.style.alignItems = "center";
 		header.style.flexWrap = "wrap";
 		header.style.gap = "10px";
-		header.style.marginBottom = "15px";
 
 		const title = document.createElement("h3");
 		title.textContent = "Historikk";
 		title.style.margin = "0";
 		header.appendChild(title);
 
-		// Collapsible content container
-		const content = document.createElement("div");
-		content.className = "tf-collapsible-content"; // Start closed (no 'open' class)
-
-		// Header row with tabs inside collapsible content
-		const tabsRow = document.createElement("div");
-		tabsRow.style.display = "flex";
-		tabsRow.style.justifyContent = "flex-end";
-		tabsRow.style.marginBottom = "15px";
-
-		// View tabs (matching stats card style)
+		// View tabs in header (matching stats card style)
 		const tabs = document.createElement("div");
 		tabs.className = "tf-tabs";
 		tabs.style.marginBottom = "0";
@@ -1305,7 +1327,11 @@ export class UIBuilder {
 			{ id: "heatmap", label: "Heatmap" }
 		];
 
-		// Create details element first (needed by tab onclick handlers)
+		// Collapsible content container
+		const content = document.createElement("div");
+		content.className = "tf-collapsible-content"; // Start closed (no 'open' class)
+
+		// Create details element (for the actual content)
 		const detailsElement = document.createElement("div");
 		detailsElement.style.maxHeight = "500px";
 		detailsElement.style.overflow = "auto";
@@ -1319,19 +1345,23 @@ export class UIBuilder {
 				// Update active state
 				tabs.querySelectorAll('.tf-tab').forEach(t => t.classList.remove('active'));
 				tab.classList.add('active');
+				// Open section if collapsed
+				if (!content.classList.contains('open')) {
+					content.classList.add('open');
+				}
 				this.refreshHistoryView(detailsElement);
 			};
 			tabs.appendChild(tab);
 		});
 
-		tabsRow.appendChild(tabs);
-		content.appendChild(tabsRow);
+		header.appendChild(tabs);
 		content.appendChild(detailsElement);
 
-		// Toggle collapse on header click
-		header.onclick = () => {
+		// Toggle collapse on title click (not tabs)
+		title.onclick = () => {
 			content.classList.toggle('open');
 		};
+		title.style.cursor = 'pointer';
 
 		card.appendChild(header);
 		card.appendChild(content);
@@ -1798,7 +1828,7 @@ export class UIBuilder {
 
 		const monthTitle = document.createElement("div");
 		monthTitle.textContent = monthName;
-		monthTitle.style.textAlign = "center";
+		monthTitle.style.textAlign = "left";
 		monthTitle.style.fontWeight = "bold";
 		monthTitle.style.marginBottom = "10px";
 		container.appendChild(monthTitle);

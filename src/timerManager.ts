@@ -31,25 +31,19 @@ export class TimerManager {
 	}
 
 	async load(): Promise<TimeFlowSettings | null> {
-		console.log('TimeFlow: Starting load() from', this.dataFile);
 		try {
 			// Check if file exists using the adapter
 			const fileExists = await this.app.vault.adapter.exists(this.dataFile);
-			console.log('TimeFlow: File exists check:', fileExists);
 
 			if (fileExists) {
 				// Read directly using adapter (works even if vault cache isn't ready)
 				const content = await this.app.vault.adapter.read(this.dataFile);
-				console.log('TimeFlow: Read content, length:', content.length);
 				const parsed = this.parseTimekeepData(content);
-				console.log('TimeFlow: Parsed data:', parsed ? `${parsed.entries.length} entries` : 'null');
 				if (parsed) {
 					this.data = parsed;
-					console.log('TimeFlow: Loaded', this.data.entries.length, 'entries from', this.dataFile);
 
 					// Return settings from data file if they exist
 					if (parsed.settings) {
-						console.log('TimeFlow: Found synced settings in data file');
 						return parsed.settings as TimeFlowSettings;
 					}
 				} else {
@@ -57,7 +51,6 @@ export class TimerManager {
 					this.data = { entries: [] };
 				}
 			} else {
-				console.log('TimeFlow: Data file not found, creating new one');
 				// Create the file if it doesn't exist
 				await this.createDataFile();
 			}
@@ -113,7 +106,6 @@ ${JSON.stringify(this.data, null, 2)}
 
 			if (file && file instanceof TFile) {
 				await this.app.vault.modify(file, content);
-				console.log('TimeFlow: Saved', this.data.entries.length, 'entries to', this.dataFile);
 			} else {
 				// Ensure folder exists before creating file
 				const folderPath = this.dataFile.substring(0, this.dataFile.lastIndexOf('/'));
@@ -122,7 +114,6 @@ ${JSON.stringify(this.data, null, 2)}
 					await this.app.vault.createFolder(folderPath);
 				}
 				await this.app.vault.create(this.dataFile, content);
-				console.log('TimeFlow: Created', this.dataFile, 'with', this.data.entries.length, 'entries');
 			}
 		} catch (error) {
 			console.error('TimeFlow: Error saving timer data:', error);
@@ -134,7 +125,6 @@ ${JSON.stringify(this.data, null, 2)}
 		this.settings = settings;
 		this.data.settings = settings;
 		await this.save();
-		console.log('TimeFlow: Saved settings to data file for sync');
 	}
 
 	async startTimer(name: string = 'Jobb'): Promise<Timer> {

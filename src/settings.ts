@@ -170,10 +170,8 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 		const { containerEl } = this;
 		containerEl.empty();
 
-		containerEl.createEl('h2', { text: 'TimeFlow Settings' });
-
 		// Appearance
-		containerEl.createEl('h3', { text: 'Appearance' });
+		new Setting(containerEl).setName('Appearance').setHeading();
 
 		new Setting(containerEl)
 			.setName('Theme')
@@ -190,7 +188,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('Hour Unit')
+			.setName('Hour unit')
 			.setDesc('Choose the unit symbol for displaying hours: "h" for hours or "t" for timer')
 			.addDropdown(dropdown => dropdown
 				.addOption('h', 'h (hours)')
@@ -202,12 +200,11 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 					await this.refreshView();
 				}));
 
-		// Special Day Types
-		containerEl.createEl('h4', { text: 'Special Day Types' });
-		containerEl.createEl('p', {
-			text: 'Customize names and colors for different types of special days. These day types affect flextime calculations.',
-			cls: 'setting-item-description'
-		});
+		// Special day types
+		new Setting(containerEl)
+			.setName('Special day types')
+			.setDesc('Customize names and colors for different types of special days. These day types affect flextime calculations.')
+			.setHeading();
 
 		new Setting(containerEl)
 			.setName('Time Off (Compensatory Leave)')
@@ -342,8 +339,8 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 					await this.refreshView();
 				}));
 
-		// Work Configuration
-		containerEl.createEl('h3', { text: 'Work Configuration' });
+		// Work configuration
+		new Setting(containerEl).setName('Work configuration').setHeading();
 
 		// Settings sync info
 		const syncInfo = containerEl.createDiv();
@@ -358,7 +355,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 		`;
 
 		new Setting(containerEl)
-			.setName('Work Percentage')
+			.setName('Work percentage')
 			.setDesc('Your employment percentage (1.0 = 100%, 0.8 = 80%, etc.)')
 			.addText(text => text
 				.setPlaceholder('1.0')
@@ -373,7 +370,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('Base Workday Hours')
+			.setName('Base workday hours')
 			.setDesc('Standard hours for a full workday (e.g., 7.5 for standard, 6 for 6-hour days)')
 			.addText(text => text
 				.setPlaceholder('7.5')
@@ -388,7 +385,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('Base Workweek Hours')
+			.setName('Base workweek hours')
 			.setDesc('Standard hours for a full workweek (e.g., 37.5 for 5 days, 30 for 4 days)')
 			.addText(text => text
 				.setPlaceholder('37.5')
@@ -403,7 +400,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('Lunch Break Duration')
+			.setName('Lunch break duration')
 			.setDesc('Daily lunch break in minutes (e.g., 30 for 30 minutes). This will be deducted from your work hours automatically.')
 			.addText(text => text
 				.setPlaceholder('0')
@@ -418,7 +415,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('Include Saturday in Work Week')
+			.setName('Include Saturday in work week')
 			.setDesc('Enable if you work Saturdays as part of your normal work week')
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.includeSaturdayInWorkWeek)
@@ -429,7 +426,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('Include Sunday in Work Week')
+			.setName('Include Sunday in work week')
 			.setDesc('Enable if you work Sundays as part of your normal work week')
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.includeSundayInWorkWeek)
@@ -439,15 +436,14 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 					await this.refreshView();
 				}));
 
-		// Leave Limits
-		containerEl.createEl('h4', { text: 'Leave Limits' });
-		containerEl.createEl('p', {
-			text: 'Set maximum allowed days for different leave types per year. The dashboard displays your usage against these limits in the yearly statistics view.',
-			cls: 'setting-item-description'
-		});
+		// Leave limits
+		new Setting(containerEl)
+			.setName('Leave limits')
+			.setDesc('Set maximum allowed days for different leave types per year. The dashboard displays your usage against these limits in the yearly statistics view.')
+			.setHeading();
 
 		new Setting(containerEl)
-			.setName('Max Sick Leave Days (Self-Reported)')
+			.setName('Max sick leave days (self-reported)')
 			.setDesc('Maximum self-reported sick days (egenmelding) allowed per year (typically 8 in Norway)')
 			.addText(text => text
 				.setPlaceholder('8')
@@ -462,7 +458,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('Max Vacation Days')
+			.setName('Max vacation days')
 			.setDesc('Maximum vacation days (ferie) per year based on your contract (typically 25 in Norway)')
 			.addText(text => text
 				.setPlaceholder('25')
@@ -476,11 +472,11 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 					}
 				}));
 
-		// File Paths
-		containerEl.createEl('h3', { text: 'File Paths' });
+		// File paths
+		new Setting(containerEl).setName('File paths').setHeading();
 
 		new Setting(containerEl)
-			.setName('Data File Path')
+			.setName('Data file path')
 			.setDesc('Path to the file containing timer data and settings')
 			.addText(text => text
 				.setPlaceholder('timeflow/data.md')
@@ -493,7 +489,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('Holidays File Path')
+			.setName('Holidays file path')
 			.setDesc('Path to the file containing future planned days/holidays')
 			.addText(text => text
 				.setPlaceholder('timeflow/holidays.md')
@@ -504,7 +500,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('Daily Notes Folder')
+			.setName('Daily notes folder')
 			.setDesc('Folder where daily notes are stored')
 			.addText(text => text
 				.setPlaceholder('Daily Notes')
@@ -515,7 +511,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('Daily Notes Template Path')
+			.setName('Daily notes template path')
 			.setDesc('Path to the template for daily notes')
 			.addText(text => text
 				.setPlaceholder('Templates/Daily Notes Template.md')
@@ -525,11 +521,11 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}));
 
-		// Display Settings
-		containerEl.createEl('h3', { text: 'Display Settings' });
+		// Display settings
+		new Setting(containerEl).setName('Display settings').setHeading();
 
 		new Setting(containerEl)
-			.setName('Consecutive Flextime Warning Days')
+			.setName('Consecutive flextime warning days')
 			.setDesc('Number of consecutive days with flextime before showing a warning')
 			.addText(text => text
 				.setPlaceholder('5')
@@ -544,7 +540,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('Heatmap Columns')
+			.setName('Heatmap columns')
 			.setDesc('Number of columns in the heatmap view (adjust for your screen width)')
 			.addText(text => text
 				.setPlaceholder('48')
@@ -559,7 +555,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('Update Interval (ms)')
+			.setName('Update interval (ms)')
 			.setDesc('How often to update the dashboard data (in milliseconds)')
 			.addText(text => text
 				.setPlaceholder('30000')
@@ -572,12 +568,11 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 					}
 				}));
 
-		// Note Types Configuration
-		containerEl.createEl('h3', { text: 'Note Types' });
-		containerEl.createEl('p', {
-			text: 'Configure the types of notes available in the calendar context menu. Each note type can have its own template, folder, and filename pattern.',
-			cls: 'setting-item-description'
-		});
+		// Note types configuration
+		new Setting(containerEl)
+			.setName('Note types')
+			.setDesc('Configure the types of notes available in the calendar context menu. Each note type can have its own template, folder, and filename pattern.')
+			.setHeading();
 
 		// Display existing note types
 		this.plugin.settings.noteTypes.forEach((noteType, index) => {
@@ -601,20 +596,20 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 		});
 
 		new Setting(containerEl)
-			.setName('Add New Note Type')
+			.setName('Add new note type')
 			.setDesc('Create a new note type for the context menu')
 			.addButton(button => button
-				.setButtonText('+ Add Note Type')
+				.setButtonText('+ Add note type')
 				.setCta()
 				.onClick(() => {
 					this.showNoteTypeModal(null, -1);
 				}));
 
-		// Data Management
-		containerEl.createEl('h3', { text: 'Data Management' });
+		// Data management
+		new Setting(containerEl).setName('Data management').setHeading();
 
 		new Setting(containerEl)
-			.setName('Export Data to CSV')
+			.setName('Export data to CSV')
 			.setDesc('Export all your time tracking data to a CSV file')
 			.addButton(button => button
 				.setButtonText('Export CSV')
@@ -624,10 +619,10 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('Import Timekeep Data')
+			.setName('Import Timekeep data')
 			.setDesc('Import time tracking data from Timekeep JSON format')
 			.addButton(button => button
-				.setButtonText('Import Data')
+				.setButtonText('Import data')
 				.setCta()
 				.onClick(async () => {
 					this.showImportModal();

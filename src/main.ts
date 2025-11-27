@@ -84,6 +84,27 @@ export default class TimeFlowPlugin extends Plugin {
 
 		// Add settings tab
 		this.addSettingTab(new TimeFlowSettingTab(this.app, this));
+
+		// Defer file watcher registration until layout is ready (improves load time)
+		this.app.workspace.onLayoutReady(() => {
+			// Watch for changes to the data file (e.g., from sync)
+			this.registerEvent(
+				this.app.vault.on('modify', async (file) => {
+					if (file.path === this.settings.dataFilePath) {
+						// Reload data from file
+						await this.timerManager.load();
+						// Refresh all open TimeFlow views
+						const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_TIMEFLOW);
+						leaves.forEach(leaf => {
+							const view = leaf.view as TimeFlowView;
+							if (view && view.refresh) {
+								view.refresh();
+							}
+						});
+					}
+				})
+			);
+		});
 	}
 
 	onunload() {

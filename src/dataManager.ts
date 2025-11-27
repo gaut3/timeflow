@@ -117,7 +117,8 @@ export class DataManager {
 				return 0;
 			}
 			if (holidayInfo.halfDay) {
-				return this.workdayHours / 2;
+				// Half day is 4 hours workday (not half of workday hours)
+				return 4;
 			}
 		}
 
