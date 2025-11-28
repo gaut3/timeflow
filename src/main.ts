@@ -114,6 +114,31 @@ export default class TimeFlowPlugin extends Plugin {
 
 	async loadSettings() {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		this.migrateWorkDaysSettings();
+	}
+
+	migrateWorkDaysSettings() {
+		// Migrate from old includeSaturday/Sunday to new workDays array
+		if (!this.settings.workDays || this.settings.workDays.length === 0) {
+			const workDays = [1, 2, 3, 4, 5]; // Monday-Friday
+
+			// Add Saturday if it was included
+			if (this.settings.includeSaturdayInWorkWeek) {
+				workDays.push(6);
+			}
+
+			// Add Sunday if it was included
+			if (this.settings.includeSundayInWorkWeek) {
+				workDays.push(0);
+			}
+
+			this.settings.workDays = workDays.sort((a, b) => a - b);
+		}
+
+		// Ensure alternating week work days exist
+		if (!this.settings.alternatingWeekWorkDays || this.settings.alternatingWeekWorkDays.length === 0) {
+			this.settings.alternatingWeekWorkDays = [...this.settings.workDays];
+		}
 	}
 
 	async saveSettings() {

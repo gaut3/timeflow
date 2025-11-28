@@ -36,12 +36,23 @@ export const Utils = {
 	isWeekend: (date: Date | null, settings?: TimeFlowSettings): boolean => {
 		if (!date) return false;
 		const day = date.getDay();
+
 		// If no settings provided, use default behavior (Saturday = 6, Sunday = 0)
 		if (!settings) return day === 0 || day === 6;
-		// Check if Saturday or Sunday should be considered weekend based on settings
-		const isSaturday = day === 6 && !settings.includeSaturdayInWorkWeek;
-		const isSunday = day === 0 && !settings.includeSundayInWorkWeek;
-		return isSaturday || isSunday;
+
+		// If alternating weeks enabled, determine which week we're in
+		if (settings.enableAlternatingWeeks) {
+			// Calculate week number (ISO week date)
+			const onejan = new Date(date.getFullYear(), 0, 1);
+			const weekNum = Math.ceil((((date.getTime() - onejan.getTime()) / 86400000) + onejan.getDay() + 1) / 7);
+			const isAlternatingWeek = weekNum % 2 === 0;
+
+			const workDays = isAlternatingWeek ? settings.alternatingWeekWorkDays : settings.workDays;
+			return !workDays.includes(day);
+		}
+
+		// Check if day is in the workDays array
+		return !settings.workDays.includes(day);
 	},
 
 	formatHoursToHM: (hours: number, unit: 'h' | 't' = 'h'): string => {

@@ -10,8 +10,12 @@ export interface TimeFlowSettings {
 	baseWorkday: number;
 	baseWorkweek: number;
 	lunchBreakMinutes: number;
-	includeSaturdayInWorkWeek: boolean;
-	includeSundayInWorkWeek: boolean;
+	includeSaturdayInWorkWeek: boolean; // DEPRECATED - kept for migration
+	includeSundayInWorkWeek: boolean; // DEPRECATED - kept for migration
+	workDays: number[]; // 0=Sunday, 1=Monday, ..., 6=Saturday
+	enableAlternatingWeeks: boolean;
+	alternatingWeekWorkDays: number[]; // Work days for alternating week
+	enableWeeklyGoals: boolean;
 	maxEgenmeldingDays: number;
 	maxFerieDays: number;
 	updateInterval: number;
@@ -81,8 +85,12 @@ export const DEFAULT_SETTINGS: TimeFlowSettings = {
 	baseWorkday: 7.5,
 	baseWorkweek: 37.5,
 	lunchBreakMinutes: 0,
-	includeSaturdayInWorkWeek: false,
-	includeSundayInWorkWeek: false,
+	includeSaturdayInWorkWeek: false, // DEPRECATED
+	includeSundayInWorkWeek: false, // DEPRECATED
+	workDays: [1, 2, 3, 4, 5], // Monday-Friday by default
+	enableAlternatingWeeks: false,
+	alternatingWeekWorkDays: [1, 2, 3, 4, 5], // Same as workDays by default
+	enableWeeklyGoals: true,
 	maxEgenmeldingDays: 8,
 	maxFerieDays: 25,
 	updateInterval: 30000,
@@ -387,21 +395,6 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 		`;
 
 		new Setting(containerEl)
-			.setName('Work percentage')
-			.setDesc('Your employment percentage (1.0 = 100%, 0.8 = 80%, etc.)')
-			.addText(text => text
-				.setPlaceholder('1.0')
-				.setValue(this.plugin.settings.workPercent.toString())
-				.onChange(async (value) => {
-					const num = parseFloat(value);
-					if (!isNaN(num) && num > 0 && num <= 1) {
-						this.plugin.settings.workPercent = num;
-						await this.plugin.saveSettings();
-						await this.refreshView();
-					}
-				}));
-
-		new Setting(containerEl)
 			.setName('Base workday hours')
 			.setDesc('Standard hours for a full workday (e.g., 7.5 for standard, 6 for 6-hour days)')
 			.addText(text => text
@@ -416,20 +409,38 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 					}
 				}));
 
-		new Setting(containerEl)
-			.setName('Base workweek hours')
-			.setDesc('Standard hours for a full workweek (e.g., 37.5 for 5 days, 30 for 4 days)')
-			.addText(text => text
-				.setPlaceholder('37.5')
-				.setValue(this.plugin.settings.baseWorkweek.toString())
-				.onChange(async (value) => {
-					const num = parseFloat(value);
-					if (!isNaN(num) && num > 0) {
-						this.plugin.settings.baseWorkweek = num;
-						await this.plugin.saveSettings();
-						await this.refreshView();
-					}
-				}));
+		// Only show work percentage and baseWorkweek if weekly goals are enabled
+		if (this.plugin.settings.enableWeeklyGoals) {
+			new Setting(containerEl)
+				.setName('Work percentage')
+				.setDesc('Your employment percentage (1.0 = 100%, 0.8 = 80%, etc.)')
+				.addText(text => text
+					.setPlaceholder('1.0')
+					.setValue(this.plugin.settings.workPercent.toString())
+					.onChange(async (value) => {
+						const num = parseFloat(value);
+						if (!isNaN(num) && num > 0 && num <= 1) {
+							this.plugin.settings.workPercent = num;
+							await this.plugin.saveSettings();
+							await this.refreshView();
+						}
+					}));
+
+			new Setting(containerEl)
+				.setName('Base workweek hours')
+				.setDesc('Standard hours for a full workweek (e.g., 37.5 for 5 days, 30 for 4 days)')
+				.addText(text => text
+					.setPlaceholder('37.5')
+					.setValue(this.plugin.settings.baseWorkweek.toString())
+					.onChange(async (value) => {
+						const num = parseFloat(value);
+						if (!isNaN(num) && num > 0) {
+							this.plugin.settings.baseWorkweek = num;
+							await this.plugin.saveSettings();
+							await this.refreshView();
+						}
+					}));
+		}
 
 		new Setting(containerEl)
 			.setName('Lunch break duration')
@@ -446,26 +457,116 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 					}
 				}));
 
+		// Work days selector
+		const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+		const workDaysSetting = new Setting(containerEl)
+			.setName('Work days')
+			.setDesc('Select which days are part of your work week');
+
+		const workDaysContainer = containerEl.createDiv();
+		workDaysContainer.style.display = 'flex';
+		workDaysContainer.style.flexWrap = 'wrap';
+		workDaysContainer.style.gap = '8px';
+		workDaysContainer.style.marginBottom = '15px';
+
+		dayNames.forEach((dayName, dayIndex) => {
+			const dayButton = workDaysContainer.createEl('button');
+			dayButton.textContent = dayName.substring(0, 3); // Mon, Tue, etc.
+			dayButton.className = 'tf-day-button';
+			dayButton.style.padding = '8px 12px';
+			dayButton.style.border = '1px solid var(--background-modifier-border)';
+			dayButton.style.borderRadius = '4px';
+			dayButton.style.cursor = 'pointer';
+			dayButton.style.background = this.plugin.settings.workDays.includes(dayIndex)
+				? 'var(--interactive-accent)'
+				: 'var(--background-secondary)';
+			dayButton.style.color = this.plugin.settings.workDays.includes(dayIndex)
+				? 'var(--text-on-accent)'
+				: 'var(--text-normal)';
+
+			dayButton.onclick = async () => {
+				const currentWorkDays = [...this.plugin.settings.workDays];
+				const index = currentWorkDays.indexOf(dayIndex);
+
+				if (index > -1) {
+					currentWorkDays.splice(index, 1);
+				} else {
+					currentWorkDays.push(dayIndex);
+					currentWorkDays.sort((a, b) => a - b);
+				}
+
+				this.plugin.settings.workDays = currentWorkDays;
+				await this.plugin.saveSettings();
+				this.display(); // Refresh to update button states
+			};
+		});
+
+		// Alternating weeks toggle
 		new Setting(containerEl)
-			.setName('Include Saturday in work week')
-			.setDesc('Enable if you work Saturdays as part of your normal work week')
+			.setName('Enable alternating weeks')
+			.setDesc('Enable if you have different work days in alternating weeks (e.g., every other weekend)')
 			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.includeSaturdayInWorkWeek)
+				.setValue(this.plugin.settings.enableAlternatingWeeks)
 				.onChange(async (value) => {
-					this.plugin.settings.includeSaturdayInWorkWeek = value;
+					this.plugin.settings.enableAlternatingWeeks = value;
 					await this.plugin.saveSettings();
-					await this.refreshView();
+					this.display(); // Refresh to show/hide alternating week settings
 				}));
 
-		new Setting(containerEl)
-			.setName('Include Sunday in work week')
-			.setDesc('Enable if you work Sundays as part of your normal work week')
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.includeSundayInWorkWeek)
-				.onChange(async (value) => {
-					this.plugin.settings.includeSundayInWorkWeek = value;
+		// Alternating week work days (only show if enabled)
+		if (this.plugin.settings.enableAlternatingWeeks) {
+			const altWorkDaysSetting = new Setting(containerEl)
+				.setName('Alternating week work days')
+				.setDesc('Select which days are work days in the alternating week');
+
+			const altWorkDaysContainer = containerEl.createDiv();
+			altWorkDaysContainer.style.display = 'flex';
+			altWorkDaysContainer.style.flexWrap = 'wrap';
+			altWorkDaysContainer.style.gap = '8px';
+			altWorkDaysContainer.style.marginBottom = '15px';
+
+			dayNames.forEach((dayName, dayIndex) => {
+				const dayButton = altWorkDaysContainer.createEl('button');
+				dayButton.textContent = dayName.substring(0, 3);
+				dayButton.className = 'tf-day-button';
+				dayButton.style.padding = '8px 12px';
+				dayButton.style.border = '1px solid var(--background-modifier-border)';
+				dayButton.style.borderRadius = '4px';
+				dayButton.style.cursor = 'pointer';
+				dayButton.style.background = this.plugin.settings.alternatingWeekWorkDays.includes(dayIndex)
+					? 'var(--interactive-accent)'
+					: 'var(--background-secondary)';
+				dayButton.style.color = this.plugin.settings.alternatingWeekWorkDays.includes(dayIndex)
+					? 'var(--text-on-accent)'
+					: 'var(--text-normal)';
+
+				dayButton.onclick = async () => {
+					const currentAltWorkDays = [...this.plugin.settings.alternatingWeekWorkDays];
+					const index = currentAltWorkDays.indexOf(dayIndex);
+
+					if (index > -1) {
+						currentAltWorkDays.splice(index, 1);
+					} else {
+						currentAltWorkDays.push(dayIndex);
+						currentAltWorkDays.sort((a, b) => a - b);
+					}
+
+					this.plugin.settings.alternatingWeekWorkDays = currentAltWorkDays;
 					await this.plugin.saveSettings();
-					await this.refreshView();
+					this.display(); // Refresh to update button states
+				};
+			});
+		}
+
+		new Setting(containerEl)
+			.setName('Enable weekly/monthly goals')
+			.setDesc('Disable if you don\'t have a specific amount of work each week/month. This will hide goal progress bars and weekly/monthly targets.')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.enableWeeklyGoals)
+				.onChange(async (value) => {
+					this.plugin.settings.enableWeeklyGoals = value;
+					await this.plugin.saveSettings();
+					this.display(); // Refresh to show/hide baseWorkweek
 				}));
 
 		// Advanced Configuration

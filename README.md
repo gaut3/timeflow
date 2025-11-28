@@ -48,10 +48,12 @@ timeflow provides a comprehensive flextime tracking dashboard with **built-in ti
 #### Work Configuration
 - **Flexible Work Schedules**
   - Configurable workday hours (e.g., 7.5, 8, 6-hour days)
-  - Configurable workweek hours (e.g., 37.5, 40, 30-hour weeks)
-  - Work percentage (full-time, part-time employment)
+  - Configurable workweek hours (e.g., 37.5, 40, 30-hour weeks) - *optional, can be hidden if weekly goals disabled*
+  - Work percentage (full-time, part-time employment) - *optional, can be hidden if weekly goals disabled*
   - **Lunch break deduction** - Automatically subtract lunch breaks from work hours
-  - **Weekend work support** - Toggle Saturday/Sunday as regular workdays
+  - **Flexible work days** - Select any combination of days as your work week (Mon-Sun)
+  - **Alternating weeks support** - Configure different work days for alternating weeks (e.g., every other weekend)
+  - **Weekly/monthly goals toggle** - Disable weekly goals for flexible schedules without fixed hours
 
 #### Leave Management
 - **Configurable Leave Limits**
@@ -69,12 +71,23 @@ timeflow provides a comprehensive flextime tracking dashboard with **built-in ti
   - Kurs (Course/Training)
   - Studie (Study leave)
 
+#### Advanced Configuration
+- **Balance Calculation Settings**
+  - Configurable balance start date - Choose when to start counting flextime balance
+  - Half-day hours - Fixed value or percentage-based (e.g., 50% of workday)
+  - Balance color thresholds - Customize when balance shows green/yellow/red
+  - Data validation thresholds - Adjust warning levels for long sessions, weekly totals, etc.
+
 #### Theme Support
 - **Multiple Theme Options**
   - Light theme with vibrant gradients
   - Dark theme with muted tones
   - System theme matching Obsidian's theme
   - Hour unit preference (h or t for "timer")
+- **Responsive Design**
+  - Scales smoothly with sidebar width
+  - Optimized for mobile devices
+  - Collapsible sections prevent content cut-off
 
 ### 📱 Cross-Device Sync
 - **Automatic Settings Sync** - Settings are saved in `timeflow/data.md` alongside your timer data, so if you have Obsidian set up with syncing, timeflow will automatically use the settings specified in `timeflow/data.md`
@@ -184,11 +197,13 @@ Customize names and colors for:
 - Study leave (Studie)
 
 ### Work Configuration
-- **Work Percentage** - Employment level (1.0 = 100%, 0.8 = 80%, etc.)
 - **Base Workday Hours** - Standard daily hours (e.g., 7.5, 8, 6)
-- **Base Workweek Hours** - Standard weekly hours (e.g., 37.5, 40, 30)
+- **Work Percentage** - Employment level (1.0 = 100%, 0.8 = 80%, etc.) - *only shown when weekly goals enabled*
+- **Base Workweek Hours** - Standard weekly hours (e.g., 37.5, 40, 30) - *only shown when weekly goals enabled*
 - **Lunch Break Duration** - Daily lunch break in minutes (automatically deducted)
-- **Weekend Work** - Toggle Saturday/Sunday as regular workdays
+- **Work Days** - Select which days are part of your work week (clickable buttons for each day)
+- **Alternating Weeks** - Enable to configure different work days for alternating weeks
+- **Enable Weekly/Monthly Goals** - Toggle to show/hide weekly goals and progress bars
 
 ### Leave Limits
 - **Max Sick Leave Days** - Annual self-reported sick days (typically 8 in Norway)
@@ -208,7 +223,24 @@ Configure custom note types with:
 - **Daily Notes Folder** - Where daily notes are created
 - **Daily Notes Template** - Template for daily notes
 
-### Advanced Settings
+### Advanced Configuration
+- **Balance Calculation**
+  - **Balance Start Date** - Set when to start counting flextime balance (default: Jan 1 of current year)
+- **Half-Day Settings**
+  - **Half-Day Mode** - Choose "Fixed" or "Percentage" based calculation
+  - **Fixed Hours** - If using fixed mode, set the number of hours (default: 4)
+- **Balance Color Thresholds** - Customize when the balance badge shows different colors
+  - **Critical Low** - Hours below this show red (default: -15)
+  - **Warning Low** - Hours below this show yellow (default: 0)
+  - **Warning High** - Hours above this show yellow (default: 80)
+  - **Critical High** - Hours above this show red (default: 95)
+- **Data Validation Thresholds** - Adjust warning levels
+  - **Long-running Timer** - Hours before warning about timer (default: 12)
+  - **Very Long Session** - Hours before warning about session (default: 16)
+  - **Maximum Duration** - Hours before error on duration (default: 24)
+  - **High Weekly Total** - Hours before info on weekly total (default: 60)
+
+### Other Settings
 - **Update Interval** - How often to refresh the dashboard (default: 30 seconds)
 - **Heatmap Columns** - Number of columns in history heatmap
 - **Consecutive Flextime Warning** - Days before warning about streak
@@ -260,7 +292,8 @@ Base Workday: 7.5 hours
 Base Workweek: 37.5 hours
 Work Percentage: 100%
 Lunch Break: 0 minutes (included in 7.5h)
-Weekend: Saturday/Sunday not included
+Work Days: Mon, Tue, Wed, Thu, Fri
+Enable Weekly Goals: ✅ Yes
 Max Egenmelding: 8 days
 Max Ferie: 25 days
 ```
@@ -270,6 +303,7 @@ Max Ferie: 25 days
 Base Workday: 8 hours
 Base Workweek: 40 hours
 Lunch Break: 30 minutes
+Work Days: Mon, Tue, Wed, Thu, Fri
 Result: 7.5 hours counted per day
 ```
 
@@ -277,15 +311,25 @@ Result: 7.5 hours counted per day
 ```
 Base Workday: 7.5 hours
 Base Workweek: 30 hours
+Work Days: Mon, Tue, Wed, Thu (or any 4 days)
 ```
 
 ### Weekend Shift Worker
 ```
 Base Workday: 7.5 hours
 Base Workweek: 37.5 hours
-Saturday: ✅ Included in work week
-Sunday: ✅ Included in work week
-Result: Weekend hours count toward weekly goals
+Work Days: Mon, Tue, Wed, Thu, Fri, Sat, Sun
+Result: All 7 days count toward weekly goals
+```
+
+### Alternating Weekend Worker
+```
+Base Workday: 7.5 hours
+Base Workweek: 37.5 hours
+Enable Alternating Weeks: ✅ Yes
+Week 1 Work Days: Mon, Tue, Wed, Thu, Fri
+Week 2 Work Days: Mon, Tue, Wed, Thu, Fri, Sat, Sun
+Result: Work every other weekend
 ```
 
 ### Part-Time Worker
@@ -293,6 +337,15 @@ Result: Weekend hours count toward weekly goals
 Work Percentage: 0.5 (50%)
 Base Workday: 7.5 hours
 Base Workweek: 18.75 hours (37.5 * 0.5)
+Work Days: Mon, Tue, Wed, Thu, Fri
+```
+
+### Flexible Freelancer (No Fixed Schedule)
+```
+Base Workday: 7.5 hours
+Enable Weekly Goals: ❌ No
+Work Days: Select all days or just work days
+Result: No weekly goals shown, just daily tracking and flextime balance
 ```
 
 ## How It Works

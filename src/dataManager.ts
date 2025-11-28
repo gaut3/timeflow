@@ -782,11 +782,11 @@ export class DataManager {
 		});
 
 		const currentWeekHours = this.getCurrentWeekHours(today);
-		if (currentWeekHours > 60) {
+		if (currentWeekHours > this.settings.validationThresholds.highWeeklyTotalHours) {
 			issues.info.push({
 				severity: 'info',
 				type: 'High Weekly Total',
-				description: `Current week total exceeds 60 hours (${currentWeekHours.toFixed(1)}h)`,
+				description: `Current week total exceeds ${this.settings.validationThresholds.highWeeklyTotalHours} hours (${currentWeekHours.toFixed(1)}h)`,
 				date: todayStr
 			});
 		}

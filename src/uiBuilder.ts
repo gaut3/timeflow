@@ -50,6 +50,13 @@ export class UIBuilder {
 		};
 	}
 
+	getBalanceColor(balance: number): string {
+		const t = this.settings.balanceThresholds;
+		if (balance < t.criticalLow || balance > t.criticalHigh) return '#f44336';
+		if (balance < t.warningLow || balance > t.warningHigh) return '#ff9800';
+		return '#4caf50';
+	}
+
 	createContainer(): HTMLElement {
 		const container = document.createElement("div");
 		container.style.fontFamily = "sans-serif";
@@ -232,6 +239,7 @@ export class UIBuilder {
 			/* Day and week cards stay side-by-side in row 1, calendar always below in row 2 */
 			.tf-card-month {
 				grid-column: 1 / -1; /* Calendar takes full width below */
+				container-type: inline-size; /* Enable container queries */
 			}
 
 			/* On mobile, stack everything vertically */
@@ -590,21 +598,24 @@ export class UIBuilder {
 			}
 
 			.tf-button {
-				padding: 8px 16px;
-				border-radius: 6px;
+				padding: clamp(3px, 1.5cqw, 8px) clamp(6px, 3cqw, 16px);
+				border-radius: 4px;
 				border: 1px solid var(--background-modifier-border);
 				background: var(--interactive-normal);
 				color: var(--text-normal);
 				cursor: pointer;
-				font-size: 14px;
+				font-size: clamp(10px, 3cqw, 14px);
 				transition: all 0.2s;
+				white-space: nowrap;
+				min-width: 0;
+				flex-shrink: 1;
 			}
 
 			.tf-button:hover {
 				background: var(--interactive-hover);
 			}
 
-			/* Make buttons smaller on mobile to prevent overflow */
+			/* Make buttons smaller on mobile */
 			@media (max-width: 500px) {
 				.tf-button {
 					padding: 4px 8px;
@@ -812,7 +823,8 @@ export class UIBuilder {
 			}
 
 			.tf-collapsible-content.open {
-				max-height: 1000px;
+				max-height: none;
+				overflow: visible;
 			}
 
 			@media (max-width: 768px) {
@@ -1073,14 +1085,19 @@ export class UIBuilder {
 		header.style.justifyContent = "space-between";
 		header.style.alignItems = "center";
 		header.style.marginBottom = "15px";
+		header.style.flexWrap = "wrap";
+		header.style.gap = "8px";
 
 		const title = document.createElement("h3");
 		title.textContent = "Månedskalender";
 		title.style.margin = "0";
+		title.style.flexShrink = "1";
+		title.style.minWidth = "0";
 
 		const controls = document.createElement("div");
 		controls.style.display = "flex";
 		controls.style.gap = "5px";
+		controls.style.flexShrink = "0";
 
 		const prevBtn = document.createElement("button");
 		prevBtn.textContent = "◄";
@@ -1214,7 +1231,9 @@ export class UIBuilder {
 		content.className = "tf-collapsible-content";
 
 		// Special day types with explanations
-		const halfDayHours = 4; // Half day is 4 hours workday
+		const halfDayHours = this.settings.halfDayMode === 'percentage'
+			? this.settings.baseWorkday / 2
+			: this.settings.halfDayHours;
 		const halfDayReduction = this.settings.baseWorkday - halfDayHours;
 
 		const specialDayInfo = [
@@ -1420,12 +1439,7 @@ export class UIBuilder {
 		const formatted = Utils.formatHoursToHM(Math.abs(balance), this.settings.hourUnit);
 		const sign = balance >= 0 ? "+" : "-";
 
-		let color = "#4caf50"; // green
-		if (balance < -15 || balance > 95) {
-			color = "#f44336"; // red
-		} else if (balance < 0 || balance > 80) {
-			color = "#ff9800"; // yellow
-		}
+		const color = this.getBalanceColor(balance);
 
 		this.elements.badge.style.background = color;
 		this.elements.badge.style.color = "white";
@@ -1531,21 +1545,36 @@ export class UIBuilder {
 			}
 		}
 
-		const message = MessageGenerator.getWeeklyMessage(
-			weekHours,
-			adjustedGoal,
-			specials,
-			today,
-			context,
-			weekendWorkHours
-		);
+		// Only pass goal to message generator if weekly goals are enabled
+		const message = this.settings.enableWeeklyGoals
+			? MessageGenerator.getWeeklyMessage(
+				weekHours,
+				adjustedGoal,
+				specials,
+				today,
+				context,
+				weekendWorkHours
+			)
+			: MessageGenerator.getWeeklyMessage(
+				weekHours,
+				0, // Pass 0 as goal to get non-goal-based messages
+				specials,
+				today,
+				context,
+				weekendWorkHours
+			);
 
 		const progress = adjustedGoal > 0 ? Math.min((weekHours / adjustedGoal) * 100, 100) : 0;
 
 		// Dynamic background color based on progress (matching timeflow.js)
 		let bgColor: string;
 		let textColor: string;
-		if (weekHours <= adjustedGoal) {
+
+		// If weekly goals are disabled, use a neutral color
+		if (!this.settings.enableWeeklyGoals) {
+			bgColor = "linear-gradient(135deg, #607d8b, #78909c)";
+			textColor = "white";
+		} else if (weekHours <= adjustedGoal) {
 			bgColor = "linear-gradient(135deg, #4caf50, #81c784)";
 			textColor = "white";
 		} else if (weekHours <= adjustedGoal + 3.5) {
@@ -1559,17 +1588,22 @@ export class UIBuilder {
 		this.elements.weekCard.style.background = bgColor;
 		this.elements.weekCard.style.color = textColor;
 
-		this.elements.weekCard.innerHTML = `
-			<h3 style="color: ${textColor};">Denne uken</h3>
-			<div style="font-size: 32px; font-weight: bold; margin: 10px 0;">
-				${Utils.formatHoursToHM(weekHours, this.settings.hourUnit)}
-			</div>
+		// Conditionally show goal and progress bar based on settings
+		const goalSection = this.settings.enableWeeklyGoals ? `
 			<div style="font-size: 14px; opacity: 0.9; margin-bottom: 10px;">
 				Mål: ${Utils.formatHoursToHM(adjustedGoal, this.settings.hourUnit)}
 			</div>
 			<div class="tf-progress-bar">
 				<div class="tf-progress-fill" style="width: ${progress}%"></div>
 			</div>
+		` : '';
+
+		this.elements.weekCard.innerHTML = `
+			<h3 style="color: ${textColor};">Denne uken</h3>
+			<div style="font-size: 32px; font-weight: bold; margin: 10px 0;">
+				${Utils.formatHoursToHM(weekHours, this.settings.hourUnit)}
+			</div>
+			${goalSection}
 			<div style="margin-top: 10px; font-size: 14px;">
 				${message}
 			</div>
@@ -1709,12 +1743,7 @@ export class UIBuilder {
 
 		// Timesaldo color
 		const sign = balance >= 0 ? '+' : '';
-		let timesaldoColor = '#4caf50';
-		if (balance < -15 || balance > 95) {
-			timesaldoColor = '#f44336';
-		} else if ((balance >= -15 && balance < 0) || (balance >= 80 && balance <= 95)) {
-			timesaldoColor = '#ff9800';
-		}
+		const timesaldoColor = this.getBalanceColor(balance);
 
 		// Ferie display
 		let ferieDisplay = `${stats.ferie.count} dager`;
@@ -1749,11 +1778,11 @@ export class UIBuilder {
 				<div class="tf-stat-value">${avgWeekly.toFixed(1)}t</div>
 				${weekComparisonText}
 			</div>
-			<div class="tf-stat-item">
+			${this.settings.enableWeeklyGoals ? `<div class="tf-stat-item">
 				<div class="tf-stat-label">💪 Arbeidsbelastning</div>
 				<div class="tf-stat-value">${workloadPct}%</div>
 				<div style="font-size: 0.75em; margin-top: 4px;">av norm</div>
-			</div>
+			</div>` : ''}
 			<div class="tf-stat-item">
 				<div class="tf-stat-label">💼 Jobb</div>
 				<div class="tf-stat-value">${stats.jobb.count} ${stats.jobb.count === 1 ? 'dag' : 'dager'}</div>

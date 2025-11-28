@@ -64,9 +64,14 @@ var Utils = {
     const day = date.getDay();
     if (!settings)
       return day === 0 || day === 6;
-    const isSaturday = day === 6 && !settings.includeSaturdayInWorkWeek;
-    const isSunday = day === 0 && !settings.includeSundayInWorkWeek;
-    return isSaturday || isSunday;
+    if (settings.enableAlternatingWeeks) {
+      const onejan = new Date(date.getFullYear(), 0, 1);
+      const weekNum = Math.ceil(((date.getTime() - onejan.getTime()) / 864e5 + onejan.getDay() + 1) / 7);
+      const isAlternatingWeek = weekNum % 2 === 0;
+      const workDays = isAlternatingWeek ? settings.alternatingWeekWorkDays : settings.workDays;
+      return !workDays.includes(day);
+    }
+    return !settings.workDays.includes(day);
   },
   formatHoursToHM: (hours, unit = "h") => {
     const h = Math.floor(hours);
@@ -116,7 +121,15 @@ var DEFAULT_SETTINGS = {
   baseWorkweek: 37.5,
   lunchBreakMinutes: 0,
   includeSaturdayInWorkWeek: false,
+  // DEPRECATED
   includeSundayInWorkWeek: false,
+  // DEPRECATED
+  workDays: [1, 2, 3, 4, 5],
+  // Monday-Friday by default
+  enableAlternatingWeeks: false,
+  alternatingWeekWorkDays: [1, 2, 3, 4, 5],
+  // Same as workDays by default
+  enableWeeklyGoals: true,
   maxEgenmeldingDays: 8,
   maxFerieDays: 25,
   updateInterval: 3e4,
@@ -195,6 +208,22 @@ var DEFAULT_SETTINGS = {
     sykemelding: "Sykemelding",
     kurs: "Kurs",
     studie: "Studie"
+  },
+  // Advanced configuration settings
+  balanceStartDate: "2025-01-01",
+  halfDayHours: 4,
+  halfDayMode: "fixed",
+  balanceThresholds: {
+    criticalLow: -15,
+    warningLow: 0,
+    warningHigh: 80,
+    criticalHigh: 95
+  },
+  validationThresholds: {
+    longRunningTimerHours: 12,
+    veryLongSessionHours: 16,
+    maxDurationHours: 24,
+    highWeeklyTotalHours: 60
   }
 };
 var TimeFlowSettingTab = class extends import_obsidian.PluginSettingTab {
@@ -300,14 +329,6 @@ var TimeFlowSettingTab = class extends import_obsidian.PluginSettingTab {
 			<strong>\u{1F4F1} Cross-Device Settings Sync</strong><br>
 			Settings are automatically saved to <code>timeflow/data.md</code> and will sync across devices when using Obsidian Sync or any other vault sync solution. When you open the plugin on another device, your settings will be automatically loaded.
 		`;
-    new import_obsidian.Setting(containerEl).setName("Work percentage").setDesc("Your employment percentage (1.0 = 100%, 0.8 = 80%, etc.)").addText((text) => text.setPlaceholder("1.0").setValue(this.plugin.settings.workPercent.toString()).onChange(async (value) => {
-      const num = parseFloat(value);
-      if (!isNaN(num) && num > 0 && num <= 1) {
-        this.plugin.settings.workPercent = num;
-        await this.plugin.saveSettings();
-        await this.refreshView();
-      }
-    }));
     new import_obsidian.Setting(containerEl).setName("Base workday hours").setDesc("Standard hours for a full workday (e.g., 7.5 for standard, 6 for 6-hour days)").addText((text) => text.setPlaceholder("7.5").setValue(this.plugin.settings.baseWorkday.toString()).onChange(async (value) => {
       const num = parseFloat(value);
       if (!isNaN(num) && num > 0) {
@@ -316,14 +337,24 @@ var TimeFlowSettingTab = class extends import_obsidian.PluginSettingTab {
         await this.refreshView();
       }
     }));
-    new import_obsidian.Setting(containerEl).setName("Base workweek hours").setDesc("Standard hours for a full workweek (e.g., 37.5 for 5 days, 30 for 4 days)").addText((text) => text.setPlaceholder("37.5").setValue(this.plugin.settings.baseWorkweek.toString()).onChange(async (value) => {
-      const num = parseFloat(value);
-      if (!isNaN(num) && num > 0) {
-        this.plugin.settings.baseWorkweek = num;
-        await this.plugin.saveSettings();
-        await this.refreshView();
-      }
-    }));
+    if (this.plugin.settings.enableWeeklyGoals) {
+      new import_obsidian.Setting(containerEl).setName("Work percentage").setDesc("Your employment percentage (1.0 = 100%, 0.8 = 80%, etc.)").addText((text) => text.setPlaceholder("1.0").setValue(this.plugin.settings.workPercent.toString()).onChange(async (value) => {
+        const num = parseFloat(value);
+        if (!isNaN(num) && num > 0 && num <= 1) {
+          this.plugin.settings.workPercent = num;
+          await this.plugin.saveSettings();
+          await this.refreshView();
+        }
+      }));
+      new import_obsidian.Setting(containerEl).setName("Base workweek hours").setDesc("Standard hours for a full workweek (e.g., 37.5 for 5 days, 30 for 4 days)").addText((text) => text.setPlaceholder("37.5").setValue(this.plugin.settings.baseWorkweek.toString()).onChange(async (value) => {
+        const num = parseFloat(value);
+        if (!isNaN(num) && num > 0) {
+          this.plugin.settings.baseWorkweek = num;
+          await this.plugin.saveSettings();
+          await this.refreshView();
+        }
+      }));
+    }
     new import_obsidian.Setting(containerEl).setName("Lunch break duration").setDesc("Daily lunch break in minutes (e.g., 30 for 30 minutes). This will be deducted from your work hours automatically.").addText((text) => text.setPlaceholder("0").setValue(this.plugin.settings.lunchBreakMinutes.toString()).onChange(async (value) => {
       const num = parseInt(value);
       if (!isNaN(num) && num >= 0) {
@@ -332,15 +363,177 @@ var TimeFlowSettingTab = class extends import_obsidian.PluginSettingTab {
         await this.refreshView();
       }
     }));
-    new import_obsidian.Setting(containerEl).setName("Include Saturday in work week").setDesc("Enable if you work Saturdays as part of your normal work week").addToggle((toggle) => toggle.setValue(this.plugin.settings.includeSaturdayInWorkWeek).onChange(async (value) => {
-      this.plugin.settings.includeSaturdayInWorkWeek = value;
+    const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const workDaysSetting = new import_obsidian.Setting(containerEl).setName("Work days").setDesc("Select which days are part of your work week");
+    const workDaysContainer = containerEl.createDiv();
+    workDaysContainer.style.display = "flex";
+    workDaysContainer.style.flexWrap = "wrap";
+    workDaysContainer.style.gap = "8px";
+    workDaysContainer.style.marginBottom = "15px";
+    dayNames.forEach((dayName, dayIndex) => {
+      const dayButton = workDaysContainer.createEl("button");
+      dayButton.textContent = dayName.substring(0, 3);
+      dayButton.className = "tf-day-button";
+      dayButton.style.padding = "8px 12px";
+      dayButton.style.border = "1px solid var(--background-modifier-border)";
+      dayButton.style.borderRadius = "4px";
+      dayButton.style.cursor = "pointer";
+      dayButton.style.background = this.plugin.settings.workDays.includes(dayIndex) ? "var(--interactive-accent)" : "var(--background-secondary)";
+      dayButton.style.color = this.plugin.settings.workDays.includes(dayIndex) ? "var(--text-on-accent)" : "var(--text-normal)";
+      dayButton.onclick = async () => {
+        const currentWorkDays = [...this.plugin.settings.workDays];
+        const index = currentWorkDays.indexOf(dayIndex);
+        if (index > -1) {
+          currentWorkDays.splice(index, 1);
+        } else {
+          currentWorkDays.push(dayIndex);
+          currentWorkDays.sort((a, b) => a - b);
+        }
+        this.plugin.settings.workDays = currentWorkDays;
+        await this.plugin.saveSettings();
+        this.display();
+      };
+    });
+    new import_obsidian.Setting(containerEl).setName("Enable alternating weeks").setDesc("Enable if you have different work days in alternating weeks (e.g., every other weekend)").addToggle((toggle) => toggle.setValue(this.plugin.settings.enableAlternatingWeeks).onChange(async (value) => {
+      this.plugin.settings.enableAlternatingWeeks = value;
       await this.plugin.saveSettings();
-      await this.refreshView();
+      this.display();
     }));
-    new import_obsidian.Setting(containerEl).setName("Include Sunday in work week").setDesc("Enable if you work Sundays as part of your normal work week").addToggle((toggle) => toggle.setValue(this.plugin.settings.includeSundayInWorkWeek).onChange(async (value) => {
-      this.plugin.settings.includeSundayInWorkWeek = value;
+    if (this.plugin.settings.enableAlternatingWeeks) {
+      const altWorkDaysSetting = new import_obsidian.Setting(containerEl).setName("Alternating week work days").setDesc("Select which days are work days in the alternating week");
+      const altWorkDaysContainer = containerEl.createDiv();
+      altWorkDaysContainer.style.display = "flex";
+      altWorkDaysContainer.style.flexWrap = "wrap";
+      altWorkDaysContainer.style.gap = "8px";
+      altWorkDaysContainer.style.marginBottom = "15px";
+      dayNames.forEach((dayName, dayIndex) => {
+        const dayButton = altWorkDaysContainer.createEl("button");
+        dayButton.textContent = dayName.substring(0, 3);
+        dayButton.className = "tf-day-button";
+        dayButton.style.padding = "8px 12px";
+        dayButton.style.border = "1px solid var(--background-modifier-border)";
+        dayButton.style.borderRadius = "4px";
+        dayButton.style.cursor = "pointer";
+        dayButton.style.background = this.plugin.settings.alternatingWeekWorkDays.includes(dayIndex) ? "var(--interactive-accent)" : "var(--background-secondary)";
+        dayButton.style.color = this.plugin.settings.alternatingWeekWorkDays.includes(dayIndex) ? "var(--text-on-accent)" : "var(--text-normal)";
+        dayButton.onclick = async () => {
+          const currentAltWorkDays = [...this.plugin.settings.alternatingWeekWorkDays];
+          const index = currentAltWorkDays.indexOf(dayIndex);
+          if (index > -1) {
+            currentAltWorkDays.splice(index, 1);
+          } else {
+            currentAltWorkDays.push(dayIndex);
+            currentAltWorkDays.sort((a, b) => a - b);
+          }
+          this.plugin.settings.alternatingWeekWorkDays = currentAltWorkDays;
+          await this.plugin.saveSettings();
+          this.display();
+        };
+      });
+    }
+    new import_obsidian.Setting(containerEl).setName("Enable weekly/monthly goals").setDesc("Disable if you don't have a specific amount of work each week/month. This will hide goal progress bars and weekly/monthly targets.").addToggle((toggle) => toggle.setValue(this.plugin.settings.enableWeeklyGoals).onChange(async (value) => {
+      this.plugin.settings.enableWeeklyGoals = value;
+      await this.plugin.saveSettings();
+      this.display();
+    }));
+    new import_obsidian.Setting(containerEl).setName("Advanced Configuration").setHeading();
+    const advancedInfo = containerEl.createDiv();
+    advancedInfo.style.marginBottom = "15px";
+    advancedInfo.style.padding = "10px";
+    advancedInfo.style.background = "var(--background-secondary)";
+    advancedInfo.style.borderRadius = "5px";
+    advancedInfo.style.fontSize = "0.9em";
+    advancedInfo.innerHTML = `
+			<strong>\u2699\uFE0F Advanced Settings</strong><br>
+			These settings affect balance calculations and visual indicators. Settings sync across devices via your data file.
+		`;
+    new import_obsidian.Setting(containerEl).setName("Balance start date").setDesc("Set the date from which flextime balance is calculated. Earlier entries are ignored in balance calculations. Format: YYYY-MM-DD").addText((text) => text.setPlaceholder("2025-01-01").setValue(this.plugin.settings.balanceStartDate).onChange(async (value) => {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        const date = new Date(value);
+        if (!isNaN(date.getTime())) {
+          this.plugin.settings.balanceStartDate = value;
+          await this.plugin.saveSettings();
+          await this.refreshView();
+        }
+      }
+    }));
+    new import_obsidian.Setting(containerEl).setName("Half-day calculation mode").setDesc("How half-day hours should be calculated").addDropdown((dropdown) => dropdown.addOption("fixed", "Fixed hours (set specific value)").addOption("percentage", "Percentage (half of base workday)").setValue(this.plugin.settings.halfDayMode).onChange(async (value) => {
+      this.plugin.settings.halfDayMode = value;
       await this.plugin.saveSettings();
       await this.refreshView();
+      this.display();
+    }));
+    if (this.plugin.settings.halfDayMode === "fixed") {
+      new import_obsidian.Setting(containerEl).setName("Half-day hours").setDesc("Hours counted for a half workday").addText((text) => text.setPlaceholder("4.0").setValue(this.plugin.settings.halfDayHours.toString()).onChange(async (value) => {
+        const num = parseFloat(value);
+        if (!isNaN(num) && num > 0 && num < this.plugin.settings.baseWorkday) {
+          this.plugin.settings.halfDayHours = num;
+          await this.plugin.saveSettings();
+          await this.refreshView();
+        }
+      }));
+    }
+    new import_obsidian.Setting(containerEl).setName("Balance color thresholds").setDesc("Configure the hour thresholds for balance indicator colors").setHeading();
+    new import_obsidian.Setting(containerEl).setName("Critical low threshold (red)").setDesc("Balance below this value shows in red").addText((text) => text.setPlaceholder("-15").setValue(this.plugin.settings.balanceThresholds.criticalLow.toString()).onChange(async (value) => {
+      const num = parseFloat(value);
+      if (!isNaN(num) && num < this.plugin.settings.balanceThresholds.warningLow) {
+        this.plugin.settings.balanceThresholds.criticalLow = num;
+        await this.plugin.saveSettings();
+        await this.refreshView();
+      }
+    }));
+    new import_obsidian.Setting(containerEl).setName("Warning low threshold (yellow)").setDesc("Balance below this value shows in yellow").addText((text) => text.setPlaceholder("0").setValue(this.plugin.settings.balanceThresholds.warningLow.toString()).onChange(async (value) => {
+      const num = parseFloat(value);
+      if (!isNaN(num) && num > this.plugin.settings.balanceThresholds.criticalLow && num < this.plugin.settings.balanceThresholds.warningHigh) {
+        this.plugin.settings.balanceThresholds.warningLow = num;
+        await this.plugin.saveSettings();
+        await this.refreshView();
+      }
+    }));
+    new import_obsidian.Setting(containerEl).setName("Warning high threshold (yellow)").setDesc("Balance above this value shows in yellow").addText((text) => text.setPlaceholder("80").setValue(this.plugin.settings.balanceThresholds.warningHigh.toString()).onChange(async (value) => {
+      const num = parseFloat(value);
+      if (!isNaN(num) && num > this.plugin.settings.balanceThresholds.warningLow && num < this.plugin.settings.balanceThresholds.criticalHigh) {
+        this.plugin.settings.balanceThresholds.warningHigh = num;
+        await this.plugin.saveSettings();
+        await this.refreshView();
+      }
+    }));
+    new import_obsidian.Setting(containerEl).setName("Critical high threshold (red)").setDesc("Balance above this value shows in red").addText((text) => text.setPlaceholder("95").setValue(this.plugin.settings.balanceThresholds.criticalHigh.toString()).onChange(async (value) => {
+      const num = parseFloat(value);
+      if (!isNaN(num) && num > this.plugin.settings.balanceThresholds.warningHigh) {
+        this.plugin.settings.balanceThresholds.criticalHigh = num;
+        await this.plugin.saveSettings();
+        await this.refreshView();
+      }
+    }));
+    new import_obsidian.Setting(containerEl).setName("Data validation thresholds").setDesc("Configure warnings and errors for data validation").setHeading();
+    new import_obsidian.Setting(containerEl).setName("Long-running timer warning (hours)").setDesc("Warn if active timer exceeds this duration").addText((text) => text.setPlaceholder("12").setValue(this.plugin.settings.validationThresholds.longRunningTimerHours.toString()).onChange(async (value) => {
+      const num = parseFloat(value);
+      if (!isNaN(num) && num > 0) {
+        this.plugin.settings.validationThresholds.longRunningTimerHours = num;
+        await this.plugin.saveSettings();
+      }
+    }));
+    new import_obsidian.Setting(containerEl).setName("Very long session warning (hours)").setDesc("Warn if completed session exceeds this duration").addText((text) => text.setPlaceholder("16").setValue(this.plugin.settings.validationThresholds.veryLongSessionHours.toString()).onChange(async (value) => {
+      const num = parseFloat(value);
+      if (!isNaN(num) && num > 0) {
+        this.plugin.settings.validationThresholds.veryLongSessionHours = num;
+        await this.plugin.saveSettings();
+      }
+    }));
+    new import_obsidian.Setting(containerEl).setName("Maximum session duration (hours)").setDesc("Error if session exceeds this (likely data entry error)").addText((text) => text.setPlaceholder("24").setValue(this.plugin.settings.validationThresholds.maxDurationHours.toString()).onChange(async (value) => {
+      const num = parseFloat(value);
+      if (!isNaN(num) && num > 0) {
+        this.plugin.settings.validationThresholds.maxDurationHours = num;
+        await this.plugin.saveSettings();
+      }
+    }));
+    new import_obsidian.Setting(containerEl).setName("High weekly total info (hours)").setDesc("Show info notice if week total exceeds this").addText((text) => text.setPlaceholder("60").setValue(this.plugin.settings.validationThresholds.highWeeklyTotalHours.toString()).onChange(async (value) => {
+      const num = parseFloat(value);
+      if (!isNaN(num) && num > 0) {
+        this.plugin.settings.validationThresholds.highWeeklyTotalHours = num;
+        await this.plugin.saveSettings();
+      }
     }));
     new import_obsidian.Setting(containerEl).setName("Leave limits").setDesc("Set maximum allowed days for different leave types per year. The dashboard displays your usage against these limits in the yearly statistics view.").setHeading();
     new import_obsidian.Setting(containerEl).setName("Max sick leave days (self-reported)").setDesc("Maximum self-reported sick days (egenmelding) allowed per year (typically 8 in Norway)").addText((text) => text.setPlaceholder("8").setValue(this.plugin.settings.maxEgenmeldingDays.toString()).onChange(async (value) => {
@@ -692,7 +885,8 @@ var DataManager = class {
         return 0;
       }
       if (holidayInfo.halfDay) {
-        return 4;
+        const halfDayHours = this.settings.halfDayMode === "percentage" ? this.settings.baseWorkday / 2 : this.settings.halfDayHours;
+        return halfDayHours;
       }
     }
     return this.workdayHours;
@@ -775,7 +969,7 @@ var DataManager = class {
   }
   getBalanceUpToDate(endDate) {
     let balance = 0;
-    const startDate = "2025-11-05";
+    const startDate = this.settings.balanceStartDate;
     const sortedDays = Object.keys(this.daily).filter((day) => day >= startDate && day <= endDate).sort();
     for (const day of sortedDays) {
       const dayGoal = this.getDailyGoal(day);
@@ -1109,20 +1303,20 @@ var DataManager = class {
             dayKey
           ));
         }
-        if ((entry.duration || 0) > 24) {
+        if ((entry.duration || 0) > this.settings.validationThresholds.maxDurationHours) {
           issues.errors.push(createIssue(
             "error",
             "Excessive Duration",
-            `Entry spans more than 24 hours (${(_b = entry.duration) == null ? void 0 : _b.toFixed(1)}h)`,
+            `Entry spans more than ${this.settings.validationThresholds.maxDurationHours} hours (${(_b = entry.duration) == null ? void 0 : _b.toFixed(1)}h)`,
             entry,
             dayKey
           ));
         }
-        if ((entry.duration || 0) > 16 && (entry.duration || 0) <= 24) {
+        if ((entry.duration || 0) > this.settings.validationThresholds.veryLongSessionHours && (entry.duration || 0) <= this.settings.validationThresholds.maxDurationHours) {
           issues.warnings.push(createIssue(
             "warning",
             "Very Long Session",
-            `Entry duration exceeds 16 hours (${(_c = entry.duration) == null ? void 0 : _c.toFixed(1)}h)`,
+            `Entry duration exceeds ${this.settings.validationThresholds.veryLongSessionHours} hours (${(_c = entry.duration) == null ? void 0 : _c.toFixed(1)}h)`,
             entry,
             dayKey
           ));
@@ -1210,11 +1404,11 @@ var DataManager = class {
         const startTime = new Date(entry.startTime);
         const now = /* @__PURE__ */ new Date();
         const hoursRunning = Utils.hoursDiff(startTime, now);
-        if (hoursRunning > 12) {
+        if (hoursRunning > this.settings.validationThresholds.longRunningTimerHours) {
           issues.warnings.push({
             severity: "warning",
             type: "Long-Running Timer",
-            description: `Active timer has been running for ${hoursRunning.toFixed(1)} hours`,
+            description: `Active timer has been running for ${hoursRunning.toFixed(1)} hours (threshold: ${this.settings.validationThresholds.longRunningTimerHours}h)`,
             date: Utils.toLocalDateStr(startTime),
             entry: {
               name: entry.name,
@@ -1227,11 +1421,11 @@ var DataManager = class {
       }
     });
     const currentWeekHours = this.getCurrentWeekHours(today);
-    if (currentWeekHours > 60) {
+    if (currentWeekHours > this.settings.validationThresholds.highWeeklyTotalHours) {
       issues.info.push({
         severity: "info",
         type: "High Weekly Total",
-        description: `Current week total exceeds 60 hours (${currentWeekHours.toFixed(1)}h)`,
+        description: `Current week total exceeds ${this.settings.validationThresholds.highWeeklyTotalHours} hours (${currentWeekHours.toFixed(1)}h)`,
         date: todayStr
       });
     }
@@ -1523,6 +1717,14 @@ var UIBuilder = class {
       monthCard: null
     };
   }
+  getBalanceColor(balance) {
+    const t = this.settings.balanceThresholds;
+    if (balance < t.criticalLow || balance > t.criticalHigh)
+      return "#f44336";
+    if (balance < t.warningLow || balance > t.warningHigh)
+      return "#ff9800";
+    return "#4caf50";
+  }
   createContainer() {
     const container = document.createElement("div");
     container.style.fontFamily = "sans-serif";
@@ -1703,6 +1905,7 @@ var UIBuilder = class {
 			/* Day and week cards stay side-by-side in row 1, calendar always below in row 2 */
 			.tf-card-month {
 				grid-column: 1 / -1; /* Calendar takes full width below */
+				container-type: inline-size; /* Enable container queries */
 			}
 
 			/* On mobile, stack everything vertically */
@@ -2061,21 +2264,24 @@ var UIBuilder = class {
 			}
 
 			.tf-button {
-				padding: 8px 16px;
-				border-radius: 6px;
+				padding: clamp(3px, 1.5cqw, 8px) clamp(6px, 3cqw, 16px);
+				border-radius: 4px;
 				border: 1px solid var(--background-modifier-border);
 				background: var(--interactive-normal);
 				color: var(--text-normal);
 				cursor: pointer;
-				font-size: 14px;
+				font-size: clamp(10px, 3cqw, 14px);
 				transition: all 0.2s;
+				white-space: nowrap;
+				min-width: 0;
+				flex-shrink: 1;
 			}
 
 			.tf-button:hover {
 				background: var(--interactive-hover);
 			}
 
-			/* Make buttons smaller on mobile to prevent overflow */
+			/* Make buttons smaller on mobile */
 			@media (max-width: 500px) {
 				.tf-button {
 					padding: 4px 8px;
@@ -2283,7 +2489,8 @@ var UIBuilder = class {
 			}
 
 			.tf-collapsible-content.open {
-				max-height: 1000px;
+				max-height: none;
+				overflow: visible;
 			}
 
 			@media (max-width: 768px) {
@@ -2494,12 +2701,17 @@ var UIBuilder = class {
     header.style.justifyContent = "space-between";
     header.style.alignItems = "center";
     header.style.marginBottom = "15px";
+    header.style.flexWrap = "wrap";
+    header.style.gap = "8px";
     const title = document.createElement("h3");
     title.textContent = "M\xE5nedskalender";
     title.style.margin = "0";
+    title.style.flexShrink = "1";
+    title.style.minWidth = "0";
     const controls = document.createElement("div");
     controls.style.display = "flex";
     controls.style.gap = "5px";
+    controls.style.flexShrink = "0";
     const prevBtn = document.createElement("button");
     prevBtn.textContent = "\u25C4";
     prevBtn.className = "tf-button";
@@ -2600,7 +2812,7 @@ var UIBuilder = class {
     header.innerHTML = "<h3 style='margin:0'>Informasjon</h3>";
     const content = document.createElement("div");
     content.className = "tf-collapsible-content";
-    const halfDayHours = 4;
+    const halfDayHours = this.settings.halfDayMode === "percentage" ? this.settings.baseWorkday / 2 : this.settings.halfDayHours;
     const halfDayReduction = this.settings.baseWorkday - halfDayHours;
     const specialDayInfo = [
       { key: "avspasering", emoji: "\u{1F6CC}", desc: "Trekkes fra fleksitid" },
@@ -2776,12 +2988,7 @@ var UIBuilder = class {
     const balance = this.data.getCurrentBalance();
     const formatted = Utils.formatHoursToHM(Math.abs(balance), this.settings.hourUnit);
     const sign = balance >= 0 ? "+" : "-";
-    let color = "#4caf50";
-    if (balance < -15 || balance > 95) {
-      color = "#f44336";
-    } else if (balance < 0 || balance > 80) {
-      color = "#ff9800";
-    }
+    const color = this.getBalanceColor(balance);
     this.elements.badge.style.background = color;
     this.elements.badge.style.color = "white";
     this.elements.badge.textContent = `Timesaldo: ${sign}${formatted}`;
@@ -2870,9 +3077,17 @@ var UIBuilder = class {
         weekendWorkHours += dayEntries.reduce((sum, e) => sum + (e.duration || 0), 0);
       }
     }
-    const message = MessageGenerator.getWeeklyMessage(
+    const message = this.settings.enableWeeklyGoals ? MessageGenerator.getWeeklyMessage(
       weekHours,
       adjustedGoal,
+      specials,
+      today,
+      context,
+      weekendWorkHours
+    ) : MessageGenerator.getWeeklyMessage(
+      weekHours,
+      0,
+      // Pass 0 as goal to get non-goal-based messages
       specials,
       today,
       context,
@@ -2881,7 +3096,10 @@ var UIBuilder = class {
     const progress = adjustedGoal > 0 ? Math.min(weekHours / adjustedGoal * 100, 100) : 0;
     let bgColor;
     let textColor;
-    if (weekHours <= adjustedGoal) {
+    if (!this.settings.enableWeeklyGoals) {
+      bgColor = "linear-gradient(135deg, #607d8b, #78909c)";
+      textColor = "white";
+    } else if (weekHours <= adjustedGoal) {
       bgColor = "linear-gradient(135deg, #4caf50, #81c784)";
       textColor = "white";
     } else if (weekHours <= adjustedGoal + 3.5) {
@@ -2893,17 +3111,20 @@ var UIBuilder = class {
     }
     this.elements.weekCard.style.background = bgColor;
     this.elements.weekCard.style.color = textColor;
-    this.elements.weekCard.innerHTML = `
-			<h3 style="color: ${textColor};">Denne uken</h3>
-			<div style="font-size: 32px; font-weight: bold; margin: 10px 0;">
-				${Utils.formatHoursToHM(weekHours, this.settings.hourUnit)}
-			</div>
+    const goalSection = this.settings.enableWeeklyGoals ? `
 			<div style="font-size: 14px; opacity: 0.9; margin-bottom: 10px;">
 				M\xE5l: ${Utils.formatHoursToHM(adjustedGoal, this.settings.hourUnit)}
 			</div>
 			<div class="tf-progress-bar">
 				<div class="tf-progress-fill" style="width: ${progress}%"></div>
 			</div>
+		` : "";
+    this.elements.weekCard.innerHTML = `
+			<h3 style="color: ${textColor};">Denne uken</h3>
+			<div style="font-size: 32px; font-weight: bold; margin: 10px 0;">
+				${Utils.formatHoursToHM(weekHours, this.settings.hourUnit)}
+			</div>
+			${goalSection}
 			<div style="margin-top: 10px; font-size: 14px;">
 				${message}
 			</div>
@@ -3032,12 +3253,7 @@ var UIBuilder = class {
       }
     }
     const sign = balance >= 0 ? "+" : "";
-    let timesaldoColor = "#4caf50";
-    if (balance < -15 || balance > 95) {
-      timesaldoColor = "#f44336";
-    } else if (balance >= -15 && balance < 0 || balance >= 80 && balance <= 95) {
-      timesaldoColor = "#ff9800";
-    }
+    const timesaldoColor = this.getBalanceColor(balance);
     let ferieDisplay = `${stats.ferie.count} dager`;
     if (this.statsTimeframe === "year" && stats.ferie.max > 0) {
       const feriePercent = (stats.ferie.count / stats.ferie.max * 100).toFixed(0);
@@ -3067,11 +3283,11 @@ var UIBuilder = class {
 				<div class="tf-stat-value">${avgWeekly.toFixed(1)}t</div>
 				${weekComparisonText}
 			</div>
-			<div class="tf-stat-item">
+			${this.settings.enableWeeklyGoals ? `<div class="tf-stat-item">
 				<div class="tf-stat-label">\u{1F4AA} Arbeidsbelastning</div>
 				<div class="tf-stat-value">${workloadPct}%</div>
 				<div style="font-size: 0.75em; margin-top: 4px;">av norm</div>
-			</div>
+			</div>` : ""}
 			<div class="tf-stat-item">
 				<div class="tf-stat-label">\u{1F4BC} Jobb</div>
 				<div class="tf-stat-value">${stats.jobb.count} ${stats.jobb.count === 1 ? "dag" : "dager"}</div>
@@ -4524,6 +4740,22 @@ var TimeFlowPlugin = class extends import_obsidian7.Plugin {
   }
   async loadSettings() {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    this.migrateWorkDaysSettings();
+  }
+  migrateWorkDaysSettings() {
+    if (!this.settings.workDays || this.settings.workDays.length === 0) {
+      const workDays = [1, 2, 3, 4, 5];
+      if (this.settings.includeSaturdayInWorkWeek) {
+        workDays.push(6);
+      }
+      if (this.settings.includeSundayInWorkWeek) {
+        workDays.push(0);
+      }
+      this.settings.workDays = workDays.sort((a, b) => a - b);
+    }
+    if (!this.settings.alternatingWeekWorkDays || this.settings.alternatingWeekWorkDays.length === 0) {
+      this.settings.alternatingWeekWorkDays = [...this.settings.workDays];
+    }
   }
   async saveSettings() {
     await this.saveData(this.settings);
