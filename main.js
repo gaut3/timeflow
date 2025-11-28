@@ -144,7 +144,8 @@ var DEFAULT_SPECIAL_DAY_BEHAVIORS = [
     noHoursRequired: true,
     flextimeEffect: "none",
     includeInStats: true,
-    maxDaysPerYear: 8
+    maxDaysPerYear: 24,
+    countingPeriod: "rolling365"
   },
   {
     id: "sykemelding",
@@ -306,7 +307,23 @@ var DEFAULT_SETTINGS = {
     longRunningTimerHours: 12,
     veryLongSessionHours: 16,
     maxDurationHours: 24,
-    highWeeklyTotalHours: 60
+    highWeeklyTotalHours: 50
+  },
+  // NEW: Custom colors
+  customColors: {
+    balanceOk: "#4caf50",
+    balanceWarning: "#ff9800",
+    balanceCritical: "#f44336",
+    progressBar: "#4caf50"
+  },
+  // NEW: Message preferences
+  enableMotivationalMessages: true,
+  // Norwegian labor law compliance settings
+  complianceSettings: {
+    enableWarnings: true,
+    dailyHoursLimit: 9,
+    weeklyHoursLimit: 40,
+    minimumRestHours: 11
   }
 };
 var SpecialDayBehaviorModal = class extends import_obsidian.Modal {
@@ -318,7 +335,7 @@ var SpecialDayBehaviorModal = class extends import_obsidian.Modal {
     this.onSave = onSave;
   }
   onOpen() {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k;
     const { contentEl } = this;
     contentEl.empty();
     contentEl.createEl("h2", { text: this.behavior ? "Edit Special Day Type" : "Add Special Day Type" });
@@ -347,7 +364,8 @@ var SpecialDayBehaviorModal = class extends import_obsidian.Modal {
       noHoursRequired: (_f = (_e = this.behavior) == null ? void 0 : _e.noHoursRequired) != null ? _f : true,
       flextimeEffect: ((_g = this.behavior) == null ? void 0 : _g.flextimeEffect) || "none",
       includeInStats: (_i = (_h = this.behavior) == null ? void 0 : _h.includeInStats) != null ? _i : true,
-      maxDaysPerYear: ((_j = this.behavior) == null ? void 0 : _j.maxDaysPerYear) || void 0
+      maxDaysPerYear: ((_j = this.behavior) == null ? void 0 : _j.maxDaysPerYear) || void 0,
+      countingPeriod: ((_k = this.behavior) == null ? void 0 : _k.countingPeriod) || "calendar"
     };
     new import_obsidian.Setting(contentEl).setName("ID").setDesc("Unique identifier (lowercase, no spaces). Used in holiday file format.").addText((text) => {
       text.setPlaceholder("ferie").setValue(formData.id).onChange((value) => formData.id = value.toLowerCase().replace(/\s+/g, ""));
@@ -368,6 +386,7 @@ var SpecialDayBehaviorModal = class extends import_obsidian.Modal {
         formData.maxDaysPerYear = isNaN(num) ? void 0 : num;
       });
     });
+    new import_obsidian.Setting(contentEl).setName("Counting period").setDesc("How to count the max days limit. Calendar year resets each January 1st. Rolling 365 days counts backwards from today.").addDropdown((dropdown) => dropdown.addOption("calendar", "Calendar year").addOption("rolling365", "Rolling 365 days").setValue(formData.countingPeriod).onChange((value) => formData.countingPeriod = value));
     const buttonDiv = contentEl.createDiv();
     buttonDiv.style.display = "flex";
     buttonDiv.style.gap = "10px";
@@ -406,7 +425,8 @@ var SpecialDayBehaviorModal = class extends import_obsidian.Modal {
         noHoursRequired: formData.noHoursRequired,
         flextimeEffect: formData.flextimeEffect,
         includeInStats: formData.includeInStats,
-        maxDaysPerYear: formData.maxDaysPerYear
+        maxDaysPerYear: formData.maxDaysPerYear,
+        countingPeriod: formData.countingPeriod
       };
       this.onSave(behavior, this.index);
       this.close();
@@ -431,90 +451,91 @@ var TimeFlowSettingTab = class extends import_obsidian.PluginSettingTab {
       }
     }
   }
+  addResetButton(setting, settingKey, defaultValue, refreshCallback) {
+    setting.addExtraButton(
+      (button) => button.setIcon("reset").setTooltip("Reset to default").onClick(async () => {
+        this.plugin.settings[settingKey] = defaultValue;
+        await this.plugin.saveSettings();
+        this.display();
+        if (refreshCallback) {
+          await refreshCallback();
+        }
+      })
+    );
+  }
+  validateNumber(value, min, max, settingName) {
+    const num = parseFloat(value);
+    if (isNaN(num)) {
+      new import_obsidian.Notice(`\u274C ${settingName}: Please enter a valid number`);
+      return null;
+    }
+    if (num < min) {
+      new import_obsidian.Notice(`\u274C ${settingName}: Value must be at least ${min}`);
+      return null;
+    }
+    if (num > max) {
+      new import_obsidian.Notice(`\u274C ${settingName}: Value must be at most ${max}`);
+      return null;
+    }
+    return num;
+  }
+  validateDateFormat(dateStr) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      new import_obsidian.Notice("\u274C Balance start date: Format must be YYYY-MM-DD");
+      return false;
+    }
+    const date = /* @__PURE__ */ new Date(dateStr + "T00:00:00");
+    if (isNaN(date.getTime())) {
+      new import_obsidian.Notice("\u274C Balance start date: Invalid date");
+      return false;
+    }
+    if (date > /* @__PURE__ */ new Date()) {
+      new import_obsidian.Notice("\u274C Balance start date: Cannot be in the future");
+      return false;
+    }
+    return true;
+  }
+  createCollapsibleSubsection(container, title, startOpen = false) {
+    const header = container.createDiv({
+      cls: startOpen ? "tf-collapsible-subsection open" : "tf-collapsible-subsection"
+    });
+    header.createSpan({ text: title });
+    const content = container.createDiv({
+      cls: startOpen ? "tf-collapsible-content open" : "tf-collapsible-content"
+    });
+    header.onclick = () => {
+      header.classList.toggle("open");
+      content.classList.toggle("open");
+    };
+    return { header, content };
+  }
   display() {
     const { containerEl } = this;
     containerEl.empty();
-    new import_obsidian.Setting(containerEl).setName("Appearance").setHeading();
-    new import_obsidian.Setting(containerEl).setName("Theme").setDesc("Choose the color scheme for TimeFlow cards").addDropdown((dropdown) => dropdown.addOption("light", "Light (Colorful gradients)").addOption("system", "System (Match Obsidian theme)").addOption("dark", "Dark (Dark gradients)").setValue(this.plugin.settings.theme).onChange(async (value) => {
-      this.plugin.settings.theme = value;
-      await this.plugin.saveSettings();
-      await this.refreshView();
-    }));
-    new import_obsidian.Setting(containerEl).setName("Hour unit").setDesc('Choose the unit symbol for displaying hours: "h" for hours or "t" for timer').addDropdown((dropdown) => dropdown.addOption("h", "h (hours)").addOption("t", "t (timer)").setValue(this.plugin.settings.hourUnit).onChange(async (value) => {
-      this.plugin.settings.hourUnit = value;
-      await this.plugin.saveSettings();
-      await this.refreshView();
-    }));
-    new import_obsidian.Setting(containerEl).setName("Special day types").setDesc("Configure how different types of special days affect your workday and flextime balance. These settings determine how days are counted in flextime calculations.").setHeading();
-    const getBehaviorDescription = (behavior) => {
-      const parts = [];
-      parts.push(behavior.noHoursRequired ? "No hours required" : "Regular workday applies");
-      if (behavior.flextimeEffect === "withdraw") {
-        parts.push("withdraws from flextime");
-      } else if (behavior.flextimeEffect === "accumulate") {
-        parts.push("excess counts as flextime");
-      } else {
-        parts.push("no flextime change");
-      }
-      if (behavior.maxDaysPerYear) {
-        parts.push(`max ${behavior.maxDaysPerYear} days/year`);
-      }
-      return parts.join(", ");
-    };
-    this.plugin.settings.specialDayBehaviors.forEach((behavior, index) => {
-      const colorDot = containerEl.createEl("span");
-      colorDot.style.display = "inline-block";
-      colorDot.style.width = "12px";
-      colorDot.style.height = "12px";
-      colorDot.style.borderRadius = "50%";
-      colorDot.style.backgroundColor = behavior.color;
-      colorDot.style.marginRight = "6px";
-      colorDot.style.verticalAlign = "middle";
-      new import_obsidian.Setting(containerEl).setName(`${behavior.icon} ${behavior.label}`).setDesc(getBehaviorDescription(behavior)).addButton((btn) => btn.setButtonText("Edit").onClick(() => {
-        new SpecialDayBehaviorModal(
-          this.app,
-          this.plugin,
-          behavior,
-          index,
-          async (updatedBehavior, idx) => {
-            this.plugin.settings.specialDayBehaviors[idx] = updatedBehavior;
-            await this.plugin.saveSettings();
-            await this.refreshView();
-            this.display();
-          }
-        ).open();
-      })).addButton((btn) => btn.setButtonText("Delete").setWarning().onClick(async () => {
-        const confirmation = confirm(
-          `Are you sure you want to delete "${behavior.label}"?
-
-Note: Historical data in your holidays file using "${behavior.id}" will no longer be recognized.`
-        );
-        if (confirmation) {
-          this.plugin.settings.specialDayBehaviors.splice(index, 1);
-          await this.plugin.saveSettings();
-          await this.refreshView();
-          this.display();
-        }
-      }));
+    containerEl.createEl("h2", { text: "TimeFlow Settings" });
+    const searchContainer = containerEl.createDiv({ cls: "tf-settings-search" });
+    const searchInput = searchContainer.createEl("input", {
+      type: "text",
+      placeholder: "\u{1F50D} Search settings...",
+      cls: "tf-search-input"
     });
-    new import_obsidian.Setting(containerEl).setName("Add new special day type").setDesc("Create a custom day type with your own rules").addButton((btn) => btn.setButtonText("+ Add").setCta().onClick(() => {
-      new SpecialDayBehaviorModal(
-        this.app,
-        this.plugin,
-        null,
-        // New behavior
-        this.plugin.settings.specialDayBehaviors.length,
-        // Index at end
-        async (newBehavior) => {
-          this.plugin.settings.specialDayBehaviors.push(newBehavior);
-          await this.plugin.saveSettings();
-          await this.refreshView();
-          this.display();
+    const settingsContainer = containerEl.createDiv({ cls: "tf-settings-container" });
+    searchInput.addEventListener("input", () => {
+      const query = searchInput.value.toLowerCase();
+      const allSettings = settingsContainer.querySelectorAll(".setting-item");
+      allSettings.forEach((setting) => {
+        var _a, _b, _c, _d;
+        const name = ((_b = (_a = setting.querySelector(".setting-item-name")) == null ? void 0 : _a.textContent) == null ? void 0 : _b.toLowerCase()) || "";
+        const desc = ((_d = (_c = setting.querySelector(".setting-item-description")) == null ? void 0 : _c.textContent) == null ? void 0 : _d.toLowerCase()) || "";
+        if (name.includes(query) || desc.includes(query)) {
+          setting.style.display = "";
+        } else {
+          setting.style.display = "none";
         }
-      ).open();
-    }));
-    new import_obsidian.Setting(containerEl).setName("Work configuration").setHeading();
-    const syncInfo = containerEl.createDiv();
+      });
+    });
+    new import_obsidian.Setting(settingsContainer).setName("Quick Start").setDesc("Essential settings to get started with TimeFlow").setHeading();
+    const syncInfo = settingsContainer.createDiv();
     syncInfo.style.marginBottom = "15px";
     syncInfo.style.padding = "10px";
     syncInfo.style.background = "var(--background-secondary)";
@@ -524,14 +545,24 @@ Note: Historical data in your holidays file using "${behavior.id}" will no longe
 			<strong>\u{1F4F1} Cross-Device Settings Sync</strong><br>
 			Settings are automatically saved to <code>timeflow/data.md</code> and will sync across devices when using Obsidian Sync or any other vault sync solution. When you open the plugin on another device, your settings will be automatically loaded.
 		`;
-    new import_obsidian.Setting(containerEl).setName("Enable goal tracking").setDesc("Enable flextime calculations and daily/weekly goals. Disable for simple hour tracking without goals (e.g., shift workers, freelancers).").addToggle((toggle) => toggle.setValue(this.plugin.settings.enableGoalTracking).onChange(async (value) => {
+    new import_obsidian.Setting(settingsContainer).setName("Data file path").setDesc("Path to the file containing timer data and settings").addText((text) => text.setPlaceholder("timeflow/data.md").setValue(this.plugin.settings.dataFilePath).onChange(async (value) => {
+      this.plugin.settings.dataFilePath = value;
+      await this.plugin.saveSettings();
+      this.plugin.timerManager.dataFile = value;
+    }));
+    new import_obsidian.Setting(settingsContainer).setName("Holidays file path").setDesc("Path to the file containing future planned days/holidays").addText((text) => text.setPlaceholder("timeflow/holidays.md").setValue(this.plugin.settings.holidaysFilePath).onChange(async (value) => {
+      this.plugin.settings.holidaysFilePath = value;
+      await this.plugin.saveSettings();
+    }));
+    new import_obsidian.Setting(settingsContainer).setName("Work Configuration").setDesc("Configure your work schedule and goals").setHeading();
+    new import_obsidian.Setting(settingsContainer).setName("Enable goal tracking").setDesc("Enable flextime calculations and daily/weekly goals. Disable for simple hour tracking without goals (e.g., shift workers, freelancers).").addToggle((toggle) => toggle.setValue(this.plugin.settings.enableGoalTracking).onChange(async (value) => {
       this.plugin.settings.enableGoalTracking = value;
       await this.plugin.saveSettings();
       this.display();
       await this.refreshView();
     }));
     if (this.plugin.settings.enableGoalTracking) {
-      new import_obsidian.Setting(containerEl).setName("Base workday hours").setDesc("Standard hours for a full workday (e.g., 7.5 for standard, 6 for 6-hour days)").addText((text) => text.setPlaceholder("7.5").setValue(this.plugin.settings.baseWorkday.toString()).onChange(async (value) => {
+      new import_obsidian.Setting(settingsContainer).setName("Base workday hours").setDesc("Standard hours for a full workday (e.g., 7.5 for standard, 6 for 6-hour days)").addText((text) => text.setPlaceholder("7.5").setValue(this.plugin.settings.baseWorkday.toString()).onChange(async (value) => {
         const num = parseFloat(value);
         if (!isNaN(num) && num > 0) {
           this.plugin.settings.baseWorkday = num;
@@ -539,8 +570,13 @@ Note: Historical data in your holidays file using "${behavior.id}" will no longe
           await this.refreshView();
         }
       }));
+      new import_obsidian.Setting(settingsContainer).setName("Enable weekly/monthly goals").setDesc("Disable if you don't have a specific amount of work each week/month. This will hide goal progress bars and weekly/monthly targets.").addToggle((toggle) => toggle.setValue(this.plugin.settings.enableWeeklyGoals).onChange(async (value) => {
+        this.plugin.settings.enableWeeklyGoals = value;
+        await this.plugin.saveSettings();
+        this.display();
+      }));
       if (this.plugin.settings.enableWeeklyGoals) {
-        new import_obsidian.Setting(containerEl).setName("Work percentage").setDesc("Your employment percentage. Adjusts weekly work goal. Example: 0.8 (80%) = 30h/week if base is 37.5h").addText((text) => text.setPlaceholder("1.0").setValue(this.plugin.settings.workPercent.toString()).onChange(async (value) => {
+        new import_obsidian.Setting(settingsContainer).setName("Work percentage").setDesc("Your employment percentage. Adjusts weekly work goal. Example: 0.8 (80%) = 30h/week if base is 37.5h").addText((text) => text.setPlaceholder("1.0").setValue(this.plugin.settings.workPercent.toString()).onChange(async (value) => {
           const num = parseFloat(value);
           if (!isNaN(num) && num > 0 && num <= 1) {
             this.plugin.settings.workPercent = num;
@@ -548,7 +584,7 @@ Note: Historical data in your holidays file using "${behavior.id}" will no longe
             await this.refreshView();
           }
         }));
-        new import_obsidian.Setting(containerEl).setName("Base workweek hours").setDesc("Standard hours for a full workweek (e.g., 37.5 for 5 days, 30 for 4 days)").addText((text) => text.setPlaceholder("37.5").setValue(this.plugin.settings.baseWorkweek.toString()).onChange(async (value) => {
+        new import_obsidian.Setting(settingsContainer).setName("Base workweek hours").setDesc("Standard hours for a full workweek (e.g., 37.5 for 5 days, 30 for 4 days)").addText((text) => text.setPlaceholder("37.5").setValue(this.plugin.settings.baseWorkweek.toString()).onChange(async (value) => {
           const num = parseFloat(value);
           if (!isNaN(num) && num > 0) {
             this.plugin.settings.baseWorkweek = num;
@@ -557,7 +593,7 @@ Note: Historical data in your holidays file using "${behavior.id}" will no longe
           }
         }));
       }
-      new import_obsidian.Setting(containerEl).setName("Lunch break duration").setDesc("Daily lunch break in minutes (e.g., 30 for 30 minutes). This will be deducted from your work hours automatically.").addText((text) => text.setPlaceholder("0").setValue(this.plugin.settings.lunchBreakMinutes.toString()).onChange(async (value) => {
+      new import_obsidian.Setting(settingsContainer).setName("Lunch break duration").setDesc("Daily lunch break in minutes (e.g., 30 for 30 minutes). This will be deducted from your work hours automatically.").addText((text) => text.setPlaceholder("0").setValue(this.plugin.settings.lunchBreakMinutes.toString()).onChange(async (value) => {
         const num = parseInt(value);
         if (!isNaN(num) && num >= 0) {
           this.plugin.settings.lunchBreakMinutes = num;
@@ -566,8 +602,8 @@ Note: Historical data in your holidays file using "${behavior.id}" will no longe
         }
       }));
       const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-      const workDaysSetting = new import_obsidian.Setting(containerEl).setName("Work days").setDesc("Select which days are part of your work week");
-      const workDaysContainer = containerEl.createDiv();
+      const workDaysSetting = new import_obsidian.Setting(settingsContainer).setName("Work days").setDesc("Select which days are part of your work week");
+      const workDaysContainer = settingsContainer.createDiv();
       workDaysContainer.style.display = "flex";
       workDaysContainer.style.flexWrap = "wrap";
       workDaysContainer.style.gap = "8px";
@@ -596,14 +632,14 @@ Note: Historical data in your holidays file using "${behavior.id}" will no longe
           this.display();
         };
       });
-      new import_obsidian.Setting(containerEl).setName("Enable alternating weeks").setDesc("Enable if you have different work days in alternating weeks (e.g., every other weekend)").addToggle((toggle) => toggle.setValue(this.plugin.settings.enableAlternatingWeeks).onChange(async (value) => {
+      new import_obsidian.Setting(settingsContainer).setName("Enable alternating weeks").setDesc("Enable if you have different work days in alternating weeks (e.g., every other weekend)").addToggle((toggle) => toggle.setValue(this.plugin.settings.enableAlternatingWeeks).onChange(async (value) => {
         this.plugin.settings.enableAlternatingWeeks = value;
         await this.plugin.saveSettings();
         this.display();
       }));
       if (this.plugin.settings.enableAlternatingWeeks) {
-        const altWorkDaysSetting = new import_obsidian.Setting(containerEl).setName("Alternating week work days").setDesc("Select which days are work days in the alternating week");
-        const altWorkDaysContainer = containerEl.createDiv();
+        const altWorkDaysSetting = new import_obsidian.Setting(settingsContainer).setName("Alternating week work days").setDesc("Select which days are work days in the alternating week");
+        const altWorkDaysContainer = settingsContainer.createDiv();
         altWorkDaysContainer.style.display = "flex";
         altWorkDaysContainer.style.flexWrap = "wrap";
         altWorkDaysContainer.style.gap = "8px";
@@ -634,15 +670,227 @@ Note: Historical data in your holidays file using "${behavior.id}" will no longe
         });
       }
     }
-    if (this.plugin.settings.enableGoalTracking) {
-      new import_obsidian.Setting(containerEl).setName("Enable weekly/monthly goals").setDesc("Disable if you don't have a specific amount of work each week/month. This will hide goal progress bars and weekly/monthly targets.").addToggle((toggle) => toggle.setValue(this.plugin.settings.enableWeeklyGoals).onChange(async (value) => {
-        this.plugin.settings.enableWeeklyGoals = value;
+    const complianceSection = this.createCollapsibleSubsection(
+      settingsContainer,
+      "Arbeidstidsgrenser (Work Time Limits)",
+      false
+    );
+    complianceSection.content.addClass("tf-compliance-settings");
+    new import_obsidian.Setting(complianceSection.content).setName("Enable compliance warnings").setDesc("Show warnings when approaching or exceeding Norwegian labor law limits").addToggle((toggle) => {
+      var _a, _b;
+      return toggle.setValue((_b = (_a = this.plugin.settings.complianceSettings) == null ? void 0 : _a.enableWarnings) != null ? _b : true).onChange(async (value) => {
+        if (!this.plugin.settings.complianceSettings) {
+          this.plugin.settings.complianceSettings = {
+            enableWarnings: true,
+            dailyHoursLimit: 9,
+            weeklyHoursLimit: 40,
+            minimumRestHours: 11
+          };
+        }
+        this.plugin.settings.complianceSettings.enableWarnings = value;
         await this.plugin.saveSettings();
+        await this.refreshView();
+      });
+    });
+    new import_obsidian.Setting(complianceSection.content).setName("Daily hours limit").setDesc("Maximum hours per day before showing a warning (Norwegian law: 9 hours)").addText((text) => {
+      var _a, _b;
+      return text.setPlaceholder("9").setValue(((_b = (_a = this.plugin.settings.complianceSettings) == null ? void 0 : _a.dailyHoursLimit) != null ? _b : 9).toString()).onChange(async (value) => {
+        const num = parseFloat(value);
+        if (!isNaN(num) && num > 0) {
+          if (!this.plugin.settings.complianceSettings) {
+            this.plugin.settings.complianceSettings = {
+              enableWarnings: true,
+              dailyHoursLimit: 9,
+              weeklyHoursLimit: 40,
+              minimumRestHours: 11
+            };
+          }
+          this.plugin.settings.complianceSettings.dailyHoursLimit = num;
+          await this.plugin.saveSettings();
+          await this.refreshView();
+        }
+      });
+    });
+    new import_obsidian.Setting(complianceSection.content).setName("Weekly hours limit").setDesc("Maximum hours per week before showing a warning (Norwegian law: 40 hours)").addText((text) => {
+      var _a, _b;
+      return text.setPlaceholder("40").setValue(((_b = (_a = this.plugin.settings.complianceSettings) == null ? void 0 : _a.weeklyHoursLimit) != null ? _b : 40).toString()).onChange(async (value) => {
+        const num = parseFloat(value);
+        if (!isNaN(num) && num > 0) {
+          if (!this.plugin.settings.complianceSettings) {
+            this.plugin.settings.complianceSettings = {
+              enableWarnings: true,
+              dailyHoursLimit: 9,
+              weeklyHoursLimit: 40,
+              minimumRestHours: 11
+            };
+          }
+          this.plugin.settings.complianceSettings.weeklyHoursLimit = num;
+          await this.plugin.saveSettings();
+          await this.refreshView();
+        }
+      });
+    });
+    new import_obsidian.Setting(complianceSection.content).setName("Minimum rest hours").setDesc("Minimum consecutive hours of rest between work sessions (Norwegian law: 11 hours)").addText((text) => {
+      var _a, _b;
+      return text.setPlaceholder("11").setValue(((_b = (_a = this.plugin.settings.complianceSettings) == null ? void 0 : _a.minimumRestHours) != null ? _b : 11).toString()).onChange(async (value) => {
+        const num = parseFloat(value);
+        if (!isNaN(num) && num > 0) {
+          if (!this.plugin.settings.complianceSettings) {
+            this.plugin.settings.complianceSettings = {
+              enableWarnings: true,
+              dailyHoursLimit: 9,
+              weeklyHoursLimit: 40,
+              minimumRestHours: 11
+            };
+          }
+          this.plugin.settings.complianceSettings.minimumRestHours = num;
+          await this.plugin.saveSettings();
+          await this.refreshView();
+        }
+      });
+    });
+    new import_obsidian.Setting(settingsContainer).setName("Special Day Types").setDesc("Configure how different types of special days affect your workday and flextime balance. These settings determine how days are counted in flextime calculations.").setHeading();
+    const getBehaviorDescription = (behavior) => {
+      const parts = [];
+      parts.push(behavior.noHoursRequired ? "No hours required" : "Regular workday applies");
+      if (behavior.flextimeEffect === "withdraw") {
+        parts.push("withdraws from flextime");
+      } else if (behavior.flextimeEffect === "accumulate") {
+        parts.push("excess counts as flextime");
+      } else {
+        parts.push("no flextime change");
+      }
+      if (behavior.maxDaysPerYear) {
+        parts.push(`max ${behavior.maxDaysPerYear} days/year`);
+      }
+      return parts.join(", ");
+    };
+    this.plugin.settings.specialDayBehaviors.forEach((behavior, index) => {
+      const colorDot = settingsContainer.createEl("span");
+      colorDot.style.display = "inline-block";
+      colorDot.style.width = "12px";
+      colorDot.style.height = "12px";
+      colorDot.style.borderRadius = "50%";
+      colorDot.style.backgroundColor = behavior.color;
+      colorDot.style.marginRight = "6px";
+      colorDot.style.verticalAlign = "middle";
+      new import_obsidian.Setting(settingsContainer).setName(`${behavior.icon} ${behavior.label}`).setDesc(getBehaviorDescription(behavior)).addButton((btn) => btn.setButtonText("Edit").onClick(() => {
+        new SpecialDayBehaviorModal(
+          this.app,
+          this.plugin,
+          behavior,
+          index,
+          async (updatedBehavior, idx) => {
+            this.plugin.settings.specialDayBehaviors[idx] = updatedBehavior;
+            await this.plugin.saveSettings();
+            await this.refreshView();
+            this.display();
+          }
+        ).open();
+      })).addButton((btn) => btn.setButtonText("Delete").setWarning().onClick(async () => {
+        const confirmation = confirm(
+          `Are you sure you want to delete "${behavior.label}"?
+
+Note: Historical data in your holidays file using "${behavior.id}" will no longer be recognized.`
+        );
+        if (confirmation) {
+          this.plugin.settings.specialDayBehaviors.splice(index, 1);
+          await this.plugin.saveSettings();
+          await this.refreshView();
+          this.display();
+        }
+      }));
+    });
+    new import_obsidian.Setting(settingsContainer).setName("Add new special day type").setDesc("Create a custom day type with your own rules").addButton((btn) => btn.setButtonText("+ Add").setCta().onClick(() => {
+      new SpecialDayBehaviorModal(
+        this.app,
+        this.plugin,
+        null,
+        // New behavior
+        this.plugin.settings.specialDayBehaviors.length,
+        // Index at end
+        async (newBehavior) => {
+          this.plugin.settings.specialDayBehaviors.push(newBehavior);
+          await this.plugin.saveSettings();
+          await this.refreshView();
+          this.display();
+        }
+      ).open();
+    }));
+    new import_obsidian.Setting(settingsContainer).setName("Display & Interface").setDesc("Customize the appearance and behavior of the TimeFlow interface").setHeading();
+    new import_obsidian.Setting(settingsContainer).setName("Theme").setDesc("Choose the color scheme for TimeFlow cards").addDropdown((dropdown) => dropdown.addOption("light", "Light (Colorful gradients)").addOption("system", "System (Match Obsidian theme)").addOption("dark", "Dark (Dark gradients)").setValue(this.plugin.settings.theme).onChange(async (value) => {
+      this.plugin.settings.theme = value;
+      await this.plugin.saveSettings();
+      await this.refreshView();
+    }));
+    new import_obsidian.Setting(settingsContainer).setName("Hour unit").setDesc('Choose the unit symbol for displaying hours: "h" for hours or "t" for timer').addDropdown((dropdown) => dropdown.addOption("h", "h (hours)").addOption("t", "t (timer)").setValue(this.plugin.settings.hourUnit).onChange(async (value) => {
+      this.plugin.settings.hourUnit = value;
+      await this.plugin.saveSettings();
+      await this.refreshView();
+    }));
+    new import_obsidian.Setting(settingsContainer).setName("Enable motivational messages").setDesc("Show contextual messages in day/week cards (e.g., encouraging messages, progress updates)").addToggle((toggle) => {
+      var _a;
+      return toggle.setValue((_a = this.plugin.settings.enableMotivationalMessages) != null ? _a : true).onChange(async (value) => {
+        this.plugin.settings.enableMotivationalMessages = value;
+        await this.plugin.saveSettings();
+        await this.refreshView();
+      });
+    });
+    new import_obsidian.Setting(settingsContainer).setName("Consecutive flextime warning days").setDesc("Number of consecutive days with flextime before showing a warning").addText((text) => text.setPlaceholder("5").setValue(this.plugin.settings.consecutiveFlextimeWarningDays.toString()).onChange(async (value) => {
+      const num = parseInt(value);
+      if (!isNaN(num) && num > 0) {
+        this.plugin.settings.consecutiveFlextimeWarningDays = num;
+        await this.plugin.saveSettings();
+        await this.refreshView();
+      }
+    }));
+    new import_obsidian.Setting(settingsContainer).setName("Heatmap columns").setDesc("Number of columns in the heatmap view (adjust for your screen width)").addText((text) => text.setPlaceholder("48").setValue(this.plugin.settings.heatmapColumns.toString()).onChange(async (value) => {
+      const num = parseInt(value);
+      if (!isNaN(num) && num > 0) {
+        this.plugin.settings.heatmapColumns = num;
+        await this.plugin.saveSettings();
+        await this.refreshView();
+      }
+    }));
+    new import_obsidian.Setting(settingsContainer).setName("Update interval (ms)").setDesc("How often to update the dashboard data (in milliseconds)").addText((text) => text.setPlaceholder("30000").setValue(this.plugin.settings.updateInterval.toString()).onChange(async (value) => {
+      const num = parseInt(value);
+      if (!isNaN(num) && num >= 1e3) {
+        this.plugin.settings.updateInterval = num;
+        await this.plugin.saveSettings();
+      }
+    }));
+    new import_obsidian.Setting(settingsContainer).setName("File Paths & Templates").setDesc("Configure file paths and note templates").setHeading();
+    new import_obsidian.Setting(settingsContainer).setName("Daily notes folder").setDesc("Folder where daily notes are stored").addText((text) => text.setPlaceholder("Daily Notes").setValue(this.plugin.settings.dailyNotesFolder).onChange(async (value) => {
+      this.plugin.settings.dailyNotesFolder = value;
+      await this.plugin.saveSettings();
+    }));
+    new import_obsidian.Setting(settingsContainer).setName("Daily notes template path").setDesc("Path to the template for daily notes").addText((text) => text.setPlaceholder("Templates/Daily Notes Template.md").setValue(this.plugin.settings.dailyNotesTemplatePath).onChange(async (value) => {
+      this.plugin.settings.dailyNotesTemplatePath = value;
+      await this.plugin.saveSettings();
+    }));
+    new import_obsidian.Setting(settingsContainer).setName("Note types").setDesc("Configure the types of notes available in the calendar context menu. Each note type can have its own template, folder, and filename pattern.").setHeading();
+    this.plugin.settings.noteTypes.forEach((noteType, index) => {
+      new import_obsidian.Setting(settingsContainer).setName(`${noteType.icon} ${noteType.label}`).setDesc(`Folder: ${noteType.folder} | Template: ${noteType.template}`).addButton((button) => button.setButtonText("Edit").onClick(() => {
+        this.showNoteTypeModal(noteType, index);
+      })).addButton((button) => button.setButtonText("Delete").setWarning().onClick(async () => {
+        this.plugin.settings.noteTypes.splice(index, 1);
+        await this.plugin.saveSettings();
+        await this.refreshView();
         this.display();
       }));
-    }
-    new import_obsidian.Setting(containerEl).setName("Advanced Configuration").setHeading();
-    const advancedInfo = containerEl.createDiv();
+    });
+    new import_obsidian.Setting(settingsContainer).setName("Add new note type").setDesc("Create a new note type for the context menu").addButton((button) => button.setButtonText("+ Add note type").setCta().onClick(() => {
+      this.showNoteTypeModal(null, -1);
+    }));
+    new import_obsidian.Setting(settingsContainer).setName("Data Management").setDesc("Import and export your time tracking data").setHeading();
+    new import_obsidian.Setting(settingsContainer).setName("Export data to CSV").setDesc("Export all your time tracking data to a CSV file").addButton((button) => button.setButtonText("Export CSV").setCta().onClick(async () => {
+      this.exportToCSV();
+    }));
+    new import_obsidian.Setting(settingsContainer).setName("Import Timekeep data").setDesc("Import time tracking data from Timekeep JSON format").addButton((button) => button.setButtonText("Import data").setCta().onClick(async () => {
+      this.showImportModal();
+    }));
+    new import_obsidian.Setting(settingsContainer).setName("Advanced Settings").setDesc("Fine-tune balance calculations, thresholds, and visual customization").setHeading();
+    const advancedInfo = settingsContainer.createDiv();
     advancedInfo.style.marginBottom = "15px";
     advancedInfo.style.padding = "10px";
     advancedInfo.style.background = "var(--background-secondary)";
@@ -652,7 +900,12 @@ Note: Historical data in your holidays file using "${behavior.id}" will no longe
 			<strong>\u2699\uFE0F Advanced Settings</strong><br>
 			These settings affect balance calculations and visual indicators. Settings sync across devices via your data file.
 		`;
-    new import_obsidian.Setting(containerEl).setName("Balance start date").setDesc("Set the date from which flextime balance is calculated. Earlier entries are ignored in balance calculations. Format: YYYY-MM-DD").addText((text) => text.setPlaceholder("2025-01-01").setValue(this.plugin.settings.balanceStartDate).onChange(async (value) => {
+    const balanceCalcSection = this.createCollapsibleSubsection(
+      settingsContainer,
+      "Balance Calculation",
+      false
+    );
+    new import_obsidian.Setting(balanceCalcSection.content).setName("Balance start date").setDesc("Set the date from which flextime balance is calculated. Earlier entries are ignored in balance calculations. Format: YYYY-MM-DD").addText((text) => text.setPlaceholder("2025-01-01").setValue(this.plugin.settings.balanceStartDate).onChange(async (value) => {
       if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
         const date = new Date(value);
         if (!isNaN(date.getTime())) {
@@ -662,14 +915,14 @@ Note: Historical data in your holidays file using "${behavior.id}" will no longe
         }
       }
     }));
-    new import_obsidian.Setting(containerEl).setName("Half-day calculation mode").setDesc("How half-day hours should be calculated").addDropdown((dropdown) => dropdown.addOption("fixed", "Fixed hours (set specific value)").addOption("percentage", "Percentage (half of base workday)").setValue(this.plugin.settings.halfDayMode).onChange(async (value) => {
+    new import_obsidian.Setting(balanceCalcSection.content).setName("Half-day calculation mode").setDesc("How half-day hours should be calculated").addDropdown((dropdown) => dropdown.addOption("fixed", "Fixed hours (set specific value)").addOption("percentage", "Percentage (half of base workday)").setValue(this.plugin.settings.halfDayMode).onChange(async (value) => {
       this.plugin.settings.halfDayMode = value;
       await this.plugin.saveSettings();
       await this.refreshView();
       this.display();
     }));
     if (this.plugin.settings.halfDayMode === "fixed") {
-      new import_obsidian.Setting(containerEl).setName("Half-day hours").setDesc("Hours counted for a half workday").addText((text) => text.setPlaceholder("4.0").setValue(this.plugin.settings.halfDayHours.toString()).onChange(async (value) => {
+      new import_obsidian.Setting(balanceCalcSection.content).setName("Half-day hours").setDesc("Hours counted for a half workday").addText((text) => text.setPlaceholder("4.0").setValue(this.plugin.settings.halfDayHours.toString()).onChange(async (value) => {
         const num = parseFloat(value);
         if (!isNaN(num) && num > 0 && num < this.plugin.settings.baseWorkday) {
           this.plugin.settings.halfDayHours = num;
@@ -678,8 +931,13 @@ Note: Historical data in your holidays file using "${behavior.id}" will no longe
         }
       }));
     }
-    new import_obsidian.Setting(containerEl).setName("Balance color thresholds").setDesc("Configure the hour thresholds for balance indicator colors. These control the color-coding of your flextime balance badge: Red = significant under/overtime, Yellow = approaching limits, Green = healthy balance.").setHeading();
-    new import_obsidian.Setting(containerEl).setName("Critical low threshold (red)").setDesc("Below this many hours = red badge (significant undertime)").addText((text) => text.setPlaceholder("-15").setValue(this.plugin.settings.balanceThresholds.criticalLow.toString()).onChange(async (value) => {
+    const balanceThresholdsSection = this.createCollapsibleSubsection(
+      settingsContainer,
+      "Balance Color Thresholds",
+      false
+    );
+    new import_obsidian.Setting(balanceThresholdsSection.content).setName("Balance color thresholds").setDesc("Configure the hour thresholds for balance indicator colors. These control the color-coding of your flextime balance badge: Red = significant under/overtime, Yellow = approaching limits, Green = healthy balance.");
+    new import_obsidian.Setting(balanceThresholdsSection.content).setName("Critical low threshold (red)").setDesc("Below this many hours = red badge (significant undertime)").addText((text) => text.setPlaceholder("-15").setValue(this.plugin.settings.balanceThresholds.criticalLow.toString()).onChange(async (value) => {
       const num = parseFloat(value);
       if (!isNaN(num) && num < this.plugin.settings.balanceThresholds.warningLow) {
         this.plugin.settings.balanceThresholds.criticalLow = num;
@@ -687,7 +945,7 @@ Note: Historical data in your holidays file using "${behavior.id}" will no longe
         await this.refreshView();
       }
     }));
-    new import_obsidian.Setting(containerEl).setName("Warning low threshold (yellow)").setDesc("Below this = yellow badge (approaching undertime)").addText((text) => text.setPlaceholder("0").setValue(this.plugin.settings.balanceThresholds.warningLow.toString()).onChange(async (value) => {
+    new import_obsidian.Setting(balanceThresholdsSection.content).setName("Warning low threshold (yellow)").setDesc("Below this = yellow badge (approaching undertime)").addText((text) => text.setPlaceholder("0").setValue(this.plugin.settings.balanceThresholds.warningLow.toString()).onChange(async (value) => {
       const num = parseFloat(value);
       if (!isNaN(num) && num > this.plugin.settings.balanceThresholds.criticalLow && num < this.plugin.settings.balanceThresholds.warningHigh) {
         this.plugin.settings.balanceThresholds.warningLow = num;
@@ -695,7 +953,7 @@ Note: Historical data in your holidays file using "${behavior.id}" will no longe
         await this.refreshView();
       }
     }));
-    new import_obsidian.Setting(containerEl).setName("Warning high threshold (yellow)").setDesc("Above this = yellow badge (approaching overtime limit)").addText((text) => text.setPlaceholder("80").setValue(this.plugin.settings.balanceThresholds.warningHigh.toString()).onChange(async (value) => {
+    new import_obsidian.Setting(balanceThresholdsSection.content).setName("Warning high threshold (yellow)").setDesc("Above this = yellow badge (approaching overtime limit)").addText((text) => text.setPlaceholder("80").setValue(this.plugin.settings.balanceThresholds.warningHigh.toString()).onChange(async (value) => {
       const num = parseFloat(value);
       if (!isNaN(num) && num > this.plugin.settings.balanceThresholds.warningLow && num < this.plugin.settings.balanceThresholds.criticalHigh) {
         this.plugin.settings.balanceThresholds.warningHigh = num;
@@ -703,7 +961,7 @@ Note: Historical data in your holidays file using "${behavior.id}" will no longe
         await this.refreshView();
       }
     }));
-    new import_obsidian.Setting(containerEl).setName("Critical high threshold (red)").setDesc("Above this = red badge (significant overtime accumulation)").addText((text) => text.setPlaceholder("95").setValue(this.plugin.settings.balanceThresholds.criticalHigh.toString()).onChange(async (value) => {
+    new import_obsidian.Setting(balanceThresholdsSection.content).setName("Critical high threshold (red)").setDesc("Above this = red badge (significant overtime accumulation)").addText((text) => text.setPlaceholder("95").setValue(this.plugin.settings.balanceThresholds.criticalHigh.toString()).onChange(async (value) => {
       const num = parseFloat(value);
       if (!isNaN(num) && num > this.plugin.settings.balanceThresholds.warningHigh) {
         this.plugin.settings.balanceThresholds.criticalHigh = num;
@@ -711,98 +969,133 @@ Note: Historical data in your holidays file using "${behavior.id}" will no longe
         await this.refreshView();
       }
     }));
-    new import_obsidian.Setting(containerEl).setName("Data validation thresholds").setDesc("Automatic data quality checks. Adjust these if you frequently work long hours or want stricter validation.").setHeading();
-    new import_obsidian.Setting(containerEl).setName("Long-running timer warning (hours)").setDesc("Warn if a timer runs more than X hours without being stopped (default: 12)").addText((text) => text.setPlaceholder("12").setValue(this.plugin.settings.validationThresholds.longRunningTimerHours.toString()).onChange(async (value) => {
+    const dataValidationSection = this.createCollapsibleSubsection(
+      settingsContainer,
+      "Data Validation Thresholds",
+      false
+    );
+    new import_obsidian.Setting(dataValidationSection.content).setName("Data validation thresholds").setDesc("Automatic data quality checks. Adjust these if you frequently work long hours or want stricter validation.");
+    new import_obsidian.Setting(dataValidationSection.content).setName("Long-running timer warning (hours)").setDesc("Warn if a timer runs more than X hours without being stopped (default: 12)").addText((text) => text.setPlaceholder("12").setValue(this.plugin.settings.validationThresholds.longRunningTimerHours.toString()).onChange(async (value) => {
       const num = parseFloat(value);
       if (!isNaN(num) && num > 0) {
         this.plugin.settings.validationThresholds.longRunningTimerHours = num;
         await this.plugin.saveSettings();
       }
     }));
-    new import_obsidian.Setting(containerEl).setName("Very long session warning (hours)").setDesc("Warn if a work session exceeds X hours (default: 16)").addText((text) => text.setPlaceholder("16").setValue(this.plugin.settings.validationThresholds.veryLongSessionHours.toString()).onChange(async (value) => {
+    new import_obsidian.Setting(dataValidationSection.content).setName("Very long session warning (hours)").setDesc("Warn if a work session exceeds X hours (default: 16)").addText((text) => text.setPlaceholder("16").setValue(this.plugin.settings.validationThresholds.veryLongSessionHours.toString()).onChange(async (value) => {
       const num = parseFloat(value);
       if (!isNaN(num) && num > 0) {
         this.plugin.settings.validationThresholds.veryLongSessionHours = num;
         await this.plugin.saveSettings();
       }
     }));
-    new import_obsidian.Setting(containerEl).setName("Maximum session duration (hours)").setDesc("Prevent entries longer than X hours - likely a data error (default: 24)").addText((text) => text.setPlaceholder("24").setValue(this.plugin.settings.validationThresholds.maxDurationHours.toString()).onChange(async (value) => {
+    new import_obsidian.Setting(dataValidationSection.content).setName("Maximum session duration (hours)").setDesc("Prevent entries longer than X hours - likely a data error (default: 24)").addText((text) => text.setPlaceholder("24").setValue(this.plugin.settings.validationThresholds.maxDurationHours.toString()).onChange(async (value) => {
       const num = parseFloat(value);
       if (!isNaN(num) && num > 0) {
         this.plugin.settings.validationThresholds.maxDurationHours = num;
         await this.plugin.saveSettings();
       }
     }));
-    new import_obsidian.Setting(containerEl).setName("High weekly total info (hours)").setDesc("Show info notice if weekly total exceeds X hours (default: 60)").addText((text) => text.setPlaceholder("60").setValue(this.plugin.settings.validationThresholds.highWeeklyTotalHours.toString()).onChange(async (value) => {
+    new import_obsidian.Setting(dataValidationSection.content).setName("High weekly total info (hours)").setDesc("Show info notice if weekly total exceeds X hours (default: 60)").addText((text) => text.setPlaceholder("60").setValue(this.plugin.settings.validationThresholds.highWeeklyTotalHours.toString()).onChange(async (value) => {
       const num = parseFloat(value);
       if (!isNaN(num) && num > 0) {
         this.plugin.settings.validationThresholds.highWeeklyTotalHours = num;
         await this.plugin.saveSettings();
       }
     }));
-    new import_obsidian.Setting(containerEl).setName("File paths").setHeading();
-    new import_obsidian.Setting(containerEl).setName("Data file path").setDesc("Path to the file containing timer data and settings").addText((text) => text.setPlaceholder("timeflow/data.md").setValue(this.plugin.settings.dataFilePath).onChange(async (value) => {
-      this.plugin.settings.dataFilePath = value;
-      await this.plugin.saveSettings();
-      this.plugin.timerManager.dataFile = value;
-    }));
-    new import_obsidian.Setting(containerEl).setName("Holidays file path").setDesc("Path to the file containing future planned days/holidays").addText((text) => text.setPlaceholder("timeflow/holidays.md").setValue(this.plugin.settings.holidaysFilePath).onChange(async (value) => {
-      this.plugin.settings.holidaysFilePath = value;
-      await this.plugin.saveSettings();
-    }));
-    new import_obsidian.Setting(containerEl).setName("Daily notes folder").setDesc("Folder where daily notes are stored").addText((text) => text.setPlaceholder("Daily Notes").setValue(this.plugin.settings.dailyNotesFolder).onChange(async (value) => {
-      this.plugin.settings.dailyNotesFolder = value;
-      await this.plugin.saveSettings();
-    }));
-    new import_obsidian.Setting(containerEl).setName("Daily notes template path").setDesc("Path to the template for daily notes").addText((text) => text.setPlaceholder("Templates/Daily Notes Template.md").setValue(this.plugin.settings.dailyNotesTemplatePath).onChange(async (value) => {
-      this.plugin.settings.dailyNotesTemplatePath = value;
-      await this.plugin.saveSettings();
-    }));
-    new import_obsidian.Setting(containerEl).setName("Display settings").setHeading();
-    new import_obsidian.Setting(containerEl).setName("Consecutive flextime warning days").setDesc("Number of consecutive days with flextime before showing a warning").addText((text) => text.setPlaceholder("5").setValue(this.plugin.settings.consecutiveFlextimeWarningDays.toString()).onChange(async (value) => {
-      const num = parseInt(value);
-      if (!isNaN(num) && num > 0) {
-        this.plugin.settings.consecutiveFlextimeWarningDays = num;
+    const customColorsSection = this.createCollapsibleSubsection(
+      settingsContainer,
+      "Custom Colors",
+      false
+    );
+    const balanceOkSetting = new import_obsidian.Setting(customColorsSection.content).setName("Balance OK color").setDesc("Color when flextime balance is in acceptable range").addText((text) => {
+      var _a;
+      return text.setPlaceholder("#4caf50").setValue(((_a = this.plugin.settings.customColors) == null ? void 0 : _a.balanceOk) || "#4caf50").onChange(async (value) => {
+        if (!this.plugin.settings.customColors) {
+          this.plugin.settings.customColors = {};
+        }
+        this.plugin.settings.customColors.balanceOk = value;
         await this.plugin.saveSettings();
         await this.refreshView();
-      }
-    }));
-    new import_obsidian.Setting(containerEl).setName("Heatmap columns").setDesc("Number of columns in the heatmap view (adjust for your screen width)").addText((text) => text.setPlaceholder("48").setValue(this.plugin.settings.heatmapColumns.toString()).onChange(async (value) => {
-      const num = parseInt(value);
-      if (!isNaN(num) && num > 0) {
-        this.plugin.settings.heatmapColumns = num;
-        await this.plugin.saveSettings();
-        await this.refreshView();
-      }
-    }));
-    new import_obsidian.Setting(containerEl).setName("Update interval (ms)").setDesc("How often to update the dashboard data (in milliseconds)").addText((text) => text.setPlaceholder("30000").setValue(this.plugin.settings.updateInterval.toString()).onChange(async (value) => {
-      const num = parseInt(value);
-      if (!isNaN(num) && num >= 1e3) {
-        this.plugin.settings.updateInterval = num;
-        await this.plugin.saveSettings();
-      }
-    }));
-    new import_obsidian.Setting(containerEl).setName("Note types").setDesc("Configure the types of notes available in the calendar context menu. Each note type can have its own template, folder, and filename pattern.").setHeading();
-    this.plugin.settings.noteTypes.forEach((noteType, index) => {
-      new import_obsidian.Setting(containerEl).setName(`${noteType.icon} ${noteType.label}`).setDesc(`Folder: ${noteType.folder} | Template: ${noteType.template}`).addButton((button) => button.setButtonText("Edit").onClick(() => {
-        this.showNoteTypeModal(noteType, index);
-      })).addButton((button) => button.setButtonText("Delete").setWarning().onClick(async () => {
-        this.plugin.settings.noteTypes.splice(index, 1);
-        await this.plugin.saveSettings();
-        await this.refreshView();
-        this.display();
-      }));
+      });
     });
-    new import_obsidian.Setting(containerEl).setName("Add new note type").setDesc("Create a new note type for the context menu").addButton((button) => button.setButtonText("+ Add note type").setCta().onClick(() => {
-      this.showNoteTypeModal(null, -1);
-    }));
-    new import_obsidian.Setting(containerEl).setName("Data management").setHeading();
-    new import_obsidian.Setting(containerEl).setName("Export data to CSV").setDesc("Export all your time tracking data to a CSV file").addButton((button) => button.setButtonText("Export CSV").setCta().onClick(async () => {
-      this.exportToCSV();
-    }));
-    new import_obsidian.Setting(containerEl).setName("Import Timekeep data").setDesc("Import time tracking data from Timekeep JSON format").addButton((button) => button.setButtonText("Import data").setCta().onClick(async () => {
-      this.showImportModal();
-    }));
+    balanceOkSetting.addExtraButton(
+      (button) => button.setIcon("reset").setTooltip("Reset to default").onClick(async () => {
+        if (!this.plugin.settings.customColors) {
+          this.plugin.settings.customColors = {};
+        }
+        this.plugin.settings.customColors.balanceOk = DEFAULT_SETTINGS.customColors.balanceOk;
+        await this.plugin.saveSettings();
+        this.display();
+        await this.refreshView();
+      })
+    );
+    const balanceWarningSetting = new import_obsidian.Setting(customColorsSection.content).setName("Balance warning color").setDesc("Color when flextime balance is approaching limits").addText((text) => {
+      var _a;
+      return text.setPlaceholder("#ff9800").setValue(((_a = this.plugin.settings.customColors) == null ? void 0 : _a.balanceWarning) || "#ff9800").onChange(async (value) => {
+        if (!this.plugin.settings.customColors) {
+          this.plugin.settings.customColors = {};
+        }
+        this.plugin.settings.customColors.balanceWarning = value;
+        await this.plugin.saveSettings();
+        await this.refreshView();
+      });
+    });
+    balanceWarningSetting.addExtraButton(
+      (button) => button.setIcon("reset").setTooltip("Reset to default").onClick(async () => {
+        if (!this.plugin.settings.customColors) {
+          this.plugin.settings.customColors = {};
+        }
+        this.plugin.settings.customColors.balanceWarning = DEFAULT_SETTINGS.customColors.balanceWarning;
+        await this.plugin.saveSettings();
+        this.display();
+        await this.refreshView();
+      })
+    );
+    const balanceCriticalSetting = new import_obsidian.Setting(customColorsSection.content).setName("Balance critical color").setDesc("Color when flextime balance is critically out of range").addText((text) => {
+      var _a;
+      return text.setPlaceholder("#f44336").setValue(((_a = this.plugin.settings.customColors) == null ? void 0 : _a.balanceCritical) || "#f44336").onChange(async (value) => {
+        if (!this.plugin.settings.customColors) {
+          this.plugin.settings.customColors = {};
+        }
+        this.plugin.settings.customColors.balanceCritical = value;
+        await this.plugin.saveSettings();
+        await this.refreshView();
+      });
+    });
+    balanceCriticalSetting.addExtraButton(
+      (button) => button.setIcon("reset").setTooltip("Reset to default").onClick(async () => {
+        if (!this.plugin.settings.customColors) {
+          this.plugin.settings.customColors = {};
+        }
+        this.plugin.settings.customColors.balanceCritical = DEFAULT_SETTINGS.customColors.balanceCritical;
+        await this.plugin.saveSettings();
+        this.display();
+        await this.refreshView();
+      })
+    );
+    const progressBarSetting = new import_obsidian.Setting(customColorsSection.content).setName("Progress bar color").setDesc("Color for progress bars showing daily/weekly completion").addText((text) => {
+      var _a;
+      return text.setPlaceholder("#4caf50").setValue(((_a = this.plugin.settings.customColors) == null ? void 0 : _a.progressBar) || "#4caf50").onChange(async (value) => {
+        if (!this.plugin.settings.customColors) {
+          this.plugin.settings.customColors = {};
+        }
+        this.plugin.settings.customColors.progressBar = value;
+        await this.plugin.saveSettings();
+        await this.refreshView();
+      });
+    });
+    progressBarSetting.addExtraButton(
+      (button) => button.setIcon("reset").setTooltip("Reset to default").onClick(async () => {
+        if (!this.plugin.settings.customColors) {
+          this.plugin.settings.customColors = {};
+        }
+        this.plugin.settings.customColors.progressBar = DEFAULT_SETTINGS.customColors.progressBar;
+        await this.plugin.saveSettings();
+        this.display();
+        await this.refreshView();
+      })
+    );
   }
   exportToCSV() {
     const entries = this.plugin.timerManager.convertToTimeEntries();
@@ -1643,6 +1936,127 @@ var DataManager = class {
       generatedAt: (/* @__PURE__ */ new Date()).toISOString()
     };
   }
+  /**
+   * Check if there's a rest period violation for a given date
+   * A violation occurs when the gap between the last work session ending on the previous day
+   * and the first work session starting on the given day is less than the minimum rest hours
+   */
+  checkRestPeriodViolation(dateStr) {
+    var _a, _b;
+    const minimumRestHours = (_b = (_a = this.settings.complianceSettings) == null ? void 0 : _a.minimumRestHours) != null ? _b : 11;
+    const currentDate = new Date(dateStr);
+    const previousDate = new Date(currentDate);
+    previousDate.setDate(previousDate.getDate() - 1);
+    const previousDayKey = Utils.toLocalDateStr(previousDate);
+    const previousDayEntries = this.daily[previousDayKey] || [];
+    const currentDayEntries = this.daily[dateStr] || [];
+    if (previousDayEntries.length === 0 || currentDayEntries.length === 0) {
+      return { violated: false, restHours: null, previousDayEnd: null, currentDayStart: null };
+    }
+    let lastEndTimeMs = 0;
+    let lastEndTimeStr = "";
+    previousDayEntries.forEach((entry) => {
+      if (entry.endTime) {
+        const endTime = new Date(entry.endTime);
+        if (endTime.getTime() > lastEndTimeMs) {
+          lastEndTimeMs = endTime.getTime();
+          lastEndTimeStr = endTime.toISOString();
+        }
+      }
+    });
+    let firstStartTimeMs = Infinity;
+    let firstStartTimeStr = "";
+    currentDayEntries.forEach((entry) => {
+      if (entry.startTime) {
+        const startTime = new Date(entry.startTime);
+        if (startTime.getTime() < firstStartTimeMs) {
+          firstStartTimeMs = startTime.getTime();
+          firstStartTimeStr = startTime.toISOString();
+        }
+      }
+    });
+    if (lastEndTimeMs === 0 || firstStartTimeMs === Infinity) {
+      return { violated: false, restHours: null, previousDayEnd: null, currentDayStart: null };
+    }
+    const restHours = (firstStartTimeMs - lastEndTimeMs) / (1e3 * 60 * 60);
+    const violated = restHours < minimumRestHours;
+    return {
+      violated,
+      restHours,
+      previousDayEnd: lastEndTimeStr,
+      currentDayStart: firstStartTimeStr
+    };
+  }
+  /**
+   * Get statistics for a special day type, respecting the counting period setting
+   * For historical years, always use calendar year counting
+   * For current year, respect the countingPeriod setting
+   */
+  getSpecialDayStats(typeId, year) {
+    const behavior = this.getSpecialDayBehavior(typeId);
+    const today = /* @__PURE__ */ new Date();
+    const currentYear = today.getFullYear();
+    const targetYear = year != null ? year : currentYear;
+    const isCurrentYear = targetYear === currentYear;
+    const countingPeriod = (behavior == null ? void 0 : behavior.countingPeriod) || "calendar";
+    const useRolling = isCurrentYear && countingPeriod === "rolling365";
+    let count = 0;
+    const daysSeen = /* @__PURE__ */ new Set();
+    if (useRolling) {
+      const cutoffDate = new Date(today);
+      cutoffDate.setDate(cutoffDate.getDate() - 365);
+      const cutoffStr = Utils.toLocalDateStr(cutoffDate);
+      Object.keys(this.daily).forEach((dateStr) => {
+        if (dateStr >= cutoffStr && dateStr <= Utils.toLocalDateStr(today)) {
+          const entries = this.daily[dateStr];
+          entries.forEach((entry) => {
+            if (entry.name.toLowerCase() === typeId && !daysSeen.has(dateStr)) {
+              daysSeen.add(dateStr);
+              count++;
+            }
+          });
+        }
+      });
+      Object.keys(this.holidays).forEach((dateStr) => {
+        if (dateStr >= cutoffStr && dateStr <= Utils.toLocalDateStr(today)) {
+          const holidayInfo = this.holidays[dateStr];
+          if (holidayInfo.type === typeId && !daysSeen.has(dateStr)) {
+            daysSeen.add(dateStr);
+            count++;
+          }
+        }
+      });
+    } else {
+      Object.keys(this.daily).forEach((dateStr) => {
+        const date = new Date(dateStr);
+        if (date.getFullYear() === targetYear) {
+          const entries = this.daily[dateStr];
+          entries.forEach((entry) => {
+            if (entry.name.toLowerCase() === typeId && !daysSeen.has(dateStr)) {
+              daysSeen.add(dateStr);
+              count++;
+            }
+          });
+        }
+      });
+      Object.keys(this.holidays).forEach((dateStr) => {
+        const date = new Date(dateStr);
+        if (date.getFullYear() === targetYear) {
+          const holidayInfo = this.holidays[dateStr];
+          if (holidayInfo.type === typeId && !daysSeen.has(dateStr)) {
+            daysSeen.add(dateStr);
+            count++;
+          }
+        }
+      });
+    }
+    return {
+      count,
+      max: behavior == null ? void 0 : behavior.maxDaysPerYear,
+      isRolling: useRolling,
+      periodLabel: useRolling ? "365d" : targetYear.toString()
+    };
+  }
 };
 
 // src/uiBuilder.ts
@@ -1915,6 +2329,7 @@ var UIBuilder = class {
     this.selectedMonth = this.today.getMonth();
     this.elements = {
       badge: null,
+      complianceBadge: null,
       timerBadge: null,
       clock: null,
       dayCard: null,
@@ -1925,11 +2340,19 @@ var UIBuilder = class {
   }
   getBalanceColor(balance) {
     const t = this.settings.balanceThresholds;
+    const colors = this.settings.customColors;
     if (balance < t.criticalLow || balance > t.criticalHigh)
-      return "#f44336";
+      return (colors == null ? void 0 : colors.balanceCritical) || "#f44336";
     if (balance < t.warningLow || balance > t.warningHigh)
-      return "#ff9800";
-    return "#4caf50";
+      return (colors == null ? void 0 : colors.balanceWarning) || "#ff9800";
+    return (colors == null ? void 0 : colors.balanceOk) || "#4caf50";
+  }
+  darkenColor(color, percent) {
+    const hex = color.replace("#", "");
+    const r = Math.max(0, parseInt(hex.substr(0, 2), 16) - percent);
+    const g = Math.max(0, parseInt(hex.substr(2, 2), 16) - percent);
+    const b = Math.max(0, parseInt(hex.substr(4, 2), 16) - percent);
+    return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
   }
   createContainer() {
     const container = document.createElement("div");
@@ -1985,44 +2408,14 @@ var UIBuilder = class {
 
 			.tf-badge-section {
 				display: flex;
-				align-items: stretch;
+				align-items: center;
+				gap: 12px;
 				margin: 16px 0;
 				flex-wrap: wrap;
-				gap: 12px;
 			}
 
-			/* Desktop: timer button on top right */
-			@media (min-width: 601px) {
-				.tf-badge-section {
-					justify-content: space-between;
-				}
-				.tf-timer-badge {
-					order: 3;
-					margin-left: auto;
-				}
-				.tf-badge {
-					order: 1;
-				}
-				.tf-clock {
-					order: 2;
-				}
-			}
-
-			@media (max-width: 600px) {
-				.tf-badge-section {
-					flex-direction: row;
-					flex-wrap: wrap;
-					align-items: stretch;
-				}
-				.tf-badge {
-					width: 100% !important;
-					flex: 1 1 100%;
-				}
-				.tf-timer-badge, .tf-clock {
-					flex: 1 1 calc(50% - 6px);
-					min-width: 0;
-					max-width: calc(50% - 6px) !important;
-				}
+			.tf-compliance-badge {
+				margin-left: auto;
 			}
 
 			.tf-badge {
@@ -2073,13 +2466,14 @@ var UIBuilder = class {
 			.tf-timer-badge {
 				padding: 10px 18px;
 				border-radius: 12px;
-				display: inline-flex;
+				display: flex;
 				align-items: center;
 				justify-content: center;
 				gap: 8px;
 				white-space: normal;
 				text-align: center;
 				min-height: 44px;
+				min-width: 0;
 				cursor: pointer;
 				transition: all 0.2s;
 				border: none;
@@ -2097,6 +2491,19 @@ var UIBuilder = class {
 
 			.tf-timer-badge:active {
 				transform: translateY(0);
+			}
+
+			.tf-compliance-badge {
+				padding: 10px 14px;
+				border-radius: 12px;
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				min-height: 44px;
+				font-weight: bold;
+				font-size: inherit;
+				box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+				cursor: pointer;
 			}
 
 			/* Enable container queries on the dashboard container */
@@ -2141,7 +2548,7 @@ var UIBuilder = class {
 			}
 
 			/* Wide layout: 2x2 grid - Day/Week top, Month/Stats side by side bottom */
-			@container dashboard (min-width: 900px) {
+			@container dashboard (min-width: 750px) {
 				.tf-card-month { grid-column: 1; grid-row: 2; }
 				.tf-card-stats { grid-column: 2; grid-row: 2; }
 			}
@@ -2210,7 +2617,7 @@ var UIBuilder = class {
 			}
 
 			.timeflow-theme-system .tf-stat-label {
-				color: var(--text-muted);
+				color: var(--text-normal);
 			}
 
 			.timeflow-theme-system .tf-stat-value {
@@ -2223,7 +2630,20 @@ var UIBuilder = class {
 			}
 
 			.timeflow-theme-system .tf-stat-item .tf-stat-label {
-				color: var(--text-muted);
+				color: var(--text-normal);
+			}
+
+			/* System theme - stat labels in card stats should be readable */
+			.timeflow-theme-system .tf-card-stats .tf-stat-label {
+				color: var(--text-normal);
+			}
+
+			/* Colored stat items should always have white text */
+			.tf-stat-colored,
+			.tf-stat-colored div,
+			.tf-stat-colored .tf-stat-label,
+			.tf-stat-colored .tf-stat-value {
+				color: white !important;
 			}
 
 			/* Dark theme - internally consistent with dark greens and blues */
@@ -2363,13 +2783,13 @@ var UIBuilder = class {
 
 			.tf-stats-grid {
 				display: grid;
-				grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+				grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
 				gap: 15px;
 				margin-top: 15px;
 			}
 
 			/* When stats card is in wide layout (beside calendar), force 2 columns */
-			@container dashboard (min-width: 900px) {
+			@container dashboard (min-width: 750px) {
 				.tf-card-stats .tf-stats-grid {
 					grid-template-columns: repeat(2, 1fr);
 				}
@@ -2380,7 +2800,7 @@ var UIBuilder = class {
 				display: none;
 			}
 
-			@container dashboard (min-width: 900px) {
+			@container dashboard (min-width: 750px) {
 				.tf-future-days-list {
 					display: block;
 					margin-top: 20px;
@@ -2670,6 +3090,39 @@ var UIBuilder = class {
 				color: var(--text-normal);
 			}
 
+			/* Compliance info panel */
+			.tf-compliance-info-panel {
+				position: fixed;
+				background: var(--background-primary);
+				border: 1px solid var(--background-modifier-border);
+				border-radius: 8px;
+				box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+				padding: 12px 16px;
+				z-index: 1000;
+				min-width: 220px;
+				max-width: 300px;
+			}
+
+			.tf-compliance-info-panel h4 {
+				margin: 0 0 10px 0;
+				font-size: 0.95em;
+				color: var(--text-normal);
+			}
+
+			.tf-compliance-info-panel p {
+				margin: 6px 0;
+				color: var(--text-muted);
+				font-size: 0.9em;
+			}
+
+			.tf-compliance-info-panel strong {
+				color: var(--text-normal);
+			}
+
+			.timeflow-theme-dark .tf-compliance-info-panel {
+				background: var(--background-secondary);
+			}
+
 			.tf-menu-item {
 				padding: 8px 16px;
 				cursor: pointer;
@@ -2797,16 +3250,21 @@ var UIBuilder = class {
     const badge = document.createElement("div");
     badge.className = "tf-badge";
     this.elements.badge = badge;
-    const timerBadge = document.createElement("button");
-    timerBadge.className = "tf-timer-badge";
-    this.elements.timerBadge = timerBadge;
     const clock = document.createElement("div");
     clock.className = "tf-clock";
     this.elements.clock = clock;
+    const complianceBadge = document.createElement("div");
+    complianceBadge.className = "tf-compliance-badge";
+    this.elements.complianceBadge = complianceBadge;
+    const timerBadge = document.createElement("button");
+    timerBadge.className = "tf-timer-badge";
+    this.elements.timerBadge = timerBadge;
     section.appendChild(badge);
-    section.appendChild(timerBadge);
     section.appendChild(clock);
+    section.appendChild(complianceBadge);
+    section.appendChild(timerBadge);
     this.updateBadge();
+    this.updateComplianceBadge();
     this.updateTimerBadge();
     this.updateClock();
     return section;
@@ -2818,7 +3276,7 @@ var UIBuilder = class {
     if (activeTimers.length === 0) {
       this.elements.timerBadge.innerHTML = "";
       this.elements.timerBadge.style.background = "transparent";
-      this.elements.timerBadge.style.display = "flex";
+      this.elements.timerBadge.style.display = "inline-flex";
       this.elements.timerBadge.style.alignItems = "stretch";
       this.elements.timerBadge.style.gap = "0";
       this.elements.timerBadge.style.padding = "0";
@@ -2833,6 +3291,7 @@ var UIBuilder = class {
       startBtn.style.borderRadius = "12px 0 0 12px";
       startBtn.style.display = "flex";
       startBtn.style.alignItems = "center";
+      startBtn.style.justifyContent = "center";
       startBtn.style.transition = "filter 0.2s";
       startBtn.onmouseover = () => {
         startBtn.style.filter = "brightness(1.1)";
@@ -2874,7 +3333,9 @@ var UIBuilder = class {
       this.elements.timerBadge.textContent = "Stopp";
       this.elements.timerBadge.style.background = "#f44336";
       this.elements.timerBadge.style.color = "white";
-      this.elements.timerBadge.style.display = "block";
+      this.elements.timerBadge.style.display = "inline-flex";
+      this.elements.timerBadge.style.alignItems = "center";
+      this.elements.timerBadge.style.justifyContent = "center";
       this.elements.timerBadge.style.padding = "";
       this.elements.timerBadge.onclick = async () => {
         for (const timer of activeTimers) {
@@ -2991,7 +3452,7 @@ var UIBuilder = class {
     header.style.flexWrap = "wrap";
     header.style.gap = "8px";
     const title = document.createElement("h3");
-    title.textContent = "M\xE5nedskalender";
+    title.textContent = "Kalender";
     title.style.margin = "0";
     title.style.flexShrink = "1";
     title.style.minWidth = "0";
@@ -3095,6 +3556,7 @@ var UIBuilder = class {
     return card;
   }
   buildInfoCard() {
+    var _a, _b, _c;
     const card = document.createElement("div");
     card.className = "tf-card tf-card-spaced";
     const header = document.createElement("div");
@@ -3120,9 +3582,9 @@ var UIBuilder = class {
 				<h4>Spesielle dagtyper</h4>
 				<ul style="list-style: none; padding-left: 0; margin-bottom: 20px;">
 					${specialDayInfo.map((item) => {
-      var _a, _b;
+      var _a2, _b2;
       const color = getSpecialDayColors(this.settings)[item.key] || "transparent";
-      const label = ((_a = this.settings.specialDayBehaviors.find((b) => b.id === item.key)) == null ? void 0 : _a.label) || ((_b = this.settings.specialDayLabels) == null ? void 0 : _b[item.key]) || item.key;
+      const label = ((_a2 = this.settings.specialDayBehaviors.find((b) => b.id === item.key)) == null ? void 0 : _a2.label) || ((_b2 = this.settings.specialDayLabels) == null ? void 0 : _b2[item.key]) || item.key;
       return `<li style="display: flex; align-items: center; margin-bottom: 8px; font-size: 0.95em;">
 							<div style="width: 16px; height: 16px; background: ${color}; border-radius: 3px; border: 1px solid var(--background-modifier-border); margin-right: 8px; flex-shrink: 0;"></div>
 							<span>${item.emoji} <strong>${label}</strong>: ${item.desc}</span>
@@ -3147,20 +3609,20 @@ var UIBuilder = class {
 					<h4 style="margin-top: 0;">Fleksitidsaldo - advarselsoner</h4>
 					<div style="display: flex; flex-direction: column; gap: 8px; font-size: 0.9em;">
 						<div style="display: flex; align-items: center; gap: 8px;">
-							<span style="display: inline-block; width: 20px; height: 20px; border-radius: 4px; background: #4caf50; flex-shrink: 0;"></span>
-							<span><strong>Gr\xF8nn sone:</strong> 0t til +80t (trygg)</span>
+							<span style="display: inline-block; width: 20px; height: 20px; border-radius: 4px; background: ${((_a = this.settings.customColors) == null ? void 0 : _a.balanceOk) || "#4caf50"}; flex-shrink: 0;"></span>
+							<span><strong>Gr\xF8nn sone:</strong> ${this.settings.balanceThresholds.warningLow}t til +${this.settings.balanceThresholds.warningHigh}t (trygg)</span>
 						</div>
 						<div style="display: flex; align-items: center; gap: 8px;">
-							<span style="display: inline-block; width: 20px; height: 20px; border-radius: 4px; background: #ff9800; flex-shrink: 0;"></span>
-							<span><strong>Gul sone:</strong> -15t til -1t ELLER +80t til +95t (forsiktig)</span>
+							<span style="display: inline-block; width: 20px; height: 20px; border-radius: 4px; background: ${((_b = this.settings.customColors) == null ? void 0 : _b.balanceWarning) || "#ff9800"}; flex-shrink: 0;"></span>
+							<span><strong>Gul sone:</strong> ${this.settings.balanceThresholds.criticalLow}t til ${this.settings.balanceThresholds.warningLow - 1}t ELLER +${this.settings.balanceThresholds.warningHigh}t til +${this.settings.balanceThresholds.criticalHigh}t (forsiktig)</span>
 						</div>
 						<div style="display: flex; align-items: center; gap: 8px;">
-							<span style="display: inline-block; width: 20px; height: 20px; border-radius: 4px; background: #f44336; flex-shrink: 0;"></span>
-							<span><strong>R\xF8d sone:</strong> Under -15t ELLER over +95t (kritisk)</span>
+							<span style="display: inline-block; width: 20px; height: 20px; border-radius: 4px; background: ${((_c = this.settings.customColors) == null ? void 0 : _c.balanceCritical) || "#f44336"}; flex-shrink: 0;"></span>
+							<span><strong>R\xF8d sone:</strong> Under ${this.settings.balanceThresholds.criticalLow}t ELLER over +${this.settings.balanceThresholds.criticalHigh}t (kritisk)</span>
 						</div>
 					</div>
 					<div style="margin-top: 10px; font-size: 0.85em; opacity: 0.8;">
-						<em>Grenser: -20t til +100t</em>
+						<em>Grenser: ${this.settings.balanceThresholds.criticalLow - 5}t til +${this.settings.balanceThresholds.criticalHigh + 5}t</em>
 					</div>
 				</div>
 
@@ -3243,24 +3705,78 @@ var UIBuilder = class {
     return card;
   }
   buildStatusBar() {
-    var _a, _b, _c, _d, _e, _f;
+    var _a, _b, _c, _d, _e, _f, _g;
     const bar = document.createElement("div");
     bar.className = "tf-status-bar";
     const status = this.systemStatus;
-    const statusIcon = ((_a = status.validation) == null ? void 0 : _a.hasErrors) ? "\u274C" : ((_b = status.validation) == null ? void 0 : _b.hasWarnings) ? "\u26A0\uFE0F" : "\u2705";
-    bar.innerHTML = `
-			<div style="display: flex; align-items: center; gap: 10px;">
-				<span>${statusIcon}</span>
-				<div>
-					<div><strong>System Status</strong></div>
-					<div style="font-size: 12px; color: var(--text-muted);">
-						${((_c = status.holiday) == null ? void 0 : _c.message) || "Holiday data not loaded"} \u2022
-						${status.activeTimers || 0} active timer(s) \u2022
-						${((_f = (_e = (_d = status.validation) == null ? void 0 : _d.issues) == null ? void 0 : _e.stats) == null ? void 0 : _f.totalEntries) || 0} entries checked
-					</div>
+    const hasErrors = (_a = status.validation) == null ? void 0 : _a.hasErrors;
+    const hasWarnings = (_b = status.validation) == null ? void 0 : _b.hasWarnings;
+    const statusIcon = hasErrors ? "\u274C" : hasWarnings ? "\u26A0\uFE0F" : "\u2705";
+    const hasIssues = hasErrors || hasWarnings;
+    let issuesHTML = "";
+    if (hasIssues && ((_c = status.validation) == null ? void 0 : _c.issues)) {
+      const errors = status.validation.issues.errors || [];
+      const warnings = status.validation.issues.warnings || [];
+      if (errors.length > 0) {
+        issuesHTML += `<div style="margin-top: 8px;"><strong style="color: #f44336;">Feil (${errors.length}):</strong></div>`;
+        errors.slice(0, 5).forEach((err) => {
+          issuesHTML += `<div style="font-size: 12px; margin-left: 12px; color: #f44336;">
+						\u2022 ${err.type}: ${err.description}${err.date ? ` (${err.date})` : ""}
+					</div>`;
+        });
+        if (errors.length > 5) {
+          issuesHTML += `<div style="font-size: 11px; margin-left: 12px; color: var(--text-muted);">...og ${errors.length - 5} flere feil</div>`;
+        }
+      }
+      if (warnings.length > 0) {
+        issuesHTML += `<div style="margin-top: 8px;"><strong style="color: #ff9800;">Advarsler (${warnings.length}):</strong></div>`;
+        warnings.slice(0, 5).forEach((warn) => {
+          issuesHTML += `<div style="font-size: 12px; margin-left: 12px; color: #ff9800;">
+						\u2022 ${warn.type}: ${warn.description}${warn.date ? ` (${warn.date})` : ""}
+					</div>`;
+        });
+        if (warnings.length > 5) {
+          issuesHTML += `<div style="font-size: 11px; margin-left: 12px; color: var(--text-muted);">...og ${warnings.length - 5} flere advarsler</div>`;
+        }
+      }
+    }
+    const header = document.createElement("div");
+    header.style.cssText = "display: flex; align-items: center; gap: 10px; cursor: pointer;";
+    header.innerHTML = `
+			<span>${statusIcon}</span>
+			<div style="flex: 1;">
+				<div><strong>System Status</strong> ${hasIssues ? '<span style="font-size: 11px; opacity: 0.7;">(klikk for detaljer)</span>' : ""}</div>
+				<div style="font-size: 12px; color: var(--text-muted);">
+					${((_d = status.holiday) == null ? void 0 : _d.message) || "Holiday data not loaded"} \u2022
+					${status.activeTimers || 0} active timer(s) \u2022
+					${((_g = (_f = (_e = status.validation) == null ? void 0 : _e.issues) == null ? void 0 : _f.stats) == null ? void 0 : _g.totalEntries) || 0} entries checked
 				</div>
 			</div>
+			${hasIssues ? '<span class="tf-status-toggle" style="font-size: 10px; transition: transform 0.2s;">\u25B6</span>' : ""}
 		`;
+    bar.appendChild(header);
+    if (hasIssues) {
+      const details = document.createElement("div");
+      details.className = "tf-status-details";
+      details.style.cssText = "max-height: 0; overflow: hidden; transition: max-height 0.3s ease-out; opacity: 0;";
+      details.innerHTML = `<div style="padding-top: 10px; border-top: 1px solid var(--background-modifier-border); margin-top: 10px;">${issuesHTML}</div>`;
+      bar.appendChild(details);
+      let isOpen = false;
+      header.onclick = () => {
+        isOpen = !isOpen;
+        const toggle = header.querySelector(".tf-status-toggle");
+        if (toggle) {
+          toggle.style.transform = isOpen ? "rotate(90deg)" : "rotate(0deg)";
+        }
+        if (isOpen) {
+          details.style.maxHeight = details.scrollHeight + "px";
+          details.style.opacity = "1";
+        } else {
+          details.style.maxHeight = "0";
+          details.style.opacity = "0";
+        }
+      };
+    }
     return bar;
   }
   updateClock() {
@@ -3284,12 +3800,183 @@ var UIBuilder = class {
     this.elements.badge.style.color = "white";
     this.elements.badge.textContent = `Fleksitidsaldo: ${sign}${formatted}`;
   }
+  /**
+   * Get compliance status: 'ok' | 'approaching' | 'exceeded'
+   * Based on daily and weekly hours compared to limits
+   */
+  getComplianceStatus() {
+    var _a, _b, _c, _d, _e;
+    if (!((_a = this.settings.complianceSettings) == null ? void 0 : _a.enableWarnings)) {
+      return { status: "ok", dailyStatus: "ok", weeklyStatus: "ok", tooltip: "" };
+    }
+    const today = /* @__PURE__ */ new Date();
+    const todayHours = this.data.getTodayHours(today);
+    const weekHours = this.data.getCurrentWeekHours(today);
+    const dailyLimit = (_c = (_b = this.settings.complianceSettings) == null ? void 0 : _b.dailyHoursLimit) != null ? _c : 9;
+    const weeklyLimit = (_e = (_d = this.settings.complianceSettings) == null ? void 0 : _d.weeklyHoursLimit) != null ? _e : 40;
+    const dailyApproaching = this.settings.baseWorkday * this.settings.workPercent;
+    const weeklyApproaching = this.settings.baseWorkweek * this.settings.workPercent;
+    let dailyStatus = "ok";
+    let weeklyStatus = "ok";
+    if (todayHours >= dailyLimit) {
+      dailyStatus = "exceeded";
+    } else if (todayHours >= dailyApproaching) {
+      dailyStatus = "approaching";
+    }
+    if (weekHours >= weeklyLimit) {
+      weeklyStatus = "exceeded";
+    } else if (weekHours >= weeklyApproaching) {
+      weeklyStatus = "approaching";
+    }
+    let status = "ok";
+    if (dailyStatus === "exceeded" || weeklyStatus === "exceeded") {
+      status = "exceeded";
+    } else if (dailyStatus === "approaching" || weeklyStatus === "approaching") {
+      status = "approaching";
+    }
+    const tooltipParts = [];
+    if (dailyStatus === "exceeded") {
+      tooltipParts.push(`Dag: ${todayHours.toFixed(1)}t (maks ${dailyLimit}t)`);
+    } else if (dailyStatus === "approaching") {
+      tooltipParts.push(`Dag: ${todayHours.toFixed(1)}t (n\xE6rmer seg ${dailyLimit}t)`);
+    }
+    if (weeklyStatus === "exceeded") {
+      tooltipParts.push(`Uke: ${weekHours.toFixed(1)}t (maks ${weeklyLimit}t)`);
+    } else if (weeklyStatus === "approaching") {
+      tooltipParts.push(`Uke: ${weekHours.toFixed(1)}t (n\xE6rmer seg ${weeklyLimit}t)`);
+    }
+    if (tooltipParts.length === 0 && status === "ok") {
+      tooltipParts.push(`Dag: ${todayHours.toFixed(1)}t, Uke: ${weekHours.toFixed(1)}t - Innenfor grensene`);
+    }
+    return { status, dailyStatus, weeklyStatus, tooltip: tooltipParts.join("\n") };
+  }
+  /**
+   * Update compliance status badge
+   */
+  updateComplianceBadge() {
+    var _a;
+    if (!this.elements.complianceBadge)
+      return;
+    if (!((_a = this.settings.complianceSettings) == null ? void 0 : _a.enableWarnings)) {
+      this.elements.complianceBadge.style.display = "none";
+      return;
+    }
+    const { status } = this.getComplianceStatus();
+    this.elements.complianceBadge.style.display = "";
+    this.elements.complianceBadge.style.cursor = "pointer";
+    if (status === "ok") {
+      this.elements.complianceBadge.style.background = "rgba(76, 175, 80, 0.2)";
+      this.elements.complianceBadge.style.border = "1px solid rgba(76, 175, 80, 0.4)";
+      this.elements.complianceBadge.textContent = "\u{1F7E9} OK";
+    } else if (status === "approaching") {
+      this.elements.complianceBadge.style.background = "rgba(255, 152, 0, 0.2)";
+      this.elements.complianceBadge.style.border = "1px solid rgba(255, 152, 0, 0.4)";
+      this.elements.complianceBadge.textContent = "\u{1F7E8} N\xE6r";
+    } else {
+      this.elements.complianceBadge.style.background = "rgba(244, 67, 54, 0.2)";
+      this.elements.complianceBadge.style.border = "1px solid rgba(244, 67, 54, 0.4)";
+      this.elements.complianceBadge.textContent = "\u{1F7E5} Over";
+    }
+    this.elements.complianceBadge.onclick = (e) => {
+      e.stopPropagation();
+      this.showComplianceInfoPanel();
+    };
+  }
+  /**
+   * Show compliance info panel with detailed information
+   */
+  showComplianceInfoPanel() {
+    var _a, _b, _c, _d, _e, _f;
+    const existingPanel = document.querySelector(".tf-compliance-info-panel");
+    if (existingPanel) {
+      existingPanel.remove();
+      return;
+    }
+    const today = /* @__PURE__ */ new Date();
+    const todayStr = Utils.toLocalDateStr(today);
+    const todayHours = this.data.getTodayHours(today);
+    const weekHours = this.data.getCurrentWeekHours(today);
+    const dailyLimit = (_b = (_a = this.settings.complianceSettings) == null ? void 0 : _a.dailyHoursLimit) != null ? _b : 9;
+    const weeklyLimit = (_d = (_c = this.settings.complianceSettings) == null ? void 0 : _c.weeklyHoursLimit) != null ? _d : 40;
+    const minimumRest = (_f = (_e = this.settings.complianceSettings) == null ? void 0 : _e.minimumRestHours) != null ? _f : 11;
+    const { dailyStatus, weeklyStatus } = this.getComplianceStatus();
+    const restCheck = this.data.checkRestPeriodViolation(todayStr);
+    const panel = document.createElement("div");
+    panel.className = "tf-compliance-info-panel";
+    const themeClass = `timeflow-theme-${this.settings.theme}`;
+    panel.classList.add(themeClass);
+    let html = "<h4>\u2696\uFE0F Arbeidstidsgrenser</h4>";
+    const dailyIcon = dailyStatus === "ok" ? "\u{1F7E9}" : dailyStatus === "approaching" ? "\u{1F7E8}" : "\u{1F7E5}";
+    html += `<p><strong>I dag:</strong> ${dailyIcon} ${todayHours.toFixed(1)}t / ${dailyLimit}t</p>`;
+    const weeklyIcon = weeklyStatus === "ok" ? "\u{1F7E9}" : weeklyStatus === "approaching" ? "\u{1F7E8}" : "\u{1F7E5}";
+    html += `<p><strong>Denne uken:</strong> ${weeklyIcon} ${weekHours.toFixed(1)}t / ${weeklyLimit}t</p>`;
+    if (restCheck.violated && restCheck.restHours !== null) {
+      html += `<p class="tf-rest-warning"><strong>Hviletid:</strong> \u{1F7E5} ${restCheck.restHours.toFixed(1)}t (minimum ${minimumRest}t)</p>`;
+    } else if (restCheck.restHours !== null) {
+      html += `<p><strong>Hviletid:</strong> \u{1F7E9} ${restCheck.restHours.toFixed(1)}t (minimum ${minimumRest}t)</p>`;
+    }
+    html += '<hr style="margin: 10px 0; border: none; border-top: 1px solid var(--background-modifier-border);">';
+    if (dailyStatus === "exceeded" || weeklyStatus === "exceeded" || restCheck.violated) {
+      html += '<p style="font-size: 12px; color: var(--text-muted);">En eller flere grenser er overskredet.</p>';
+    } else if (dailyStatus === "approaching" || weeklyStatus === "approaching") {
+      html += '<p style="font-size: 12px; color: var(--text-muted);">N\xE6rmer seg en eller flere grenser.</p>';
+    } else {
+      html += '<p style="font-size: 12px; color: var(--text-muted);">Alle grenser er OK.</p>';
+    }
+    panel.innerHTML = html;
+    const badgeRect = this.elements.complianceBadge.getBoundingClientRect();
+    panel.style.position = "fixed";
+    panel.style.top = `${badgeRect.bottom + 8}px`;
+    panel.style.right = `${window.innerWidth - badgeRect.right}px`;
+    document.body.appendChild(panel);
+    const closeHandler = (e) => {
+      if (!panel.contains(e.target) && e.target !== this.elements.complianceBadge) {
+        panel.remove();
+        document.removeEventListener("click", closeHandler);
+      }
+    };
+    setTimeout(() => document.addEventListener("click", closeHandler), 0);
+  }
+  /**
+   * Generate compliance warning HTML for daily hours
+   */
+  getDailyComplianceWarning(hours) {
+    var _a, _b, _c;
+    if (!((_a = this.settings.complianceSettings) == null ? void 0 : _a.enableWarnings))
+      return "";
+    const dailyLimit = (_c = (_b = this.settings.complianceSettings) == null ? void 0 : _b.dailyHoursLimit) != null ? _c : 9;
+    const approachingThreshold = this.settings.baseWorkday * this.settings.workPercent;
+    if (hours >= dailyLimit) {
+      return `<span class="tf-compliance-warning exceeded" title="Overstiger daglig grense p\xE5 ${dailyLimit} timer">\u26A0\uFE0F >${dailyLimit}t</span>`;
+    } else if (hours >= approachingThreshold) {
+      return `<span class="tf-compliance-warning approaching" title="N\xE6rmer seg daglig grense p\xE5 ${dailyLimit} timer">\u23F0 ${dailyLimit}t grense</span>`;
+    }
+    return "";
+  }
+  /**
+   * Generate compliance warning HTML for weekly hours
+   */
+  getWeeklyComplianceWarning(hours) {
+    var _a, _b, _c;
+    if (!((_a = this.settings.complianceSettings) == null ? void 0 : _a.enableWarnings))
+      return "";
+    const weeklyLimit = (_c = (_b = this.settings.complianceSettings) == null ? void 0 : _b.weeklyHoursLimit) != null ? _c : 40;
+    const approachingThreshold = this.settings.baseWorkweek * this.settings.workPercent;
+    if (hours >= weeklyLimit) {
+      return `<span class="tf-compliance-warning exceeded" title="Overstiger ukentlig grense p\xE5 ${weeklyLimit} timer">\u26A0\uFE0F >${weeklyLimit}t</span>`;
+    } else if (hours >= approachingThreshold) {
+      return `<span class="tf-compliance-warning approaching" title="N\xE6rmer seg ukentlig grense p\xE5 ${weeklyLimit} timer">\u23F0 ${weeklyLimit}t grense</span>`;
+    }
+    return "";
+  }
   updateDayCard() {
+    var _a, _b;
     if (!this.elements.dayCard)
       return;
     const today = /* @__PURE__ */ new Date();
     const todayKey = Utils.toLocalDateStr(today);
     const todayHours = this.data.getTodayHours(today);
+    this.updateComplianceBadge();
     if (!this.settings.enableGoalTracking) {
       this.elements.dayCard.style.background = "linear-gradient(135deg, #607d8b, #78909c)";
       this.elements.dayCard.style.color = "white";
@@ -3337,6 +4024,11 @@ var UIBuilder = class {
     }
     this.elements.dayCard.style.background = bgColor;
     this.elements.dayCard.style.color = textColor;
+    const messageSection = this.settings.enableMotivationalMessages ? `
+			<div style="margin-top: 10px; font-size: 14px;">
+				${message}
+			</div>
+		` : "";
     this.elements.dayCard.innerHTML = `
 			<h3 style="color: ${textColor};">I dag</h3>
 			<div style="font-size: 32px; font-weight: bold; margin: 10px 0;">
@@ -3346,14 +4038,13 @@ var UIBuilder = class {
 				M\xE5l: ${Utils.formatHoursToHM(goal, this.settings.hourUnit)}
 			</div>
 			<div class="tf-progress-bar">
-				<div class="tf-progress-fill" style="width: ${progress}%"></div>
+				<div class="tf-progress-fill" style="width: ${progress}%; background: linear-gradient(90deg, ${((_a = this.settings.customColors) == null ? void 0 : _a.progressBar) || "#4caf50"}, ${this.darkenColor(((_b = this.settings.customColors) == null ? void 0 : _b.progressBar) || "#4caf50", 20)})"></div>
 			</div>
-			<div style="margin-top: 10px; font-size: 14px;">
-				${message}
-			</div>
+			${messageSection}
 		`;
   }
   updateWeekCard() {
+    var _a, _b;
     if (!this.elements.weekCard)
       return;
     const today = /* @__PURE__ */ new Date();
@@ -3435,7 +4126,12 @@ var UIBuilder = class {
 				M\xE5l: ${Utils.formatHoursToHM(adjustedGoal, this.settings.hourUnit)}
 			</div>
 			<div class="tf-progress-bar">
-				<div class="tf-progress-fill" style="width: ${progress}%"></div>
+				<div class="tf-progress-fill" style="width: ${progress}%; background: linear-gradient(90deg, ${((_a = this.settings.customColors) == null ? void 0 : _a.progressBar) || "#4caf50"}, ${this.darkenColor(((_b = this.settings.customColors) == null ? void 0 : _b.progressBar) || "#4caf50", 20)})"></div>
+			</div>
+		` : "";
+    const weekMessageSection = this.settings.enableMotivationalMessages ? `
+			<div style="margin-top: 10px; font-size: 14px;">
+				${message}
 			</div>
 		` : "";
     this.elements.weekCard.innerHTML = `
@@ -3444,9 +4140,7 @@ var UIBuilder = class {
 				${Utils.formatHoursToHM(weekHours, this.settings.hourUnit)}
 			</div>
 			${goalSection}
-			<div style="margin-top: 10px; font-size: 14px;">
-				${message}
-			</div>
+			${weekMessageSection}
 		`;
   }
   updateStatsCard() {
@@ -3578,13 +4272,18 @@ var UIBuilder = class {
       const feriePercent = (stats.ferie.count / stats.ferie.max * 100).toFixed(0);
       ferieDisplay = `${stats.ferie.count}/${stats.ferie.max} dager (${feriePercent}%)`;
     }
-    let egenmeldingDisplay = `${stats.egenmelding.count} dager`;
-    if (this.statsTimeframe === "year" && stats.egenmelding.max > 0) {
-      const egenmeldingPercent = (stats.egenmelding.count / stats.egenmelding.max * 100).toFixed(0);
-      egenmeldingDisplay = `${stats.egenmelding.count}/${stats.egenmelding.max} dager (${egenmeldingPercent}%)`;
+    const egenmeldingStats = this.data.getSpecialDayStats("egenmelding", this.selectedYear);
+    let egenmeldingDisplay = `${egenmeldingStats.count} dager`;
+    let egenmeldingPeriodLabel = "";
+    if (this.statsTimeframe === "year") {
+      if (egenmeldingStats.max && egenmeldingStats.max > 0) {
+        const egenmeldingPercent = (egenmeldingStats.count / egenmeldingStats.max * 100).toFixed(0);
+        egenmeldingDisplay = `${egenmeldingStats.count}/${egenmeldingStats.max} dager (${egenmeldingPercent}%)`;
+      }
+      egenmeldingPeriodLabel = `(${egenmeldingStats.periodLabel})`;
     }
     this.elements.statsCard.innerHTML = `
-			${this.settings.enableGoalTracking ? `<div class="tf-stat-item" style="background: ${timesaldoColor}; color: white;">
+			${this.settings.enableGoalTracking ? `<div class="tf-stat-item tf-stat-colored" style="background: ${timesaldoColor};">
 				<div class="tf-stat-label">Fleksitidsaldo</div>
 				<div class="tf-stat-value">${sign}${balance.toFixed(1)}t</div>
 				<div style="font-size: 0.75em; margin-top: 4px;">Total saldo</div>
@@ -3635,7 +4334,7 @@ var UIBuilder = class {
 			<div class="tf-stat-item">
 				<div class="tf-stat-label">\u{1F912} Egenmelding</div>
 				<div class="tf-stat-value" style="font-size: ${this.statsTimeframe === "year" ? "0.9em" : "1.3em"};">${egenmeldingDisplay}</div>
-				<div style="font-size: 0.75em; margin-top: 4px;">${this.statsTimeframe === "year" ? "(365d)" : ""}</div>
+				<div style="font-size: 0.75em; margin-top: 4px;">${egenmeldingPeriodLabel}</div>
 			</div>
 			<div class="tf-stat-item">
 				<div class="tf-stat-label">\u{1F3E5} Sykemelding</div>
@@ -3843,6 +4542,7 @@ var UIBuilder = class {
     }
   }
   showNoteTypeMenu(cellRect, dateObj) {
+    var _a, _b, _c;
     const existingMenu = document.querySelector(".tf-context-menu");
     if (existingMenu)
       existingMenu.remove();
@@ -3980,6 +4680,16 @@ var UIBuilder = class {
       }
     } else if (isPastDay && !isPlannedDay && runningTimersForDate.length === 0) {
       infoHTML += '<p style="color: var(--text-muted);">Ingen registrering</p>';
+    }
+    if (((_a = this.settings.complianceSettings) == null ? void 0 : _a.enableWarnings) && !isFutureDay && completedEntries.length > 0) {
+      const restCheck = this.data.checkRestPeriodViolation(dateStr);
+      if (restCheck.violated && restCheck.restHours !== null) {
+        const minimumRest = (_c = (_b = this.settings.complianceSettings) == null ? void 0 : _b.minimumRestHours) != null ? _c : 11;
+        infoHTML += `<div class="tf-rest-period-warning">
+					<span class="warning-icon">\u26A0\uFE0F</span>
+					<span>Hviletid: Kun ${restCheck.restHours.toFixed(1)} timer mellom arbeids\xF8kter (minimum ${minimumRest} timer)</span>
+				</div>`;
+      }
     }
     infoHTML += '<p style="margin-top: 12px; font-size: 0.8em; color: var(--text-muted); border-top: 1px solid var(--background-modifier-border); padding-top: 8px;">\u{1F4A1} Velg et alternativ fra menyen til venstre</p>';
     menuInfo.innerHTML = infoHTML;

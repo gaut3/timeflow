@@ -21,6 +21,7 @@ export class UIBuilder {
 	timerManager: TimerManager;
 	elements: {
 		badge: HTMLElement | null;
+		complianceBadge: HTMLElement | null;
 		timerBadge: HTMLButtonElement | null;
 		clock: HTMLElement | null;
 		dayCard: HTMLElement | null;
@@ -41,6 +42,7 @@ export class UIBuilder {
 		this.selectedMonth = this.today.getMonth();
 		this.elements = {
 			badge: null,
+			complianceBadge: null,
 			timerBadge: null,
 			clock: null,
 			dayCard: null,
@@ -52,9 +54,22 @@ export class UIBuilder {
 
 	getBalanceColor(balance: number): string {
 		const t = this.settings.balanceThresholds;
-		if (balance < t.criticalLow || balance > t.criticalHigh) return '#f44336';
-		if (balance < t.warningLow || balance > t.warningHigh) return '#ff9800';
-		return '#4caf50';
+		const colors = this.settings.customColors;
+
+		if (balance < t.criticalLow || balance > t.criticalHigh)
+			return colors?.balanceCritical || '#f44336';
+		if (balance < t.warningLow || balance > t.warningHigh)
+			return colors?.balanceWarning || '#ff9800';
+		return colors?.balanceOk || '#4caf50';
+	}
+
+	private darkenColor(color: string, percent: number): string {
+		// Simple darkening: extract RGB and reduce by percent
+		const hex = color.replace('#', '');
+		const r = Math.max(0, parseInt(hex.substr(0, 2), 16) - percent);
+		const g = Math.max(0, parseInt(hex.substr(2, 2), 16) - percent);
+		const b = Math.max(0, parseInt(hex.substr(4, 2), 16) - percent);
+		return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
 	}
 
 	createContainer(): HTMLElement {
@@ -113,44 +128,14 @@ export class UIBuilder {
 
 			.tf-badge-section {
 				display: flex;
-				align-items: stretch;
+				align-items: center;
+				gap: 12px;
 				margin: 16px 0;
 				flex-wrap: wrap;
-				gap: 12px;
 			}
 
-			/* Desktop: timer button on top right */
-			@media (min-width: 601px) {
-				.tf-badge-section {
-					justify-content: space-between;
-				}
-				.tf-timer-badge {
-					order: 3;
-					margin-left: auto;
-				}
-				.tf-badge {
-					order: 1;
-				}
-				.tf-clock {
-					order: 2;
-				}
-			}
-
-			@media (max-width: 600px) {
-				.tf-badge-section {
-					flex-direction: row;
-					flex-wrap: wrap;
-					align-items: stretch;
-				}
-				.tf-badge {
-					width: 100% !important;
-					flex: 1 1 100%;
-				}
-				.tf-timer-badge, .tf-clock {
-					flex: 1 1 calc(50% - 6px);
-					min-width: 0;
-					max-width: calc(50% - 6px) !important;
-				}
+			.tf-compliance-badge {
+				margin-left: auto;
 			}
 
 			.tf-badge {
@@ -201,13 +186,14 @@ export class UIBuilder {
 			.tf-timer-badge {
 				padding: 10px 18px;
 				border-radius: 12px;
-				display: inline-flex;
+				display: flex;
 				align-items: center;
 				justify-content: center;
 				gap: 8px;
 				white-space: normal;
 				text-align: center;
 				min-height: 44px;
+				min-width: 0;
 				cursor: pointer;
 				transition: all 0.2s;
 				border: none;
@@ -225,6 +211,19 @@ export class UIBuilder {
 
 			.tf-timer-badge:active {
 				transform: translateY(0);
+			}
+
+			.tf-compliance-badge {
+				padding: 10px 14px;
+				border-radius: 12px;
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				min-height: 44px;
+				font-weight: bold;
+				font-size: inherit;
+				box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+				cursor: pointer;
 			}
 
 			/* Enable container queries on the dashboard container */
@@ -269,7 +268,7 @@ export class UIBuilder {
 			}
 
 			/* Wide layout: 2x2 grid - Day/Week top, Month/Stats side by side bottom */
-			@container dashboard (min-width: 900px) {
+			@container dashboard (min-width: 750px) {
 				.tf-card-month { grid-column: 1; grid-row: 2; }
 				.tf-card-stats { grid-column: 2; grid-row: 2; }
 			}
@@ -338,7 +337,7 @@ export class UIBuilder {
 			}
 
 			.timeflow-theme-system .tf-stat-label {
-				color: var(--text-muted);
+				color: var(--text-normal);
 			}
 
 			.timeflow-theme-system .tf-stat-value {
@@ -351,7 +350,20 @@ export class UIBuilder {
 			}
 
 			.timeflow-theme-system .tf-stat-item .tf-stat-label {
-				color: var(--text-muted);
+				color: var(--text-normal);
+			}
+
+			/* System theme - stat labels in card stats should be readable */
+			.timeflow-theme-system .tf-card-stats .tf-stat-label {
+				color: var(--text-normal);
+			}
+
+			/* Colored stat items should always have white text */
+			.tf-stat-colored,
+			.tf-stat-colored div,
+			.tf-stat-colored .tf-stat-label,
+			.tf-stat-colored .tf-stat-value {
+				color: white !important;
 			}
 
 			/* Dark theme - internally consistent with dark greens and blues */
@@ -491,13 +503,13 @@ export class UIBuilder {
 
 			.tf-stats-grid {
 				display: grid;
-				grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+				grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
 				gap: 15px;
 				margin-top: 15px;
 			}
 
 			/* When stats card is in wide layout (beside calendar), force 2 columns */
-			@container dashboard (min-width: 900px) {
+			@container dashboard (min-width: 750px) {
 				.tf-card-stats .tf-stats-grid {
 					grid-template-columns: repeat(2, 1fr);
 				}
@@ -508,7 +520,7 @@ export class UIBuilder {
 				display: none;
 			}
 
-			@container dashboard (min-width: 900px) {
+			@container dashboard (min-width: 750px) {
 				.tf-future-days-list {
 					display: block;
 					margin-top: 20px;
@@ -798,6 +810,39 @@ export class UIBuilder {
 				color: var(--text-normal);
 			}
 
+			/* Compliance info panel */
+			.tf-compliance-info-panel {
+				position: fixed;
+				background: var(--background-primary);
+				border: 1px solid var(--background-modifier-border);
+				border-radius: 8px;
+				box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+				padding: 12px 16px;
+				z-index: 1000;
+				min-width: 220px;
+				max-width: 300px;
+			}
+
+			.tf-compliance-info-panel h4 {
+				margin: 0 0 10px 0;
+				font-size: 0.95em;
+				color: var(--text-normal);
+			}
+
+			.tf-compliance-info-panel p {
+				margin: 6px 0;
+				color: var(--text-muted);
+				font-size: 0.9em;
+			}
+
+			.tf-compliance-info-panel strong {
+				color: var(--text-normal);
+			}
+
+			.timeflow-theme-dark .tf-compliance-info-panel {
+				background: var(--background-secondary);
+			}
+
 			.tf-menu-item {
 				padding: 8px 16px;
 				cursor: pointer;
@@ -930,20 +975,27 @@ export class UIBuilder {
 		badge.className = "tf-badge";
 		this.elements.badge = badge;
 
+		const clock = document.createElement("div");
+		clock.className = "tf-clock";
+		this.elements.clock = clock;
+
+		// Compliance status badge
+		const complianceBadge = document.createElement("div");
+		complianceBadge.className = "tf-compliance-badge";
+		this.elements.complianceBadge = complianceBadge;
+
 		// Timer control badge
 		const timerBadge = document.createElement("button");
 		timerBadge.className = "tf-timer-badge";
 		this.elements.timerBadge = timerBadge;
 
-		const clock = document.createElement("div");
-		clock.className = "tf-clock";
-		this.elements.clock = clock;
-
 		section.appendChild(badge);
-		section.appendChild(timerBadge);
 		section.appendChild(clock);
+		section.appendChild(complianceBadge);
+		section.appendChild(timerBadge);
 
 		this.updateBadge();
+		this.updateComplianceBadge();
 		this.updateTimerBadge();
 		this.updateClock();
 
@@ -959,7 +1011,7 @@ export class UIBuilder {
 			// Segmented start button: main part starts "jobb", arrow opens menu
 			this.elements.timerBadge.innerHTML = '';
 			this.elements.timerBadge.style.background = "transparent";
-			this.elements.timerBadge.style.display = "flex";
+			this.elements.timerBadge.style.display = "inline-flex";
 			this.elements.timerBadge.style.alignItems = "stretch";
 			this.elements.timerBadge.style.gap = "0";
 			this.elements.timerBadge.style.padding = "0";
@@ -976,6 +1028,7 @@ export class UIBuilder {
 			startBtn.style.borderRadius = "12px 0 0 12px";
 			startBtn.style.display = "flex";
 			startBtn.style.alignItems = "center";
+			startBtn.style.justifyContent = "center";
 			startBtn.style.transition = "filter 0.2s";
 			startBtn.onmouseover = () => {
 				startBtn.style.filter = "brightness(1.1)";
@@ -1021,7 +1074,9 @@ export class UIBuilder {
 			this.elements.timerBadge.textContent = "Stopp";
 			this.elements.timerBadge.style.background = "#f44336";
 			this.elements.timerBadge.style.color = "white";
-			this.elements.timerBadge.style.display = "block";
+			this.elements.timerBadge.style.display = "inline-flex";
+			this.elements.timerBadge.style.alignItems = "center";
+			this.elements.timerBadge.style.justifyContent = "center";
 			this.elements.timerBadge.style.padding = "";
 			this.elements.timerBadge.onclick = async () => {
 				// Stop all active timers
@@ -1171,7 +1226,7 @@ export class UIBuilder {
 		header.style.gap = "8px";
 
 		const title = document.createElement("h3");
-		title.textContent = "Månedskalender";
+		title.textContent = "Kalender";
 		title.style.margin = "0";
 		title.style.flexShrink = "1";
 		title.style.minWidth = "0";
@@ -1366,20 +1421,20 @@ export class UIBuilder {
 					<h4 style="margin-top: 0;">Fleksitidsaldo - advarselsoner</h4>
 					<div style="display: flex; flex-direction: column; gap: 8px; font-size: 0.9em;">
 						<div style="display: flex; align-items: center; gap: 8px;">
-							<span style="display: inline-block; width: 20px; height: 20px; border-radius: 4px; background: #4caf50; flex-shrink: 0;"></span>
-							<span><strong>Grønn sone:</strong> 0t til +80t (trygg)</span>
+							<span style="display: inline-block; width: 20px; height: 20px; border-radius: 4px; background: ${this.settings.customColors?.balanceOk || '#4caf50'}; flex-shrink: 0;"></span>
+							<span><strong>Grønn sone:</strong> ${this.settings.balanceThresholds.warningLow}t til +${this.settings.balanceThresholds.warningHigh}t (trygg)</span>
 						</div>
 						<div style="display: flex; align-items: center; gap: 8px;">
-							<span style="display: inline-block; width: 20px; height: 20px; border-radius: 4px; background: #ff9800; flex-shrink: 0;"></span>
-							<span><strong>Gul sone:</strong> -15t til -1t ELLER +80t til +95t (forsiktig)</span>
+							<span style="display: inline-block; width: 20px; height: 20px; border-radius: 4px; background: ${this.settings.customColors?.balanceWarning || '#ff9800'}; flex-shrink: 0;"></span>
+							<span><strong>Gul sone:</strong> ${this.settings.balanceThresholds.criticalLow}t til ${this.settings.balanceThresholds.warningLow - 1}t ELLER +${this.settings.balanceThresholds.warningHigh}t til +${this.settings.balanceThresholds.criticalHigh}t (forsiktig)</span>
 						</div>
 						<div style="display: flex; align-items: center; gap: 8px;">
-							<span style="display: inline-block; width: 20px; height: 20px; border-radius: 4px; background: #f44336; flex-shrink: 0;"></span>
-							<span><strong>Rød sone:</strong> Under -15t ELLER over +95t (kritisk)</span>
+							<span style="display: inline-block; width: 20px; height: 20px; border-radius: 4px; background: ${this.settings.customColors?.balanceCritical || '#f44336'}; flex-shrink: 0;"></span>
+							<span><strong>Rød sone:</strong> Under ${this.settings.balanceThresholds.criticalLow}t ELLER over +${this.settings.balanceThresholds.criticalHigh}t (kritisk)</span>
 						</div>
 					</div>
 					<div style="margin-top: 10px; font-size: 0.85em; opacity: 0.8;">
-						<em>Grenser: -20t til +100t</em>
+						<em>Grenser: ${this.settings.balanceThresholds.criticalLow - 5}t til +${this.settings.balanceThresholds.criticalHigh + 5}t</em>
 					</div>
 				</div>
 
@@ -1490,22 +1545,86 @@ export class UIBuilder {
 		bar.className = "tf-status-bar";
 
 		const status = this.systemStatus;
-		const statusIcon = status.validation?.hasErrors ? "❌" :
-						   status.validation?.hasWarnings ? "⚠️" : "✅";
+		const hasErrors = status.validation?.hasErrors;
+		const hasWarnings = status.validation?.hasWarnings;
+		const statusIcon = hasErrors ? "❌" : hasWarnings ? "⚠️" : "✅";
+		const hasIssues = hasErrors || hasWarnings;
 
-		bar.innerHTML = `
-			<div style="display: flex; align-items: center; gap: 10px;">
-				<span>${statusIcon}</span>
-				<div>
-					<div><strong>System Status</strong></div>
-					<div style="font-size: 12px; color: var(--text-muted);">
-						${status.holiday?.message || 'Holiday data not loaded'} •
-						${status.activeTimers || 0} active timer(s) •
-						${status.validation?.issues?.stats?.totalEntries || 0} entries checked
-					</div>
+		// Build issues list HTML
+		let issuesHTML = '';
+		if (hasIssues && status.validation?.issues) {
+			const errors = status.validation.issues.errors || [];
+			const warnings = status.validation.issues.warnings || [];
+
+			if (errors.length > 0) {
+				issuesHTML += `<div style="margin-top: 8px;"><strong style="color: #f44336;">Feil (${errors.length}):</strong></div>`;
+				errors.slice(0, 5).forEach((err: any) => {
+					issuesHTML += `<div style="font-size: 12px; margin-left: 12px; color: #f44336;">
+						• ${err.type}: ${err.description}${err.date ? ` (${err.date})` : ''}
+					</div>`;
+				});
+				if (errors.length > 5) {
+					issuesHTML += `<div style="font-size: 11px; margin-left: 12px; color: var(--text-muted);">...og ${errors.length - 5} flere feil</div>`;
+				}
+			}
+
+			if (warnings.length > 0) {
+				issuesHTML += `<div style="margin-top: 8px;"><strong style="color: #ff9800;">Advarsler (${warnings.length}):</strong></div>`;
+				warnings.slice(0, 5).forEach((warn: any) => {
+					issuesHTML += `<div style="font-size: 12px; margin-left: 12px; color: #ff9800;">
+						• ${warn.type}: ${warn.description}${warn.date ? ` (${warn.date})` : ''}
+					</div>`;
+				});
+				if (warnings.length > 5) {
+					issuesHTML += `<div style="font-size: 11px; margin-left: 12px; color: var(--text-muted);">...og ${warnings.length - 5} flere advarsler</div>`;
+				}
+			}
+		}
+
+		// Create header
+		const header = document.createElement("div");
+		header.style.cssText = "display: flex; align-items: center; gap: 10px; cursor: pointer;";
+		header.innerHTML = `
+			<span>${statusIcon}</span>
+			<div style="flex: 1;">
+				<div><strong>System Status</strong> ${hasIssues ? '<span style="font-size: 11px; opacity: 0.7;">(klikk for detaljer)</span>' : ''}</div>
+				<div style="font-size: 12px; color: var(--text-muted);">
+					${status.holiday?.message || 'Holiday data not loaded'} •
+					${status.activeTimers || 0} active timer(s) •
+					${status.validation?.issues?.stats?.totalEntries || 0} entries checked
 				</div>
 			</div>
+			${hasIssues ? '<span class="tf-status-toggle" style="font-size: 10px; transition: transform 0.2s;">▶</span>' : ''}
 		`;
+
+		bar.appendChild(header);
+
+		// Create collapsible details section
+		if (hasIssues) {
+			const details = document.createElement("div");
+			details.className = "tf-status-details";
+			details.style.cssText = "max-height: 0; overflow: hidden; transition: max-height 0.3s ease-out; opacity: 0;";
+			details.innerHTML = `<div style="padding-top: 10px; border-top: 1px solid var(--background-modifier-border); margin-top: 10px;">${issuesHTML}</div>`;
+
+			bar.appendChild(details);
+
+			// Toggle click handler
+			let isOpen = false;
+			header.onclick = () => {
+				isOpen = !isOpen;
+				const toggle = header.querySelector('.tf-status-toggle') as HTMLElement;
+				if (toggle) {
+					toggle.style.transform = isOpen ? 'rotate(90deg)' : 'rotate(0deg)';
+				}
+				if (isOpen) {
+					details.style.maxHeight = details.scrollHeight + 'px';
+					details.style.opacity = '1';
+				} else {
+					details.style.maxHeight = '0';
+					details.style.opacity = '0';
+				}
+			};
+		}
 
 		return bar;
 	}
@@ -1533,12 +1652,227 @@ export class UIBuilder {
 		this.elements.badge.textContent = `Fleksitidsaldo: ${sign}${formatted}`;
 	}
 
+	/**
+	 * Get compliance status: 'ok' | 'approaching' | 'exceeded'
+	 * Based on daily and weekly hours compared to limits
+	 */
+	getComplianceStatus(): { status: 'ok' | 'approaching' | 'exceeded'; dailyStatus: 'ok' | 'approaching' | 'exceeded'; weeklyStatus: 'ok' | 'approaching' | 'exceeded'; tooltip: string } {
+		if (!this.settings.complianceSettings?.enableWarnings) {
+			return { status: 'ok', dailyStatus: 'ok', weeklyStatus: 'ok', tooltip: '' };
+		}
+
+		const today = new Date();
+		const todayHours = this.data.getTodayHours(today);
+		const weekHours = this.data.getCurrentWeekHours(today);
+
+		const dailyLimit = this.settings.complianceSettings?.dailyHoursLimit ?? 9;
+		const weeklyLimit = this.settings.complianceSettings?.weeklyHoursLimit ?? 40;
+		const dailyApproaching = this.settings.baseWorkday * this.settings.workPercent;
+		const weeklyApproaching = this.settings.baseWorkweek * this.settings.workPercent;
+
+		let dailyStatus: 'ok' | 'approaching' | 'exceeded' = 'ok';
+		let weeklyStatus: 'ok' | 'approaching' | 'exceeded' = 'ok';
+
+		if (todayHours >= dailyLimit) {
+			dailyStatus = 'exceeded';
+		} else if (todayHours >= dailyApproaching) {
+			dailyStatus = 'approaching';
+		}
+
+		if (weekHours >= weeklyLimit) {
+			weeklyStatus = 'exceeded';
+		} else if (weekHours >= weeklyApproaching) {
+			weeklyStatus = 'approaching';
+		}
+
+		// Overall status is the worst of daily and weekly
+		let status: 'ok' | 'approaching' | 'exceeded' = 'ok';
+		if (dailyStatus === 'exceeded' || weeklyStatus === 'exceeded') {
+			status = 'exceeded';
+		} else if (dailyStatus === 'approaching' || weeklyStatus === 'approaching') {
+			status = 'approaching';
+		}
+
+		// Build tooltip
+		const tooltipParts: string[] = [];
+		if (dailyStatus === 'exceeded') {
+			tooltipParts.push(`Dag: ${todayHours.toFixed(1)}t (maks ${dailyLimit}t)`);
+		} else if (dailyStatus === 'approaching') {
+			tooltipParts.push(`Dag: ${todayHours.toFixed(1)}t (nærmer seg ${dailyLimit}t)`);
+		}
+		if (weeklyStatus === 'exceeded') {
+			tooltipParts.push(`Uke: ${weekHours.toFixed(1)}t (maks ${weeklyLimit}t)`);
+		} else if (weeklyStatus === 'approaching') {
+			tooltipParts.push(`Uke: ${weekHours.toFixed(1)}t (nærmer seg ${weeklyLimit}t)`);
+		}
+		if (tooltipParts.length === 0 && status === 'ok') {
+			tooltipParts.push(`Dag: ${todayHours.toFixed(1)}t, Uke: ${weekHours.toFixed(1)}t - Innenfor grensene`);
+		}
+
+		return { status, dailyStatus, weeklyStatus, tooltip: tooltipParts.join('\n') };
+	}
+
+	/**
+	 * Update compliance status badge
+	 */
+	updateComplianceBadge(): void {
+		if (!this.elements.complianceBadge) return;
+
+		if (!this.settings.complianceSettings?.enableWarnings) {
+			this.elements.complianceBadge.style.display = 'none';
+			return;
+		}
+
+		const { status } = this.getComplianceStatus();
+
+		this.elements.complianceBadge.style.display = '';
+		this.elements.complianceBadge.style.cursor = 'pointer';
+
+		if (status === 'ok') {
+			this.elements.complianceBadge.style.background = 'rgba(76, 175, 80, 0.2)';
+			this.elements.complianceBadge.style.border = '1px solid rgba(76, 175, 80, 0.4)';
+			this.elements.complianceBadge.textContent = '🟩 OK';
+		} else if (status === 'approaching') {
+			this.elements.complianceBadge.style.background = 'rgba(255, 152, 0, 0.2)';
+			this.elements.complianceBadge.style.border = '1px solid rgba(255, 152, 0, 0.4)';
+			this.elements.complianceBadge.textContent = '🟨 Nær';
+		} else {
+			this.elements.complianceBadge.style.background = 'rgba(244, 67, 54, 0.2)';
+			this.elements.complianceBadge.style.border = '1px solid rgba(244, 67, 54, 0.4)';
+			this.elements.complianceBadge.textContent = '🟥 Over';
+		}
+
+		// Add click handler to show info panel
+		this.elements.complianceBadge.onclick = (e) => {
+			e.stopPropagation();
+			this.showComplianceInfoPanel();
+		};
+	}
+
+	/**
+	 * Show compliance info panel with detailed information
+	 */
+	showComplianceInfoPanel(): void {
+		// Remove existing panel if open
+		const existingPanel = document.querySelector('.tf-compliance-info-panel');
+		if (existingPanel) {
+			existingPanel.remove();
+			return; // Toggle behavior: click again to close
+		}
+
+		const today = new Date();
+		const todayStr = Utils.toLocalDateStr(today);
+		const todayHours = this.data.getTodayHours(today);
+		const weekHours = this.data.getCurrentWeekHours(today);
+
+		const dailyLimit = this.settings.complianceSettings?.dailyHoursLimit ?? 9;
+		const weeklyLimit = this.settings.complianceSettings?.weeklyHoursLimit ?? 40;
+		const minimumRest = this.settings.complianceSettings?.minimumRestHours ?? 11;
+
+		const { dailyStatus, weeklyStatus } = this.getComplianceStatus();
+
+		// Check rest period violation for today
+		const restCheck = this.data.checkRestPeriodViolation(todayStr);
+
+		// Create panel
+		const panel = document.createElement('div');
+		panel.className = 'tf-compliance-info-panel';
+
+		// Add theme class
+		const themeClass = `timeflow-theme-${this.settings.theme}`;
+		panel.classList.add(themeClass);
+
+		// Build content
+		let html = '<h4>⚖️ Arbeidstidsgrenser</h4>';
+
+		// Daily hours
+		const dailyIcon = dailyStatus === 'ok' ? '🟩' : dailyStatus === 'approaching' ? '🟨' : '🟥';
+		html += `<p><strong>I dag:</strong> ${dailyIcon} ${todayHours.toFixed(1)}t / ${dailyLimit}t</p>`;
+
+		// Weekly hours
+		const weeklyIcon = weeklyStatus === 'ok' ? '🟩' : weeklyStatus === 'approaching' ? '🟨' : '🟥';
+		html += `<p><strong>Denne uken:</strong> ${weeklyIcon} ${weekHours.toFixed(1)}t / ${weeklyLimit}t</p>`;
+
+		// Rest period
+		if (restCheck.violated && restCheck.restHours !== null) {
+			html += `<p class="tf-rest-warning"><strong>Hviletid:</strong> 🟥 ${restCheck.restHours.toFixed(1)}t (minimum ${minimumRest}t)</p>`;
+		} else if (restCheck.restHours !== null) {
+			html += `<p><strong>Hviletid:</strong> 🟩 ${restCheck.restHours.toFixed(1)}t (minimum ${minimumRest}t)</p>`;
+		}
+
+		// Add status explanation
+		html += '<hr style="margin: 10px 0; border: none; border-top: 1px solid var(--background-modifier-border);">';
+		if (dailyStatus === 'exceeded' || weeklyStatus === 'exceeded' || restCheck.violated) {
+			html += '<p style="font-size: 12px; color: var(--text-muted);">En eller flere grenser er overskredet.</p>';
+		} else if (dailyStatus === 'approaching' || weeklyStatus === 'approaching') {
+			html += '<p style="font-size: 12px; color: var(--text-muted);">Nærmer seg en eller flere grenser.</p>';
+		} else {
+			html += '<p style="font-size: 12px; color: var(--text-muted);">Alle grenser er OK.</p>';
+		}
+
+		panel.innerHTML = html;
+
+		// Position panel near the badge
+		const badgeRect = this.elements.complianceBadge!.getBoundingClientRect();
+		panel.style.position = 'fixed';
+		panel.style.top = `${badgeRect.bottom + 8}px`;
+		panel.style.right = `${window.innerWidth - badgeRect.right}px`;
+
+		document.body.appendChild(panel);
+
+		// Close when clicking outside
+		const closeHandler = (e: MouseEvent) => {
+			if (!panel.contains(e.target as Node) && e.target !== this.elements.complianceBadge) {
+				panel.remove();
+				document.removeEventListener('click', closeHandler);
+			}
+		};
+		setTimeout(() => document.addEventListener('click', closeHandler), 0);
+	}
+
+	/**
+	 * Generate compliance warning HTML for daily hours
+	 */
+	getDailyComplianceWarning(hours: number): string {
+		if (!this.settings.complianceSettings?.enableWarnings) return '';
+
+		const dailyLimit = this.settings.complianceSettings?.dailyHoursLimit ?? 9;
+		const approachingThreshold = this.settings.baseWorkday * this.settings.workPercent; // 7.5 hours default
+
+		if (hours >= dailyLimit) {
+			return `<span class="tf-compliance-warning exceeded" title="Overstiger daglig grense på ${dailyLimit} timer">⚠️ >${dailyLimit}t</span>`;
+		} else if (hours >= approachingThreshold) {
+			return `<span class="tf-compliance-warning approaching" title="Nærmer seg daglig grense på ${dailyLimit} timer">⏰ ${dailyLimit}t grense</span>`;
+		}
+		return '';
+	}
+
+	/**
+	 * Generate compliance warning HTML for weekly hours
+	 */
+	getWeeklyComplianceWarning(hours: number): string {
+		if (!this.settings.complianceSettings?.enableWarnings) return '';
+
+		const weeklyLimit = this.settings.complianceSettings?.weeklyHoursLimit ?? 40;
+		const approachingThreshold = this.settings.baseWorkweek * this.settings.workPercent; // 37.5 hours default
+
+		if (hours >= weeklyLimit) {
+			return `<span class="tf-compliance-warning exceeded" title="Overstiger ukentlig grense på ${weeklyLimit} timer">⚠️ >${weeklyLimit}t</span>`;
+		} else if (hours >= approachingThreshold) {
+			return `<span class="tf-compliance-warning approaching" title="Nærmer seg ukentlig grense på ${weeklyLimit} timer">⏰ ${weeklyLimit}t grense</span>`;
+		}
+		return '';
+	}
+
 	updateDayCard(): void {
 		if (!this.elements.dayCard) return;
 
 		const today = new Date();
 		const todayKey = Utils.toLocalDateStr(today);
 		const todayHours = this.data.getTodayHours(today);
+
+		// Update compliance badge whenever day card updates
+		this.updateComplianceBadge();
 
 		// NEW: Simple tracking mode
 		if (!this.settings.enableGoalTracking) {
@@ -1596,6 +1930,12 @@ export class UIBuilder {
 		this.elements.dayCard.style.background = bgColor;
 		this.elements.dayCard.style.color = textColor;
 
+		const messageSection = this.settings.enableMotivationalMessages ? `
+			<div style="margin-top: 10px; font-size: 14px;">
+				${message}
+			</div>
+		` : '';
+
 		this.elements.dayCard.innerHTML = `
 			<h3 style="color: ${textColor};">I dag</h3>
 			<div style="font-size: 32px; font-weight: bold; margin: 10px 0;">
@@ -1605,11 +1945,9 @@ export class UIBuilder {
 				Mål: ${Utils.formatHoursToHM(goal, this.settings.hourUnit)}
 			</div>
 			<div class="tf-progress-bar">
-				<div class="tf-progress-fill" style="width: ${progress}%"></div>
+				<div class="tf-progress-fill" style="width: ${progress}%; background: linear-gradient(90deg, ${this.settings.customColors?.progressBar || '#4caf50'}, ${this.darkenColor(this.settings.customColors?.progressBar || '#4caf50', 20)})"></div>
 			</div>
-			<div style="margin-top: 10px; font-size: 14px;">
-				${message}
-			</div>
+			${messageSection}
 		`;
 	}
 
@@ -1715,7 +2053,13 @@ export class UIBuilder {
 				Mål: ${Utils.formatHoursToHM(adjustedGoal, this.settings.hourUnit)}
 			</div>
 			<div class="tf-progress-bar">
-				<div class="tf-progress-fill" style="width: ${progress}%"></div>
+				<div class="tf-progress-fill" style="width: ${progress}%; background: linear-gradient(90deg, ${this.settings.customColors?.progressBar || '#4caf50'}, ${this.darkenColor(this.settings.customColors?.progressBar || '#4caf50', 20)})"></div>
+			</div>
+		` : '';
+
+		const weekMessageSection = this.settings.enableMotivationalMessages ? `
+			<div style="margin-top: 10px; font-size: 14px;">
+				${message}
 			</div>
 		` : '';
 
@@ -1725,9 +2069,7 @@ export class UIBuilder {
 				${Utils.formatHoursToHM(weekHours, this.settings.hourUnit)}
 			</div>
 			${goalSection}
-			<div style="margin-top: 10px; font-size: 14px;">
-				${message}
-			</div>
+			${weekMessageSection}
 		`;
 	}
 
@@ -1873,15 +2215,20 @@ export class UIBuilder {
 			ferieDisplay = `${stats.ferie.count}/${stats.ferie.max} dager (${feriePercent}%)`;
 		}
 
-		// Egenmelding display
-		let egenmeldingDisplay = `${stats.egenmelding.count} dager`;
-		if (this.statsTimeframe === "year" && stats.egenmelding.max > 0) {
-			const egenmeldingPercent = ((stats.egenmelding.count / stats.egenmelding.max) * 100).toFixed(0);
-			egenmeldingDisplay = `${stats.egenmelding.count}/${stats.egenmelding.max} dager (${egenmeldingPercent}%)`;
+		// Egenmelding display with dynamic period label
+		const egenmeldingStats = this.data.getSpecialDayStats('egenmelding', this.selectedYear);
+		let egenmeldingDisplay = `${egenmeldingStats.count} dager`;
+		let egenmeldingPeriodLabel = '';
+		if (this.statsTimeframe === "year") {
+			if (egenmeldingStats.max && egenmeldingStats.max > 0) {
+				const egenmeldingPercent = ((egenmeldingStats.count / egenmeldingStats.max) * 100).toFixed(0);
+				egenmeldingDisplay = `${egenmeldingStats.count}/${egenmeldingStats.max} dager (${egenmeldingPercent}%)`;
+			}
+			egenmeldingPeriodLabel = `(${egenmeldingStats.periodLabel})`;
 		}
 
 		this.elements.statsCard.innerHTML = `
-			${this.settings.enableGoalTracking ? `<div class="tf-stat-item" style="background: ${timesaldoColor}; color: white;">
+			${this.settings.enableGoalTracking ? `<div class="tf-stat-item tf-stat-colored" style="background: ${timesaldoColor};">
 				<div class="tf-stat-label">Fleksitidsaldo</div>
 				<div class="tf-stat-value">${sign}${balance.toFixed(1)}t</div>
 				<div style="font-size: 0.75em; margin-top: 4px;">Total saldo</div>
@@ -1932,7 +2279,7 @@ export class UIBuilder {
 			<div class="tf-stat-item">
 				<div class="tf-stat-label">🤒 Egenmelding</div>
 				<div class="tf-stat-value" style="font-size: ${this.statsTimeframe === 'year' ? '0.9em' : '1.3em'};">${egenmeldingDisplay}</div>
-				<div style="font-size: 0.75em; margin-top: 4px;">${this.statsTimeframe === 'year' ? '(365d)' : ''}</div>
+				<div style="font-size: 0.75em; margin-top: 4px;">${egenmeldingPeriodLabel}</div>
 			</div>
 			<div class="tf-stat-item">
 				<div class="tf-stat-label">🏥 Sykemelding</div>
@@ -2404,6 +2751,18 @@ export class UIBuilder {
 			}
 		} else if (isPastDay && !isPlannedDay && runningTimersForDate.length === 0) {
 			infoHTML += '<p style="color: var(--text-muted);">Ingen registrering</p>';
+		}
+
+		// Check for rest period violation
+		if (this.settings.complianceSettings?.enableWarnings && !isFutureDay && completedEntries.length > 0) {
+			const restCheck = this.data.checkRestPeriodViolation(dateStr);
+			if (restCheck.violated && restCheck.restHours !== null) {
+				const minimumRest = this.settings.complianceSettings?.minimumRestHours ?? 11;
+				infoHTML += `<div class="tf-rest-period-warning">
+					<span class="warning-icon">⚠️</span>
+					<span>Hviletid: Kun ${restCheck.restHours.toFixed(1)} timer mellom arbeidsøkter (minimum ${minimumRest} timer)</span>
+				</div>`;
+			}
 		}
 
 		// Add helpful tip

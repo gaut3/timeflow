@@ -830,4 +830,151 @@ export class DataManager {
 			generatedAt: new Date().toISOString()
 		};
 	}
+
+	/**
+	 * Check if there's a rest period violation for a given date
+	 * A violation occurs when the gap between the last work session ending on the previous day
+	 * and the first work session starting on the given day is less than the minimum rest hours
+	 */
+	checkRestPeriodViolation(dateStr: string): { violated: boolean; restHours: number | null; previousDayEnd: string | null; currentDayStart: string | null } {
+		const minimumRestHours = this.settings.complianceSettings?.minimumRestHours ?? 11;
+
+		// Get the previous day
+		const currentDate = new Date(dateStr);
+		const previousDate = new Date(currentDate);
+		previousDate.setDate(previousDate.getDate() - 1);
+		const previousDayKey = Utils.toLocalDateStr(previousDate);
+
+		// Get entries for both days
+		const previousDayEntries = this.daily[previousDayKey] || [];
+		const currentDayEntries = this.daily[dateStr] || [];
+
+		if (previousDayEntries.length === 0 || currentDayEntries.length === 0) {
+			return { violated: false, restHours: null, previousDayEnd: null, currentDayStart: null };
+		}
+
+		// Find the last end time of the previous day
+		let lastEndTimeMs = 0;
+		let lastEndTimeStr = '';
+		previousDayEntries.forEach(entry => {
+			if (entry.endTime) {
+				const endTime = new Date(entry.endTime);
+				if (endTime.getTime() > lastEndTimeMs) {
+					lastEndTimeMs = endTime.getTime();
+					lastEndTimeStr = endTime.toISOString();
+				}
+			}
+		});
+
+		// Find the first start time of the current day
+		let firstStartTimeMs = Infinity;
+		let firstStartTimeStr = '';
+		currentDayEntries.forEach(entry => {
+			if (entry.startTime) {
+				const startTime = new Date(entry.startTime);
+				if (startTime.getTime() < firstStartTimeMs) {
+					firstStartTimeMs = startTime.getTime();
+					firstStartTimeStr = startTime.toISOString();
+				}
+			}
+		});
+
+		if (lastEndTimeMs === 0 || firstStartTimeMs === Infinity) {
+			return { violated: false, restHours: null, previousDayEnd: null, currentDayStart: null };
+		}
+
+		// Calculate the gap in hours
+		const restHours = (firstStartTimeMs - lastEndTimeMs) / (1000 * 60 * 60);
+		const violated = restHours < minimumRestHours;
+
+		return {
+			violated,
+			restHours,
+			previousDayEnd: lastEndTimeStr,
+			currentDayStart: firstStartTimeStr
+		};
+	}
+
+	/**
+	 * Get statistics for a special day type, respecting the counting period setting
+	 * For historical years, always use calendar year counting
+	 * For current year, respect the countingPeriod setting
+	 */
+	getSpecialDayStats(typeId: string, year?: number): { count: number; max: number | undefined; isRolling: boolean; periodLabel: string } {
+		const behavior = this.getSpecialDayBehavior(typeId);
+		const today = new Date();
+		const currentYear = today.getFullYear();
+		const targetYear = year ?? currentYear;
+		const isCurrentYear = targetYear === currentYear;
+
+		// Determine counting period
+		const countingPeriod = behavior?.countingPeriod || 'calendar';
+		const useRolling = isCurrentYear && countingPeriod === 'rolling365';
+
+		let count = 0;
+		const daysSeen = new Set<string>();
+
+		if (useRolling) {
+			// Count days in the last 365 days
+			const cutoffDate = new Date(today);
+			cutoffDate.setDate(cutoffDate.getDate() - 365);
+			const cutoffStr = Utils.toLocalDateStr(cutoffDate);
+
+			Object.keys(this.daily).forEach(dateStr => {
+				if (dateStr >= cutoffStr && dateStr <= Utils.toLocalDateStr(today)) {
+					const entries = this.daily[dateStr];
+					entries.forEach(entry => {
+						if (entry.name.toLowerCase() === typeId && !daysSeen.has(dateStr)) {
+							daysSeen.add(dateStr);
+							count++;
+						}
+					});
+				}
+			});
+
+			// Also count from holidays file
+			Object.keys(this.holidays).forEach(dateStr => {
+				if (dateStr >= cutoffStr && dateStr <= Utils.toLocalDateStr(today)) {
+					const holidayInfo = this.holidays[dateStr];
+					if (holidayInfo.type === typeId && !daysSeen.has(dateStr)) {
+						daysSeen.add(dateStr);
+						count++;
+					}
+				}
+			});
+		} else {
+			// Count days in the calendar year
+			Object.keys(this.daily).forEach(dateStr => {
+				const date = new Date(dateStr);
+				if (date.getFullYear() === targetYear) {
+					const entries = this.daily[dateStr];
+					entries.forEach(entry => {
+						if (entry.name.toLowerCase() === typeId && !daysSeen.has(dateStr)) {
+							daysSeen.add(dateStr);
+							count++;
+						}
+					});
+				}
+			});
+
+			// Also count from holidays file
+			Object.keys(this.holidays).forEach(dateStr => {
+				const date = new Date(dateStr);
+				if (date.getFullYear() === targetYear) {
+					const holidayInfo = this.holidays[dateStr];
+					if (holidayInfo.type === typeId && !daysSeen.has(dateStr)) {
+						daysSeen.add(dateStr);
+						count++;
+					}
+				}
+			});
+		}
+
+		return {
+			count,
+			max: behavior?.maxDaysPerYear,
+			isRolling: useRolling,
+			periodLabel: useRolling ? '365d' : targetYear.toString()
+		};
+	}
 }

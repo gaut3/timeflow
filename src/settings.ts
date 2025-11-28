@@ -51,6 +51,22 @@ export interface TimeFlowSettings {
 		maxDurationHours: number;
 		highWeeklyTotalHours: number;
 	};
+	// NEW: Custom colors
+	customColors?: {
+		balanceOk?: string;        // Default: #4caf50
+		balanceWarning?: string;   // Default: #ff9800
+		balanceCritical?: string;  // Default: #f44336
+		progressBar?: string;      // Default: #4caf50
+	};
+	// NEW: Message preferences
+	enableMotivationalMessages?: boolean;  // Default: true
+	// Norwegian labor law compliance settings
+	complianceSettings?: {
+		enableWarnings: boolean;       // Enable/disable compliance warnings
+		dailyHoursLimit: number;       // Max daily hours (default: 9)
+		weeklyHoursLimit: number;      // Max weekly hours (default: 40)
+		minimumRestHours: number;      // Minimum rest between sessions (default: 11)
+	};
 }
 
 export interface SpecialDayBehavior {
@@ -62,6 +78,7 @@ export interface SpecialDayBehavior {
 	flextimeEffect: 'none' | 'withdraw' | 'accumulate';
 	includeInStats: boolean;       // Count in yearly statistics?
 	maxDaysPerYear?: number;       // Optional limit
+	countingPeriod?: 'calendar' | 'rolling365'; // How to count max days: calendar year or rolling 365 days
 }
 
 export const DEFAULT_SPECIAL_DAY_BEHAVIORS: SpecialDayBehavior[] = [
@@ -92,7 +109,8 @@ export const DEFAULT_SPECIAL_DAY_BEHAVIORS: SpecialDayBehavior[] = [
 		noHoursRequired: true,
 		flextimeEffect: 'none',
 		includeInStats: true,
-		maxDaysPerYear: 8
+		maxDaysPerYear: 24,
+		countingPeriod: 'rolling365'
 	},
 	{
 		id: 'sykemelding',
@@ -260,7 +278,23 @@ export const DEFAULT_SETTINGS: TimeFlowSettings = {
 		longRunningTimerHours: 12,
 		veryLongSessionHours: 16,
 		maxDurationHours: 24,
-		highWeeklyTotalHours: 60
+		highWeeklyTotalHours: 50
+	},
+	// NEW: Custom colors
+	customColors: {
+		balanceOk: "#4caf50",
+		balanceWarning: "#ff9800",
+		balanceCritical: "#f44336",
+		progressBar: "#4caf50"
+	},
+	// NEW: Message preferences
+	enableMotivationalMessages: true,
+	// Norwegian labor law compliance settings
+	complianceSettings: {
+		enableWarnings: true,
+		dailyHoursLimit: 9,
+		weeklyHoursLimit: 40,
+		minimumRestHours: 11
 	}
 };
 
@@ -319,7 +353,8 @@ export class SpecialDayBehaviorModal extends Modal {
 			noHoursRequired: this.behavior?.noHoursRequired ?? true,
 			flextimeEffect: this.behavior?.flextimeEffect || 'none',
 			includeInStats: this.behavior?.includeInStats ?? true,
-			maxDaysPerYear: this.behavior?.maxDaysPerYear || undefined
+			maxDaysPerYear: this.behavior?.maxDaysPerYear || undefined,
+			countingPeriod: this.behavior?.countingPeriod || 'calendar'
 		};
 
 		// ID field (readonly if editing)
@@ -401,6 +436,16 @@ export class SpecialDayBehaviorModal extends Modal {
 					formData.maxDaysPerYear = isNaN(num) ? undefined : num;
 				}));
 
+		// Counting period dropdown (only show if maxDaysPerYear is set)
+		new Setting(contentEl)
+			.setName('Counting period')
+			.setDesc('How to count the max days limit. Calendar year resets each January 1st. Rolling 365 days counts backwards from today.')
+			.addDropdown(dropdown => dropdown
+				.addOption('calendar', 'Calendar year')
+				.addOption('rolling365', 'Rolling 365 days')
+				.setValue(formData.countingPeriod)
+				.onChange(value => formData.countingPeriod = value as 'calendar' | 'rolling365'));
+
 		// Buttons
 		const buttonDiv = contentEl.createDiv();
 		buttonDiv.style.display = 'flex';
@@ -447,7 +492,8 @@ export class SpecialDayBehaviorModal extends Modal {
 				noHoursRequired: formData.noHoursRequired,
 				flextimeEffect: formData.flextimeEffect,
 				includeInStats: formData.includeInStats,
-				maxDaysPerYear: formData.maxDaysPerYear
+				maxDaysPerYear: formData.maxDaysPerYear,
+				countingPeriod: formData.countingPeriod as 'calendar' | 'rolling365'
 			};
 
 			this.onSave(behavior, this.index);
@@ -479,43 +525,461 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 		}
 	}
 
+	private addResetButton(setting: Setting, settingKey: keyof TimeFlowSettings, defaultValue: any, refreshCallback?: () => void): void {
+		setting.addExtraButton(button => button
+			.setIcon("reset")
+			.setTooltip("Reset to default")
+			.onClick(async () => {
+				(this.plugin.settings as any)[settingKey] = defaultValue;
+				await this.plugin.saveSettings();
+				this.display(); // Refresh settings UI
+				if (refreshCallback) {
+					await refreshCallback();
+				}
+			})
+		);
+	}
+
+	private validateNumber(value: string, min: number, max: number, settingName: string): number | null {
+		const num = parseFloat(value);
+
+		if (isNaN(num)) {
+			new Notice(`❌ ${settingName}: Please enter a valid number`);
+			return null;
+		}
+		if (num < min) {
+			new Notice(`❌ ${settingName}: Value must be at least ${min}`);
+			return null;
+		}
+		if (num > max) {
+			new Notice(`❌ ${settingName}: Value must be at most ${max}`);
+			return null;
+		}
+
+		return num;
+	}
+
+	private validateDateFormat(dateStr: string): boolean {
+		if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+			new Notice("❌ Balance start date: Format must be YYYY-MM-DD");
+			return false;
+		}
+
+		const date = new Date(dateStr + 'T00:00:00');
+		if (isNaN(date.getTime())) {
+			new Notice("❌ Balance start date: Invalid date");
+			return false;
+		}
+
+		if (date > new Date()) {
+			new Notice("❌ Balance start date: Cannot be in the future");
+			return false;
+		}
+
+		return true;
+	}
+
+	private createCollapsibleSubsection(
+		container: HTMLElement,
+		title: string,
+		startOpen: boolean = false
+	): { header: HTMLElement; content: HTMLElement } {
+		const header = container.createDiv({
+			cls: startOpen ? 'tf-collapsible-subsection open' : 'tf-collapsible-subsection'
+		});
+		header.createSpan({ text: title });
+
+		const content = container.createDiv({
+			cls: startOpen ? 'tf-collapsible-content open' : 'tf-collapsible-content'
+		});
+
+		header.onclick = () => {
+			header.classList.toggle('open');
+			content.classList.toggle('open');
+		};
+
+		return { header, content };
+	}
+
 	display(): void {
 		const { containerEl } = this;
 		containerEl.empty();
 
-		// Appearance
-		new Setting(containerEl).setName('Appearance').setHeading();
+		containerEl.createEl("h2", { text: "TimeFlow Settings" });
 
-		new Setting(containerEl)
-			.setName('Theme')
-			.setDesc('Choose the color scheme for TimeFlow cards')
-			.addDropdown(dropdown => dropdown
-				.addOption('light', 'Light (Colorful gradients)')
-				.addOption('system', 'System (Match Obsidian theme)')
-				.addOption('dark', 'Dark (Dark gradients)')
-				.setValue(this.plugin.settings.theme)
-				.onChange(async (value: 'light' | 'dark' | 'system') => {
-					this.plugin.settings.theme = value;
+		// NEW: Search box
+		const searchContainer = containerEl.createDiv({ cls: "tf-settings-search" });
+		const searchInput = searchContainer.createEl("input", {
+			type: "text",
+			placeholder: "🔍 Search settings...",
+			cls: "tf-search-input"
+		});
+
+		// Container for all settings (will be filtered)
+		const settingsContainer = containerEl.createDiv({ cls: "tf-settings-container" });
+
+		// Add search logic
+		searchInput.addEventListener("input", () => {
+			const query = searchInput.value.toLowerCase();
+			const allSettings = settingsContainer.querySelectorAll(".setting-item");
+
+			allSettings.forEach((setting: HTMLElement) => {
+				const name = setting.querySelector(".setting-item-name")?.textContent?.toLowerCase() || "";
+				const desc = setting.querySelector(".setting-item-description")?.textContent?.toLowerCase() || "";
+
+				if (name.includes(query) || desc.includes(query)) {
+					setting.style.display = "";
+				} else {
+					setting.style.display = "none";
+				}
+			});
+		});
+
+		// ============================================================
+		// SECTION 1: QUICK START
+		// ============================================================
+		new Setting(settingsContainer)
+			.setName('Quick Start')
+			.setDesc('Essential settings to get started with TimeFlow')
+			.setHeading();
+
+		// Settings sync info
+		const syncInfo = settingsContainer.createDiv();
+		syncInfo.style.marginBottom = '15px';
+		syncInfo.style.padding = '10px';
+		syncInfo.style.background = 'var(--background-secondary)';
+		syncInfo.style.borderRadius = '5px';
+		syncInfo.style.fontSize = '0.9em';
+		syncInfo.innerHTML = `
+			<strong>📱 Cross-Device Settings Sync</strong><br>
+			Settings are automatically saved to <code>timeflow/data.md</code> and will sync across devices when using Obsidian Sync or any other vault sync solution. When you open the plugin on another device, your settings will be automatically loaded.
+		`;
+
+		new Setting(settingsContainer)
+			.setName('Data file path')
+			.setDesc('Path to the file containing timer data and settings')
+			.addText(text => text
+				.setPlaceholder('timeflow/data.md')
+				.setValue(this.plugin.settings.dataFilePath)
+				.onChange(async (value) => {
+					this.plugin.settings.dataFilePath = value;
+					await this.plugin.saveSettings();
+					// Update timer manager to use new path
+					this.plugin.timerManager.dataFile = value;
+				}));
+
+		new Setting(settingsContainer)
+			.setName('Holidays file path')
+			.setDesc('Path to the file containing future planned days/holidays')
+			.addText(text => text
+				.setPlaceholder('timeflow/holidays.md')
+				.setValue(this.plugin.settings.holidaysFilePath)
+				.onChange(async (value) => {
+					this.plugin.settings.holidaysFilePath = value;
+					await this.plugin.saveSettings();
+				}));
+
+		// ============================================================
+		// SECTION 2: WORK CONFIGURATION
+		// ============================================================
+		new Setting(settingsContainer)
+			.setName('Work Configuration')
+			.setDesc('Configure your work schedule and goals')
+			.setHeading();
+
+		// Goal Tracking Mode Toggle - MUST be at top of work configuration
+		new Setting(settingsContainer)
+			.setName('Enable goal tracking')
+			.setDesc('Enable flextime calculations and daily/weekly goals. Disable for simple hour tracking without goals (e.g., shift workers, freelancers).')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.enableGoalTracking)
+				.onChange(async (value) => {
+					this.plugin.settings.enableGoalTracking = value;
+					await this.plugin.saveSettings();
+					this.display(); // Refresh to show/hide dependent settings
+					await this.refreshView(); // Refresh dashboard
+				}));
+
+		// Only show goal-related settings if goal tracking is enabled
+		if (this.plugin.settings.enableGoalTracking) {
+			new Setting(settingsContainer)
+				.setName('Base workday hours')
+				.setDesc('Standard hours for a full workday (e.g., 7.5 for standard, 6 for 6-hour days)')
+				.addText(text => text
+					.setPlaceholder('7.5')
+					.setValue(this.plugin.settings.baseWorkday.toString())
+					.onChange(async (value) => {
+						const num = parseFloat(value);
+						if (!isNaN(num) && num > 0) {
+							this.plugin.settings.baseWorkday = num;
+							await this.plugin.saveSettings();
+							await this.refreshView();
+						}
+					}));
+
+			// Only show weekly/monthly goals toggle if goal tracking is enabled
+			new Setting(settingsContainer)
+				.setName('Enable weekly/monthly goals')
+				.setDesc('Disable if you don\'t have a specific amount of work each week/month. This will hide goal progress bars and weekly/monthly targets.')
+				.addToggle(toggle => toggle
+					.setValue(this.plugin.settings.enableWeeklyGoals)
+					.onChange(async (value) => {
+						this.plugin.settings.enableWeeklyGoals = value;
+						await this.plugin.saveSettings();
+						this.display(); // Refresh to show/hide baseWorkweek
+					}));
+
+			// Only show work percentage and baseWorkweek if weekly goals are enabled
+			if (this.plugin.settings.enableWeeklyGoals) {
+				new Setting(settingsContainer)
+					.setName('Work percentage')
+					.setDesc('Your employment percentage. Adjusts weekly work goal. Example: 0.8 (80%) = 30h/week if base is 37.5h')
+					.addText(text => text
+						.setPlaceholder('1.0')
+						.setValue(this.plugin.settings.workPercent.toString())
+						.onChange(async (value) => {
+							const num = parseFloat(value);
+							if (!isNaN(num) && num > 0 && num <= 1) {
+								this.plugin.settings.workPercent = num;
+								await this.plugin.saveSettings();
+								await this.refreshView();
+							}
+						}));
+
+				new Setting(settingsContainer)
+					.setName('Base workweek hours')
+					.setDesc('Standard hours for a full workweek (e.g., 37.5 for 5 days, 30 for 4 days)')
+					.addText(text => text
+						.setPlaceholder('37.5')
+						.setValue(this.plugin.settings.baseWorkweek.toString())
+						.onChange(async (value) => {
+							const num = parseFloat(value);
+							if (!isNaN(num) && num > 0) {
+								this.plugin.settings.baseWorkweek = num;
+								await this.plugin.saveSettings();
+								await this.refreshView();
+							}
+						}));
+			}
+
+			new Setting(settingsContainer)
+				.setName('Lunch break duration')
+				.setDesc('Daily lunch break in minutes (e.g., 30 for 30 minutes). This will be deducted from your work hours automatically.')
+				.addText(text => text
+					.setPlaceholder('0')
+					.setValue(this.plugin.settings.lunchBreakMinutes.toString())
+					.onChange(async (value) => {
+						const num = parseInt(value);
+						if (!isNaN(num) && num >= 0) {
+							this.plugin.settings.lunchBreakMinutes = num;
+							await this.plugin.saveSettings();
+							await this.refreshView();
+						}
+					}));
+
+			// Work days selector
+			const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+			const workDaysSetting = new Setting(settingsContainer)
+				.setName('Work days')
+				.setDesc('Select which days are part of your work week');
+
+			const workDaysContainer = settingsContainer.createDiv();
+			workDaysContainer.style.display = 'flex';
+			workDaysContainer.style.flexWrap = 'wrap';
+			workDaysContainer.style.gap = '8px';
+			workDaysContainer.style.marginBottom = '15px';
+
+			dayNames.forEach((dayName, dayIndex) => {
+				const dayButton = workDaysContainer.createEl('button');
+				dayButton.textContent = dayName.substring(0, 3); // Mon, Tue, etc.
+				dayButton.className = 'tf-day-button';
+				dayButton.style.padding = '8px 12px';
+				dayButton.style.border = '1px solid var(--background-modifier-border)';
+				dayButton.style.borderRadius = '4px';
+				dayButton.style.cursor = 'pointer';
+				dayButton.style.background = this.plugin.settings.workDays.includes(dayIndex)
+					? 'var(--interactive-accent)'
+					: 'var(--background-secondary)';
+				dayButton.style.color = this.plugin.settings.workDays.includes(dayIndex)
+					? 'var(--text-on-accent)'
+					: 'var(--text-normal)';
+
+				dayButton.onclick = async () => {
+					const currentWorkDays = [...this.plugin.settings.workDays];
+					const index = currentWorkDays.indexOf(dayIndex);
+
+					if (index > -1) {
+						currentWorkDays.splice(index, 1);
+					} else {
+						currentWorkDays.push(dayIndex);
+						currentWorkDays.sort((a, b) => a - b);
+					}
+
+					this.plugin.settings.workDays = currentWorkDays;
+					await this.plugin.saveSettings();
+					this.display(); // Refresh to update button states
+				};
+			});
+
+			// Alternating weeks toggle
+			new Setting(settingsContainer)
+				.setName('Enable alternating weeks')
+				.setDesc('Enable if you have different work days in alternating weeks (e.g., every other weekend)')
+				.addToggle(toggle => toggle
+					.setValue(this.plugin.settings.enableAlternatingWeeks)
+					.onChange(async (value) => {
+						this.plugin.settings.enableAlternatingWeeks = value;
+						await this.plugin.saveSettings();
+						this.display(); // Refresh to show/hide alternating week settings
+					}));
+
+			// Alternating week work days (only show if enabled)
+			if (this.plugin.settings.enableAlternatingWeeks) {
+				const altWorkDaysSetting = new Setting(settingsContainer)
+					.setName('Alternating week work days')
+					.setDesc('Select which days are work days in the alternating week');
+
+				const altWorkDaysContainer = settingsContainer.createDiv();
+				altWorkDaysContainer.style.display = 'flex';
+				altWorkDaysContainer.style.flexWrap = 'wrap';
+				altWorkDaysContainer.style.gap = '8px';
+				altWorkDaysContainer.style.marginBottom = '15px';
+
+				dayNames.forEach((dayName, dayIndex) => {
+					const dayButton = altWorkDaysContainer.createEl('button');
+					dayButton.textContent = dayName.substring(0, 3);
+					dayButton.className = 'tf-day-button';
+					dayButton.style.padding = '8px 12px';
+					dayButton.style.border = '1px solid var(--background-modifier-border)';
+					dayButton.style.borderRadius = '4px';
+					dayButton.style.cursor = 'pointer';
+					dayButton.style.background = this.plugin.settings.alternatingWeekWorkDays.includes(dayIndex)
+						? 'var(--interactive-accent)'
+						: 'var(--background-secondary)';
+					dayButton.style.color = this.plugin.settings.alternatingWeekWorkDays.includes(dayIndex)
+						? 'var(--text-on-accent)'
+						: 'var(--text-normal)';
+
+					dayButton.onclick = async () => {
+						const currentAltWorkDays = [...this.plugin.settings.alternatingWeekWorkDays];
+						const index = currentAltWorkDays.indexOf(dayIndex);
+
+						if (index > -1) {
+							currentAltWorkDays.splice(index, 1);
+						} else {
+							currentAltWorkDays.push(dayIndex);
+							currentAltWorkDays.sort((a, b) => a - b);
+						}
+
+						this.plugin.settings.alternatingWeekWorkDays = currentAltWorkDays;
+						await this.plugin.saveSettings();
+						this.display(); // Refresh to update button states
+					};
+				});
+			}
+		} // End of enableGoalTracking conditional
+
+		// Compliance warnings subsection (Arbeidstidsgrenser)
+		const complianceSection = this.createCollapsibleSubsection(
+			settingsContainer,
+			'Arbeidstidsgrenser (Work Time Limits)',
+			false
+		);
+		complianceSection.content.addClass('tf-compliance-settings');
+
+		new Setting(complianceSection.content)
+			.setName('Enable compliance warnings')
+			.setDesc('Show warnings when approaching or exceeding Norwegian labor law limits')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.complianceSettings?.enableWarnings ?? true)
+				.onChange(async (value) => {
+					if (!this.plugin.settings.complianceSettings) {
+						this.plugin.settings.complianceSettings = {
+							enableWarnings: true,
+							dailyHoursLimit: 9,
+							weeklyHoursLimit: 40,
+							minimumRestHours: 11
+						};
+					}
+					this.plugin.settings.complianceSettings.enableWarnings = value;
 					await this.plugin.saveSettings();
 					await this.refreshView();
 				}));
 
-		new Setting(containerEl)
-			.setName('Hour unit')
-			.setDesc('Choose the unit symbol for displaying hours: "h" for hours or "t" for timer')
-			.addDropdown(dropdown => dropdown
-				.addOption('h', 'h (hours)')
-				.addOption('t', 't (timer)')
-				.setValue(this.plugin.settings.hourUnit)
-				.onChange(async (value: 'h' | 't') => {
-					this.plugin.settings.hourUnit = value;
-					await this.plugin.saveSettings();
-					await this.refreshView();
+		new Setting(complianceSection.content)
+			.setName('Daily hours limit')
+			.setDesc('Maximum hours per day before showing a warning (Norwegian law: 9 hours)')
+			.addText(text => text
+				.setPlaceholder('9')
+				.setValue((this.plugin.settings.complianceSettings?.dailyHoursLimit ?? 9).toString())
+				.onChange(async (value) => {
+					const num = parseFloat(value);
+					if (!isNaN(num) && num > 0) {
+						if (!this.plugin.settings.complianceSettings) {
+							this.plugin.settings.complianceSettings = {
+								enableWarnings: true,
+								dailyHoursLimit: 9,
+								weeklyHoursLimit: 40,
+								minimumRestHours: 11
+							};
+						}
+						this.plugin.settings.complianceSettings.dailyHoursLimit = num;
+						await this.plugin.saveSettings();
+						await this.refreshView();
+					}
 				}));
 
-		// Special day types
-		new Setting(containerEl)
-			.setName('Special day types')
+		new Setting(complianceSection.content)
+			.setName('Weekly hours limit')
+			.setDesc('Maximum hours per week before showing a warning (Norwegian law: 40 hours)')
+			.addText(text => text
+				.setPlaceholder('40')
+				.setValue((this.plugin.settings.complianceSettings?.weeklyHoursLimit ?? 40).toString())
+				.onChange(async (value) => {
+					const num = parseFloat(value);
+					if (!isNaN(num) && num > 0) {
+						if (!this.plugin.settings.complianceSettings) {
+							this.plugin.settings.complianceSettings = {
+								enableWarnings: true,
+								dailyHoursLimit: 9,
+								weeklyHoursLimit: 40,
+								minimumRestHours: 11
+							};
+						}
+						this.plugin.settings.complianceSettings.weeklyHoursLimit = num;
+						await this.plugin.saveSettings();
+						await this.refreshView();
+					}
+				}));
+
+		new Setting(complianceSection.content)
+			.setName('Minimum rest hours')
+			.setDesc('Minimum consecutive hours of rest between work sessions (Norwegian law: 11 hours)')
+			.addText(text => text
+				.setPlaceholder('11')
+				.setValue((this.plugin.settings.complianceSettings?.minimumRestHours ?? 11).toString())
+				.onChange(async (value) => {
+					const num = parseFloat(value);
+					if (!isNaN(num) && num > 0) {
+						if (!this.plugin.settings.complianceSettings) {
+							this.plugin.settings.complianceSettings = {
+								enableWarnings: true,
+								dailyHoursLimit: 9,
+								weeklyHoursLimit: 40,
+								minimumRestHours: 11
+							};
+						}
+						this.plugin.settings.complianceSettings.minimumRestHours = num;
+						await this.plugin.saveSettings();
+						await this.refreshView();
+					}
+				}));
+
+		// ============================================================
+		// SECTION 3: SPECIAL DAY TYPES
+		// ============================================================
+		new Setting(settingsContainer)
+			.setName('Special Day Types')
 			.setDesc('Configure how different types of special days affect your workday and flextime balance. These settings determine how days are counted in flextime calculations.')
 			.setHeading();
 
@@ -545,7 +1009,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 
 		// List existing behaviors
 		this.plugin.settings.specialDayBehaviors.forEach((behavior, index) => {
-			const colorDot = containerEl.createEl('span');
+			const colorDot = settingsContainer.createEl('span');
 			colorDot.style.display = 'inline-block';
 			colorDot.style.width = '12px';
 			colorDot.style.height = '12px';
@@ -554,7 +1018,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 			colorDot.style.marginRight = '6px';
 			colorDot.style.verticalAlign = 'middle';
 
-			new Setting(containerEl)
+			new Setting(settingsContainer)
 				.setName(`${behavior.icon} ${behavior.label}`)
 				.setDesc(getBehaviorDescription(behavior))
 				.addButton(btn => btn
@@ -592,7 +1056,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 		});
 
 		// Add new behavior button
-		new Setting(containerEl)
+		new Setting(settingsContainer)
 			.setName('Add new special day type')
 			.setDesc('Create a custom day type with your own rules')
 			.addButton(btn => btn
@@ -613,463 +1077,53 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 					).open();
 				}));
 
-		// Work configuration
-		new Setting(containerEl).setName('Work configuration').setHeading();
-
-		// Settings sync info
-		const syncInfo = containerEl.createDiv();
-		syncInfo.style.marginBottom = '15px';
-		syncInfo.style.padding = '10px';
-		syncInfo.style.background = 'var(--background-secondary)';
-		syncInfo.style.borderRadius = '5px';
-		syncInfo.style.fontSize = '0.9em';
-		syncInfo.innerHTML = `
-			<strong>📱 Cross-Device Settings Sync</strong><br>
-			Settings are automatically saved to <code>timeflow/data.md</code> and will sync across devices when using Obsidian Sync or any other vault sync solution. When you open the plugin on another device, your settings will be automatically loaded.
-		`;
-
-		// Goal Tracking Mode Toggle - MUST be at top of work configuration
-		new Setting(containerEl)
-			.setName('Enable goal tracking')
-			.setDesc('Enable flextime calculations and daily/weekly goals. Disable for simple hour tracking without goals (e.g., shift workers, freelancers).')
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.enableGoalTracking)
-				.onChange(async (value) => {
-					this.plugin.settings.enableGoalTracking = value;
-					await this.plugin.saveSettings();
-					this.display(); // Refresh to show/hide dependent settings
-					await this.refreshView(); // Refresh dashboard
-				}));
-
-		// Only show goal-related settings if goal tracking is enabled
-		if (this.plugin.settings.enableGoalTracking) {
-			new Setting(containerEl)
-				.setName('Base workday hours')
-				.setDesc('Standard hours for a full workday (e.g., 7.5 for standard, 6 for 6-hour days)')
-				.addText(text => text
-					.setPlaceholder('7.5')
-					.setValue(this.plugin.settings.baseWorkday.toString())
-					.onChange(async (value) => {
-						const num = parseFloat(value);
-						if (!isNaN(num) && num > 0) {
-							this.plugin.settings.baseWorkday = num;
-							await this.plugin.saveSettings();
-							await this.refreshView();
-						}
-					}));
-
-		// Only show work percentage and baseWorkweek if weekly goals are enabled
-		if (this.plugin.settings.enableWeeklyGoals) {
-			new Setting(containerEl)
-				.setName('Work percentage')
-				.setDesc('Your employment percentage. Adjusts weekly work goal. Example: 0.8 (80%) = 30h/week if base is 37.5h')
-				.addText(text => text
-					.setPlaceholder('1.0')
-					.setValue(this.plugin.settings.workPercent.toString())
-					.onChange(async (value) => {
-						const num = parseFloat(value);
-						if (!isNaN(num) && num > 0 && num <= 1) {
-							this.plugin.settings.workPercent = num;
-							await this.plugin.saveSettings();
-							await this.refreshView();
-						}
-					}));
-
-			new Setting(containerEl)
-				.setName('Base workweek hours')
-				.setDesc('Standard hours for a full workweek (e.g., 37.5 for 5 days, 30 for 4 days)')
-				.addText(text => text
-					.setPlaceholder('37.5')
-					.setValue(this.plugin.settings.baseWorkweek.toString())
-					.onChange(async (value) => {
-						const num = parseFloat(value);
-						if (!isNaN(num) && num > 0) {
-							this.plugin.settings.baseWorkweek = num;
-							await this.plugin.saveSettings();
-							await this.refreshView();
-						}
-					}));
-		}
-
-		new Setting(containerEl)
-			.setName('Lunch break duration')
-			.setDesc('Daily lunch break in minutes (e.g., 30 for 30 minutes). This will be deducted from your work hours automatically.')
-			.addText(text => text
-				.setPlaceholder('0')
-				.setValue(this.plugin.settings.lunchBreakMinutes.toString())
-				.onChange(async (value) => {
-					const num = parseInt(value);
-					if (!isNaN(num) && num >= 0) {
-						this.plugin.settings.lunchBreakMinutes = num;
-						await this.plugin.saveSettings();
-						await this.refreshView();
-					}
-				}));
-
-		// Work days selector
-		const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-		const workDaysSetting = new Setting(containerEl)
-			.setName('Work days')
-			.setDesc('Select which days are part of your work week');
-
-		const workDaysContainer = containerEl.createDiv();
-		workDaysContainer.style.display = 'flex';
-		workDaysContainer.style.flexWrap = 'wrap';
-		workDaysContainer.style.gap = '8px';
-		workDaysContainer.style.marginBottom = '15px';
-
-		dayNames.forEach((dayName, dayIndex) => {
-			const dayButton = workDaysContainer.createEl('button');
-			dayButton.textContent = dayName.substring(0, 3); // Mon, Tue, etc.
-			dayButton.className = 'tf-day-button';
-			dayButton.style.padding = '8px 12px';
-			dayButton.style.border = '1px solid var(--background-modifier-border)';
-			dayButton.style.borderRadius = '4px';
-			dayButton.style.cursor = 'pointer';
-			dayButton.style.background = this.plugin.settings.workDays.includes(dayIndex)
-				? 'var(--interactive-accent)'
-				: 'var(--background-secondary)';
-			dayButton.style.color = this.plugin.settings.workDays.includes(dayIndex)
-				? 'var(--text-on-accent)'
-				: 'var(--text-normal)';
-
-			dayButton.onclick = async () => {
-				const currentWorkDays = [...this.plugin.settings.workDays];
-				const index = currentWorkDays.indexOf(dayIndex);
-
-				if (index > -1) {
-					currentWorkDays.splice(index, 1);
-				} else {
-					currentWorkDays.push(dayIndex);
-					currentWorkDays.sort((a, b) => a - b);
-				}
-
-				this.plugin.settings.workDays = currentWorkDays;
-				await this.plugin.saveSettings();
-				this.display(); // Refresh to update button states
-			};
-		});
-
-		// Alternating weeks toggle
-		new Setting(containerEl)
-			.setName('Enable alternating weeks')
-			.setDesc('Enable if you have different work days in alternating weeks (e.g., every other weekend)')
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.enableAlternatingWeeks)
-				.onChange(async (value) => {
-					this.plugin.settings.enableAlternatingWeeks = value;
-					await this.plugin.saveSettings();
-					this.display(); // Refresh to show/hide alternating week settings
-				}));
-
-		// Alternating week work days (only show if enabled)
-		if (this.plugin.settings.enableAlternatingWeeks) {
-			const altWorkDaysSetting = new Setting(containerEl)
-				.setName('Alternating week work days')
-				.setDesc('Select which days are work days in the alternating week');
-
-			const altWorkDaysContainer = containerEl.createDiv();
-			altWorkDaysContainer.style.display = 'flex';
-			altWorkDaysContainer.style.flexWrap = 'wrap';
-			altWorkDaysContainer.style.gap = '8px';
-			altWorkDaysContainer.style.marginBottom = '15px';
-
-			dayNames.forEach((dayName, dayIndex) => {
-				const dayButton = altWorkDaysContainer.createEl('button');
-				dayButton.textContent = dayName.substring(0, 3);
-				dayButton.className = 'tf-day-button';
-				dayButton.style.padding = '8px 12px';
-				dayButton.style.border = '1px solid var(--background-modifier-border)';
-				dayButton.style.borderRadius = '4px';
-				dayButton.style.cursor = 'pointer';
-				dayButton.style.background = this.plugin.settings.alternatingWeekWorkDays.includes(dayIndex)
-					? 'var(--interactive-accent)'
-					: 'var(--background-secondary)';
-				dayButton.style.color = this.plugin.settings.alternatingWeekWorkDays.includes(dayIndex)
-					? 'var(--text-on-accent)'
-					: 'var(--text-normal)';
-
-				dayButton.onclick = async () => {
-					const currentAltWorkDays = [...this.plugin.settings.alternatingWeekWorkDays];
-					const index = currentAltWorkDays.indexOf(dayIndex);
-
-					if (index > -1) {
-						currentAltWorkDays.splice(index, 1);
-					} else {
-						currentAltWorkDays.push(dayIndex);
-						currentAltWorkDays.sort((a, b) => a - b);
-					}
-
-					this.plugin.settings.alternatingWeekWorkDays = currentAltWorkDays;
-					await this.plugin.saveSettings();
-					this.display(); // Refresh to update button states
-				};
-			});
-		}
-		} // End of enableGoalTracking conditional
-
-		// Only show weekly/monthly goals toggle if goal tracking is enabled
-		if (this.plugin.settings.enableGoalTracking) {
-			new Setting(containerEl)
-				.setName('Enable weekly/monthly goals')
-				.setDesc('Disable if you don\'t have a specific amount of work each week/month. This will hide goal progress bars and weekly/monthly targets.')
-				.addToggle(toggle => toggle
-					.setValue(this.plugin.settings.enableWeeklyGoals)
-					.onChange(async (value) => {
-						this.plugin.settings.enableWeeklyGoals = value;
-						await this.plugin.saveSettings();
-						this.display(); // Refresh to show/hide baseWorkweek
-					}));
-		}
-
-		// Advanced Configuration
-		new Setting(containerEl)
-			.setName('Advanced Configuration')
+		// ============================================================
+		// SECTION 4: DISPLAY & INTERFACE
+		// ============================================================
+		new Setting(settingsContainer)
+			.setName('Display & Interface')
+			.setDesc('Customize the appearance and behavior of the TimeFlow interface')
 			.setHeading();
 
-		const advancedInfo = containerEl.createDiv();
-		advancedInfo.style.marginBottom = '15px';
-		advancedInfo.style.padding = '10px';
-		advancedInfo.style.background = 'var(--background-secondary)';
-		advancedInfo.style.borderRadius = '5px';
-		advancedInfo.style.fontSize = '0.9em';
-		advancedInfo.innerHTML = `
-			<strong>⚙️ Advanced Settings</strong><br>
-			These settings affect balance calculations and visual indicators. Settings sync across devices via your data file.
-		`;
-
-		// Balance Calculation
-		new Setting(containerEl)
-			.setName('Balance start date')
-			.setDesc('Set the date from which flextime balance is calculated. Earlier entries are ignored in balance calculations. Format: YYYY-MM-DD')
-			.addText(text => text
-				.setPlaceholder('2025-01-01')
-				.setValue(this.plugin.settings.balanceStartDate)
-				.onChange(async (value) => {
-					// Validate date format
-					if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-						const date = new Date(value);
-						if (!isNaN(date.getTime())) {
-							this.plugin.settings.balanceStartDate = value;
-							await this.plugin.saveSettings();
-							await this.refreshView();
-						}
-					}
-				}));
-
-		// Half-Day Settings
-		new Setting(containerEl)
-			.setName('Half-day calculation mode')
-			.setDesc('How half-day hours should be calculated')
+		new Setting(settingsContainer)
+			.setName('Theme')
+			.setDesc('Choose the color scheme for TimeFlow cards')
 			.addDropdown(dropdown => dropdown
-				.addOption('fixed', 'Fixed hours (set specific value)')
-				.addOption('percentage', 'Percentage (half of base workday)')
-				.setValue(this.plugin.settings.halfDayMode)
-				.onChange(async (value: 'fixed' | 'percentage') => {
-					this.plugin.settings.halfDayMode = value;
+				.addOption('light', 'Light (Colorful gradients)')
+				.addOption('system', 'System (Match Obsidian theme)')
+				.addOption('dark', 'Dark (Dark gradients)')
+				.setValue(this.plugin.settings.theme)
+				.onChange(async (value: 'light' | 'dark' | 'system') => {
+					this.plugin.settings.theme = value;
 					await this.plugin.saveSettings();
 					await this.refreshView();
-					this.display(); // Refresh to show/hide fixed hours input
 				}));
 
-		if (this.plugin.settings.halfDayMode === 'fixed') {
-			new Setting(containerEl)
-				.setName('Half-day hours')
-				.setDesc('Hours counted for a half workday')
-				.addText(text => text
-					.setPlaceholder('4.0')
-					.setValue(this.plugin.settings.halfDayHours.toString())
-					.onChange(async (value) => {
-						const num = parseFloat(value);
-						if (!isNaN(num) && num > 0 && num < this.plugin.settings.baseWorkday) {
-							this.plugin.settings.halfDayHours = num;
-							await this.plugin.saveSettings();
-							await this.refreshView();
-						}
-					}));
-		}
-
-		// Balance Color Thresholds
-		new Setting(containerEl)
-			.setName('Balance color thresholds')
-			.setDesc('Configure the hour thresholds for balance indicator colors. These control the color-coding of your flextime balance badge: Red = significant under/overtime, Yellow = approaching limits, Green = healthy balance.')
-			.setHeading();
-
-		new Setting(containerEl)
-			.setName('Critical low threshold (red)')
-			.setDesc('Below this many hours = red badge (significant undertime)')
-			.addText(text => text
-				.setPlaceholder('-15')
-				.setValue(this.plugin.settings.balanceThresholds.criticalLow.toString())
-				.onChange(async (value) => {
-					const num = parseFloat(value);
-					if (!isNaN(num) && num < this.plugin.settings.balanceThresholds.warningLow) {
-						this.plugin.settings.balanceThresholds.criticalLow = num;
-						await this.plugin.saveSettings();
-						await this.refreshView();
-					}
-				}));
-
-		new Setting(containerEl)
-			.setName('Warning low threshold (yellow)')
-			.setDesc('Below this = yellow badge (approaching undertime)')
-			.addText(text => text
-				.setPlaceholder('0')
-				.setValue(this.plugin.settings.balanceThresholds.warningLow.toString())
-				.onChange(async (value) => {
-					const num = parseFloat(value);
-					if (!isNaN(num) && num > this.plugin.settings.balanceThresholds.criticalLow && num < this.plugin.settings.balanceThresholds.warningHigh) {
-						this.plugin.settings.balanceThresholds.warningLow = num;
-						await this.plugin.saveSettings();
-						await this.refreshView();
-					}
-				}));
-
-		new Setting(containerEl)
-			.setName('Warning high threshold (yellow)')
-			.setDesc('Above this = yellow badge (approaching overtime limit)')
-			.addText(text => text
-				.setPlaceholder('80')
-				.setValue(this.plugin.settings.balanceThresholds.warningHigh.toString())
-				.onChange(async (value) => {
-					const num = parseFloat(value);
-					if (!isNaN(num) && num > this.plugin.settings.balanceThresholds.warningLow && num < this.plugin.settings.balanceThresholds.criticalHigh) {
-						this.plugin.settings.balanceThresholds.warningHigh = num;
-						await this.plugin.saveSettings();
-						await this.refreshView();
-					}
-				}));
-
-		new Setting(containerEl)
-			.setName('Critical high threshold (red)')
-			.setDesc('Above this = red badge (significant overtime accumulation)')
-			.addText(text => text
-				.setPlaceholder('95')
-				.setValue(this.plugin.settings.balanceThresholds.criticalHigh.toString())
-				.onChange(async (value) => {
-					const num = parseFloat(value);
-					if (!isNaN(num) && num > this.plugin.settings.balanceThresholds.warningHigh) {
-						this.plugin.settings.balanceThresholds.criticalHigh = num;
-						await this.plugin.saveSettings();
-						await this.refreshView();
-					}
-				}));
-
-		// Data Validation Thresholds
-		new Setting(containerEl)
-			.setName('Data validation thresholds')
-			.setDesc('Automatic data quality checks. Adjust these if you frequently work long hours or want stricter validation.')
-			.setHeading();
-
-		new Setting(containerEl)
-			.setName('Long-running timer warning (hours)')
-			.setDesc('Warn if a timer runs more than X hours without being stopped (default: 12)')
-			.addText(text => text
-				.setPlaceholder('12')
-				.setValue(this.plugin.settings.validationThresholds.longRunningTimerHours.toString())
-				.onChange(async (value) => {
-					const num = parseFloat(value);
-					if (!isNaN(num) && num > 0) {
-						this.plugin.settings.validationThresholds.longRunningTimerHours = num;
-						await this.plugin.saveSettings();
-					}
-				}));
-
-		new Setting(containerEl)
-			.setName('Very long session warning (hours)')
-			.setDesc('Warn if a work session exceeds X hours (default: 16)')
-			.addText(text => text
-				.setPlaceholder('16')
-				.setValue(this.plugin.settings.validationThresholds.veryLongSessionHours.toString())
-				.onChange(async (value) => {
-					const num = parseFloat(value);
-					if (!isNaN(num) && num > 0) {
-						this.plugin.settings.validationThresholds.veryLongSessionHours = num;
-						await this.plugin.saveSettings();
-					}
-				}));
-
-		new Setting(containerEl)
-			.setName('Maximum session duration (hours)')
-			.setDesc('Prevent entries longer than X hours - likely a data error (default: 24)')
-			.addText(text => text
-				.setPlaceholder('24')
-				.setValue(this.plugin.settings.validationThresholds.maxDurationHours.toString())
-				.onChange(async (value) => {
-					const num = parseFloat(value);
-					if (!isNaN(num) && num > 0) {
-						this.plugin.settings.validationThresholds.maxDurationHours = num;
-						await this.plugin.saveSettings();
-					}
-				}));
-
-		new Setting(containerEl)
-			.setName('High weekly total info (hours)')
-			.setDesc('Show info notice if weekly total exceeds X hours (default: 60)')
-			.addText(text => text
-				.setPlaceholder('60')
-				.setValue(this.plugin.settings.validationThresholds.highWeeklyTotalHours.toString())
-				.onChange(async (value) => {
-					const num = parseFloat(value);
-					if (!isNaN(num) && num > 0) {
-						this.plugin.settings.validationThresholds.highWeeklyTotalHours = num;
-						await this.plugin.saveSettings();
-					}
-				}));
-
-		// File paths
-		new Setting(containerEl).setName('File paths').setHeading();
-
-		new Setting(containerEl)
-			.setName('Data file path')
-			.setDesc('Path to the file containing timer data and settings')
-			.addText(text => text
-				.setPlaceholder('timeflow/data.md')
-				.setValue(this.plugin.settings.dataFilePath)
-				.onChange(async (value) => {
-					this.plugin.settings.dataFilePath = value;
+		new Setting(settingsContainer)
+			.setName('Hour unit')
+			.setDesc('Choose the unit symbol for displaying hours: "h" for hours or "t" for timer')
+			.addDropdown(dropdown => dropdown
+				.addOption('h', 'h (hours)')
+				.addOption('t', 't (timer)')
+				.setValue(this.plugin.settings.hourUnit)
+				.onChange(async (value: 'h' | 't') => {
+					this.plugin.settings.hourUnit = value;
 					await this.plugin.saveSettings();
-					// Update timer manager to use new path
-					this.plugin.timerManager.dataFile = value;
+					await this.refreshView();
 				}));
 
-		new Setting(containerEl)
-			.setName('Holidays file path')
-			.setDesc('Path to the file containing future planned days/holidays')
-			.addText(text => text
-				.setPlaceholder('timeflow/holidays.md')
-				.setValue(this.plugin.settings.holidaysFilePath)
+		new Setting(settingsContainer)
+			.setName('Enable motivational messages')
+			.setDesc('Show contextual messages in day/week cards (e.g., encouraging messages, progress updates)')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.enableMotivationalMessages ?? true)
 				.onChange(async (value) => {
-					this.plugin.settings.holidaysFilePath = value;
+					this.plugin.settings.enableMotivationalMessages = value;
 					await this.plugin.saveSettings();
+					await this.refreshView();
 				}));
 
-		new Setting(containerEl)
-			.setName('Daily notes folder')
-			.setDesc('Folder where daily notes are stored')
-			.addText(text => text
-				.setPlaceholder('Daily Notes')
-				.setValue(this.plugin.settings.dailyNotesFolder)
-				.onChange(async (value) => {
-					this.plugin.settings.dailyNotesFolder = value;
-					await this.plugin.saveSettings();
-				}));
-
-		new Setting(containerEl)
-			.setName('Daily notes template path')
-			.setDesc('Path to the template for daily notes')
-			.addText(text => text
-				.setPlaceholder('Templates/Daily Notes Template.md')
-				.setValue(this.plugin.settings.dailyNotesTemplatePath)
-				.onChange(async (value) => {
-					this.plugin.settings.dailyNotesTemplatePath = value;
-					await this.plugin.saveSettings();
-				}));
-
-		// Display settings
-		new Setting(containerEl).setName('Display settings').setHeading();
-
-		new Setting(containerEl)
+		new Setting(settingsContainer)
 			.setName('Consecutive flextime warning days')
 			.setDesc('Number of consecutive days with flextime before showing a warning')
 			.addText(text => text
@@ -1084,7 +1138,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 					}
 				}));
 
-		new Setting(containerEl)
+		new Setting(settingsContainer)
 			.setName('Heatmap columns')
 			.setDesc('Number of columns in the heatmap view (adjust for your screen width)')
 			.addText(text => text
@@ -1099,7 +1153,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 					}
 				}));
 
-		new Setting(containerEl)
+		new Setting(settingsContainer)
 			.setName('Update interval (ms)')
 			.setDesc('How often to update the dashboard data (in milliseconds)')
 			.addText(text => text
@@ -1113,15 +1167,45 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 					}
 				}));
 
+		// ============================================================
+		// SECTION 5: FILE PATHS & TEMPLATES
+		// ============================================================
+		new Setting(settingsContainer)
+			.setName('File Paths & Templates')
+			.setDesc('Configure file paths and note templates')
+			.setHeading();
+
+		new Setting(settingsContainer)
+			.setName('Daily notes folder')
+			.setDesc('Folder where daily notes are stored')
+			.addText(text => text
+				.setPlaceholder('Daily Notes')
+				.setValue(this.plugin.settings.dailyNotesFolder)
+				.onChange(async (value) => {
+					this.plugin.settings.dailyNotesFolder = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(settingsContainer)
+			.setName('Daily notes template path')
+			.setDesc('Path to the template for daily notes')
+			.addText(text => text
+				.setPlaceholder('Templates/Daily Notes Template.md')
+				.setValue(this.plugin.settings.dailyNotesTemplatePath)
+				.onChange(async (value) => {
+					this.plugin.settings.dailyNotesTemplatePath = value;
+					await this.plugin.saveSettings();
+				}));
+
 		// Note types configuration
-		new Setting(containerEl)
+		new Setting(settingsContainer)
 			.setName('Note types')
 			.setDesc('Configure the types of notes available in the calendar context menu. Each note type can have its own template, folder, and filename pattern.')
 			.setHeading();
 
 		// Display existing note types
 		this.plugin.settings.noteTypes.forEach((noteType, index) => {
-			new Setting(containerEl)
+			new Setting(settingsContainer)
 				.setName(`${noteType.icon} ${noteType.label}`)
 				.setDesc(`Folder: ${noteType.folder} | Template: ${noteType.template}`)
 				.addButton(button => button
@@ -1140,7 +1224,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 					}));
 		});
 
-		new Setting(containerEl)
+		new Setting(settingsContainer)
 			.setName('Add new note type')
 			.setDesc('Create a new note type for the context menu')
 			.addButton(button => button
@@ -1150,10 +1234,15 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 					this.showNoteTypeModal(null, -1);
 				}));
 
-		// Data management
-		new Setting(containerEl).setName('Data management').setHeading();
+		// ============================================================
+		// SECTION 6: DATA MANAGEMENT
+		// ============================================================
+		new Setting(settingsContainer)
+			.setName('Data Management')
+			.setDesc('Import and export your time tracking data')
+			.setHeading();
 
-		new Setting(containerEl)
+		new Setting(settingsContainer)
 			.setName('Export data to CSV')
 			.setDesc('Export all your time tracking data to a CSV file')
 			.addButton(button => button
@@ -1163,7 +1252,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 					this.exportToCSV();
 				}));
 
-		new Setting(containerEl)
+		new Setting(settingsContainer)
 			.setName('Import Timekeep data')
 			.setDesc('Import time tracking data from Timekeep JSON format')
 			.addButton(button => button
@@ -1172,6 +1261,338 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 				.onClick(async () => {
 					this.showImportModal();
 				}));
+
+		// ============================================================
+		// SECTION 7: ADVANCED SETTINGS
+		// ============================================================
+		new Setting(settingsContainer)
+			.setName('Advanced Settings')
+			.setDesc('Fine-tune balance calculations, thresholds, and visual customization')
+			.setHeading();
+
+		const advancedInfo = settingsContainer.createDiv();
+		advancedInfo.style.marginBottom = '15px';
+		advancedInfo.style.padding = '10px';
+		advancedInfo.style.background = 'var(--background-secondary)';
+		advancedInfo.style.borderRadius = '5px';
+		advancedInfo.style.fontSize = '0.9em';
+		advancedInfo.innerHTML = `
+			<strong>⚙️ Advanced Settings</strong><br>
+			These settings affect balance calculations and visual indicators. Settings sync across devices via your data file.
+		`;
+
+		// Balance Calculation subsection (collapsible)
+		const balanceCalcSection = this.createCollapsibleSubsection(
+			settingsContainer,
+			'Balance Calculation',
+			false
+		);
+
+		new Setting(balanceCalcSection.content)
+			.setName('Balance start date')
+			.setDesc('Set the date from which flextime balance is calculated. Earlier entries are ignored in balance calculations. Format: YYYY-MM-DD')
+			.addText(text => text
+				.setPlaceholder('2025-01-01')
+				.setValue(this.plugin.settings.balanceStartDate)
+				.onChange(async (value) => {
+					// Validate date format
+					if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+						const date = new Date(value);
+						if (!isNaN(date.getTime())) {
+							this.plugin.settings.balanceStartDate = value;
+							await this.plugin.saveSettings();
+							await this.refreshView();
+						}
+					}
+				}));
+
+		new Setting(balanceCalcSection.content)
+			.setName('Half-day calculation mode')
+			.setDesc('How half-day hours should be calculated')
+			.addDropdown(dropdown => dropdown
+				.addOption('fixed', 'Fixed hours (set specific value)')
+				.addOption('percentage', 'Percentage (half of base workday)')
+				.setValue(this.plugin.settings.halfDayMode)
+				.onChange(async (value: 'fixed' | 'percentage') => {
+					this.plugin.settings.halfDayMode = value;
+					await this.plugin.saveSettings();
+					await this.refreshView();
+					this.display(); // Refresh to show/hide fixed hours input
+				}));
+
+		if (this.plugin.settings.halfDayMode === 'fixed') {
+			new Setting(balanceCalcSection.content)
+				.setName('Half-day hours')
+				.setDesc('Hours counted for a half workday')
+				.addText(text => text
+					.setPlaceholder('4.0')
+					.setValue(this.plugin.settings.halfDayHours.toString())
+					.onChange(async (value) => {
+						const num = parseFloat(value);
+						if (!isNaN(num) && num > 0 && num < this.plugin.settings.baseWorkday) {
+							this.plugin.settings.halfDayHours = num;
+							await this.plugin.saveSettings();
+							await this.refreshView();
+						}
+					}));
+		}
+
+		// Balance Thresholds subsection (collapsible)
+		const balanceThresholdsSection = this.createCollapsibleSubsection(
+			settingsContainer,
+			'Balance Color Thresholds',
+			false
+		);
+
+		new Setting(balanceThresholdsSection.content)
+			.setName('Balance color thresholds')
+			.setDesc('Configure the hour thresholds for balance indicator colors. These control the color-coding of your flextime balance badge: Red = significant under/overtime, Yellow = approaching limits, Green = healthy balance.');
+
+		new Setting(balanceThresholdsSection.content)
+			.setName('Critical low threshold (red)')
+			.setDesc('Below this many hours = red badge (significant undertime)')
+			.addText(text => text
+				.setPlaceholder('-15')
+				.setValue(this.plugin.settings.balanceThresholds.criticalLow.toString())
+				.onChange(async (value) => {
+					const num = parseFloat(value);
+					if (!isNaN(num) && num < this.plugin.settings.balanceThresholds.warningLow) {
+						this.plugin.settings.balanceThresholds.criticalLow = num;
+						await this.plugin.saveSettings();
+						await this.refreshView();
+					}
+				}));
+
+		new Setting(balanceThresholdsSection.content)
+			.setName('Warning low threshold (yellow)')
+			.setDesc('Below this = yellow badge (approaching undertime)')
+			.addText(text => text
+				.setPlaceholder('0')
+				.setValue(this.plugin.settings.balanceThresholds.warningLow.toString())
+				.onChange(async (value) => {
+					const num = parseFloat(value);
+					if (!isNaN(num) && num > this.plugin.settings.balanceThresholds.criticalLow && num < this.plugin.settings.balanceThresholds.warningHigh) {
+						this.plugin.settings.balanceThresholds.warningLow = num;
+						await this.plugin.saveSettings();
+						await this.refreshView();
+					}
+				}));
+
+		new Setting(balanceThresholdsSection.content)
+			.setName('Warning high threshold (yellow)')
+			.setDesc('Above this = yellow badge (approaching overtime limit)')
+			.addText(text => text
+				.setPlaceholder('80')
+				.setValue(this.plugin.settings.balanceThresholds.warningHigh.toString())
+				.onChange(async (value) => {
+					const num = parseFloat(value);
+					if (!isNaN(num) && num > this.plugin.settings.balanceThresholds.warningLow && num < this.plugin.settings.balanceThresholds.criticalHigh) {
+						this.plugin.settings.balanceThresholds.warningHigh = num;
+						await this.plugin.saveSettings();
+						await this.refreshView();
+					}
+				}));
+
+		new Setting(balanceThresholdsSection.content)
+			.setName('Critical high threshold (red)')
+			.setDesc('Above this = red badge (significant overtime accumulation)')
+			.addText(text => text
+				.setPlaceholder('95')
+				.setValue(this.plugin.settings.balanceThresholds.criticalHigh.toString())
+				.onChange(async (value) => {
+					const num = parseFloat(value);
+					if (!isNaN(num) && num > this.plugin.settings.balanceThresholds.warningHigh) {
+						this.plugin.settings.balanceThresholds.criticalHigh = num;
+						await this.plugin.saveSettings();
+						await this.refreshView();
+					}
+				}));
+
+		// Data Validation subsection (collapsible)
+		const dataValidationSection = this.createCollapsibleSubsection(
+			settingsContainer,
+			'Data Validation Thresholds',
+			false
+		);
+
+		new Setting(dataValidationSection.content)
+			.setName('Data validation thresholds')
+			.setDesc('Automatic data quality checks. Adjust these if you frequently work long hours or want stricter validation.');
+
+		new Setting(dataValidationSection.content)
+			.setName('Long-running timer warning (hours)')
+			.setDesc('Warn if a timer runs more than X hours without being stopped (default: 12)')
+			.addText(text => text
+				.setPlaceholder('12')
+				.setValue(this.plugin.settings.validationThresholds.longRunningTimerHours.toString())
+				.onChange(async (value) => {
+					const num = parseFloat(value);
+					if (!isNaN(num) && num > 0) {
+						this.plugin.settings.validationThresholds.longRunningTimerHours = num;
+						await this.plugin.saveSettings();
+					}
+				}));
+
+		new Setting(dataValidationSection.content)
+			.setName('Very long session warning (hours)')
+			.setDesc('Warn if a work session exceeds X hours (default: 16)')
+			.addText(text => text
+				.setPlaceholder('16')
+				.setValue(this.plugin.settings.validationThresholds.veryLongSessionHours.toString())
+				.onChange(async (value) => {
+					const num = parseFloat(value);
+					if (!isNaN(num) && num > 0) {
+						this.plugin.settings.validationThresholds.veryLongSessionHours = num;
+						await this.plugin.saveSettings();
+					}
+				}));
+
+		new Setting(dataValidationSection.content)
+			.setName('Maximum session duration (hours)')
+			.setDesc('Prevent entries longer than X hours - likely a data error (default: 24)')
+			.addText(text => text
+				.setPlaceholder('24')
+				.setValue(this.plugin.settings.validationThresholds.maxDurationHours.toString())
+				.onChange(async (value) => {
+					const num = parseFloat(value);
+					if (!isNaN(num) && num > 0) {
+						this.plugin.settings.validationThresholds.maxDurationHours = num;
+						await this.plugin.saveSettings();
+					}
+				}));
+
+		new Setting(dataValidationSection.content)
+			.setName('High weekly total info (hours)')
+			.setDesc('Show info notice if weekly total exceeds X hours (default: 60)')
+			.addText(text => text
+				.setPlaceholder('60')
+				.setValue(this.plugin.settings.validationThresholds.highWeeklyTotalHours.toString())
+				.onChange(async (value) => {
+					const num = parseFloat(value);
+					if (!isNaN(num) && num > 0) {
+						this.plugin.settings.validationThresholds.highWeeklyTotalHours = num;
+						await this.plugin.saveSettings();
+					}
+				}));
+
+		// Custom Colors subsection (collapsible)
+		const customColorsSection = this.createCollapsibleSubsection(
+			settingsContainer,
+			'Custom Colors',
+			false
+		);
+
+		const balanceOkSetting = new Setting(customColorsSection.content)
+			.setName('Balance OK color')
+			.setDesc('Color when flextime balance is in acceptable range')
+			.addText(text => text
+				.setPlaceholder('#4caf50')
+				.setValue(this.plugin.settings.customColors?.balanceOk || '#4caf50')
+				.onChange(async (value) => {
+					if (!this.plugin.settings.customColors) {
+						this.plugin.settings.customColors = {};
+					}
+					this.plugin.settings.customColors.balanceOk = value;
+					await this.plugin.saveSettings();
+					await this.refreshView();
+				}));
+		balanceOkSetting.addExtraButton(button => button
+			.setIcon("reset")
+			.setTooltip("Reset to default")
+			.onClick(async () => {
+				if (!this.plugin.settings.customColors) {
+					this.plugin.settings.customColors = {};
+				}
+				this.plugin.settings.customColors.balanceOk = DEFAULT_SETTINGS.customColors!.balanceOk!;
+				await this.plugin.saveSettings();
+				this.display();
+				await this.refreshView();
+			})
+		);
+
+		const balanceWarningSetting = new Setting(customColorsSection.content)
+			.setName('Balance warning color')
+			.setDesc('Color when flextime balance is approaching limits')
+			.addText(text => text
+				.setPlaceholder('#ff9800')
+				.setValue(this.plugin.settings.customColors?.balanceWarning || '#ff9800')
+				.onChange(async (value) => {
+					if (!this.plugin.settings.customColors) {
+						this.plugin.settings.customColors = {};
+					}
+					this.plugin.settings.customColors.balanceWarning = value;
+					await this.plugin.saveSettings();
+					await this.refreshView();
+				}));
+		balanceWarningSetting.addExtraButton(button => button
+			.setIcon("reset")
+			.setTooltip("Reset to default")
+			.onClick(async () => {
+				if (!this.plugin.settings.customColors) {
+					this.plugin.settings.customColors = {};
+				}
+				this.plugin.settings.customColors.balanceWarning = DEFAULT_SETTINGS.customColors!.balanceWarning!;
+				await this.plugin.saveSettings();
+				this.display();
+				await this.refreshView();
+			})
+		);
+
+		const balanceCriticalSetting = new Setting(customColorsSection.content)
+			.setName('Balance critical color')
+			.setDesc('Color when flextime balance is critically out of range')
+			.addText(text => text
+				.setPlaceholder('#f44336')
+				.setValue(this.plugin.settings.customColors?.balanceCritical || '#f44336')
+				.onChange(async (value) => {
+					if (!this.plugin.settings.customColors) {
+						this.plugin.settings.customColors = {};
+					}
+					this.plugin.settings.customColors.balanceCritical = value;
+					await this.plugin.saveSettings();
+					await this.refreshView();
+				}));
+		balanceCriticalSetting.addExtraButton(button => button
+			.setIcon("reset")
+			.setTooltip("Reset to default")
+			.onClick(async () => {
+				if (!this.plugin.settings.customColors) {
+					this.plugin.settings.customColors = {};
+				}
+				this.plugin.settings.customColors.balanceCritical = DEFAULT_SETTINGS.customColors!.balanceCritical!;
+				await this.plugin.saveSettings();
+				this.display();
+				await this.refreshView();
+			})
+		);
+
+		const progressBarSetting = new Setting(customColorsSection.content)
+			.setName('Progress bar color')
+			.setDesc('Color for progress bars showing daily/weekly completion')
+			.addText(text => text
+				.setPlaceholder('#4caf50')
+				.setValue(this.plugin.settings.customColors?.progressBar || '#4caf50')
+				.onChange(async (value) => {
+					if (!this.plugin.settings.customColors) {
+						this.plugin.settings.customColors = {};
+					}
+					this.plugin.settings.customColors.progressBar = value;
+					await this.plugin.saveSettings();
+					await this.refreshView();
+				}));
+		progressBarSetting.addExtraButton(button => button
+			.setIcon("reset")
+			.setTooltip("Reset to default")
+			.onClick(async () => {
+				if (!this.plugin.settings.customColors) {
+					this.plugin.settings.customColors = {};
+				}
+				this.plugin.settings.customColors.progressBar = DEFAULT_SETTINGS.customColors!.progressBar!;
+				await this.plugin.saveSettings();
+				this.display();
+				await this.refreshView();
+			})
+		);
 	}
 
 	exportToCSV(): void {
