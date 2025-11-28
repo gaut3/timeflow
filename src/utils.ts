@@ -10,12 +10,36 @@ export const FIXED_DAY_COLORS: Record<string, string> = {
 
 // Function to get special day colors from settings
 export function getSpecialDayColors(settings: TimeFlowSettings): Record<string, string> {
-	return {
-		...FIXED_DAY_COLORS,
-		...settings.specialDayColors
-	};
+	const colors: Record<string, string> = { ...FIXED_DAY_COLORS };
+
+	// Build color map from special day behaviors
+	settings.specialDayBehaviors.forEach(behavior => {
+		colors[behavior.id] = behavior.color;
+	});
+
+	// Fallback to old specialDayColors if it exists (for migration compatibility)
+	if (settings.specialDayColors) {
+		Object.assign(colors, settings.specialDayColors);
+	}
+
+	return colors;
 }
 
+// Function to build emoji map from settings
+export function getEmojiMap(settings: TimeFlowSettings): Record<string, string> {
+	const emojiMap: Record<string, string> = {
+		jobb: "💼" // Always include jobb
+	};
+
+	// Build emoji map from special day behaviors
+	settings.specialDayBehaviors.forEach(behavior => {
+		emojiMap[behavior.id] = behavior.icon;
+	});
+
+	return emojiMap;
+}
+
+// Legacy EMOJI_MAP for backward compatibility (deprecated)
 export const EMOJI_MAP: Record<string, string> = {
 	avspasering: "🛌",
 	kurs: "📚",

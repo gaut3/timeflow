@@ -15,6 +15,7 @@ export interface TimeFlowSettings {
 	workDays: number[]; // 0=Sunday, 1=Monday, ..., 6=Saturday
 	enableAlternatingWeeks: boolean;
 	alternatingWeekWorkDays: number[]; // Work days for alternating week
+	enableGoalTracking: boolean; // NEW: Toggle between goal-based and simple tracking
 	enableWeeklyGoals: boolean;
 	maxEgenmeldingDays: number;
 	maxFerieDays: number;
@@ -31,24 +32,9 @@ export interface TimeFlowSettings {
 	defaultExportWeeks: number;
 	heatmapColumns: number;
 	noteTypes: NoteType[];
-	specialDayColors: {
-		avspasering: string;
-		ferie: string;
-		velferdspermisjon: string;
-		egenmelding: string;
-		sykemelding: string;
-		kurs: string;
-		studie: string;
-	};
-	specialDayLabels: {
-		avspasering: string;
-		ferie: string;
-		velferdspermisjon: string;
-		egenmelding: string;
-		sykemelding: string;
-		kurs: string;
-		studie: string;
-	};
+	specialDayBehaviors: SpecialDayBehavior[];
+	specialDayColors?: Record<string, string>; // DEPRECATED - kept for migration
+	specialDayLabels?: Record<string, string>; // DEPRECATED - kept for migration
 	// Advanced configuration settings
 	balanceStartDate: string;
 	halfDayHours: number;
@@ -66,6 +52,94 @@ export interface TimeFlowSettings {
 		highWeeklyTotalHours: number;
 	};
 }
+
+export interface SpecialDayBehavior {
+	id: string;                    // Unique identifier (e.g., "ferie")
+	label: string;                 // Display name
+	icon: string;                  // Emoji
+	color: string;                 // Hex color
+	noHoursRequired: boolean;      // No work hours required this day?
+	flextimeEffect: 'none' | 'withdraw' | 'accumulate';
+	includeInStats: boolean;       // Count in yearly statistics?
+	maxDaysPerYear?: number;       // Optional limit
+}
+
+export const DEFAULT_SPECIAL_DAY_BEHAVIORS: SpecialDayBehavior[] = [
+	{
+		id: 'ferie',
+		label: 'Ferie',
+		icon: '🏖️',
+		color: '#b3e5fc',
+		noHoursRequired: true,
+		flextimeEffect: 'none',
+		includeInStats: true,
+		maxDaysPerYear: 25
+	},
+	{
+		id: 'avspasering',
+		label: 'Avspasering',
+		icon: '🛌',
+		color: '#ffe0b2',
+		noHoursRequired: true,
+		flextimeEffect: 'withdraw',
+		includeInStats: true
+	},
+	{
+		id: 'egenmelding',
+		label: 'Egenmelding',
+		icon: '🤒',
+		color: '#c8e6c9',
+		noHoursRequired: true,
+		flextimeEffect: 'none',
+		includeInStats: true,
+		maxDaysPerYear: 8
+	},
+	{
+		id: 'sykemelding',
+		label: 'Sykemelding',
+		icon: '🏥',
+		color: '#c8e6c9',
+		noHoursRequired: true,
+		flextimeEffect: 'none',
+		includeInStats: true
+	},
+	{
+		id: 'velferdspermisjon',
+		label: 'Velferdspermisjon',
+		icon: '🏥',
+		color: '#e1bee7',
+		noHoursRequired: true,
+		flextimeEffect: 'none',
+		includeInStats: true
+	},
+	{
+		id: 'kurs',
+		label: 'Kurs',
+		icon: '📚',
+		color: '#f8bbd0',
+		noHoursRequired: false,
+		flextimeEffect: 'accumulate',
+		includeInStats: true
+	},
+	{
+		id: 'studie',
+		label: 'Studie',
+		icon: '📖',
+		color: '#f8bbd0',
+		noHoursRequired: false,
+		flextimeEffect: 'accumulate',
+		includeInStats: true
+	},
+	{
+		id: 'helligdag',
+		label: 'Helligdag',
+		icon: '🎉',
+		color: '#ef5350',
+		noHoursRequired: true,
+		flextimeEffect: 'none',
+		includeInStats: true
+	}
+];
 
 export interface NoteType {
 	id: string;
@@ -90,6 +164,7 @@ export const DEFAULT_SETTINGS: TimeFlowSettings = {
 	workDays: [1, 2, 3, 4, 5], // Monday-Friday by default
 	enableAlternatingWeeks: false,
 	alternatingWeekWorkDays: [1, 2, 3, 4, 5], // Same as workDays by default
+	enableGoalTracking: true, // NEW: Default to goal-based tracking (current behavior)
 	enableWeeklyGoals: true,
 	maxEgenmeldingDays: 8,
 	maxFerieDays: 25,
@@ -152,6 +227,7 @@ export const DEFAULT_SETTINGS: TimeFlowSettings = {
 			filenamePattern: "{YYYY}-{MM}-{DD} Refleksjon"
 		}
 	],
+	specialDayBehaviors: DEFAULT_SPECIAL_DAY_BEHAVIORS,
 	specialDayColors: {
 		avspasering: "#ffe0b2",
 		ferie: "#b3e5fc",
@@ -187,6 +263,203 @@ export const DEFAULT_SETTINGS: TimeFlowSettings = {
 		highWeeklyTotalHours: 60
 	}
 };
+
+export class SpecialDayBehaviorModal extends Modal {
+	behavior: SpecialDayBehavior | null;
+	index: number;
+	plugin: TimeFlowPlugin;
+	onSave: (behavior: SpecialDayBehavior, index: number) => void;
+
+	constructor(
+		app: App,
+		plugin: TimeFlowPlugin,
+		behavior: SpecialDayBehavior | null,
+		index: number,
+		onSave: (behavior: SpecialDayBehavior, index: number) => void
+	) {
+		super(app);
+		this.plugin = plugin;
+		this.behavior = behavior;
+		this.index = index;
+		this.onSave = onSave;
+	}
+
+	onOpen() {
+		const { contentEl } = this;
+		contentEl.empty();
+
+		contentEl.createEl('h2', { text: this.behavior ? 'Edit Special Day Type' : 'Add Special Day Type' });
+
+		// Add Norwegian term explanations if applicable
+		if (this.behavior) {
+			const norwegianTerms: Record<string, string> = {
+				'egenmelding': 'Norwegian self-reported sick leave (max 8 days/year per Norwegian labor law)',
+				'velferdspermisjon': 'Norwegian welfare leave for personal/family health matters',
+				'avspasering': 'Norwegian term: Time off as compensation for accumulated flextime'
+			};
+
+			const explanation = norwegianTerms[this.behavior.id];
+			if (explanation) {
+				const infoBox = contentEl.createDiv({ cls: 'setting-item-description' });
+				infoBox.style.padding = '10px';
+				infoBox.style.marginBottom = '15px';
+				infoBox.style.background = 'var(--background-secondary)';
+				infoBox.style.borderRadius = '5px';
+				infoBox.style.fontSize = '0.9em';
+				infoBox.innerHTML = `ℹ️ ${explanation}`;
+			}
+		}
+
+		// Store form values
+		const formData = {
+			id: this.behavior?.id || '',
+			label: this.behavior?.label || '',
+			icon: this.behavior?.icon || '',
+			color: this.behavior?.color || '#b3e5fc',
+			noHoursRequired: this.behavior?.noHoursRequired ?? true,
+			flextimeEffect: this.behavior?.flextimeEffect || 'none',
+			includeInStats: this.behavior?.includeInStats ?? true,
+			maxDaysPerYear: this.behavior?.maxDaysPerYear || undefined
+		};
+
+		// ID field (readonly if editing)
+		new Setting(contentEl)
+			.setName('ID')
+			.setDesc('Unique identifier (lowercase, no spaces). Used in holiday file format.')
+			.addText(text => {
+				text
+					.setPlaceholder('ferie')
+					.setValue(formData.id)
+					.onChange(value => formData.id = value.toLowerCase().replace(/\s+/g, ''));
+				if (this.behavior) {
+					text.setDisabled(true); // Can't change ID when editing
+				}
+			});
+
+		// Label field
+		new Setting(contentEl)
+			.setName('Label')
+			.setDesc('Display name shown in the dashboard')
+			.addText(text => text
+				.setPlaceholder('Ferie')
+				.setValue(formData.label)
+				.onChange(value => formData.label = value));
+
+		// Icon field
+		new Setting(contentEl)
+			.setName('Icon')
+			.setDesc('Emoji to display')
+			.addText(text => text
+				.setPlaceholder('🏖️')
+				.setValue(formData.icon)
+				.onChange(value => formData.icon = value));
+
+		// Color field
+		new Setting(contentEl)
+			.setName('Color')
+			.setDesc('Background color for this day type in calendar')
+			.addColorPicker(color => color
+				.setValue(formData.color)
+				.onChange(value => formData.color = value));
+
+		// No hours required toggle
+		new Setting(contentEl)
+			.setName('No hours required')
+			.setDesc('If enabled, you don\'t need to log any work hours this day (e.g., vacation, sick leave). If disabled, regular workday goal applies.')
+			.addToggle(toggle => toggle
+				.setValue(formData.noHoursRequired)
+				.onChange(value => formData.noHoursRequired = value));
+
+		// Flextime effect dropdown
+		new Setting(contentEl)
+			.setName('Flextime effect')
+			.setDesc('How this day type affects your flextime balance')
+			.addDropdown(dropdown => dropdown
+				.addOption('none', 'No effect (counts as full workday)')
+				.addOption('withdraw', 'Withdraw (uses flextime balance)')
+				.addOption('accumulate', 'Accumulate (excess hours add to flextime)')
+				.setValue(formData.flextimeEffect)
+				.onChange(value => formData.flextimeEffect = value as 'none' | 'withdraw' | 'accumulate'));
+
+		// Include in stats toggle
+		new Setting(contentEl)
+			.setName('Include in statistics')
+			.setDesc('Show this day type in yearly statistics')
+			.addToggle(toggle => toggle
+				.setValue(formData.includeInStats)
+				.onChange(value => formData.includeInStats = value));
+
+		// Max days per year
+		new Setting(contentEl)
+			.setName('Max days per year (optional)')
+			.setDesc('Yearly limit for this day type (e.g., 25 for vacation). Leave empty for no limit.')
+			.addText(text => text
+				.setPlaceholder('25')
+				.setValue(formData.maxDaysPerYear?.toString() || '')
+				.onChange(value => {
+					const num = parseInt(value);
+					formData.maxDaysPerYear = isNaN(num) ? undefined : num;
+				}));
+
+		// Buttons
+		const buttonDiv = contentEl.createDiv();
+		buttonDiv.style.display = 'flex';
+		buttonDiv.style.gap = '10px';
+		buttonDiv.style.justifyContent = 'flex-end';
+		buttonDiv.style.marginTop = '20px';
+
+		const cancelBtn = buttonDiv.createEl('button', { text: 'Cancel' });
+		cancelBtn.onclick = () => this.close();
+
+		const saveBtn = buttonDiv.createEl('button', { text: 'Save', cls: 'mod-cta' });
+		saveBtn.onclick = () => {
+			// Validate
+			if (!formData.id) {
+				new Notice('⚠️ ID is required');
+				return;
+			}
+			if (!formData.label) {
+				new Notice('⚠️ Label is required');
+				return;
+			}
+			if (!formData.icon) {
+				new Notice('⚠️ Icon is required');
+				return;
+			}
+
+			// Check for duplicate IDs (only when adding new or changing ID)
+			if (!this.behavior || this.behavior.id !== formData.id) {
+				const isDuplicate = this.plugin.settings.specialDayBehaviors.some(
+					(b, i) => b.id === formData.id && i !== this.index
+				);
+				if (isDuplicate) {
+					new Notice('⚠️ A special day type with this ID already exists');
+					return;
+				}
+			}
+
+			// Create behavior object
+			const behavior: SpecialDayBehavior = {
+				id: formData.id,
+				label: formData.label,
+				icon: formData.icon,
+				color: formData.color,
+				noHoursRequired: formData.noHoursRequired,
+				flextimeEffect: formData.flextimeEffect,
+				includeInStats: formData.includeInStats,
+				maxDaysPerYear: formData.maxDaysPerYear
+			};
+
+			this.onSave(behavior, this.index);
+			this.close();
+		};
+	}
+
+	onClose() {
+		const { contentEl } = this;
+		contentEl.empty();
+	}
+}
 
 export class TimeFlowSettingTab extends PluginSettingTab {
 	plugin: TimeFlowPlugin;
@@ -243,140 +516,101 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 		// Special day types
 		new Setting(containerEl)
 			.setName('Special day types')
-			.setDesc('Customize names and colors for different types of special days. These day types affect flextime calculations.')
+			.setDesc('Configure how different types of special days affect your workday and flextime balance. These settings determine how days are counted in flextime calculations.')
 			.setHeading();
 
-		new Setting(containerEl)
-			.setName('Time Off (Compensatory Leave)')
-			.setDesc('Day off using banked flextime hours. Withdraws logged hours from flextime balance.')
-			.addText(text => text
-				.setPlaceholder('Avspasering')
-				.setValue(this.plugin.settings.specialDayLabels.avspasering)
-				.onChange(async (value) => {
-					this.plugin.settings.specialDayLabels.avspasering = value || 'Avspasering';
-					await this.plugin.saveSettings();
-					await this.refreshView();
-				}))
-			.addColorPicker(color => color
-				.setValue(this.plugin.settings.specialDayColors.avspasering)
-				.onChange(async (value) => {
-					this.plugin.settings.specialDayColors.avspasering = value;
-					await this.plugin.saveSettings();
-					await this.refreshView();
-				}));
+		// Helper function to get behavior description
+		const getBehaviorDescription = (behavior: SpecialDayBehavior): string => {
+			const parts: string[] = [];
 
-		new Setting(containerEl)
-			.setName('Vacation')
-			.setDesc('Paid vacation day (no flextime change).')
-			.addText(text => text
-				.setPlaceholder('Ferie')
-				.setValue(this.plugin.settings.specialDayLabels.ferie)
-				.onChange(async (value) => {
-					this.plugin.settings.specialDayLabels.ferie = value || 'Ferie';
-					await this.plugin.saveSettings();
-					await this.refreshView();
-				}))
-			.addColorPicker(color => color
-				.setValue(this.plugin.settings.specialDayColors.ferie)
-				.onChange(async (value) => {
-					this.plugin.settings.specialDayColors.ferie = value;
-					await this.plugin.saveSettings();
-					await this.refreshView();
-				}));
+			// Workday status
+			parts.push(behavior.noHoursRequired ? 'No hours required' : 'Regular workday applies');
 
-		new Setting(containerEl)
-			.setName('Welfare Leave')
-			.setDesc('Personal/family emergency leave (no flextime change).')
-			.addText(text => text
-				.setPlaceholder('Velferdspermisjon')
-				.setValue(this.plugin.settings.specialDayLabels.velferdspermisjon)
-				.onChange(async (value) => {
-					this.plugin.settings.specialDayLabels.velferdspermisjon = value || 'Velferdspermisjon';
-					await this.plugin.saveSettings();
-					await this.refreshView();
-				}))
-			.addColorPicker(color => color
-				.setValue(this.plugin.settings.specialDayColors.velferdspermisjon)
-				.onChange(async (value) => {
-					this.plugin.settings.specialDayColors.velferdspermisjon = value;
-					await this.plugin.saveSettings();
-					await this.refreshView();
-				}));
+			// Flextime effect
+			if (behavior.flextimeEffect === 'withdraw') {
+				parts.push('withdraws from flextime');
+			} else if (behavior.flextimeEffect === 'accumulate') {
+				parts.push('excess counts as flextime');
+			} else {
+				parts.push('no flextime change');
+			}
 
-		new Setting(containerEl)
-			.setName('Sick Leave (Self-Certified)')
-			.setDesc('Sick day without doctor\'s note (no flextime change).')
-			.addText(text => text
-				.setPlaceholder('Egenmelding')
-				.setValue(this.plugin.settings.specialDayLabels.egenmelding)
-				.onChange(async (value) => {
-					this.plugin.settings.specialDayLabels.egenmelding = value || 'Egenmelding';
-					await this.plugin.saveSettings();
-					await this.refreshView();
-				}))
-			.addColorPicker(color => color
-				.setValue(this.plugin.settings.specialDayColors.egenmelding)
-				.onChange(async (value) => {
-					this.plugin.settings.specialDayColors.egenmelding = value;
-					await this.plugin.saveSettings();
-					await this.refreshView();
-				}));
+			// Max days
+			if (behavior.maxDaysPerYear) {
+				parts.push(`max ${behavior.maxDaysPerYear} days/year`);
+			}
 
-		new Setting(containerEl)
-			.setName('Sick Leave (Doctor\'s Note)')
-			.setDesc('Sick day with doctor\'s note (no flextime change).')
-			.addText(text => text
-				.setPlaceholder('Sykemelding')
-				.setValue(this.plugin.settings.specialDayLabels.sykemelding)
-				.onChange(async (value) => {
-					this.plugin.settings.specialDayLabels.sykemelding = value || 'Sykemelding';
-					await this.plugin.saveSettings();
-					await this.refreshView();
-				}))
-			.addColorPicker(color => color
-				.setValue(this.plugin.settings.specialDayColors.sykemelding)
-				.onChange(async (value) => {
-					this.plugin.settings.specialDayColors.sykemelding = value;
-					await this.plugin.saveSettings();
-					await this.refreshView();
-				}));
+			return parts.join(', ');
+		};
 
-		new Setting(containerEl)
-			.setName('Course/Training')
-			.setDesc('Professional development/training day. Regular workday goal applies - hours beyond workday count as flextime.')
-			.addText(text => text
-				.setPlaceholder('Kurs')
-				.setValue(this.plugin.settings.specialDayLabels.kurs)
-				.onChange(async (value) => {
-					this.plugin.settings.specialDayLabels.kurs = value || 'Kurs';
-					await this.plugin.saveSettings();
-					await this.refreshView();
-				}))
-			.addColorPicker(color => color
-				.setValue(this.plugin.settings.specialDayColors.kurs)
-				.onChange(async (value) => {
-					this.plugin.settings.specialDayColors.kurs = value;
-					await this.plugin.saveSettings();
-					await this.refreshView();
-				}));
+		// List existing behaviors
+		this.plugin.settings.specialDayBehaviors.forEach((behavior, index) => {
+			const colorDot = containerEl.createEl('span');
+			colorDot.style.display = 'inline-block';
+			colorDot.style.width = '12px';
+			colorDot.style.height = '12px';
+			colorDot.style.borderRadius = '50%';
+			colorDot.style.backgroundColor = behavior.color;
+			colorDot.style.marginRight = '6px';
+			colorDot.style.verticalAlign = 'middle';
 
+			new Setting(containerEl)
+				.setName(`${behavior.icon} ${behavior.label}`)
+				.setDesc(getBehaviorDescription(behavior))
+				.addButton(btn => btn
+					.setButtonText('Edit')
+					.onClick(() => {
+						new SpecialDayBehaviorModal(
+							this.app,
+							this.plugin,
+							behavior,
+							index,
+							async (updatedBehavior, idx) => {
+								this.plugin.settings.specialDayBehaviors[idx] = updatedBehavior;
+								await this.plugin.saveSettings();
+								await this.refreshView();
+								this.display(); // Refresh settings panel
+							}
+						).open();
+					}))
+				.addButton(btn => btn
+					.setButtonText('Delete')
+					.setWarning()
+					.onClick(async () => {
+						// Warn if deleting a behavior with ID that might have historical data
+						const confirmation = confirm(
+							`Are you sure you want to delete "${behavior.label}"?\n\n` +
+							`Note: Historical data in your holidays file using "${behavior.id}" will no longer be recognized.`
+						);
+						if (confirmation) {
+							this.plugin.settings.specialDayBehaviors.splice(index, 1);
+							await this.plugin.saveSettings();
+							await this.refreshView();
+							this.display(); // Refresh settings panel
+						}
+					}));
+		});
+
+		// Add new behavior button
 		new Setting(containerEl)
-			.setName('Study')
-			.setDesc('Educational leave/study day. Regular workday goal applies - hours beyond workday count as flextime.')
-			.addText(text => text
-				.setPlaceholder('Studie')
-				.setValue(this.plugin.settings.specialDayLabels.studie)
-				.onChange(async (value) => {
-					this.plugin.settings.specialDayLabels.studie = value || 'Studie';
-					await this.plugin.saveSettings();
-					await this.refreshView();
-				}))
-			.addColorPicker(color => color
-				.setValue(this.plugin.settings.specialDayColors.studie)
-				.onChange(async (value) => {
-					this.plugin.settings.specialDayColors.studie = value;
-					await this.plugin.saveSettings();
-					await this.refreshView();
+			.setName('Add new special day type')
+			.setDesc('Create a custom day type with your own rules')
+			.addButton(btn => btn
+				.setButtonText('+ Add')
+				.setCta()
+				.onClick(() => {
+					new SpecialDayBehaviorModal(
+						this.app,
+						this.plugin,
+						null, // New behavior
+						this.plugin.settings.specialDayBehaviors.length, // Index at end
+						async (newBehavior) => {
+							this.plugin.settings.specialDayBehaviors.push(newBehavior);
+							await this.plugin.saveSettings();
+							await this.refreshView();
+							this.display(); // Refresh settings panel
+						}
+					).open();
 				}));
 
 		// Work configuration
@@ -394,26 +628,41 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 			Settings are automatically saved to <code>timeflow/data.md</code> and will sync across devices when using Obsidian Sync or any other vault sync solution. When you open the plugin on another device, your settings will be automatically loaded.
 		`;
 
+		// Goal Tracking Mode Toggle - MUST be at top of work configuration
 		new Setting(containerEl)
-			.setName('Base workday hours')
-			.setDesc('Standard hours for a full workday (e.g., 7.5 for standard, 6 for 6-hour days)')
-			.addText(text => text
-				.setPlaceholder('7.5')
-				.setValue(this.plugin.settings.baseWorkday.toString())
+			.setName('Enable goal tracking')
+			.setDesc('Enable flextime calculations and daily/weekly goals. Disable for simple hour tracking without goals (e.g., shift workers, freelancers).')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.enableGoalTracking)
 				.onChange(async (value) => {
-					const num = parseFloat(value);
-					if (!isNaN(num) && num > 0) {
-						this.plugin.settings.baseWorkday = num;
-						await this.plugin.saveSettings();
-						await this.refreshView();
-					}
+					this.plugin.settings.enableGoalTracking = value;
+					await this.plugin.saveSettings();
+					this.display(); // Refresh to show/hide dependent settings
+					await this.refreshView(); // Refresh dashboard
 				}));
+
+		// Only show goal-related settings if goal tracking is enabled
+		if (this.plugin.settings.enableGoalTracking) {
+			new Setting(containerEl)
+				.setName('Base workday hours')
+				.setDesc('Standard hours for a full workday (e.g., 7.5 for standard, 6 for 6-hour days)')
+				.addText(text => text
+					.setPlaceholder('7.5')
+					.setValue(this.plugin.settings.baseWorkday.toString())
+					.onChange(async (value) => {
+						const num = parseFloat(value);
+						if (!isNaN(num) && num > 0) {
+							this.plugin.settings.baseWorkday = num;
+							await this.plugin.saveSettings();
+							await this.refreshView();
+						}
+					}));
 
 		// Only show work percentage and baseWorkweek if weekly goals are enabled
 		if (this.plugin.settings.enableWeeklyGoals) {
 			new Setting(containerEl)
 				.setName('Work percentage')
-				.setDesc('Your employment percentage (1.0 = 100%, 0.8 = 80%, etc.)')
+				.setDesc('Your employment percentage. Adjusts weekly work goal. Example: 0.8 (80%) = 30h/week if base is 37.5h')
 				.addText(text => text
 					.setPlaceholder('1.0')
 					.setValue(this.plugin.settings.workPercent.toString())
@@ -557,17 +806,21 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 				};
 			});
 		}
+		} // End of enableGoalTracking conditional
 
-		new Setting(containerEl)
-			.setName('Enable weekly/monthly goals')
-			.setDesc('Disable if you don\'t have a specific amount of work each week/month. This will hide goal progress bars and weekly/monthly targets.')
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.enableWeeklyGoals)
-				.onChange(async (value) => {
-					this.plugin.settings.enableWeeklyGoals = value;
-					await this.plugin.saveSettings();
-					this.display(); // Refresh to show/hide baseWorkweek
-				}));
+		// Only show weekly/monthly goals toggle if goal tracking is enabled
+		if (this.plugin.settings.enableGoalTracking) {
+			new Setting(containerEl)
+				.setName('Enable weekly/monthly goals')
+				.setDesc('Disable if you don\'t have a specific amount of work each week/month. This will hide goal progress bars and weekly/monthly targets.')
+				.addToggle(toggle => toggle
+					.setValue(this.plugin.settings.enableWeeklyGoals)
+					.onChange(async (value) => {
+						this.plugin.settings.enableWeeklyGoals = value;
+						await this.plugin.saveSettings();
+						this.display(); // Refresh to show/hide baseWorkweek
+					}));
+		}
 
 		// Advanced Configuration
 		new Setting(containerEl)
@@ -639,12 +892,12 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 		// Balance Color Thresholds
 		new Setting(containerEl)
 			.setName('Balance color thresholds')
-			.setDesc('Configure the hour thresholds for balance indicator colors')
+			.setDesc('Configure the hour thresholds for balance indicator colors. These control the color-coding of your flextime balance badge: Red = significant under/overtime, Yellow = approaching limits, Green = healthy balance.')
 			.setHeading();
 
 		new Setting(containerEl)
 			.setName('Critical low threshold (red)')
-			.setDesc('Balance below this value shows in red')
+			.setDesc('Below this many hours = red badge (significant undertime)')
 			.addText(text => text
 				.setPlaceholder('-15')
 				.setValue(this.plugin.settings.balanceThresholds.criticalLow.toString())
@@ -659,7 +912,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Warning low threshold (yellow)')
-			.setDesc('Balance below this value shows in yellow')
+			.setDesc('Below this = yellow badge (approaching undertime)')
 			.addText(text => text
 				.setPlaceholder('0')
 				.setValue(this.plugin.settings.balanceThresholds.warningLow.toString())
@@ -674,7 +927,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Warning high threshold (yellow)')
-			.setDesc('Balance above this value shows in yellow')
+			.setDesc('Above this = yellow badge (approaching overtime limit)')
 			.addText(text => text
 				.setPlaceholder('80')
 				.setValue(this.plugin.settings.balanceThresholds.warningHigh.toString())
@@ -689,7 +942,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Critical high threshold (red)')
-			.setDesc('Balance above this value shows in red')
+			.setDesc('Above this = red badge (significant overtime accumulation)')
 			.addText(text => text
 				.setPlaceholder('95')
 				.setValue(this.plugin.settings.balanceThresholds.criticalHigh.toString())
@@ -705,12 +958,12 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 		// Data Validation Thresholds
 		new Setting(containerEl)
 			.setName('Data validation thresholds')
-			.setDesc('Configure warnings and errors for data validation')
+			.setDesc('Automatic data quality checks. Adjust these if you frequently work long hours or want stricter validation.')
 			.setHeading();
 
 		new Setting(containerEl)
 			.setName('Long-running timer warning (hours)')
-			.setDesc('Warn if active timer exceeds this duration')
+			.setDesc('Warn if a timer runs more than X hours without being stopped (default: 12)')
 			.addText(text => text
 				.setPlaceholder('12')
 				.setValue(this.plugin.settings.validationThresholds.longRunningTimerHours.toString())
@@ -724,7 +977,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Very long session warning (hours)')
-			.setDesc('Warn if completed session exceeds this duration')
+			.setDesc('Warn if a work session exceeds X hours (default: 16)')
 			.addText(text => text
 				.setPlaceholder('16')
 				.setValue(this.plugin.settings.validationThresholds.veryLongSessionHours.toString())
@@ -738,7 +991,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Maximum session duration (hours)')
-			.setDesc('Error if session exceeds this (likely data entry error)')
+			.setDesc('Prevent entries longer than X hours - likely a data error (default: 24)')
 			.addText(text => text
 				.setPlaceholder('24')
 				.setValue(this.plugin.settings.validationThresholds.maxDurationHours.toString())
@@ -752,7 +1005,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('High weekly total info (hours)')
-			.setDesc('Show info notice if week total exceeds this')
+			.setDesc('Show info notice if weekly total exceeds X hours (default: 60)')
 			.addText(text => text
 				.setPlaceholder('60')
 				.setValue(this.plugin.settings.validationThresholds.highWeeklyTotalHours.toString())
@@ -761,42 +1014,6 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 					if (!isNaN(num) && num > 0) {
 						this.plugin.settings.validationThresholds.highWeeklyTotalHours = num;
 						await this.plugin.saveSettings();
-					}
-				}));
-
-		// Leave limits
-		new Setting(containerEl)
-			.setName('Leave limits')
-			.setDesc('Set maximum allowed days for different leave types per year. The dashboard displays your usage against these limits in the yearly statistics view.')
-			.setHeading();
-
-		new Setting(containerEl)
-			.setName('Max sick leave days (self-reported)')
-			.setDesc('Maximum self-reported sick days (egenmelding) allowed per year (typically 8 in Norway)')
-			.addText(text => text
-				.setPlaceholder('8')
-				.setValue(this.plugin.settings.maxEgenmeldingDays.toString())
-				.onChange(async (value) => {
-					const num = parseInt(value);
-					if (!isNaN(num) && num >= 0) {
-						this.plugin.settings.maxEgenmeldingDays = num;
-						await this.plugin.saveSettings();
-						await this.refreshView();
-					}
-				}));
-
-		new Setting(containerEl)
-			.setName('Max vacation days')
-			.setDesc('Maximum vacation days (ferie) per year based on your contract (typically 25 in Norway)')
-			.addText(text => text
-				.setPlaceholder('25')
-				.setValue(this.plugin.settings.maxFerieDays.toString())
-				.onChange(async (value) => {
-					const num = parseInt(value);
-					if (!isNaN(num) && num >= 0) {
-						this.plugin.settings.maxFerieDays = num;
-						await this.plugin.saveSettings();
-						await this.refreshView();
 					}
 				}));
 

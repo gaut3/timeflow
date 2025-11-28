@@ -227,35 +227,51 @@ export class UIBuilder {
 				transform: translateY(0);
 			}
 
-			.tf-summary-cards {
+			/* Enable container queries on the dashboard container */
+			.timeflow-dashboard {
+				container-type: inline-size;
+				container-name: dashboard;
+			}
+
+			/* Main cards container - wraps summary cards AND stats card for responsive layout */
+			.tf-main-cards-wrapper {
 				display: grid;
-				grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 				gap: 15px;
 				margin-bottom: 20px;
 				width: 100%;
 				box-sizing: border-box;
 			}
 
-			/* Day and week cards stay side-by-side in row 1, calendar always below in row 2 */
-			.tf-card-month {
-				grid-column: 1 / -1; /* Calendar takes full width below */
-				container-type: inline-size; /* Enable container queries */
+			/* Mobile default: everything stacked */
+			.tf-main-cards-wrapper {
+				grid-template-columns: 1fr;
+			}
+			.tf-card-day { grid-column: 1; grid-row: 1; }
+			.tf-card-week { grid-column: 1; grid-row: 2; }
+			.tf-card-month { grid-column: 1; grid-row: 3; }
+			.tf-card-stats { grid-column: 1; grid-row: 4; }
+
+			/* Reduce gap and padding on very narrow containers */
+			@container dashboard (max-width: 500px) {
+				.tf-main-cards-wrapper { gap: 12px; }
+				.tf-card { padding: 16px; }
 			}
 
-			/* On mobile, stack everything vertically */
-			@media (max-width: 500px) {
-				.tf-summary-cards {
-					grid-template-columns: 1fr;
-					gap: 12px;
+			/* Medium width: Day/Week side by side, Month and Stats stacked full width */
+			@container dashboard (min-width: 501px) {
+				.tf-main-cards-wrapper {
+					grid-template-columns: repeat(2, minmax(0, 1fr));
 				}
+				.tf-card-day { grid-column: 1; grid-row: 1; }
+				.tf-card-week { grid-column: 2; grid-row: 1; }
+				.tf-card-month { grid-column: 1 / -1; grid-row: 2; }
+				.tf-card-stats { grid-column: 1 / -1; grid-row: 3; }
+			}
 
-				.tf-card-month {
-					grid-column: 1;
-				}
-
-				.tf-card {
-					padding: 16px;
-				}
+			/* Wide layout: 2x2 grid - Day/Week top, Month/Stats side by side bottom */
+			@container dashboard (min-width: 900px) {
+				.tf-card-month { grid-column: 1; grid-row: 2; }
+				.tf-card-stats { grid-column: 2; grid-row: 2; }
 			}
 
 			/* Default card styling - used for month card */
@@ -478,6 +494,66 @@ export class UIBuilder {
 				grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
 				gap: 15px;
 				margin-top: 15px;
+			}
+
+			/* When stats card is in wide layout (beside calendar), force 2 columns */
+			@container dashboard (min-width: 900px) {
+				.tf-card-stats .tf-stats-grid {
+					grid-template-columns: repeat(2, 1fr);
+				}
+			}
+
+			/* Future planned days list - only shown in wide layout */
+			.tf-future-days-list {
+				display: none;
+			}
+
+			@container dashboard (min-width: 900px) {
+				.tf-future-days-list {
+					display: block;
+					margin-top: 20px;
+					padding-top: 15px;
+					border-top: 1px solid rgba(0, 0, 0, 0.1);
+				}
+
+				.timeflow-theme-dark .tf-future-days-list {
+					border-top-color: rgba(255, 255, 255, 0.1);
+				}
+
+				.tf-future-days-list h4 {
+					margin: 0 0 10px 0;
+					font-size: 14px;
+					font-weight: 600;
+					opacity: 0.8;
+				}
+
+				.tf-future-day-item {
+					display: flex;
+					justify-content: space-between;
+					align-items: center;
+					padding: 6px 0;
+					font-size: 13px;
+					border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+				}
+
+				.timeflow-theme-dark .tf-future-day-item {
+					border-bottom-color: rgba(255, 255, 255, 0.05);
+				}
+
+				.tf-future-day-item:last-child {
+					border-bottom: none;
+				}
+
+				.tf-future-day-date {
+					font-weight: 500;
+				}
+
+				.tf-future-day-type {
+					padding: 2px 8px;
+					border-radius: 4px;
+					font-size: 12px;
+					color: white;
+				}
 			}
 
 			/* Light theme - Stat items match timeflow.js */
@@ -844,6 +920,12 @@ export class UIBuilder {
 		const section = document.createElement("div");
 		section.className = "tf-badge-section";
 
+		// NEW: Hide badge in simple tracking mode
+		if (!this.settings.enableGoalTracking) {
+			section.style.display = 'none';
+			return section;
+		}
+
 		const badge = document.createElement("div");
 		badge.className = "tf-badge";
 		this.elements.badge = badge;
@@ -972,8 +1054,8 @@ export class UIBuilder {
 
 		const timerTypes = [
 			{ name: 'jobb', icon: '💼', label: 'Jobb' },
-			{ name: 'kurs', icon: '📚', label: this.settings.specialDayLabels.kurs },
-			{ name: 'studie', icon: '🎓', label: this.settings.specialDayLabels.studie }
+			{ name: 'kurs', icon: '📚', label: this.settings.specialDayBehaviors.find(b => b.id === 'kurs')?.label || 'Kurs' },
+			{ name: 'studie', icon: '🎓', label: this.settings.specialDayBehaviors.find(b => b.id === 'studie')?.label || 'Studie' }
 		];
 
 		timerTypes.forEach(type => {
@@ -1135,6 +1217,11 @@ export class UIBuilder {
 		this.elements.monthCard = gridContainer;
 		card.appendChild(gridContainer);
 
+		// Container for future planned days list (only shown in wide layout)
+		const futureDaysContainer = document.createElement("div");
+		futureDaysContainer.className = "tf-future-days-list";
+		card.appendChild(futureDaysContainer);
+
 		this.updateMonthCard();
 
 		return card;
@@ -1142,7 +1229,7 @@ export class UIBuilder {
 
 	createStatsCard(): HTMLElement {
 		const card = document.createElement("div");
-		card.className = "tf-card tf-card-stats tf-card-spaced";
+		card.className = "tf-card tf-card-stats";
 
 		// Content wrapper for collapsible content (defined early so tabs can reference it)
 		const contentWrapper = document.createElement("div");
@@ -1254,7 +1341,7 @@ export class UIBuilder {
 				<ul style="list-style: none; padding-left: 0; margin-bottom: 20px;">
 					${specialDayInfo.map(item => {
 						const color = getSpecialDayColors(this.settings)[item.key] || "transparent";
-						const label = this.settings.specialDayLabels[item.key as keyof typeof this.settings.specialDayLabels] || item.key;
+						const label = this.settings.specialDayBehaviors.find(b => b.id === item.key)?.label || this.settings.specialDayLabels?.[item.key as keyof typeof this.settings.specialDayLabels] || item.key;
 						return `<li style="display: flex; align-items: center; margin-bottom: 8px; font-size: 0.95em;">
 							<div style="width: 16px; height: 16px; background: ${color}; border-radius: 3px; border: 1px solid var(--background-modifier-border); margin-right: 8px; flex-shrink: 0;"></div>
 							<span>${item.emoji} <strong>${label}</strong>: ${item.desc}</span>
@@ -1276,7 +1363,7 @@ export class UIBuilder {
 				</div>
 
 				<div style="margin-top: 20px; padding: 12px; background: var(--background-primary); border-radius: 8px;">
-					<h4 style="margin-top: 0;">Timesaldo - advarselsoner</h4>
+					<h4 style="margin-top: 0;">Fleksitidsaldo - advarselsoner</h4>
 					<div style="display: flex; flex-direction: column; gap: 8px; font-size: 0.9em;">
 						<div style="display: flex; align-items: center; gap: 8px;">
 							<span style="display: inline-block; width: 20px; height: 20px; border-radius: 4px; background: #4caf50; flex-shrink: 0;"></span>
@@ -1443,7 +1530,7 @@ export class UIBuilder {
 
 		this.elements.badge.style.background = color;
 		this.elements.badge.style.color = "white";
-		this.elements.badge.textContent = `Timesaldo: ${sign}${formatted}`;
+		this.elements.badge.textContent = `Fleksitidsaldo: ${sign}${formatted}`;
 	}
 
 	updateDayCard(): void {
@@ -1452,6 +1539,23 @@ export class UIBuilder {
 		const today = new Date();
 		const todayKey = Utils.toLocalDateStr(today);
 		const todayHours = this.data.getTodayHours(today);
+
+		// NEW: Simple tracking mode
+		if (!this.settings.enableGoalTracking) {
+			this.elements.dayCard.style.background = "linear-gradient(135deg, #607d8b, #78909c)";
+			this.elements.dayCard.style.color = "white";
+			this.elements.dayCard.innerHTML = `
+				<h3 style="color: white;">I dag</h3>
+				<div style="font-size: 32px; font-weight: bold; margin: 10px 0;">
+					${Utils.formatHoursToHM(todayHours, this.settings.hourUnit)}
+				</div>
+				<div style="font-size: 14px; opacity: 0.9; margin-top: 10px;">
+					Timer arbeidet
+				</div>
+			`;
+			return;
+		}
+
 		const goal = this.data.getDailyGoal(todayKey);
 		const isWeekendDay = Utils.isWeekend(today, this.settings);
 		const context = this.data.getContextualData(today);
@@ -1514,6 +1618,23 @@ export class UIBuilder {
 
 		const today = new Date();
 		const weekHours = this.data.getCurrentWeekHours(today);
+
+		// NEW: Simple tracking mode
+		if (!this.settings.enableGoalTracking) {
+			this.elements.weekCard.style.background = "linear-gradient(135deg, #607d8b, #78909c)";
+			this.elements.weekCard.style.color = "white";
+			this.elements.weekCard.innerHTML = `
+				<h3 style="color: white;">Denne uken</h3>
+				<div style="font-size: 32px; font-weight: bold; margin: 10px 0;">
+					${Utils.formatHoursToHM(weekHours, this.settings.hourUnit)}
+				</div>
+				<div style="font-size: 14px; opacity: 0.9; margin-top: 10px;">
+					Timer arbeidet
+				</div>
+			`;
+			return;
+		}
+
 		const baseGoal = this.settings.baseWorkweek * this.settings.workPercent;
 		const context = this.data.getContextualData(today);
 
@@ -1741,7 +1862,7 @@ export class UIBuilder {
 			}
 		}
 
-		// Timesaldo color
+		// Fleksitidsaldo color
 		const sign = balance >= 0 ? '+' : '';
 		const timesaldoColor = this.getBalanceColor(balance);
 
@@ -1760,11 +1881,11 @@ export class UIBuilder {
 		}
 
 		this.elements.statsCard.innerHTML = `
-			<div class="tf-stat-item" style="background: ${timesaldoColor}; color: white;">
-				<div class="tf-stat-label">Timesaldo</div>
+			${this.settings.enableGoalTracking ? `<div class="tf-stat-item" style="background: ${timesaldoColor}; color: white;">
+				<div class="tf-stat-label">Fleksitidsaldo</div>
 				<div class="tf-stat-value">${sign}${balance.toFixed(1)}t</div>
 				<div style="font-size: 0.75em; margin-top: 4px;">Total saldo</div>
-			</div>
+			</div>` : ''}
 			<div class="tf-stat-item">
 				<div class="tf-stat-label">⏱️ Timer</div>
 				<div class="tf-stat-value">${stats.totalHours.toFixed(1)}t</div>
@@ -1778,10 +1899,10 @@ export class UIBuilder {
 				<div class="tf-stat-value">${avgWeekly.toFixed(1)}t</div>
 				${weekComparisonText}
 			</div>
-			${this.settings.enableWeeklyGoals ? `<div class="tf-stat-item">
-				<div class="tf-stat-label">💪 Arbeidsbelastning</div>
+			${this.settings.enableGoalTracking && this.settings.enableWeeklyGoals ? `<div class="tf-stat-item">
+				<div class="tf-stat-label">💪 Arbeidsbruk</div>
 				<div class="tf-stat-value">${workloadPct}%</div>
-				<div style="font-size: 0.75em; margin-top: 4px;">av norm</div>
+				<div style="font-size: 0.75em; margin-top: 4px;">av normaluke</div>
 			</div>` : ''}
 			<div class="tf-stat-item">
 				<div class="tf-stat-label">💼 Jobb</div>
@@ -1854,6 +1975,64 @@ export class UIBuilder {
 		const grid = this.createMonthGrid(displayDate);
 		this.elements.monthCard.innerHTML = '';
 		this.elements.monthCard.appendChild(grid);
+
+		// Update future planned days list (in the parent card)
+		const card = this.elements.monthCard.parentElement;
+		if (card) {
+			const futureList = card.querySelector('.tf-future-days-list');
+			if (futureList) {
+				this.updateFutureDaysList(futureList as HTMLElement);
+			}
+		}
+	}
+
+	updateFutureDaysList(container: HTMLElement): void {
+		const today = new Date();
+		const futureDays: Array<{date: string, type: string, label: string, color: string}> = [];
+
+		// Get all future planned days from holidays
+		Object.keys(this.data.holidays).forEach(dateStr => {
+			const date = new Date(dateStr + 'T00:00:00');
+			if (date >= today) {
+				const holiday = this.data.holidays[dateStr];
+				const behavior = this.settings.specialDayBehaviors.find(b => b.id === holiday.type);
+				if (behavior) {
+					futureDays.push({
+						date: dateStr,
+						type: behavior.label,
+						label: holiday.description || behavior.label,
+						color: behavior.color
+					});
+				}
+			}
+		});
+
+		// Sort by date
+		futureDays.sort((a, b) => a.date.localeCompare(b.date));
+
+		// Limit based on goal tracking mode: 7 in simple mode, 10 in goal mode
+		const limit = this.settings.enableGoalTracking ? 10 : 7;
+		const limitedDays = futureDays.slice(0, limit);
+
+		if (limitedDays.length === 0) {
+			container.innerHTML = '';
+			return;
+		}
+
+		// Build list
+		let html = '<h4>Kommende planlagte dager</h4>';
+		limitedDays.forEach(day => {
+			const date = new Date(day.date + 'T00:00:00');
+			const dateStr = date.toLocaleDateString('nb-NO', { day: 'numeric', month: 'short', year: 'numeric' });
+			html += `
+				<div class="tf-future-day-item">
+					<span class="tf-future-day-date">${dateStr}</span>
+					<span class="tf-future-day-type" style="background-color: ${day.color}">${day.label}</span>
+				</div>
+			`;
+		});
+
+		container.innerHTML = html;
 	}
 
 	createMonthGrid(displayDate: Date): HTMLElement {
@@ -1928,9 +2107,15 @@ export class UIBuilder {
 				// Special day from entries (ferie, studie, etc.)
 				cell.style.background = specialDayColors[specialEntry.name.toLowerCase()];
 			} else if (dayEntries) {
-				// Regular work day - show flextime color
-				const dayFlextime = dayEntries.reduce((sum, e) => sum + (e.flextime || 0), 0);
-				cell.style.background = this.flextimeColor(dayFlextime);
+				// Regular work day - show flextime color or neutral color in simple mode
+				if (!this.settings.enableGoalTracking) {
+					// Simple tracking mode - use neutral gray-blue
+					cell.style.background = '#78909c';
+				} else {
+					// Goal-based mode - show flextime color gradient
+					const dayFlextime = dayEntries.reduce((sum, e) => sum + (e.flextime || 0), 0);
+					cell.style.background = this.flextimeColor(dayFlextime);
+				}
 			} else if (Utils.isWeekend(date, this.settings)) {
 				// Darker gray for weekends with no data
 				cell.style.background = "#b0b0b0";
@@ -2107,7 +2292,7 @@ export class UIBuilder {
 		// Add work time session option at the top
 		const workTimeItem = document.createElement('div');
 		workTimeItem.className = 'tf-menu-item';
-		workTimeItem.innerHTML = `<span>⏱️</span><span>Legg til arbeidstid</span>`;
+		workTimeItem.innerHTML = `<span>⏱️</span><span>Logg arbeidstimer</span>`;
 		workTimeItem.onclick = () => {
 			menu.remove();
 			this.showWorkTimeModal(dateObj);
@@ -2259,7 +2444,7 @@ export class UIBuilder {
 		// Title
 		const title = document.createElement('div');
 		title.className = 'modal-title';
-		title.textContent = `Legg til arbeidstid for ${dateStr}`;
+		title.textContent = `Logg arbeidstimer for ${dateStr}`;
 		modalContent.appendChild(title);
 
 		// Content
@@ -2642,15 +2827,11 @@ export class UIBuilder {
 		typeLabel.style.fontWeight = 'bold';
 		content.appendChild(typeLabel);
 
-		const dayTypes = [
-			{ type: 'ferie', label: `🏖️ ${this.settings.specialDayLabels.ferie}` },
-			{ type: 'avspasering', label: `🛌 ${this.settings.specialDayLabels.avspasering}` },
-			{ type: 'velferdspermisjon', label: `🏥 ${this.settings.specialDayLabels.velferdspermisjon}` },
-			{ type: 'egenmelding', label: `🤒 ${this.settings.specialDayLabels.egenmelding}` },
-			{ type: 'sykemelding', label: `🏥 ${this.settings.specialDayLabels.sykemelding}` },
-			{ type: 'kurs', label: `📚 ${this.settings.specialDayLabels.kurs}` },
-			{ type: 'studie', label: `📖 ${this.settings.specialDayLabels.studie}` }
-		];
+		// Build day types from special day behaviors
+		const dayTypes = this.settings.specialDayBehaviors.map(behavior => ({
+			type: behavior.id,
+			label: `${behavior.icon} ${behavior.label}`
+		}));
 
 		const typeSelect = document.createElement('select');
 		typeSelect.style.width = '100%';
@@ -2764,7 +2945,7 @@ export class UIBuilder {
 			await this.app.vault.modify(file as TFile, content);
 
 			// Get the label for the day type
-			const label = this.settings.specialDayLabels[dayType as keyof typeof this.settings.specialDayLabels] || dayType;
+			const label = this.settings.specialDayBehaviors.find(b => b.id === dayType)?.label || this.settings.specialDayLabels?.[dayType as keyof typeof this.settings.specialDayLabels] || dayType;
 			new Notice(`✅ Lagt til ${dateStr} (${label})`);
 
 			// Reload holidays to pick up the new entry
@@ -2902,7 +3083,7 @@ export class UIBuilder {
 						// Add warning flag icon
 						const flagIcon = document.createElement('span');
 						flagIcon.textContent = '⚠️ ';
-						flagIcon.title = `Arbeid registrert på ${this.settings.specialDayLabels[holidayInfo!.type as keyof typeof this.settings.specialDayLabels] || holidayInfo!.type}`;
+						flagIcon.title = `Arbeid registrert på ${this.settings.specialDayBehaviors.find(b => b.id === holidayInfo!.type)?.label || this.settings.specialDayLabels?.[holidayInfo!.type as keyof typeof this.settings.specialDayLabels] || holidayInfo!.type}`;
 						flagIcon.style.cursor = 'help';
 						dateCell.appendChild(flagIcon);
 					}
@@ -2916,7 +3097,7 @@ export class UIBuilder {
 					typeCell.style.color = 'var(--text-normal)';
 					// Use custom label if available, otherwise use the entry name
 					const entryNameLower = e.name.toLowerCase();
-					const customLabel = this.settings.specialDayLabels[entryNameLower as keyof typeof this.settings.specialDayLabels];
+					const customLabel = this.settings.specialDayBehaviors.find(b => b.id === entryNameLower)?.label || this.settings.specialDayLabels?.[entryNameLower as keyof typeof this.settings.specialDayLabels];
 					typeCell.textContent = customLabel || e.name;
 					row.appendChild(typeCell);
 
@@ -2982,8 +3163,14 @@ export class UIBuilder {
 
 			const dayEntries = this.data.daily[dateKey];
 			if (dayEntries) {
-				const dayFlextime = dayEntries.reduce((sum, e) => sum + (e.flextime || 0), 0);
-				cell.style.background = this.flextimeColor(dayFlextime);
+				// Simple tracking mode - use neutral gray for worked days
+				if (!this.settings.enableGoalTracking) {
+					cell.style.background = '#78909c';
+				} else {
+					// Goal-based mode - show flextime color gradient
+					const dayFlextime = dayEntries.reduce((sum, e) => sum + (e.flextime || 0), 0);
+					cell.style.background = this.flextimeColor(dayFlextime);
+				}
 			} else {
 				cell.style.background = '#eee';
 			}
@@ -3051,8 +3238,20 @@ export class UIBuilder {
 		this.injectStyles();
 
 		this.container.appendChild(this.buildBadgeSection());
-		this.container.appendChild(this.buildSummaryCards());
-		this.container.appendChild(this.createStatsCard());
+
+		// Create wrapper for responsive layout (summary cards + stats card)
+		const mainCardsWrapper = document.createElement('div');
+		mainCardsWrapper.className = 'tf-main-cards-wrapper';
+
+		// Add day, week, and month cards
+		mainCardsWrapper.appendChild(this.createDayCard());
+		mainCardsWrapper.appendChild(this.createWeekCard());
+		mainCardsWrapper.appendChild(this.createMonthCard());
+
+		// Add stats card to the same wrapper for responsive layout
+		mainCardsWrapper.appendChild(this.createStatsCard());
+
+		this.container.appendChild(mainCardsWrapper);
 		this.container.appendChild(this.buildInfoCard());
 		this.container.appendChild(this.buildHistoryCard());
 		this.container.appendChild(this.buildStatusBar());

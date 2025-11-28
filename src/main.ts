@@ -1,5 +1,5 @@
 import { Plugin, WorkspaceLeaf, ItemView } from 'obsidian';
-import { TimeFlowSettings, DEFAULT_SETTINGS, TimeFlowSettingTab } from './settings';
+import { TimeFlowSettings, DEFAULT_SETTINGS, TimeFlowSettingTab, DEFAULT_SPECIAL_DAY_BEHAVIORS } from './settings';
 import { TimeFlowView, VIEW_TYPE_TIMEFLOW } from './view';
 import { TimerManager } from './timerManager';
 import { ImportModal } from './importModal';
@@ -115,6 +115,24 @@ export default class TimeFlowPlugin extends Plugin {
 	async loadSettings() {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
 		this.migrateWorkDaysSettings();
+		this.migrateSpecialDayBehaviors();
+	}
+
+	migrateSpecialDayBehaviors() {
+		// Migrate from old specialDayColors/specialDayLabels to new specialDayBehaviors
+		if (!this.settings.specialDayBehaviors || this.settings.specialDayBehaviors.length === 0) {
+			console.log('TimeFlow: Migrating special day settings to new behavior system');
+
+			// Start with default behaviors
+			this.settings.specialDayBehaviors = DEFAULT_SPECIAL_DAY_BEHAVIORS.map(defaultBehavior => {
+				// Create a copy and override with any custom values from old settings
+				return {
+					...defaultBehavior,
+					label: this.settings.specialDayLabels?.[defaultBehavior.id] || defaultBehavior.label,
+					color: this.settings.specialDayColors?.[defaultBehavior.id] || defaultBehavior.color
+				};
+			});
+		}
 	}
 
 	migrateWorkDaysSettings() {

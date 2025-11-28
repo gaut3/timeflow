@@ -105,7 +105,16 @@ export class DataManager {
 		return this.holidays[dateStr] || null;
 	}
 
+	getSpecialDayBehavior(id: string) {
+		return this.settings.specialDayBehaviors.find(b => b.id === id);
+	}
+
 	getDailyGoal(dateStr: string): number {
+		// NEW: Simple tracking mode - no goals
+		if (!this.settings.enableGoalTracking) {
+			return 0;
+		}
+
 		const date = new Date(dateStr);
 		const isWeekend = Utils.isWeekend(date, this.settings);
 
@@ -113,9 +122,15 @@ export class DataManager {
 
 		const holidayInfo = this.getHolidayInfo(dateStr);
 		if (holidayInfo) {
-			if (["ferie", "velferdspermisjon", "helligdag", "egenmelding"].includes(holidayInfo.type)) {
+			// Check if this special day type requires no hours
+			const behavior = this.getSpecialDayBehavior(holidayInfo.type);
+			if (behavior && behavior.noHoursRequired) {
+				// No work hours required (e.g., vacation, sick leave)
 				return 0;
 			}
+
+			// For days that require hours (like kurs, studie),
+			// apply regular workday goal or half-day goal
 			if (holidayInfo.halfDay) {
 				// Calculate half-day hours based on settings
 				const halfDayHours = this.settings.halfDayMode === 'percentage'
@@ -172,16 +187,32 @@ export class DataManager {
 	calculateFlextime(): void {
 		for (let day in this.daily) {
 			const dayGoal = this.getDailyGoal(day);
+			const holidayInfo = this.getHolidayInfo(day);
 
 			this.daily[day].forEach((e) => {
 				let flextime = 0;
 				const name = e.name.toLowerCase();
 
-				if (name === "avspasering") {
-					flextime -= e.duration || 0;
+				// Check if this is a special day with behavior rules
+				if (holidayInfo) {
+					const behavior = this.getSpecialDayBehavior(holidayInfo.type);
+					if (behavior) {
+						if (behavior.flextimeEffect === 'withdraw') {
+							// Withdraws from flextime (e.g., avspasering)
+							flextime -= e.duration || 0;
+						} else if (behavior.flextimeEffect === 'accumulate') {
+							// Excess hours count as flextime (e.g., kurs, studie)
+							if (dayGoal > 0 && (e.duration || 0) > dayGoal) {
+								flextime += (e.duration || 0) - dayGoal;
+							}
+						}
+						// 'none' effect means no flextime change (handled by noHoursRequired in getDailyGoal)
+					}
 				} else if (dayGoal === 0) {
+					// Weekend or no goal: all hours count as flextime bonus
 					flextime += e.duration || 0;
 				} else {
+					// Regular workday: hours beyond goal count as flextime
 					if ((e.duration || 0) > dayGoal) {
 						flextime += (e.duration || 0) - dayGoal;
 					}
@@ -355,9 +386,9 @@ export class DataManager {
 			totalFlextime: allEntries.reduce((sum, e) => sum + (e.flextime || 0), 0),
 			jobb: { count: 0, hours: 0 },
 			avspasering: { count: 0, hours: 0, planned: 0 },
-			ferie: { count: 0, hours: 0, max: this.settings.maxFerieDays, planned: 0 },
+			ferie: { count: 0, hours: 0, max: this.getSpecialDayBehavior('ferie')?.maxDaysPerYear || this.settings.maxFerieDays, planned: 0 },
 			velferdspermisjon: { count: 0, hours: 0, planned: 0 },
-			egenmelding: { count: 0, hours: 0, max: this.settings.maxEgenmeldingDays },
+			egenmelding: { count: 0, hours: 0, max: this.getSpecialDayBehavior('egenmelding')?.maxDaysPerYear || this.settings.maxEgenmeldingDays },
 			sykemelding: { count: 0, hours: 0 },
 			studie: { count: 0, hours: 0, planned: 0 },
 			kurs: { count: 0, hours: 0, planned: 0 },
