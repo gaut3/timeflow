@@ -1,11 +1,13 @@
 import { App, PluginSettingTab, Setting, Notice, Modal } from 'obsidian';
 import TimeFlowPlugin from './main';
 import { Utils } from './utils';
+import { ImportModal } from './importModal';
 
 export interface TimeFlowSettings {
 	version: string;
 	theme: 'light' | 'dark' | 'system';
 	hourUnit: 'h' | 't';
+	showWeekNumbers: boolean;
 	workPercent: number;
 	baseWorkday: number;
 	baseWorkweek: number;
@@ -173,6 +175,7 @@ export const DEFAULT_SETTINGS: TimeFlowSettings = {
 	version: "1.0.0",
 	theme: "light",
 	hourUnit: "t",
+	showWeekNumbers: true,
 	workPercent: 1.0,
 	baseWorkday: 7.5,
 	baseWorkweek: 37.5,
@@ -1113,6 +1116,17 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(settingsContainer)
+			.setName('Vis ukenummer')
+			.setDesc('Vis ukenummer i kalender og uke-kortet (ISO 8601 ukenummer)')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.showWeekNumbers ?? true)
+				.onChange(async (value) => {
+					this.plugin.settings.showWeekNumbers = value;
+					await this.plugin.saveSettings();
+					await this.refreshView();
+				}));
+
+		new Setting(settingsContainer)
 			.setName('Enable motivational messages')
 			.setDesc('Show contextual messages in day/week cards (e.g., encouraging messages, progress updates)')
 			.addToggle(toggle => toggle
@@ -1253,10 +1267,10 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(settingsContainer)
-			.setName('Import Timekeep data')
-			.setDesc('Import time tracking data from Timekeep JSON format')
+			.setName('Importer data')
+			.setDesc('Importer tidsdata fra ulike formater: Timekeep JSON, CSV (norsk/ISO datoformat), eller JSON-arrays')
 			.addButton(button => button
-				.setButtonText('Import data')
+				.setButtonText('Importer data')
 				.setCta()
 				.onClick(async () => {
 					this.showImportModal();
@@ -1628,103 +1642,9 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 	}
 
 	showImportModal(): void {
-		const modal = new Modal(this.app);
-		modal.titleEl.setText('Import Timekeep Data');
-
-		const { contentEl } = modal;
-
-		contentEl.createEl('p', {
-			text: 'Paste your Timekeep JSON data below. This can be from a timekeep codeblock or exported data.',
-			cls: 'setting-item-description'
-		});
-
-		// Text area for JSON input
-		const textArea = contentEl.createEl('textarea', {
-			attr: {
-				rows: '15',
-				placeholder: '{"entries":[...]}'
-			}
-		});
-		textArea.style.width = '100%';
-		textArea.style.fontFamily = 'monospace';
-		textArea.style.fontSize = '12px';
-		textArea.style.marginBottom = '15px';
-
-		// Info section
-		const infoDiv = contentEl.createDiv();
-		infoDiv.style.marginBottom = '15px';
-		infoDiv.style.padding = '10px';
-		infoDiv.style.background = 'var(--background-secondary)';
-		infoDiv.style.borderRadius = '5px';
-
-		infoDiv.createEl('strong', { text: '📋 How to get your data:' });
-		const list = infoDiv.createEl('ul');
-		list.createEl('li', { text: 'Open your file with Timekeep codeblocks' });
-		list.createEl('li', { text: 'Copy the entire JSON from inside the timekeep block' });
-		list.createEl('li', { text: 'Paste it in the text area above' });
-
-		// Buttons
-		const buttonDiv = contentEl.createDiv();
-		buttonDiv.style.display = 'flex';
-		buttonDiv.style.gap = '10px';
-		buttonDiv.style.justifyContent = 'flex-end';
-
-		const cancelBtn = buttonDiv.createEl('button', { text: 'Cancel' });
-		cancelBtn.onclick = () => modal.close();
-
-		const importBtn = buttonDiv.createEl('button', { text: 'Import', cls: 'mod-cta' });
-		importBtn.onclick = async () => {
-			const jsonText = textArea.value.trim();
-			if (!jsonText) {
-				new Notice('⚠️ Please paste your Timekeep data');
-				return;
-			}
-
-			try {
-				// Try to parse JSON
-				const data = JSON.parse(jsonText);
-
-				// Validate structure
-				if (!data.entries || !Array.isArray(data.entries)) {
-					new Notice('⚠️ Invalid format: missing "entries" array');
-					return;
-				}
-
-				// Validate at least one entry has the right structure
-				if (data.entries.length > 0) {
-					const firstEntry = data.entries[0];
-					if (!firstEntry.hasOwnProperty('name') || !firstEntry.hasOwnProperty('startTime')) {
-						new Notice('⚠️ Invalid entry format: missing required fields (name, startTime)');
-						return;
-					}
-				}
-
-				// Import the data (the function will show its own success/duplicate message)
-				const success = await this.plugin.timerManager.importTimekeepData(jsonText);
-
-				if (success) {
-					modal.close();
-					await this.refreshView();
-				}
-
-			} catch (error: any) {
-				if (error instanceof SyntaxError) {
-					new Notice('⚠️ Invalid JSON format. Please check your data.');
-				} else {
-					new Notice(`❌ Error: ${error.message}`);
-				}
-				console.error('Import error:', error);
-			}
-		};
-
-		// Add keyboard shortcut hint
-		const hint = contentEl.createEl('div');
-		hint.style.marginTop = '10px';
-		hint.style.fontSize = '12px';
-		hint.style.color = 'var(--text-muted)';
-		hint.textContent = '💡 Tip: You can also create "TimeFlow Data.md" manually in your vault root';
-
-		modal.open();
+		new ImportModal(this.app, this.plugin.timerManager, async () => {
+			await this.refreshView();
+		}).open();
 	}
 
 	showNoteTypeModal(noteType: NoteType | null, index: number): void {

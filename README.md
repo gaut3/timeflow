@@ -17,10 +17,12 @@ timeflow provides a comprehensive flextime tracking dashboard with **built-in ti
 ![timeflow-stats](https://github.com/gaut3/timeflow/blob/main/images/timeflow%20stats.png?raw=true)
 - **Real-time Flextime Balance Tracking** - See your current flextime balance with color-coded indicators
 - **Daily, Weekly, Monthly and Yearly Views** - Track your work hours with intuitive cards and responsive layout
+- **Week Numbers** - ISO 8601 week numbers displayed in calendar and week card (toggle in settings)
 - **Interactive Month Calendar** - Visual calendar with color-coded days for planned holidays and flextime
   - Click any date for quick actions
   - Edit work time, register special days, create notes
   - View running timers and day summaries in info panel
+  - Week number column for easy reference
 - **Comprehensive Statistics** - View statistics for total, yearly, and monthly periods
 - **Contextual Messages** - Get motivational and informative messages based on your work patterns
 - **Multiple History Views** - List and heatmap visualizations of your work history
@@ -40,8 +42,14 @@ timeflow provides a comprehensive flextime tracking dashboard with **built-in ti
   - Create custom note types
   - View day summary with running timers
 - **Data Validation** - Automatically detect issues like negative durations, long-running timers, and overlapping entries
+- **Delete Confirmation** - Safety dialog before deleting entries to prevent accidental data loss
 - **CSV Export** - Export your time data to CSV for further analysis
-- **Import/Export** - Import existing Timekeep data with duplicate detection
+- **Multi-Format Import** - Import time data from multiple formats:
+  - Timekeep JSON format
+  - CSV files (Norwegian DD.MM.YYYY or ISO YYYY-MM-DD dates)
+  - Generic JSON arrays
+  - Auto-detection of format and delimiter
+  - Preview before importing with validation feedback
 
 ### ⚙️ Advanced Customization
 ![timeflow-settings](https://github.com/gaut3/timeflow/blob/main/images/timeflow-settings.png?raw=true)
@@ -185,6 +193,7 @@ Go to Settings → timeflow to configure:
 ### Display Settings
 - **Theme** - Choose between Light, Dark, or System theme
 - **Hour Unit** - Display hours as "h" or "t" (timer)
+- **Week Numbers** - Show/hide ISO week numbers in calendar and week card
 
 ### Special Day Types
 Customize names and colors for:
@@ -268,19 +277,49 @@ Supported types:
 - `studie` - Study leave (regular workday applies)
 - `half` - Half day modifier (4 hours instead of full workday)
 
-## Migrating from Timekeep
+## Importing Data
 
-If you have existing Timekeep data, you can easily migrate:
+TimeFlow supports importing time data from multiple formats:
 
-1. **Use the Import button**: In the Settings → timeflow → Data Management section
-2. **Paste your JSON**: Copy the JSON data from your Timekeep codeblocks
-3. **Automatic duplicate detection**: The import process will skip duplicate entries
-4. **Or manually create the file**: Create `timeflow/data.md` with the format shown above
+### Supported Formats
 
-The import feature automatically:
-- Detects and skips duplicate entries (based on name, startTime, endTime)
-- Shows detailed feedback about added vs. skipped entries
-- Merges with existing data without data loss
+1. **Timekeep JSON** - The native format from Timekeep plugin
+   ```json
+   {"entries": [{"name": "jobb", "startTime": "2024-01-15T09:00:00Z", "endTime": "2024-01-15T17:00:00Z"}]}
+   ```
+
+2. **CSV** - Spreadsheet format with automatic delimiter detection
+   ```csv
+   Dato;Start;Slutt;Aktivitet
+   15.01.2024;09:00;17:00;jobb
+   16.01.2024;08:30;16:30;jobb
+   ```
+   - Supports Norwegian date format (DD.MM.YYYY) and ISO format (YYYY-MM-DD)
+   - Auto-detects delimiter (semicolon, comma, or tab)
+   - Flexible column name matching (Dato/Date, Start/Starttid, Slutt/End, etc.)
+
+3. **JSON Array** - Simple array of objects
+   ```json
+   [{"date": "2024-01-15", "start": "09:00", "end": "17:00", "activity": "jobb"}]
+   ```
+
+### How to Import
+
+1. Go to **Settings → timeflow → Data Management**
+2. Click **Import Data**
+3. Either:
+   - Click **"Velg fil..."** to upload a file (.json, .csv, .txt)
+   - Paste data directly into the text area
+4. The importer will auto-detect the format and show a preview
+5. Review the parsed entries and any warnings
+6. Click **"Importer"** to add the entries
+
+### Import Features
+- **Auto-detection** of format and delimiter
+- **Preview** of first 5 entries before importing
+- **Validation** with error and warning messages
+- **Duplicate detection** - skips entries that already exist
+- **Detailed feedback** showing added vs. skipped entries
 
 ## Configuration Examples for Different Work Scenarios
 

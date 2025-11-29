@@ -128,14 +128,39 @@ export class UIBuilder {
 
 			.tf-badge-section {
 				display: flex;
-				align-items: center;
+				align-items: stretch;
 				gap: 12px;
 				margin: 16px 0;
 				flex-wrap: wrap;
 			}
 
+			/* Default flex behavior for all badges */
 			.tf-compliance-badge {
+				flex: 0 0 auto;
 				margin-left: auto;
+			}
+			.tf-timer-badge {
+				flex: 0 1 auto;
+			}
+
+			/* At narrower widths: badges split into 2 rows */
+			@container dashboard (max-width: 650px) {
+				/* Row 1: Timesaldo (50%) and Clock (50%) */
+				.tf-badge {
+					flex: 1 1 calc(50% - 6px);
+				}
+				.tf-clock {
+					flex: 1 1 calc(50% - 6px);
+				}
+
+				/* Row 2: Compliance badge and timer button move down together */
+				.tf-compliance-badge {
+					margin-left: 0;
+					flex: 0 0 auto;
+				}
+				.tf-timer-badge {
+					flex: 1 1 0;
+				}
 			}
 
 			.tf-badge {
@@ -213,6 +238,11 @@ export class UIBuilder {
 				transform: translateY(0);
 			}
 
+			/* Child elements inside timer badge should fill space */
+			.tf-timer-badge > div:first-child {
+				flex: 1;
+			}
+
 			.tf-compliance-badge {
 				padding: 10px 14px;
 				border-radius: 12px;
@@ -256,8 +286,26 @@ export class UIBuilder {
 				.tf-card { padding: 16px; }
 			}
 
+			/* Reduce side padding on mobile */
+			@container dashboard (max-width: 400px) {
+				.timeflow-dashboard {
+					padding: 12px 8px;
+				}
+				.tf-card {
+					padding: 12px;
+				}
+				.tf-badge-section {
+					gap: 8px;
+					margin: 12px 0;
+				}
+				.tf-badge, .tf-clock, .tf-timer-badge {
+					padding: 8px 12px;
+					min-height: 40px;
+				}
+			}
+
 			/* Medium width: Day/Week side by side, Month and Stats stacked full width */
-			@container dashboard (min-width: 501px) {
+			@container dashboard (min-width: 400px) {
 				.tf-main-cards-wrapper {
 					grid-template-columns: repeat(2, minmax(0, 1fr));
 				}
@@ -300,6 +348,7 @@ export class UIBuilder {
 			.tf-card-day,
 			.tf-card-week {
 				/* Background and color set dynamically based on progress */
+				position: relative;
 			}
 
 			/* System theme - match Obsidian's theme */
@@ -407,17 +456,76 @@ export class UIBuilder {
 
 			.tf-month-grid {
 				display: grid;
-				grid-template-columns: repeat(7, 1fr);
+				grid-template-columns: repeat(7, minmax(0, 1fr));
 				gap: 12px;
 				margin-top: 15px;
 				width: 100%;
 				box-sizing: border-box;
+				min-width: 0;
 			}
 
-			/* Reduce gap on mobile to fit better */
-			@media (max-width: 500px) {
+			/* Week number column in calendar */
+			.tf-month-grid.with-week-numbers {
+				grid-template-columns: clamp(16px, 5cqw, 28px) repeat(7, minmax(0, 1fr));
+			}
+
+			.tf-week-number-cell {
+				font-size: clamp(9px, 2cqw, 11px);
+				color: #1a1a1a;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				min-width: 0;
+				border-radius: 4px;
+				font-weight: 500;
+			}
+
+			/* Week compliance colors */
+			.tf-week-number-cell.week-ok {
+				background: linear-gradient(135deg, #c8e6c9, #a5d6a7);
+			}
+			.tf-week-number-cell.week-over {
+				background: linear-gradient(135deg, #ffe0b2, #ffcc80);
+			}
+			.tf-week-number-cell.week-under {
+				background: linear-gradient(135deg, #ffcdd2, #ef9a9a);
+			}
+			.tf-week-number-cell.week-partial {
+				background: linear-gradient(135deg, #e0e0e0, #bdbdbd);
+			}
+			.tf-week-number-cell.week-future {
+				background: transparent;
+				color: var(--text-muted);
+				opacity: 0.5;
+			}
+
+			.tf-week-number-header {
+				font-size: clamp(8px, 2cqw, 10px);
+				color: var(--text-muted);
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				font-weight: bold;
+				min-width: 0;
+			}
+
+			/* Week number badge in week card */
+			.tf-week-badge {
+				position: absolute;
+				top: 12px;
+				right: 12px;
+				font-size: 12px;
+				padding: 2px 8px;
+				border-radius: 10px;
+				background: rgba(255, 255, 255, 0.2);
+				color: inherit;
+				font-weight: normal;
+			}
+
+			/* Reduce gap linearly on narrow containers (below 400px) */
+			@container dashboard (max-width: 400px) {
 				.tf-month-grid {
-					gap: 6px;
+					gap: clamp(2px, 2cqw, 8px);
 				}
 			}
 
@@ -428,13 +536,15 @@ export class UIBuilder {
 				align-items: center;
 				justify-content: center;
 				border-radius: 6px;
-				font-size: clamp(12px, 2.5vw, 16px);
+				font-size: clamp(10px, 2.5vw, 16px);
 				font-weight: bold;
 				cursor: pointer;
 				transition: all 0.2s;
 				position: relative;
 				border: 2px solid transparent;
 				text-shadow: 0 1px 2px rgba(255, 255, 255, 0.5);
+				min-width: 0;
+				overflow: hidden;
 			}
 
 			/* Days with entries - black text in all themes */
@@ -503,14 +613,14 @@ export class UIBuilder {
 
 			.tf-stats-grid {
 				display: grid;
-				grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+				grid-template-columns: 1fr;
 				gap: 15px;
 				margin-top: 15px;
 			}
 
-			/* When stats card is in wide layout (beside calendar), force 2 columns */
-			@container dashboard (min-width: 750px) {
-				.tf-card-stats .tf-stats-grid {
+			/* Stats grid 2 columns at same breakpoint as day/week cards */
+			@container dashboard (min-width: 400px) {
+				.tf-stats-grid {
 					grid-template-columns: repeat(2, 1fr);
 				}
 			}
@@ -948,14 +1058,77 @@ export class UIBuilder {
 				overflow: visible;
 			}
 
-			@media (max-width: 768px) {
-				.tf-stats-grid {
-					grid-template-columns: 1fr;
-				}
+			/* Delete confirmation dialog */
+			.tf-confirm-overlay {
+				position: fixed;
+				top: 0;
+				left: 0;
+				right: 0;
+				bottom: 0;
+				background: rgba(0, 0, 0, 0.5);
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				z-index: 10000;
+			}
 
-				.tf-month-grid {
-					gap: 4px;
-				}
+			.tf-confirm-dialog {
+				background: var(--background-primary);
+				border-radius: 8px;
+				padding: 20px;
+				max-width: 400px;
+				width: 90%;
+				box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+			}
+
+			.tf-confirm-title {
+				font-size: 16px;
+				font-weight: bold;
+				margin-bottom: 12px;
+				color: var(--text-normal);
+			}
+
+			.tf-confirm-message {
+				font-size: 14px;
+				color: var(--text-muted);
+				margin-bottom: 8px;
+			}
+
+			.tf-confirm-details {
+				background: var(--background-secondary);
+				padding: 10px;
+				border-radius: 4px;
+				margin-bottom: 16px;
+				font-size: 13px;
+			}
+
+			.tf-confirm-buttons {
+				display: flex;
+				gap: 10px;
+				justify-content: flex-end;
+			}
+
+			.tf-confirm-cancel {
+				padding: 8px 16px;
+				border-radius: 4px;
+				border: 1px solid var(--background-modifier-border);
+				background: var(--background-secondary);
+				color: var(--text-normal);
+				cursor: pointer;
+			}
+
+			.tf-confirm-delete {
+				padding: 8px 16px;
+				border-radius: 4px;
+				border: none;
+				background: #f44336;
+				color: white;
+				cursor: pointer;
+				font-weight: bold;
+			}
+
+			.tf-confirm-delete:hover {
+				background: #d32f2f;
 			}
 		`;
 		document.head.appendChild(style);
@@ -1956,12 +2129,19 @@ export class UIBuilder {
 
 		const today = new Date();
 		const weekHours = this.data.getCurrentWeekHours(today);
+		const currentWeekNumber = Utils.getWeekNumber(today);
+
+		// Week number badge HTML (conditionally shown based on settings)
+		const weekBadgeHtml = this.settings.showWeekNumbers
+			? `<div class="tf-week-badge">Uke ${currentWeekNumber}</div>`
+			: '';
 
 		// NEW: Simple tracking mode
 		if (!this.settings.enableGoalTracking) {
 			this.elements.weekCard.style.background = "linear-gradient(135deg, #607d8b, #78909c)";
 			this.elements.weekCard.style.color = "white";
 			this.elements.weekCard.innerHTML = `
+				${weekBadgeHtml}
 				<h3 style="color: white;">Denne uken</h3>
 				<div style="font-size: 32px; font-weight: bold; margin: 10px 0;">
 					${Utils.formatHoursToHM(weekHours, this.settings.hourUnit)}
@@ -2064,6 +2244,7 @@ export class UIBuilder {
 		` : '';
 
 		this.elements.weekCard.innerHTML = `
+			${weekBadgeHtml}
 			<h3 style="color: ${textColor};">Denne uken</h3>
 			<div style="font-size: 32px; font-weight: bold; margin: 10px 0;">
 				${Utils.formatHoursToHM(weekHours, this.settings.hourUnit)}
@@ -2386,6 +2567,7 @@ export class UIBuilder {
 		const year = displayDate.getFullYear();
 		const month = displayDate.getMonth();
 		const monthName = displayDate.toLocaleDateString('nb-NO', { month: 'long', year: 'numeric' });
+		const showWeekNumbers = this.settings.showWeekNumbers ?? true;
 
 		const container = document.createElement("div");
 
@@ -2397,7 +2579,15 @@ export class UIBuilder {
 		container.appendChild(monthTitle);
 
 		const grid = document.createElement("div");
-		grid.className = "tf-month-grid";
+		grid.className = showWeekNumbers ? "tf-month-grid with-week-numbers" : "tf-month-grid";
+
+		// Add week number header if enabled
+		if (showWeekNumbers) {
+			const weekHeader = document.createElement("div");
+			weekHeader.className = "tf-week-number-header";
+			weekHeader.textContent = "Uke";
+			grid.appendChild(weekHeader);
+		}
 
 		// Add day headers
 		const dayNames = ["Man", "Tir", "Ons", "Tor", "Fre", "Lør", "Søn"];
@@ -2416,6 +2606,32 @@ export class UIBuilder {
 		let firstDayOfWeek = firstDay.getDay() - 1;
 		if (firstDayOfWeek === -1) firstDayOfWeek = 6;
 
+		// Add week number for first row (if week numbers enabled)
+		if (showWeekNumbers) {
+			const weekNumCell = document.createElement("div");
+			// Get Monday of the week containing firstDay
+			const dayOfWeek = firstDay.getDay();
+			const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+			const mondayOfWeek = new Date(firstDay);
+			mondayOfWeek.setDate(firstDay.getDate() - daysFromMonday);
+
+			const complianceClass = this.getWeekComplianceClass(mondayOfWeek);
+			weekNumCell.className = `tf-week-number-cell ${complianceClass}`;
+			weekNumCell.textContent = Utils.getWeekNumber(firstDay).toString();
+
+			// Add click handler if compliance is enabled and class is set
+			if (complianceClass && complianceClass !== 'week-future') {
+				weekNumCell.style.cursor = 'pointer';
+				const monday = new Date(mondayOfWeek); // Capture for closure
+				weekNumCell.onclick = (e) => {
+					e.stopPropagation();
+					this.showWeekCompliancePanel(weekNumCell.getBoundingClientRect(), monday);
+				};
+			}
+
+			grid.appendChild(weekNumCell);
+		}
+
 		// Add empty cells for days before month starts
 		for (let i = 0; i < firstDayOfWeek; i++) {
 			const emptyCell = document.createElement("div");
@@ -2426,9 +2642,35 @@ export class UIBuilder {
 		const daysInMonth = new Date(year, month + 1, 0).getDate();
 		const todayKey = Utils.toLocalDateStr(new Date());
 
+		// Track position in grid for week number insertion
+		let gridPosition = firstDayOfWeek; // Start after empty cells
+
 		for (let day = 1; day <= daysInMonth; day++) {
 			const date = new Date(year, month, day);
 			const dateKey = Utils.toLocalDateStr(date);
+
+			// Add week number cell at the start of each new week (Monday = day 0 in our grid)
+			// But skip the first row since we already added it
+			if (showWeekNumbers && day > 1 && date.getDay() === 1) {
+				const weekNumCell = document.createElement("div");
+				// date is already Monday
+				const complianceClass = this.getWeekComplianceClass(date);
+				weekNumCell.className = `tf-week-number-cell ${complianceClass}`;
+				weekNumCell.textContent = Utils.getWeekNumber(date).toString();
+
+				// Add click handler if compliance is enabled and class is set
+				if (complianceClass && complianceClass !== 'week-future') {
+					weekNumCell.style.cursor = 'pointer';
+					const monday = new Date(date); // Capture for closure
+					weekNumCell.onclick = (e) => {
+						e.stopPropagation();
+						this.showWeekCompliancePanel(weekNumCell.getBoundingClientRect(), monday);
+					};
+				}
+
+				grid.appendChild(weekNumCell);
+			}
+
 			const cell = document.createElement("div");
 			cell.className = "tf-day-cell";
 			cell.textContent = day.toString();
@@ -2551,6 +2793,270 @@ export class UIBuilder {
 			const b = Math.floor(144 - 110 * t);  // 144 -> 34
 			return `rgb(${r},${g},${b})`;
 		}
+	}
+
+	/**
+	 * Check if week compliance indicators should be shown
+	 */
+	shouldShowWeekCompliance(): boolean {
+		return this.settings.enableGoalTracking &&
+			(this.settings.complianceSettings?.enableWarnings ?? true);
+	}
+
+	/**
+	 * Get the compliance status for a given week
+	 * Returns: 'ok' (met goal), 'over' (exceeded), 'under' (below goal), 'partial' (incomplete week), 'future', or '' if disabled
+	 */
+	getWeekComplianceClass(mondayOfWeek: Date): string {
+		// Check if compliance indicators should be shown
+		if (!this.shouldShowWeekCompliance()) {
+			return '';
+		}
+
+		const today = new Date();
+		today.setHours(0, 0, 0, 0);
+
+		// Check if week is before balance start date
+		const balanceStartDate = new Date(this.settings.balanceStartDate + 'T00:00:00');
+		const sundayOfWeek = new Date(mondayOfWeek);
+		sundayOfWeek.setDate(mondayOfWeek.getDate() + 6);
+
+		if (sundayOfWeek < balanceStartDate) {
+			return ''; // Don't show indicator for weeks before balance tracking started
+		}
+
+		// Check if week is in the future
+		if (mondayOfWeek > today) {
+			return 'week-future';
+		}
+
+		// Calculate hours worked in this week
+		let totalHours = 0;
+		let workDaysInWeek = 0;
+		let workDaysPassed = 0;
+
+		for (let i = 0; i < 7; i++) {
+			const day = new Date(mondayOfWeek);
+			day.setDate(mondayOfWeek.getDate() + i);
+			const dayKey = Utils.toLocalDateStr(day);
+
+			// Skip days before balance start date
+			if (day < balanceStartDate) {
+				continue;
+			}
+
+			// Check if this is a work day
+			const isWorkDay = this.settings.workDays.includes(day.getDay());
+			if (isWorkDay) {
+				workDaysInWeek++;
+				if (day <= today) {
+					workDaysPassed++;
+				}
+			}
+
+			// Sum hours from entries
+			const dayEntries = this.data.daily[dayKey] || [];
+			dayEntries.forEach(entry => {
+				const name = entry.name.toLowerCase();
+				// Count work hours (exclude special leave types that don't count as work)
+				if (name !== 'avspasering' && name !== 'ferie') {
+					totalHours += entry.duration || 0;
+				}
+			});
+		}
+
+		// If no work days have passed yet, it's a partial/future week
+		if (workDaysPassed === 0) {
+			return 'week-future';
+		}
+
+		// Calculate expected hours for days that have passed
+		const expectedHoursPerDay = this.settings.baseWorkday;
+		const expectedHours = workDaysPassed * expectedHoursPerDay * this.settings.workPercent;
+
+		// Tolerance: within 0.5 hours of goal is considered "ok"
+		const tolerance = 0.5;
+
+		if (totalHours >= expectedHours - tolerance && totalHours <= expectedHours + tolerance) {
+			return 'week-ok';
+		} else if (totalHours > expectedHours + tolerance) {
+			return 'week-over';
+		} else if (workDaysPassed < workDaysInWeek && sundayOfWeek >= today) {
+			// Week is still in progress
+			return 'week-partial';
+		} else {
+			return 'week-under';
+		}
+	}
+
+	/**
+	 * Get detailed week compliance data for popup
+	 */
+	getWeekComplianceData(mondayOfWeek: Date): {
+		weekNumber: number;
+		totalHours: number;
+		expectedHours: number;
+		workDaysPassed: number;
+		workDaysInWeek: number;
+		dailyLimit: number;
+		weeklyLimit: number;
+		status: string;
+		isComplete: boolean;
+	} {
+		const today = new Date();
+		today.setHours(0, 0, 0, 0);
+
+		const balanceStartDate = new Date(this.settings.balanceStartDate + 'T00:00:00');
+		const sundayOfWeek = new Date(mondayOfWeek);
+		sundayOfWeek.setDate(mondayOfWeek.getDate() + 6);
+
+		let totalHours = 0;
+		let workDaysInWeek = 0;
+		let workDaysPassed = 0;
+
+		for (let i = 0; i < 7; i++) {
+			const day = new Date(mondayOfWeek);
+			day.setDate(mondayOfWeek.getDate() + i);
+			const dayKey = Utils.toLocalDateStr(day);
+
+			if (day < balanceStartDate) continue;
+
+			const isWorkDay = this.settings.workDays.includes(day.getDay());
+			if (isWorkDay) {
+				workDaysInWeek++;
+				if (day <= today) {
+					workDaysPassed++;
+				}
+			}
+
+			const dayEntries = this.data.daily[dayKey] || [];
+			dayEntries.forEach(entry => {
+				const name = entry.name.toLowerCase();
+				if (name !== 'avspasering' && name !== 'ferie') {
+					totalHours += entry.duration || 0;
+				}
+			});
+		}
+
+		const expectedHoursPerDay = this.settings.baseWorkday;
+		const expectedHours = workDaysPassed * expectedHoursPerDay * this.settings.workPercent;
+		const isComplete = workDaysPassed >= workDaysInWeek || sundayOfWeek < today;
+
+		let status = 'ok';
+		const tolerance = 0.5;
+		if (totalHours < expectedHours - tolerance) {
+			status = isComplete ? 'under' : 'partial';
+		} else if (totalHours > expectedHours + tolerance) {
+			status = 'over';
+		}
+
+		return {
+			weekNumber: Utils.getWeekNumber(mondayOfWeek),
+			totalHours,
+			expectedHours,
+			workDaysPassed,
+			workDaysInWeek,
+			dailyLimit: this.settings.complianceSettings?.dailyHoursLimit ?? 9,
+			weeklyLimit: this.settings.complianceSettings?.weeklyHoursLimit ?? 40,
+			status,
+			isComplete
+		};
+	}
+
+	/**
+	 * Show week compliance info panel when clicking on a week number
+	 */
+	showWeekCompliancePanel(cellRect: DOMRect, mondayOfWeek: Date): void {
+		// Remove existing panel
+		const existingPanel = document.querySelector('.tf-week-compliance-panel');
+		if (existingPanel) existingPanel.remove();
+
+		const data = this.getWeekComplianceData(mondayOfWeek);
+
+		const panel = document.createElement('div');
+		panel.className = 'tf-week-compliance-panel';
+		panel.style.cssText = `
+			position: fixed;
+			background: var(--background-primary);
+			border: 1px solid var(--background-modifier-border);
+			border-radius: 8px;
+			padding: 16px;
+			box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+			z-index: 1000;
+			min-width: 220px;
+			max-width: 300px;
+		`;
+
+		// Status icon and color
+		let statusIcon = '🟩';
+		let statusText = 'På mål';
+		let statusColor = '#4caf50';
+		if (data.status === 'over') {
+			statusIcon = '🟨';
+			statusText = 'Over mål';
+			statusColor = '#ff9800';
+		} else if (data.status === 'under') {
+			statusIcon = '🟥';
+			statusText = 'Under mål';
+			statusColor = '#f44336';
+		} else if (data.status === 'partial') {
+			statusIcon = '⏳';
+			statusText = 'Pågår';
+			statusColor = '#9e9e9e';
+		}
+
+		const diff = data.totalHours - data.expectedHours;
+		const diffText = diff >= 0 ? `+${diff.toFixed(1)}` : diff.toFixed(1);
+
+		panel.innerHTML = `
+			<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+				<strong style="font-size: 1.1em;">Uke ${data.weekNumber}</strong>
+				<span style="color: ${statusColor}; font-weight: bold;">${statusIcon} ${statusText}</span>
+			</div>
+			<div style="display: flex; flex-direction: column; gap: 8px; font-size: 0.9em;">
+				<div style="display: flex; justify-content: space-between;">
+					<span>Timer logget:</span>
+					<strong>${data.totalHours.toFixed(1)}t</strong>
+				</div>
+				<div style="display: flex; justify-content: space-between;">
+					<span>Forventet:</span>
+					<span>${data.expectedHours.toFixed(1)}t (${data.workDaysPassed}/${data.workDaysInWeek} dager)</span>
+				</div>
+				<div style="display: flex; justify-content: space-between; border-top: 1px solid var(--background-modifier-border); padding-top: 8px;">
+					<span>Differanse:</span>
+					<strong style="color: ${statusColor};">${diffText}t</strong>
+				</div>
+				${data.totalHours > data.weeklyLimit ? `
+				<div style="color: #f44336; margin-top: 4px;">
+					⚠️ Over ukegrense (${data.weeklyLimit}t)
+				</div>
+				` : ''}
+			</div>
+		`;
+
+		// Position panel near the clicked cell
+		panel.style.left = `${cellRect.right + 8}px`;
+		panel.style.top = `${cellRect.top}px`;
+
+		document.body.appendChild(panel);
+
+		// Adjust if off-screen
+		const panelRect = panel.getBoundingClientRect();
+		if (panelRect.right > window.innerWidth - 10) {
+			panel.style.left = `${cellRect.left - panelRect.width - 8}px`;
+		}
+		if (panelRect.bottom > window.innerHeight - 10) {
+			panel.style.top = `${window.innerHeight - panelRect.height - 10}px`;
+		}
+
+		// Close when clicking outside
+		const closeHandler = (e: MouseEvent) => {
+			if (!panel.contains(e.target as Node)) {
+				panel.remove();
+				document.removeEventListener('click', closeHandler);
+			}
+		};
+		setTimeout(() => document.addEventListener('click', closeHandler), 0);
 	}
 
 	showNoteTypeMenu(cellRect: DOMRect, dateObj: Date): void {
@@ -3099,25 +3605,28 @@ export class UIBuilder {
 			deleteBtn.textContent = '🗑️ Slett';
 			deleteBtn.style.flex = '1';
 			deleteBtn.onclick = () => {
-				// Find and remove the entry
-				const entryIndex = this.timerManager.data.entries.indexOf(entry);
-				if (entryIndex > -1) {
-					this.timerManager.data.entries.splice(entryIndex, 1);
-					this.timerManager.save();
-					new Notice('✅ Oppføring slettet');
+				// Show confirmation dialog
+				this.showDeleteConfirmation(entry, dateObj, () => {
+					// Find and remove the entry
+					const entryIndex = this.timerManager.data.entries.indexOf(entry);
+					if (entryIndex > -1) {
+						this.timerManager.data.entries.splice(entryIndex, 1);
+						this.timerManager.save();
+						new Notice('✅ Oppføring slettet');
 
-					// Reload data to reflect changes
-					this.data.rawEntries = this.timerManager.convertToTimeEntries();
-					this.data.processEntries();
+						// Reload data to reflect changes
+						this.data.rawEntries = this.timerManager.convertToTimeEntries();
+						this.data.processEntries();
 
-					// Refresh the dashboard
-					this.updateDayCard();
-					this.updateWeekCard();
-					this.updateStatsCard();
-					this.updateMonthCard();
+						// Refresh the dashboard
+						this.updateDayCard();
+						this.updateWeekCard();
+						this.updateStatsCard();
+						this.updateMonthCard();
 
-					modal.remove();
-				}
+						modal.remove();
+					}
+				});
 			};
 			buttonDiv.appendChild(deleteBtn);
 
@@ -3586,6 +4095,78 @@ export class UIBuilder {
 		this.updateDayCard();
 		this.updateWeekCard();
 		this.updateStatsCard();
+	}
+
+	showDeleteConfirmation(entry: any, dateObj: Date, onConfirm: () => void): void {
+		// Create overlay
+		const overlay = document.createElement('div');
+		overlay.className = 'tf-confirm-overlay';
+
+		// Create dialog
+		const dialog = document.createElement('div');
+		dialog.className = 'tf-confirm-dialog';
+
+		// Title
+		const title = document.createElement('div');
+		title.className = 'tf-confirm-title';
+		title.textContent = '🗑️ Slett oppføring';
+		dialog.appendChild(title);
+
+		// Message
+		const message = document.createElement('div');
+		message.className = 'tf-confirm-message';
+		message.textContent = 'Er du sikker på at du vil slette denne oppføringen?';
+		dialog.appendChild(message);
+
+		// Entry details
+		const details = document.createElement('div');
+		details.className = 'tf-confirm-details';
+
+		const startDate = new Date(entry.startTime);
+		const endDate = entry.endTime ? new Date(entry.endTime) : null;
+		const duration = endDate
+			? ((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60)).toFixed(2)
+			: 'Pågående';
+
+		details.innerHTML = `
+			<div><strong>Dato:</strong> ${Utils.toLocalDateStr(dateObj)}</div>
+			<div><strong>Type:</strong> ${entry.name}</div>
+			<div><strong>Start:</strong> ${startDate.toLocaleTimeString('nb-NO', { hour: '2-digit', minute: '2-digit' })}</div>
+			${endDate ? `<div><strong>Slutt:</strong> ${endDate.toLocaleTimeString('nb-NO', { hour: '2-digit', minute: '2-digit' })}</div>` : ''}
+			<div><strong>Varighet:</strong> ${typeof duration === 'string' ? duration : duration + ' timer'}</div>
+		`;
+		dialog.appendChild(details);
+
+		// Buttons
+		const buttons = document.createElement('div');
+		buttons.className = 'tf-confirm-buttons';
+
+		const cancelBtn = document.createElement('button');
+		cancelBtn.className = 'tf-confirm-cancel';
+		cancelBtn.textContent = 'Avbryt';
+		cancelBtn.onclick = () => overlay.remove();
+		buttons.appendChild(cancelBtn);
+
+		const deleteBtn = document.createElement('button');
+		deleteBtn.className = 'tf-confirm-delete';
+		deleteBtn.textContent = 'Slett';
+		deleteBtn.onclick = () => {
+			overlay.remove();
+			onConfirm();
+		};
+		buttons.appendChild(deleteBtn);
+
+		dialog.appendChild(buttons);
+		overlay.appendChild(dialog);
+
+		// Close on overlay click
+		overlay.onclick = (e) => {
+			if (e.target === overlay) {
+				overlay.remove();
+			}
+		};
+
+		document.body.appendChild(overlay);
 	}
 
 	cleanup(): void {
