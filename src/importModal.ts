@@ -241,7 +241,8 @@ export class ImportModal extends Modal {
 		// Show format detected
 		const formatInfo = previewDiv.createEl('div');
 		formatInfo.style.marginBottom = '10px';
-		formatInfo.innerHTML = `<strong>${t('import.format')}</strong> ${result.format || '?'}`;
+		formatInfo.createEl('strong', { text: t('import.format') });
+		formatInfo.appendText(' ' + (result.format || '?'));
 
 		// Show errors
 		if (result.errors.length > 0) {
@@ -276,7 +277,7 @@ export class ImportModal extends Modal {
 
 			const successDiv = previewDiv.createEl('div');
 			successDiv.style.color = 'var(--text-success)';
-			successDiv.innerHTML = `<strong>✅ ${result.entries.length} ${t('import.entriesFound')}</strong>`;
+			successDiv.createEl('strong', { text: '✅ ' + result.entries.length + ' ' + t('import.entriesFound') });
 
 			// Show first 5 entries as preview
 			const previewTable = previewDiv.createEl('table');

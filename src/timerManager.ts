@@ -130,7 +130,7 @@ ${JSON.stringify(this.data, null, 2)}
 	async startTimer(name: string = 'Jobb'): Promise<Timer> {
 		const timer: Timer = {
 			name,
-			startTime: new Date().toISOString(),
+			startTime: Utils.toLocalISOString(new Date()),
 			endTime: null,
 			subEntries: null
 		};
@@ -151,7 +151,7 @@ ${JSON.stringify(this.data, null, 2)}
 			return null;
 		}
 
-		timer.endTime = new Date().toISOString();
+		timer.endTime = Utils.toLocalISOString(new Date());
 		await this.save();
 
 		if (this.onTimerChange) {

@@ -97,9 +97,16 @@ export const Utils = {
 	},
 
 	formatHoursToHM: (hours: number, unit: 'h' | 't' = 'h'): string => {
-		const h = Math.floor(hours);
-		const m = Math.round((hours - h) * 60);
-		return `${h}${unit} ${m.toString().padStart(2, "0")}m`;
+		const isNegative = hours < 0;
+		const absHours = Math.abs(hours);
+		let h = Math.floor(absHours);
+		let m = Math.round((absHours - h) * 60);
+		// Handle rounding to 60 minutes
+		if (m === 60) {
+			h++;
+			m = 0;
+		}
+		return `${isNegative ? '-' : ''}${h}${unit} ${m.toString().padStart(2, "0")}m`;
 	},
 
 	toLocalDateStr: (date: Date): string => {
@@ -107,6 +114,12 @@ export const Utils = {
 		const m = String(date.getMonth() + 1).padStart(2, "0");
 		const d = String(date.getDate()).padStart(2, "0");
 		return `${y}-${m}-${d}`;
+	},
+
+	// Create ISO string without Z suffix (interpreted as local time)
+	toLocalISOString: (date: Date): string => {
+		const pad = (n: number) => n.toString().padStart(2, '0');
+		return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 	},
 
 	getWeekNumber: (d: Date): number => {

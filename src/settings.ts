@@ -69,6 +69,8 @@ export interface TimeFlowSettings {
 		weeklyHoursLimit: number;      // Max weekly hours (default: 40)
 		minimumRestHours: number;      // Minimum rest between sessions (default: 11)
 	};
+	// Migration flags
+	hasTimestampMigration?: boolean; // True if UTC timestamps have been converted to local
 }
 
 export interface SpecialDayBehavior {
@@ -322,7 +324,9 @@ export const DEFAULT_SETTINGS: TimeFlowSettings = {
 		dailyHoursLimit: 9,
 		weeklyHoursLimit: 40,
 		minimumRestHours: 11
-	}
+	},
+	// Migration flags
+	hasTimestampMigration: false
 };
 
 export class SpecialDayBehaviorModal extends Modal {
@@ -369,7 +373,7 @@ export class SpecialDayBehaviorModal extends Modal {
 				infoBox.style.background = 'var(--background-secondary)';
 				infoBox.style.borderRadius = '5px';
 				infoBox.style.fontSize = '0.9em';
-				infoBox.innerHTML = `ℹ️ ${explanation}`;
+				infoBox.createSpan({ text: 'ℹ️ ' + explanation });
 			}
 		}
 
@@ -381,7 +385,7 @@ export class SpecialDayBehaviorModal extends Modal {
 			infoBox.style.background = 'var(--background-secondary)';
 			infoBox.style.borderRadius = '5px';
 			infoBox.style.fontSize = '0.9em';
-			infoBox.innerHTML = `💼 This is your regular work entry type. Customize its appearance in the calendar.`;
+			infoBox.createSpan({ text: '💼 This is your regular work entry type. Customize its appearance in the calendar.' });
 		}
 
 		// Store form values
@@ -744,10 +748,11 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 		syncInfo.style.background = 'var(--background-secondary)';
 		syncInfo.style.borderRadius = '5px';
 		syncInfo.style.fontSize = '0.9em';
-		syncInfo.innerHTML = `
-			<strong>📱 Cross-Device Settings Sync</strong><br>
-			Settings are automatically saved to <code>timeflow/data.md</code> and will sync across devices when using Obsidian Sync or any other vault sync solution. When you open the plugin on another device, your settings will be automatically loaded.
-		`;
+		syncInfo.createEl('strong', { text: '📱 Cross-Device Settings Sync' });
+		syncInfo.createEl('br');
+		syncInfo.appendText('Settings are automatically saved to ');
+		syncInfo.createEl('code', { text: 'timeflow/data.md' });
+		syncInfo.appendText(' and will sync across devices when using Obsidian Sync or any other vault sync solution. When you open the plugin on another device, your settings will be automatically loaded.');
 
 		// Language selector
 		new Setting(settingsContainer)
@@ -1118,11 +1123,8 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 		};
 
 		// Separate work types from special day types
-		console.log('TimeFlow Settings Debug - All behaviors:', JSON.stringify(this.plugin.settings.specialDayBehaviors.map(b => ({ id: b.id, isWorkType: b.isWorkType })), null, 2));
 		const workTypes = this.plugin.settings.specialDayBehaviors.filter(b => b.isWorkType || b.id === 'jobb');
 		const specialDays = this.plugin.settings.specialDayBehaviors.filter(b => !b.isWorkType && b.id !== 'jobb');
-		console.log('TimeFlow Settings Debug - Work types:', workTypes.map(b => b.id));
-		console.log('TimeFlow Settings Debug - Special days:', specialDays.map(b => b.id));
 
 		// Work Entry Types section
 		new Setting(settingsContainer)
@@ -1420,10 +1422,9 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 		advancedInfo.style.background = 'var(--background-secondary)';
 		advancedInfo.style.borderRadius = '5px';
 		advancedInfo.style.fontSize = '0.9em';
-		advancedInfo.innerHTML = `
-			<strong>⚙️ Advanced Settings</strong><br>
-			These settings affect balance calculations and visual indicators. Settings sync across devices via your data file.
-		`;
+		advancedInfo.createEl('strong', { text: '⚙️ Advanced Settings' });
+		advancedInfo.createEl('br');
+		advancedInfo.appendText('These settings affect balance calculations and visual indicators. Settings sync across devices via your data file.');
 
 		// Balance Calculation subsection (collapsible)
 		const balanceCalcSection = this.createCollapsibleSubsection(
@@ -1883,15 +1884,20 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 		infoDiv.style.background = 'var(--background-secondary)';
 		infoDiv.style.borderRadius = '5px';
 		infoDiv.style.fontSize = '0.9em';
-		infoDiv.innerHTML = `
-			<strong>📋 Pattern Variables:</strong>
-			<ul style="margin: 8px 0 0 20px;">
-				<li><code>{YYYY}</code> - Four-digit year (e.g., 2025)</li>
-				<li><code>{MM}</code> - Two-digit month (e.g., 01)</li>
-				<li><code>{DD}</code> - Two-digit day (e.g., 15)</li>
-				<li><code>{WEEK}</code> - ISO week number (e.g., 07)</li>
-			</ul>
-		`;
+		infoDiv.createEl('strong', { text: '📋 Pattern Variables:' });
+		const ul = infoDiv.createEl('ul');
+		ul.style.margin = '8px 0 0 20px';
+		const patterns = [
+			['{YYYY}', 'Four-digit year (e.g., 2025)'],
+			['{MM}', 'Two-digit month (e.g., 01)'],
+			['{DD}', 'Two-digit day (e.g., 15)'],
+			['{WEEK}', 'ISO week number (e.g., 07)']
+		];
+		patterns.forEach(([code, desc]) => {
+			const li = ul.createEl('li');
+			li.createEl('code', { text: code });
+			li.appendText(' - ' + desc);
+		});
 
 		// Buttons
 		const buttonDiv = contentEl.createDiv();

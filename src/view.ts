@@ -67,7 +67,6 @@ export class TimeFlowView extends ItemView {
 				this.plugin.settings
 			);
 			if (converted > 0) {
-				console.log(`TimeFlow: Converted ${converted} past planned days to entries`);
 				// Refresh entries after conversion since new entries were added
 				const updatedEntries = this.plugin.timerManager.convertToTimeEntries();
 				this.dataManager = new DataManager(updatedEntries, this.plugin.settings, this.app);

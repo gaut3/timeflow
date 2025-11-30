@@ -102,7 +102,6 @@ export class DataManager {
 				status.success = true;
 				status.count = Object.keys(this.holidays).length;
 				status.message = `Loaded ${status.count} planned days`;
-				console.log(`Loaded ${status.count} future days`);
 			} else {
 				status.warning = `Holiday file not found: ${this.settings.holidaysFilePath}`;
 				console.warn(status.warning);
@@ -223,8 +222,11 @@ export class DataManager {
 							if (dayGoal > 0 && (e.duration || 0) > dayGoal) {
 								flextime += (e.duration || 0) - dayGoal;
 							}
+						} else if (behavior.noHoursRequired && dayGoal === 0) {
+							// 'none' effect on no-hours-required day: work counts as bonus (like weekends)
+							flextime += e.duration || 0;
 						}
-						// 'none' effect means no flextime change (handled by noHoursRequired in getDailyGoal)
+						// 'none' effect on regular goal day means no special flextime handling
 					}
 				} else if (dayGoal === 0) {
 					// Weekend or no goal: all hours count as flextime bonus
@@ -366,7 +368,11 @@ export class DataManager {
 		);
 		const avgDaily =
 			weekdayKeys.length > 0 ? totalHoursWorked / weekdayKeys.length : 0;
-		const avgWeekly = totalHoursWorked / (weekdayKeys.length / this.settings.workdaysPerWeek || 1);
+		// Guard against division by zero if workdaysPerWeek is 0
+		const weeksWorked = this.settings.workdaysPerWeek > 0
+			? weekdayKeys.length / this.settings.workdaysPerWeek
+			: 0;
+		const avgWeekly = weeksWorked > 0 ? totalHoursWorked / weeksWorked : 0;
 
 		this._cachedAverages = {
 			avgDaily,

@@ -1,17 +1,16 @@
 import { Plugin, WorkspaceLeaf, ItemView } from 'obsidian';
 import { TimeFlowSettings, DEFAULT_SETTINGS, TimeFlowSettingTab, DEFAULT_SPECIAL_DAY_BEHAVIORS } from './settings';
 import { TimeFlowView, VIEW_TYPE_TIMEFLOW } from './view';
-import { TimerManager } from './timerManager';
+import { TimerManager, Timer } from './timerManager';
 import { ImportModal } from './importModal';
 import { setLanguage } from './i18n';
+import { Utils } from './utils';
 
 export default class TimeFlowPlugin extends Plugin {
 	settings: TimeFlowSettings;
 	timerManager: TimerManager;
 
 	async onload() {
-		console.log('Loading TimeFlow plugin');
-
 		// Load settings (without migration yet)
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
 
@@ -22,15 +21,14 @@ export default class TimeFlowPlugin extends Plugin {
 		// If settings are in the data file, merge them with local settings
 		// Data file settings take precedence for cross-device sync
 		if (syncedSettings) {
-			console.log('TimeFlow: Merging synced settings from data file');
 			this.settings = Object.assign({}, DEFAULT_SETTINGS, this.settings, syncedSettings);
 			this.timerManager.settings = this.settings;
 		}
 
 		// Now run migrations AFTER merging synced settings
 		const needsSave = this.migrateWorkDaysSettings() || this.migrateSpecialDayBehaviors();
-		if (needsSave) {
-			console.log('TimeFlow: Saving migrated settings');
+		const timestampMigrated = await this.migrateTimestamps();
+		if (needsSave || timestampMigrated) {
 			await this.saveSettings();
 		}
 
@@ -118,7 +116,6 @@ export default class TimeFlowPlugin extends Plugin {
 	}
 
 	onunload() {
-		console.log('Unloading TimeFlow plugin');
 		// Don't stop timers on unload - they should persist across reloads
 	}
 
@@ -129,15 +126,9 @@ export default class TimeFlowPlugin extends Plugin {
 
 	migrateSpecialDayBehaviors(): boolean {
 		// Migrate from old specialDayColors/specialDayLabels to new specialDayBehaviors
-		console.log('TimeFlow Migration: Starting specialDayBehaviors migration');
-		console.log('TimeFlow Migration: Current behaviors:', this.settings.specialDayBehaviors?.map(b => b.id));
-		console.log('TimeFlow Migration: Default behaviors:', DEFAULT_SPECIAL_DAY_BEHAVIORS.map(b => b.id));
-
 		let changed = false;
 
 		if (!this.settings.specialDayBehaviors || this.settings.specialDayBehaviors.length === 0) {
-			console.log('TimeFlow: Migrating special day settings to new behavior system');
-
 			// Start with default behaviors
 			this.settings.specialDayBehaviors = DEFAULT_SPECIAL_DAY_BEHAVIORS.map(defaultBehavior => {
 				// Create a copy and override with any custom values from old settings
@@ -149,13 +140,10 @@ export default class TimeFlowPlugin extends Plugin {
 			});
 			changed = true;
 		} else {
-			console.log('TimeFlow Migration: Behaviors exist, checking for missing defaults...');
 			// Ensure all default behaviors exist (add any missing ones like 'jobb')
 			DEFAULT_SPECIAL_DAY_BEHAVIORS.forEach(defaultBehavior => {
 				const existingIndex = this.settings.specialDayBehaviors.findIndex(b => b.id === defaultBehavior.id);
-				console.log(`TimeFlow Migration: Checking '${defaultBehavior.id}', existingIndex=${existingIndex}, isWorkType=${defaultBehavior.isWorkType}`);
 				if (existingIndex === -1) {
-					console.log(`TimeFlow: Adding missing behavior '${defaultBehavior.id}'`);
 					// Add work types at the beginning, others at the end
 					if (defaultBehavior.isWorkType) {
 						this.settings.specialDayBehaviors.unshift({ ...defaultBehavior });
@@ -165,13 +153,62 @@ export default class TimeFlowPlugin extends Plugin {
 					changed = true;
 				} else if (defaultBehavior.isWorkType && !this.settings.specialDayBehaviors[existingIndex].isWorkType) {
 					// Ensure existing work types have the isWorkType flag
-					console.log(`TimeFlow Migration: Setting isWorkType=true on existing '${defaultBehavior.id}'`);
 					this.settings.specialDayBehaviors[existingIndex].isWorkType = true;
 					changed = true;
 				}
 			});
-			console.log('TimeFlow Migration: After migration:', this.settings.specialDayBehaviors?.map(b => ({ id: b.id, isWorkType: b.isWorkType })));
 		}
+		return changed;
+	}
+
+	/**
+	 * Migrate UTC timestamps (ending with Z) to local ISO format.
+	 * This ensures times display correctly regardless of timezone.
+	 */
+	async migrateTimestamps(): Promise<boolean> {
+		if (this.settings.hasTimestampMigration) {
+			return false; // Already migrated
+		}
+
+		let changed = false;
+
+		const convertTimestamp = (timestamp: string | null): string | null => {
+			if (!timestamp) return null;
+			// Check if it's a UTC timestamp (ends with Z)
+			if (timestamp.endsWith('Z')) {
+				const date = new Date(timestamp);
+				// Convert to local ISO string without Z suffix
+				return Utils.toLocalISOString(date);
+			}
+			return timestamp; // Already local format
+		};
+
+		const migrateEntry = (entry: Timer): void => {
+			const newStart = convertTimestamp(entry.startTime);
+			const newEnd = convertTimestamp(entry.endTime);
+
+			if (newStart !== entry.startTime || newEnd !== entry.endTime) {
+				entry.startTime = newStart;
+				entry.endTime = newEnd;
+				changed = true;
+			}
+
+			// Also migrate subEntries
+			if (entry.subEntries) {
+				entry.subEntries.forEach(sub => migrateEntry(sub));
+			}
+		};
+
+		// Migrate all entries
+		this.timerManager.data.entries.forEach(entry => migrateEntry(entry));
+
+		if (changed) {
+			await this.timerManager.save();
+			console.log('TimeFlow: Migrated timestamps to local format');
+		}
+
+		// Mark migration as complete
+		this.settings.hasTimestampMigration = true;
 		return changed;
 	}
 
@@ -203,7 +240,32 @@ export default class TimeFlowPlugin extends Plugin {
 		return changed;
 	}
 
+	/**
+	 * Validate and clamp settings to sensible bounds to prevent division by zero
+	 * and other edge cases.
+	 */
+	validateSettings(): void {
+		// Ensure numeric values are within bounds
+		this.settings.workPercent = Math.max(0.01, Math.min(2, this.settings.workPercent));
+		this.settings.baseWorkday = Math.max(0.5, Math.min(24, this.settings.baseWorkday));
+		this.settings.baseWorkweek = Math.max(1, Math.min(168, this.settings.baseWorkweek));
+		this.settings.workdaysPerWeek = Math.max(1, Math.min(7, this.settings.workdaysPerWeek));
+		this.settings.workdaysPerMonth = Math.max(1, Math.min(31, this.settings.workdaysPerMonth));
+		this.settings.workdaysPerYear = Math.max(1, Math.min(366, this.settings.workdaysPerYear));
+		this.settings.lunchBreakMinutes = Math.max(0, Math.min(120, this.settings.lunchBreakMinutes));
+		this.settings.halfDayHours = Math.max(0.5, Math.min(12, this.settings.halfDayHours));
+		this.settings.maxEgenmeldingDays = Math.max(0, Math.min(365, this.settings.maxEgenmeldingDays));
+		this.settings.maxFerieDays = Math.max(0, Math.min(365, this.settings.maxFerieDays));
+		this.settings.heatmapColumns = Math.max(12, Math.min(96, this.settings.heatmapColumns));
+
+		// Ensure arrays have at least one element
+		if (!this.settings.workDays || this.settings.workDays.length === 0) {
+			this.settings.workDays = [1, 2, 3, 4, 5]; // Default to Monday-Friday
+		}
+	}
+
 	async saveSettings() {
+		this.validateSettings();
 		await this.saveData(this.settings);
 		// Also save to data file for cross-device sync
 		await this.timerManager.saveSettings(this.settings);

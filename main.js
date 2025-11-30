@@ -90,15 +90,26 @@ var Utils = {
     return !settings.workDays.includes(day);
   },
   formatHoursToHM: (hours, unit = "h") => {
-    const h = Math.floor(hours);
-    const m = Math.round((hours - h) * 60);
-    return `${h}${unit} ${m.toString().padStart(2, "0")}m`;
+    const isNegative = hours < 0;
+    const absHours = Math.abs(hours);
+    let h = Math.floor(absHours);
+    let m = Math.round((absHours - h) * 60);
+    if (m === 60) {
+      h++;
+      m = 0;
+    }
+    return `${isNegative ? "-" : ""}${h}${unit} ${m.toString().padStart(2, "0")}m`;
   },
   toLocalDateStr: (date) => {
     const y = date.getFullYear();
     const m = String(date.getMonth() + 1).padStart(2, "0");
     const d = String(date.getDate()).padStart(2, "0");
     return `${y}-${m}-${d}`;
+  },
+  // Create ISO string without Z suffix (interpreted as local time)
+  toLocalISOString: (date) => {
+    const pad = (n) => n.toString().padStart(2, "0");
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
   },
   getWeekNumber: (d) => {
     const date = new Date(d.getTime());
@@ -1273,7 +1284,8 @@ var ImportModal = class extends import_obsidian.Modal {
     previewDiv.style.display = "block";
     const formatInfo = previewDiv.createEl("div");
     formatInfo.style.marginBottom = "10px";
-    formatInfo.innerHTML = `<strong>${t("import.format")}</strong> ${result.format || "?"}`;
+    formatInfo.createEl("strong", { text: t("import.format") });
+    formatInfo.appendText(" " + (result.format || "?"));
     if (result.errors.length > 0) {
       const errorDiv = previewDiv.createEl("div");
       errorDiv.style.color = "var(--text-error)";
@@ -1300,7 +1312,7 @@ var ImportModal = class extends import_obsidian.Modal {
       importBtn.disabled = false;
       const successDiv = previewDiv.createEl("div");
       successDiv.style.color = "var(--text-success)";
-      successDiv.innerHTML = `<strong>\u2705 ${result.entries.length} ${t("import.entriesFound")}</strong>`;
+      successDiv.createEl("strong", { text: "\u2705 " + result.entries.length + " " + t("import.entriesFound") });
       const previewTable = previewDiv.createEl("table");
       previewTable.style.width = "100%";
       previewTable.style.marginTop = "10px";
@@ -1579,7 +1591,9 @@ var DEFAULT_SETTINGS = {
     dailyHoursLimit: 9,
     weeklyHoursLimit: 40,
     minimumRestHours: 11
-  }
+  },
+  // Migration flags
+  hasTimestampMigration: false
 };
 var SpecialDayBehaviorModal = class extends import_obsidian2.Modal {
   constructor(app, plugin, behavior, index, onSave) {
@@ -1609,7 +1623,7 @@ var SpecialDayBehaviorModal = class extends import_obsidian2.Modal {
         infoBox.style.background = "var(--background-secondary)";
         infoBox.style.borderRadius = "5px";
         infoBox.style.fontSize = "0.9em";
-        infoBox.innerHTML = `\u2139\uFE0F ${explanation}`;
+        infoBox.createSpan({ text: "\u2139\uFE0F " + explanation });
       }
     }
     if (isWorkType) {
@@ -1619,7 +1633,7 @@ var SpecialDayBehaviorModal = class extends import_obsidian2.Modal {
       infoBox.style.background = "var(--background-secondary)";
       infoBox.style.borderRadius = "5px";
       infoBox.style.fontSize = "0.9em";
-      infoBox.innerHTML = `\u{1F4BC} This is your regular work entry type. Customize its appearance in the calendar.`;
+      infoBox.createSpan({ text: "\u{1F4BC} This is your regular work entry type. Customize its appearance in the calendar." });
     }
     const formData = {
       id: ((_c = this.behavior) == null ? void 0 : _c.id) || "",
@@ -1827,10 +1841,11 @@ var TimeFlowSettingTab = class extends import_obsidian2.PluginSettingTab {
     syncInfo.style.background = "var(--background-secondary)";
     syncInfo.style.borderRadius = "5px";
     syncInfo.style.fontSize = "0.9em";
-    syncInfo.innerHTML = `
-			<strong>\u{1F4F1} Cross-Device Settings Sync</strong><br>
-			Settings are automatically saved to <code>timeflow/data.md</code> and will sync across devices when using Obsidian Sync or any other vault sync solution. When you open the plugin on another device, your settings will be automatically loaded.
-		`;
+    syncInfo.createEl("strong", { text: "\u{1F4F1} Cross-Device Settings Sync" });
+    syncInfo.createEl("br");
+    syncInfo.appendText("Settings are automatically saved to ");
+    syncInfo.createEl("code", { text: "timeflow/data.md" });
+    syncInfo.appendText(" and will sync across devices when using Obsidian Sync or any other vault sync solution. When you open the plugin on another device, your settings will be automatically loaded.");
     new import_obsidian2.Setting(settingsContainer).setName("Language / Spr\xE5k").setDesc("Interface language / Grensesnittspr\xE5k").addDropdown((dropdown) => dropdown.addOption("nb", "Norsk").addOption("en", "English").setValue(this.plugin.settings.language).onChange(async (value) => {
       this.plugin.settings.language = value;
       setLanguage(value);
@@ -2061,11 +2076,8 @@ var TimeFlowSettingTab = class extends import_obsidian2.PluginSettingTab {
       }
       return parts.join(", ");
     };
-    console.log("TimeFlow Settings Debug - All behaviors:", JSON.stringify(this.plugin.settings.specialDayBehaviors.map((b) => ({ id: b.id, isWorkType: b.isWorkType })), null, 2));
     const workTypes = this.plugin.settings.specialDayBehaviors.filter((b) => b.isWorkType || b.id === "jobb");
     const specialDays = this.plugin.settings.specialDayBehaviors.filter((b) => !b.isWorkType && b.id !== "jobb");
-    console.log("TimeFlow Settings Debug - Work types:", workTypes.map((b) => b.id));
-    console.log("TimeFlow Settings Debug - Special days:", specialDays.map((b) => b.id));
     new import_obsidian2.Setting(settingsContainer).setName("Work Entry Type").setDesc("Configure the appearance of your regular work entries").setHeading();
     workTypes.forEach((behavior) => {
       const index = this.plugin.settings.specialDayBehaviors.findIndex((b) => b.id === behavior.id);
@@ -2208,10 +2220,9 @@ Note: Historical data in your holidays file using "${behavior.id}" will no longe
     advancedInfo.style.background = "var(--background-secondary)";
     advancedInfo.style.borderRadius = "5px";
     advancedInfo.style.fontSize = "0.9em";
-    advancedInfo.innerHTML = `
-			<strong>\u2699\uFE0F Advanced Settings</strong><br>
-			These settings affect balance calculations and visual indicators. Settings sync across devices via your data file.
-		`;
+    advancedInfo.createEl("strong", { text: "\u2699\uFE0F Advanced Settings" });
+    advancedInfo.createEl("br");
+    advancedInfo.appendText("These settings affect balance calculations and visual indicators. Settings sync across devices via your data file.");
     const balanceCalcSection = this.createCollapsibleSubsection(
       settingsContainer,
       "Balance Calculation",
@@ -2485,15 +2496,20 @@ Note: Historical data in your holidays file using "${behavior.id}" will no longe
     infoDiv.style.background = "var(--background-secondary)";
     infoDiv.style.borderRadius = "5px";
     infoDiv.style.fontSize = "0.9em";
-    infoDiv.innerHTML = `
-			<strong>\u{1F4CB} Pattern Variables:</strong>
-			<ul style="margin: 8px 0 0 20px;">
-				<li><code>{YYYY}</code> - Four-digit year (e.g., 2025)</li>
-				<li><code>{MM}</code> - Two-digit month (e.g., 01)</li>
-				<li><code>{DD}</code> - Two-digit day (e.g., 15)</li>
-				<li><code>{WEEK}</code> - ISO week number (e.g., 07)</li>
-			</ul>
-		`;
+    infoDiv.createEl("strong", { text: "\u{1F4CB} Pattern Variables:" });
+    const ul = infoDiv.createEl("ul");
+    ul.style.margin = "8px 0 0 20px";
+    const patterns = [
+      ["{YYYY}", "Four-digit year (e.g., 2025)"],
+      ["{MM}", "Two-digit month (e.g., 01)"],
+      ["{DD}", "Two-digit day (e.g., 15)"],
+      ["{WEEK}", "ISO week number (e.g., 07)"]
+    ];
+    patterns.forEach(([code, desc]) => {
+      const li = ul.createEl("li");
+      li.createEl("code", { text: code });
+      li.appendText(" - " + desc);
+    });
     const buttonDiv = contentEl.createDiv();
     buttonDiv.style.display = "flex";
     buttonDiv.style.gap = "10px";
@@ -2589,7 +2605,6 @@ var DataManager = class {
         status.success = true;
         status.count = Object.keys(this.holidays).length;
         status.message = `Loaded ${status.count} planned days`;
-        console.log(`Loaded ${status.count} future days`);
       } else {
         status.warning = `Holiday file not found: ${this.settings.holidaysFilePath}`;
         console.warn(status.warning);
@@ -2684,6 +2699,8 @@ var DataManager = class {
               if (dayGoal > 0 && (e.duration || 0) > dayGoal) {
                 flextime += (e.duration || 0) - dayGoal;
               }
+            } else if (behavior.noHoursRequired && dayGoal === 0) {
+              flextime += e.duration || 0;
             }
           }
         } else if (dayGoal === 0) {
@@ -2789,7 +2806,8 @@ var DataManager = class {
       0
     );
     const avgDaily = weekdayKeys.length > 0 ? totalHoursWorked / weekdayKeys.length : 0;
-    const avgWeekly = totalHoursWorked / (weekdayKeys.length / this.settings.workdaysPerWeek || 1);
+    const weeksWorked = this.settings.workdaysPerWeek > 0 ? weekdayKeys.length / this.settings.workdaysPerWeek : 0;
+    const avgWeekly = weeksWorked > 0 ? totalHoursWorked / weeksWorked : 0;
     this._cachedAverages = {
       avgDaily,
       avgWeekly,
@@ -4462,7 +4480,7 @@ var UIBuilder = class {
       return;
     const activeTimers = this.timerManager.getActiveTimers();
     if (activeTimers.length === 0) {
-      this.elements.timerBadge.innerHTML = "";
+      this.elements.timerBadge.empty();
       this.elements.timerBadge.style.background = "transparent";
       this.elements.timerBadge.style.display = "inline-flex";
       this.elements.timerBadge.style.alignItems = "stretch";
@@ -4517,7 +4535,7 @@ var UIBuilder = class {
       this.elements.timerBadge.appendChild(startBtn);
       this.elements.timerBadge.appendChild(arrowBtn);
     } else {
-      this.elements.timerBadge.innerHTML = "";
+      this.elements.timerBadge.empty();
       this.elements.timerBadge.textContent = "Stopp";
       this.elements.timerBadge.style.background = "#f44336";
       this.elements.timerBadge.style.color = "white";
@@ -4562,7 +4580,8 @@ var UIBuilder = class {
       item.style.alignItems = "center";
       item.style.gap = "8px";
       item.style.transition = "background 0.2s";
-      item.innerHTML = `<span>${type.icon}</span><span>${type.label}</span>`;
+      item.createSpan({ text: type.icon });
+      item.createSpan({ text: type.label });
       item.onmouseover = () => {
         item.style.background = "var(--background-modifier-hover)";
       };
@@ -4748,7 +4767,8 @@ var UIBuilder = class {
     card.className = "tf-card tf-card-spaced";
     const header = document.createElement("div");
     header.className = "tf-collapsible";
-    header.innerHTML = `<h3 style='margin:0'>${t("ui.information")}</h3>`;
+    const h3 = header.createEl("h3", { text: t("ui.information") });
+    h3.style.margin = "0";
     const content = document.createElement("div");
     content.className = "tf-collapsible-content";
     const specialDayInfo = this.settings.specialDayBehaviors.filter((b) => !b.isWorkType).map((behavior) => ({
@@ -4757,99 +4777,124 @@ var UIBuilder = class {
       desc: this.getFlextimeEffectDescription(behavior)
     }));
     specialDayInfo.push({ key: t("ui.noRegistration"), emoji: "\u26AA", desc: t("ui.noDataForDay") });
-    content.innerHTML = `
-			<div class="tf-info-grid">
-				<!-- Left Column: Day types and colors -->
-				<div class="tf-info-column">
-					<div class="tf-info-box">
-						<h4>${t("info.specialDayTypes")}</h4>
-						<ul style="list-style: none; padding-left: 0; margin: 0;">
-							${specialDayInfo.map((item) => {
+    const infoGrid = content.createDiv({ cls: "tf-info-grid" });
+    const leftColumn = infoGrid.createDiv({ cls: "tf-info-column" });
+    const specialDaysBox = leftColumn.createDiv({ cls: "tf-info-box" });
+    specialDaysBox.createEl("h4", { text: t("info.specialDayTypes") });
+    const specialDaysList = specialDaysBox.createEl("ul");
+    specialDaysList.style.listStyle = "none";
+    specialDaysList.style.paddingLeft = "0";
+    specialDaysList.style.margin = "0";
+    specialDayInfo.forEach((item) => {
       const color = getSpecialDayColors(this.settings)[item.key] || "transparent";
       const label = translateSpecialDayName(item.key);
-      return `<li style="display: flex; align-items: center; margin-bottom: 8px; font-size: 0.9em;">
-									<div style="width: 16px; height: 16px; background: ${color}; border-radius: 3px; border: 1px solid var(--background-modifier-border); margin-right: 8px; flex-shrink: 0;"></div>
-									<span>${item.emoji} <strong>${label}</strong>: ${item.desc}</span>
-								</li>`;
-    }).join("")}
-						</ul>
-					</div>
-
-					<div class="tf-info-box">
-						<h4>${t("info.workDaysGradient")}</h4>
-						<p style="margin: 0 0 10px 0; font-size: 0.9em;">
-							${t("info.colorShowsFlextime")} (${this.settings.baseWorkday}h):
-						</p>
-						<div style="height: 16px; border-radius: 8px; background: linear-gradient(to right, ${this.flextimeColor(0)}, ${this.flextimeColor(1.5)}, ${this.flextimeColor(3)}); margin: 4px 0; border: 1px solid var(--background-modifier-border);"></div>
-						<div style="display: flex; justify-content: space-between; font-size: 0.8em; color: var(--text-muted); margin-bottom: 10px;">
-							<span>0h</span><span>+1.5h</span><span>+3h</span>
-						</div>
-						<div style="height: 16px; border-radius: 8px; background: linear-gradient(to right, ${this.flextimeColor(-3)}, ${this.flextimeColor(-1.5)}, ${this.flextimeColor(0)}); margin: 4px 0; border: 1px solid var(--background-modifier-border);"></div>
-						<div style="display: flex; justify-content: space-between; font-size: 0.8em; color: var(--text-muted);">
-							<span>-3h</span><span>-1.5h</span><span>0h</span>
-						</div>
-					</div>
-				</div>
-
-				<!-- Right Column: Calendar and balance -->
-				<div class="tf-info-column">
-					<div class="tf-info-box">
-						<h4>${t("info.calendarContextMenu")}</h4>
-						<p style="margin: 0 0 8px 0; font-size: 0.9em;">
-							${t("info.clickDayFor")}
-						</p>
-						<ul style="margin: 0 0 0 16px; font-size: 0.9em; padding-left: 0; list-style-position: inside;">
-							<li>${t("info.createDailyNote")}</li>
-							<li>${t("info.editFlextimeManually")}</li>
-							<li>${t("info.registerSpecialDays")}</li>
-						</ul>
-					</div>
-
-					<div class="tf-info-box">
-						<h4>${t("info.flextimeBalanceZones")}</h4>
-						<div style="display: flex; flex-direction: column; gap: 6px; font-size: 0.9em;">
-							<div style="display: flex; align-items: center; gap: 8px;">
-								<span style="display: inline-block; width: 16px; height: 16px; border-radius: 3px; background: ${((_a = this.settings.customColors) == null ? void 0 : _a.balanceOk) || "#4caf50"}; flex-shrink: 0;"></span>
-								<span><strong>${t("info.green")}:</strong> ${this.settings.balanceThresholds.warningLow}h ${t("info.to")} +${this.settings.balanceThresholds.warningHigh}h</span>
-							</div>
-							<div style="display: flex; align-items: center; gap: 8px;">
-								<span style="display: inline-block; width: 16px; height: 16px; border-radius: 3px; background: ${((_b = this.settings.customColors) == null ? void 0 : _b.balanceWarning) || "#ff9800"}; flex-shrink: 0;"></span>
-								<span><strong>${t("info.yellow")}:</strong> ${this.settings.balanceThresholds.criticalLow}h ${t("info.to")} ${this.settings.balanceThresholds.warningLow - 1}h / +${this.settings.balanceThresholds.warningHigh}h ${t("info.to")} +${this.settings.balanceThresholds.criticalHigh}h</span>
-							</div>
-							<div style="display: flex; align-items: center; gap: 8px;">
-								<span style="display: inline-block; width: 16px; height: 16px; border-radius: 3px; background: ${((_c = this.settings.customColors) == null ? void 0 : _c.balanceCritical) || "#f44336"}; flex-shrink: 0;"></span>
-								<span><strong>${t("info.red")}:</strong> &lt;${this.settings.balanceThresholds.criticalLow}h / &gt;+${this.settings.balanceThresholds.criticalHigh}h</span>
-							</div>
-						</div>
-					</div>
-
-					<div class="tf-info-box">
-						<h4>${t("info.weekNumberCompliance")}</h4>
-						<div style="display: flex; flex-direction: column; gap: 6px; font-size: 0.9em;">
-							<div style="display: flex; align-items: center; gap: 8px;">
-								<span style="display: inline-block; width: 16px; height: 16px; border-radius: 3px; background: linear-gradient(135deg, #c8e6c9, #a5d6a7); flex-shrink: 0;"></span>
-								<span><strong>${t("info.green")}:</strong> ${t("info.reachedGoal")} (\xB10.5h)</span>
-							</div>
-							<div style="display: flex; align-items: center; gap: 8px;">
-								<span style="display: inline-block; width: 16px; height: 16px; border-radius: 3px; background: linear-gradient(135deg, #ffe0b2, #ffcc80); flex-shrink: 0;"></span>
-								<span><strong>${t("info.orange")}:</strong> ${t("info.overGoal")}</span>
-							</div>
-							<div style="display: flex; align-items: center; gap: 8px;">
-								<span style="display: inline-block; width: 16px; height: 16px; border-radius: 3px; background: linear-gradient(135deg, #ffcdd2, #ef9a9a); flex-shrink: 0;"></span>
-								<span><strong>${t("info.red")}:</strong> ${t("info.underGoal")}</span>
-							</div>
-							<div style="display: flex; align-items: center; gap: 8px;">
-								<span style="display: inline-block; width: 16px; height: 16px; border-radius: 3px; background: linear-gradient(135deg, #e0e0e0, #bdbdbd); flex-shrink: 0;"></span>
-								<span><strong>${t("info.gray")}:</strong> ${t("info.weekInProgress")}</span>
-							</div>
-						</div>
-						<p style="margin: 8px 0 0 0; font-size: 0.8em; opacity: 0.8;">
-							<em>${t("info.clickWeekForDetails")}</em>
-						</p>
-					</div>
-				</div>
-			</div>
-		`;
+      const li = specialDaysList.createEl("li");
+      li.style.display = "flex";
+      li.style.alignItems = "center";
+      li.style.marginBottom = "8px";
+      li.style.fontSize = "0.9em";
+      const colorBox = li.createDiv();
+      colorBox.style.width = "16px";
+      colorBox.style.height = "16px";
+      colorBox.style.background = color;
+      colorBox.style.borderRadius = "3px";
+      colorBox.style.border = "1px solid var(--background-modifier-border)";
+      colorBox.style.marginRight = "8px";
+      colorBox.style.flexShrink = "0";
+      const textSpan = li.createSpan({ text: item.emoji + " " });
+      textSpan.createEl("strong", { text: label });
+      textSpan.appendText(": " + item.desc);
+    });
+    const gradientBox = leftColumn.createDiv({ cls: "tf-info-box" });
+    gradientBox.createEl("h4", { text: t("info.workDaysGradient") });
+    const gradientP = gradientBox.createEl("p", { text: t("info.colorShowsFlextime") + " (" + this.settings.baseWorkday + "h):" });
+    gradientP.style.margin = "0 0 10px 0";
+    gradientP.style.fontSize = "0.9em";
+    const posGradient = gradientBox.createDiv();
+    posGradient.style.height = "16px";
+    posGradient.style.borderRadius = "8px";
+    posGradient.style.background = `linear-gradient(to right, ${this.flextimeColor(0)}, ${this.flextimeColor(1.5)}, ${this.flextimeColor(3)})`;
+    posGradient.style.margin = "4px 0";
+    posGradient.style.border = "1px solid var(--background-modifier-border)";
+    const posLabels = gradientBox.createDiv();
+    posLabels.style.display = "flex";
+    posLabels.style.justifyContent = "space-between";
+    posLabels.style.fontSize = "0.8em";
+    posLabels.style.color = "var(--text-muted)";
+    posLabels.style.marginBottom = "10px";
+    posLabels.createSpan({ text: "0h" });
+    posLabels.createSpan({ text: "+1.5h" });
+    posLabels.createSpan({ text: "+3h" });
+    const negGradient = gradientBox.createDiv();
+    negGradient.style.height = "16px";
+    negGradient.style.borderRadius = "8px";
+    negGradient.style.background = `linear-gradient(to right, ${this.flextimeColor(-3)}, ${this.flextimeColor(-1.5)}, ${this.flextimeColor(0)})`;
+    negGradient.style.margin = "4px 0";
+    negGradient.style.border = "1px solid var(--background-modifier-border)";
+    const negLabels = gradientBox.createDiv();
+    negLabels.style.display = "flex";
+    negLabels.style.justifyContent = "space-between";
+    negLabels.style.fontSize = "0.8em";
+    negLabels.style.color = "var(--text-muted)";
+    negLabels.createSpan({ text: "-3h" });
+    negLabels.createSpan({ text: "-1.5h" });
+    negLabels.createSpan({ text: "0h" });
+    const rightColumn = infoGrid.createDiv({ cls: "tf-info-column" });
+    const calendarBox = rightColumn.createDiv({ cls: "tf-info-box" });
+    calendarBox.createEl("h4", { text: t("info.calendarContextMenu") });
+    const calendarP = calendarBox.createEl("p", { text: t("info.clickDayFor") });
+    calendarP.style.margin = "0 0 8px 0";
+    calendarP.style.fontSize = "0.9em";
+    const calendarList = calendarBox.createEl("ul");
+    calendarList.style.margin = "0 0 0 16px";
+    calendarList.style.fontSize = "0.9em";
+    calendarList.style.paddingLeft = "0";
+    calendarList.style.listStylePosition = "inside";
+    calendarList.createEl("li", { text: t("info.createDailyNote") });
+    calendarList.createEl("li", { text: t("info.editFlextimeManually") });
+    calendarList.createEl("li", { text: t("info.registerSpecialDays") });
+    const createColorRow = (container, color, label, desc) => {
+      const row = container.createDiv();
+      row.style.display = "flex";
+      row.style.alignItems = "center";
+      row.style.gap = "8px";
+      const colorSpan = row.createSpan();
+      colorSpan.style.display = "inline-block";
+      colorSpan.style.width = "16px";
+      colorSpan.style.height = "16px";
+      colorSpan.style.borderRadius = "3px";
+      colorSpan.style.background = color;
+      colorSpan.style.flexShrink = "0";
+      const textSpan = row.createSpan();
+      textSpan.createEl("strong", { text: label + ":" });
+      textSpan.appendText(" " + desc);
+    };
+    const balanceBox = rightColumn.createDiv({ cls: "tf-info-box" });
+    balanceBox.createEl("h4", { text: t("info.flextimeBalanceZones") });
+    const balanceContainer = balanceBox.createDiv();
+    balanceContainer.style.display = "flex";
+    balanceContainer.style.flexDirection = "column";
+    balanceContainer.style.gap = "6px";
+    balanceContainer.style.fontSize = "0.9em";
+    createColorRow(balanceContainer, ((_a = this.settings.customColors) == null ? void 0 : _a.balanceOk) || "#4caf50", t("info.green"), this.settings.balanceThresholds.warningLow + "h " + t("info.to") + " +" + this.settings.balanceThresholds.warningHigh + "h");
+    createColorRow(balanceContainer, ((_b = this.settings.customColors) == null ? void 0 : _b.balanceWarning) || "#ff9800", t("info.yellow"), this.settings.balanceThresholds.criticalLow + "h " + t("info.to") + " " + (this.settings.balanceThresholds.warningLow - 1) + "h / +" + this.settings.balanceThresholds.warningHigh + "h " + t("info.to") + " +" + this.settings.balanceThresholds.criticalHigh + "h");
+    createColorRow(balanceContainer, ((_c = this.settings.customColors) == null ? void 0 : _c.balanceCritical) || "#f44336", t("info.red"), "<" + this.settings.balanceThresholds.criticalLow + "h / >+" + this.settings.balanceThresholds.criticalHigh + "h");
+    const weekBox = rightColumn.createDiv({ cls: "tf-info-box" });
+    weekBox.createEl("h4", { text: t("info.weekNumberCompliance") });
+    const weekContainer = weekBox.createDiv();
+    weekContainer.style.display = "flex";
+    weekContainer.style.flexDirection = "column";
+    weekContainer.style.gap = "6px";
+    weekContainer.style.fontSize = "0.9em";
+    createColorRow(weekContainer, "linear-gradient(135deg, #c8e6c9, #a5d6a7)", t("info.green"), t("info.reachedGoal") + " (\xB10.5h)");
+    createColorRow(weekContainer, "linear-gradient(135deg, #ffe0b2, #ffcc80)", t("info.orange"), t("info.overGoal"));
+    createColorRow(weekContainer, "linear-gradient(135deg, #ffcdd2, #ef9a9a)", t("info.red"), t("info.underGoal"));
+    createColorRow(weekContainer, "linear-gradient(135deg, #e0e0e0, #bdbdbd)", t("info.gray"), t("info.weekInProgress"));
+    const weekTip = weekBox.createEl("p");
+    weekTip.style.margin = "8px 0 0 0";
+    weekTip.style.fontSize = "0.8em";
+    weekTip.style.opacity = "0.8";
+    weekTip.createEl("em", { text: t("info.clickWeekForDetails") });
     header.onclick = () => {
       content.classList.toggle("open");
     };
@@ -4931,7 +4976,7 @@ var UIBuilder = class {
     return card;
   }
   buildStatusBar() {
-    var _a, _b, _c, _d, _e, _f, _g;
+    var _a, _b, _c, _d, _e, _f;
     const bar = document.createElement("div");
     bar.className = "tf-status-bar";
     const status = this.systemStatus;
@@ -4939,53 +4984,73 @@ var UIBuilder = class {
     const hasWarnings = (_b = status.validation) == null ? void 0 : _b.hasWarnings;
     const statusIcon = hasErrors ? "\u274C" : hasWarnings ? "\u26A0\uFE0F" : "\u2705";
     const hasIssues = hasErrors || hasWarnings;
-    let issuesHTML = "";
-    if (hasIssues && ((_c = status.validation) == null ? void 0 : _c.issues)) {
-      const errors = status.validation.issues.errors || [];
-      const warnings = status.validation.issues.warnings || [];
-      if (errors.length > 0) {
-        issuesHTML += `<div style="margin-top: 8px;"><strong style="color: #f44336;">Feil (${errors.length}):</strong></div>`;
-        errors.slice(0, 5).forEach((err) => {
-          issuesHTML += `<div style="font-size: 12px; margin-left: 12px; color: #f44336;">
-						\u2022 ${err.type}: ${err.description}${err.date ? ` (${err.date})` : ""}
-					</div>`;
-        });
-        if (errors.length > 5) {
-          issuesHTML += `<div style="font-size: 11px; margin-left: 12px; color: var(--text-muted);">...og ${errors.length - 5} flere feil</div>`;
+    const buildIssuesContent = (container) => {
+      var _a2;
+      if (hasIssues && ((_a2 = status.validation) == null ? void 0 : _a2.issues)) {
+        const errors = status.validation.issues.errors || [];
+        const warnings = status.validation.issues.warnings || [];
+        if (errors.length > 0) {
+          const errorHeader = container.createDiv();
+          errorHeader.style.marginTop = "8px";
+          const errorStrong = errorHeader.createEl("strong");
+          errorStrong.style.color = "#f44336";
+          errorStrong.textContent = `Feil (${errors.length}):`;
+          errors.slice(0, 5).forEach((err) => {
+            const errorItem = container.createDiv();
+            errorItem.style.cssText = "font-size: 12px; margin-left: 12px; color: #f44336;";
+            errorItem.textContent = `\u2022 ${err.type}: ${err.description}${err.date ? ` (${err.date})` : ""}`;
+          });
+          if (errors.length > 5) {
+            const moreErrors = container.createDiv();
+            moreErrors.style.cssText = "font-size: 11px; margin-left: 12px; color: var(--text-muted);";
+            moreErrors.textContent = `...og ${errors.length - 5} flere feil`;
+          }
+        }
+        if (warnings.length > 0) {
+          const warningHeader = container.createDiv();
+          warningHeader.style.marginTop = "8px";
+          const warningStrong = warningHeader.createEl("strong");
+          warningStrong.style.color = "#ff9800";
+          warningStrong.textContent = `Advarsler (${warnings.length}):`;
+          warnings.slice(0, 5).forEach((warn) => {
+            const warningItem = container.createDiv();
+            warningItem.style.cssText = "font-size: 12px; margin-left: 12px; color: #ff9800;";
+            warningItem.textContent = `\u2022 ${warn.type}: ${warn.description}${warn.date ? ` (${warn.date})` : ""}`;
+          });
+          if (warnings.length > 5) {
+            const moreWarnings = container.createDiv();
+            moreWarnings.style.cssText = "font-size: 11px; margin-left: 12px; color: var(--text-muted);";
+            moreWarnings.textContent = `...og ${warnings.length - 5} flere advarsler`;
+          }
         }
       }
-      if (warnings.length > 0) {
-        issuesHTML += `<div style="margin-top: 8px;"><strong style="color: #ff9800;">Advarsler (${warnings.length}):</strong></div>`;
-        warnings.slice(0, 5).forEach((warn) => {
-          issuesHTML += `<div style="font-size: 12px; margin-left: 12px; color: #ff9800;">
-						\u2022 ${warn.type}: ${warn.description}${warn.date ? ` (${warn.date})` : ""}
-					</div>`;
-        });
-        if (warnings.length > 5) {
-          issuesHTML += `<div style="font-size: 11px; margin-left: 12px; color: var(--text-muted);">...og ${warnings.length - 5} flere advarsler</div>`;
-        }
-      }
-    }
+    };
     const header = document.createElement("div");
     header.style.cssText = "display: flex; align-items: center; gap: 10px; cursor: pointer;";
-    header.innerHTML = `
-			<span>${statusIcon}</span>
-			<div style="flex: 1;">
-				<div><strong>${t("status.systemStatus")}</strong> ${hasIssues ? `<span style="font-size: 11px; opacity: 0.7;">(${t("status.clickForDetails")})</span>` : ""}</div>
-				<div style="font-size: 12px; color: var(--text-muted);">
-					${((_d = status.holiday) == null ? void 0 : _d.message) || t("status.holidayNotLoaded")} \u2022
-					${status.activeTimers || 0} ${t("status.activeTimers")} \u2022
-					${((_g = (_f = (_e = status.validation) == null ? void 0 : _e.issues) == null ? void 0 : _f.stats) == null ? void 0 : _g.totalEntries) || 0} ${t("status.entriesChecked")}
-				</div>
-			</div>
-			${hasIssues ? '<span class="tf-status-toggle" style="font-size: 10px; transition: transform 0.2s;">\u25B6</span>' : ""}
-		`;
+    header.createSpan({ text: statusIcon });
+    const headerContent = header.createDiv();
+    headerContent.style.flex = "1";
+    const titleRow = headerContent.createDiv();
+    titleRow.createEl("strong", { text: t("status.systemStatus") });
+    if (hasIssues) {
+      const clickHint = titleRow.createSpan({ text: ` (${t("status.clickForDetails")})` });
+      clickHint.style.cssText = "font-size: 11px; opacity: 0.7;";
+    }
+    const statusRow = headerContent.createDiv();
+    statusRow.style.cssText = "font-size: 12px; color: var(--text-muted);";
+    statusRow.textContent = `${((_c = status.holiday) == null ? void 0 : _c.message) || t("status.holidayNotLoaded")} \u2022 ${status.activeTimers || 0} ${t("status.activeTimers")} \u2022 ${((_f = (_e = (_d = status.validation) == null ? void 0 : _d.issues) == null ? void 0 : _e.stats) == null ? void 0 : _f.totalEntries) || 0} ${t("status.entriesChecked")}`;
+    if (hasIssues) {
+      const toggle = header.createSpan({ cls: "tf-status-toggle", text: "\u25B6" });
+      toggle.style.cssText = "font-size: 10px; transition: transform 0.2s;";
+    }
     bar.appendChild(header);
     if (hasIssues) {
       const details = document.createElement("div");
       details.className = "tf-status-details";
       details.style.cssText = "max-height: 0; overflow: hidden; transition: max-height 0.3s ease-out; opacity: 0;";
-      details.innerHTML = `<div style="padding-top: 10px; border-top: 1px solid var(--background-modifier-border); margin-top: 10px;">${issuesHTML}</div>`;
+      const detailsInner = details.createDiv();
+      detailsInner.style.cssText = "padding-top: 10px; border-top: 1px solid var(--background-modifier-border); margin-top: 10px;";
+      buildIssuesContent(detailsInner);
       bar.appendChild(details);
       let isOpen = false;
       header.onclick = () => {
@@ -5025,7 +5090,10 @@ var UIBuilder = class {
 			transition: background 0.2s, border-color 0.2s;
 			font-weight: 500;
 		`;
-    viewToggle.innerHTML = isInSidebar ? `<span style="font-size: 14px;">\u229E</span> ${t("buttons.moveToMain")}` : `<span style="font-size: 14px;">\u25E7</span> ${t("buttons.moveToSidebar")}`;
+    const iconSpan = viewToggle.createSpan();
+    iconSpan.style.fontSize = "14px";
+    iconSpan.textContent = isInSidebar ? "\u229E" : "\u25E7";
+    viewToggle.appendText(" " + (isInSidebar ? t("buttons.moveToMain") : t("buttons.moveToSidebar")));
     viewToggle.title = isInSidebar ? t("buttons.moveToMain") : t("buttons.moveToSidebar");
     viewToggle.onmouseenter = () => {
       viewToggle.style.background = "var(--background-modifier-hover)";
@@ -5178,25 +5246,36 @@ var UIBuilder = class {
     const restCheck = this.data.checkRestPeriodViolation(todayStr);
     const panel = document.createElement("div");
     panel.className = "tf-compliance-info-panel";
-    let html = `<h4>\u2696\uFE0F ${t("compliance.title")}</h4>`;
+    panel.createEl("h4", { text: `\u2696\uFE0F ${t("compliance.title")}` });
     const dailyIcon = dailyStatus === "ok" ? "\u{1F7E9}" : dailyStatus === "approaching" ? "\u{1F7E8}" : "\u{1F7E5}";
-    html += `<p><strong>${t("ui.today")}:</strong> ${dailyIcon} ${todayHours.toFixed(1)}t / ${dailyLimit}t</p>`;
+    const dailyP = panel.createEl("p");
+    dailyP.createEl("strong", { text: `${t("ui.today")}: ` });
+    dailyP.appendText(`${dailyIcon} ${todayHours.toFixed(1)}t / ${dailyLimit}t`);
     const weeklyIcon = weeklyStatus === "ok" ? "\u{1F7E9}" : weeklyStatus === "approaching" ? "\u{1F7E8}" : "\u{1F7E5}";
-    html += `<p><strong>${t("ui.thisWeek")}:</strong> ${weeklyIcon} ${weekHours.toFixed(1)}t / ${weeklyLimit}t</p>`;
+    const weeklyP = panel.createEl("p");
+    weeklyP.createEl("strong", { text: `${t("ui.thisWeek")}: ` });
+    weeklyP.appendText(`${weeklyIcon} ${weekHours.toFixed(1)}t / ${weeklyLimit}t`);
     if (restCheck.violated && restCheck.restHours !== null) {
-      html += `<p class="tf-rest-warning"><strong>${t("ui.restPeriod")}:</strong> \u{1F7E5} ${restCheck.restHours.toFixed(1)}t (${t("ui.minimum")} ${minimumRest}t)</p>`;
+      const restP = panel.createEl("p", { cls: "tf-rest-warning" });
+      restP.createEl("strong", { text: `${t("ui.restPeriod")}: ` });
+      restP.appendText(`\u{1F7E5} ${restCheck.restHours.toFixed(1)}t (${t("ui.minimum")} ${minimumRest}t)`);
     } else if (restCheck.restHours !== null) {
-      html += `<p><strong>${t("ui.restPeriod")}:</strong> \u{1F7E9} ${restCheck.restHours.toFixed(1)}t (${t("ui.minimum")} ${minimumRest}t)</p>`;
+      const restP = panel.createEl("p");
+      restP.createEl("strong", { text: `${t("ui.restPeriod")}: ` });
+      restP.appendText(`\u{1F7E9} ${restCheck.restHours.toFixed(1)}t (${t("ui.minimum")} ${minimumRest}t)`);
     }
-    html += '<hr style="margin: 10px 0; border: none; border-top: 1px solid var(--background-modifier-border);">';
+    const hr = panel.createEl("hr");
+    hr.style.cssText = "margin: 10px 0; border: none; border-top: 1px solid var(--background-modifier-border);";
+    let statusText;
     if (dailyStatus === "exceeded" || weeklyStatus === "exceeded" || restCheck.violated) {
-      html += `<p style="font-size: 12px; color: var(--text-muted);">${t("compliance.exceeds")} ${t("compliance.limit")}.</p>`;
+      statusText = `${t("compliance.exceeds")} ${t("compliance.limit")}.`;
     } else if (dailyStatus === "approaching" || weeklyStatus === "approaching") {
-      html += `<p style="font-size: 12px; color: var(--text-muted);">${t("status.approachingLimits")} ${t("compliance.limit")}.</p>`;
+      statusText = `${t("status.approachingLimits")} ${t("compliance.limit")}.`;
     } else {
-      html += `<p style="font-size: 12px; color: var(--text-muted);">${t("status.allLimitsOk")}</p>`;
+      statusText = t("status.allLimitsOk");
     }
-    panel.innerHTML = html;
+    const statusP = panel.createEl("p", { text: statusText });
+    statusP.style.cssText = "font-size: 12px; color: var(--text-muted);";
     const badgeRect = this.elements.complianceBadge.getBoundingClientRect();
     panel.style.position = "fixed";
     panel.style.top = `${badgeRect.bottom + 8}px`;
@@ -5253,15 +5332,13 @@ var UIBuilder = class {
     if (!this.settings.enableGoalTracking) {
       this.elements.dayCard.style.background = "var(--background-secondary)";
       this.elements.dayCard.style.color = "var(--text-normal)";
-      this.elements.dayCard.innerHTML = `
-				<h3 style="color: inherit;">I dag</h3>
-				<div style="font-size: 32px; font-weight: bold; margin: 10px 0;">
-					${Utils.formatHoursToHM(todayHours, this.settings.hourUnit)}
-				</div>
-				<div style="font-size: 14px; opacity: 0.9; margin-top: 10px;">
-					${t("ui.hoursWorked")}
-				</div>
-			`;
+      this.elements.dayCard.empty();
+      const h32 = this.elements.dayCard.createEl("h3", { text: "I dag" });
+      h32.style.color = "inherit";
+      const hoursDiv2 = this.elements.dayCard.createDiv({ text: Utils.formatHoursToHM(todayHours, this.settings.hourUnit) });
+      hoursDiv2.style.cssText = "font-size: 32px; font-weight: bold; margin: 10px 0;";
+      const labelDiv = this.elements.dayCard.createDiv({ text: t("ui.hoursWorked") });
+      labelDiv.style.cssText = "font-size: 14px; opacity: 0.9; margin-top: 10px;";
       return;
     }
     const goal = this.data.getDailyGoal(todayKey);
@@ -5280,18 +5357,16 @@ var UIBuilder = class {
     }
     this.elements.dayCard.style.background = bgColor;
     this.elements.dayCard.style.color = textColor;
-    this.elements.dayCard.innerHTML = `
-			<h3 style="color: ${textColor};">${t("ui.today")}</h3>
-			<div style="font-size: 32px; font-weight: bold; margin: 10px 0;">
-				${Utils.formatHoursToHM(todayHours, this.settings.hourUnit)}
-			</div>
-			<div style="font-size: 14px; opacity: 0.9; margin-bottom: 10px;">
-				${t("ui.goal")}: ${Utils.formatHoursToHM(goal, this.settings.hourUnit)}
-			</div>
-			<div class="tf-progress-bar">
-				<div class="tf-progress-fill" style="width: ${progress}%; background: linear-gradient(90deg, ${((_a = this.settings.customColors) == null ? void 0 : _a.progressBar) || "#4caf50"}, ${this.darkenColor(((_b = this.settings.customColors) == null ? void 0 : _b.progressBar) || "#4caf50", 20)})"></div>
-			</div>
-		`;
+    this.elements.dayCard.empty();
+    const h3 = this.elements.dayCard.createEl("h3", { text: t("ui.today") });
+    h3.style.color = textColor;
+    const hoursDiv = this.elements.dayCard.createDiv({ text: Utils.formatHoursToHM(todayHours, this.settings.hourUnit) });
+    hoursDiv.style.cssText = "font-size: 32px; font-weight: bold; margin: 10px 0;";
+    const goalDiv = this.elements.dayCard.createDiv({ text: `${t("ui.goal")}: ${Utils.formatHoursToHM(goal, this.settings.hourUnit)}` });
+    goalDiv.style.cssText = "font-size: 14px; opacity: 0.9; margin-bottom: 10px;";
+    const progressBar = this.elements.dayCard.createDiv({ cls: "tf-progress-bar" });
+    const progressFill = progressBar.createDiv({ cls: "tf-progress-fill" });
+    progressFill.style.cssText = `width: ${progress}%; background: linear-gradient(90deg, ${((_a = this.settings.customColors) == null ? void 0 : _a.progressBar) || "#4caf50"}, ${this.darkenColor(((_b = this.settings.customColors) == null ? void 0 : _b.progressBar) || "#4caf50", 20)})`;
   }
   updateWeekCard() {
     var _a, _b;
@@ -5300,20 +5375,22 @@ var UIBuilder = class {
     const today = /* @__PURE__ */ new Date();
     const weekHours = this.data.getCurrentWeekHours(today);
     const currentWeekNumber = Utils.getWeekNumber(today);
-    const weekBadgeHtml = this.settings.showWeekNumbers ? `<div class="tf-week-badge">${t("ui.week")} ${currentWeekNumber}</div>` : "";
+    const addWeekBadge = (container) => {
+      if (this.settings.showWeekNumbers) {
+        container.createDiv({ cls: "tf-week-badge", text: `${t("ui.week")} ${currentWeekNumber}` });
+      }
+    };
     if (!this.settings.enableGoalTracking) {
       this.elements.weekCard.style.background = "var(--background-secondary)";
       this.elements.weekCard.style.color = "var(--text-normal)";
-      this.elements.weekCard.innerHTML = `
-				${weekBadgeHtml}
-				<h3 style="color: inherit;">${t("ui.thisWeek")}</h3>
-				<div style="font-size: 32px; font-weight: bold; margin: 10px 0;">
-					${Utils.formatHoursToHM(weekHours, this.settings.hourUnit)}
-				</div>
-				<div style="font-size: 14px; opacity: 0.9; margin-top: 10px;">
-					${t("ui.hoursWorked")}
-				</div>
-			`;
+      this.elements.weekCard.empty();
+      addWeekBadge(this.elements.weekCard);
+      const h32 = this.elements.weekCard.createEl("h3", { text: t("ui.thisWeek") });
+      h32.style.color = "inherit";
+      const hoursDiv2 = this.elements.weekCard.createDiv({ text: Utils.formatHoursToHM(weekHours, this.settings.hourUnit) });
+      hoursDiv2.style.cssText = "font-size: 32px; font-weight: bold; margin: 10px 0;";
+      const labelDiv = this.elements.weekCard.createDiv({ text: t("ui.hoursWorked") });
+      labelDiv.style.cssText = "font-size: 14px; opacity: 0.9; margin-top: 10px;";
       return;
     }
     const dayOfWeek = today.getDay();
@@ -5346,22 +5423,19 @@ var UIBuilder = class {
     }
     this.elements.weekCard.style.background = bgColor;
     this.elements.weekCard.style.color = textColor;
-    const goalSection = this.settings.enableWeeklyGoals ? `
-			<div style="font-size: 14px; opacity: 0.9; margin-bottom: 10px;">
-				${t("ui.goal")}: ${Utils.formatHoursToHM(adjustedGoal, this.settings.hourUnit)}
-			</div>
-			<div class="tf-progress-bar">
-				<div class="tf-progress-fill" style="width: ${progress}%; background: linear-gradient(90deg, ${((_a = this.settings.customColors) == null ? void 0 : _a.progressBar) || "#4caf50"}, ${this.darkenColor(((_b = this.settings.customColors) == null ? void 0 : _b.progressBar) || "#4caf50", 20)})"></div>
-			</div>
-		` : "";
-    this.elements.weekCard.innerHTML = `
-			${weekBadgeHtml}
-			<h3 style="color: ${textColor};">${t("ui.thisWeek")}</h3>
-			<div style="font-size: 32px; font-weight: bold; margin: 10px 0;">
-				${Utils.formatHoursToHM(weekHours, this.settings.hourUnit)}
-			</div>
-			${goalSection}
-		`;
+    this.elements.weekCard.empty();
+    addWeekBadge(this.elements.weekCard);
+    const h3 = this.elements.weekCard.createEl("h3", { text: t("ui.thisWeek") });
+    h3.style.color = textColor;
+    const hoursDiv = this.elements.weekCard.createDiv({ text: Utils.formatHoursToHM(weekHours, this.settings.hourUnit) });
+    hoursDiv.style.cssText = "font-size: 32px; font-weight: bold; margin: 10px 0;";
+    if (this.settings.enableWeeklyGoals) {
+      const goalDiv = this.elements.weekCard.createDiv({ text: `${t("ui.goal")}: ${Utils.formatHoursToHM(adjustedGoal, this.settings.hourUnit)}` });
+      goalDiv.style.cssText = "font-size: 14px; opacity: 0.9; margin-bottom: 10px;";
+      const progressBar = this.elements.weekCard.createDiv({ cls: "tf-progress-bar" });
+      const progressFill = progressBar.createDiv({ cls: "tf-progress-fill" });
+      progressFill.style.cssText = `width: ${progress}%; background: linear-gradient(90deg, ${((_a = this.settings.customColors) == null ? void 0 : _a.progressBar) || "#4caf50"}, ${this.darkenColor(((_b = this.settings.customColors) == null ? void 0 : _b.progressBar) || "#4caf50", 20)})`;
+    }
   }
   updateStatsCard() {
     var _a, _b;
@@ -5370,10 +5444,10 @@ var UIBuilder = class {
     const stats = this.data.getStatistics(this.statsTimeframe, this.selectedYear, this.selectedMonth);
     const balance = this.data.getCurrentBalance();
     const { avgDaily, avgWeekly } = this.data.getAverages();
-    const workloadPct = (avgWeekly / this.settings.baseWorkweek * 100).toFixed(0);
+    const workloadPct = this.settings.baseWorkweek > 0 ? (avgWeekly / this.settings.baseWorkweek * 100).toFixed(0) : "0";
     const selectorContainer = (_a = this.elements.statsCard.parentElement) == null ? void 0 : _a.querySelector(".tf-timeframe-selector");
     if (selectorContainer) {
-      selectorContainer.innerHTML = "";
+      selectorContainer.empty();
       if (this.statsTimeframe === "year") {
         const availableYears = this.data.getAvailableYears();
         if (availableYears.length > 0) {
@@ -5475,16 +5549,6 @@ var UIBuilder = class {
       }
     }
     const context = this.data.getContextualData(this.today);
-    let weekComparisonText = "";
-    if (context.lastWeekHours > 0) {
-      const currWeekHours = this.data.getCurrentWeekHours(this.today);
-      const diff = currWeekHours - context.lastWeekHours;
-      if (Math.abs(diff) > 2) {
-        const arrow = diff > 0 ? "\u{1F4C8}" : "\u{1F4C9}";
-        const sign2 = diff > 0 ? "+" : "";
-        weekComparisonText = `<div style="font-size: 0.75em; margin-top: 4px;">${t("ui.vsLastWeek")}: ${sign2}${diff.toFixed(1)}t ${arrow}</div>`;
-      }
-    }
     const sign = balance >= 0 ? "+" : "";
     const timesaldoColor = this.getBalanceColor(balance);
     let ferieDisplay = `${stats.ferie.count} ${t("ui.days")}`;
@@ -5502,74 +5566,61 @@ var UIBuilder = class {
       }
       egenmeldingPeriodLabel = `(${egenmeldingStats.periodLabel})`;
     }
-    this.elements.statsCard.innerHTML = `
-			${this.settings.enableGoalTracking ? `<div class="tf-stat-item tf-stat-colored" style="background: ${timesaldoColor};">
-				<div class="tf-stat-label">${t("stats.flextimeBalance")}</div>
-				<div class="tf-stat-value">${sign}${balance.toFixed(1)}t</div>
-				<div style="font-size: 0.75em; margin-top: 4px;">${t("stats.totalBalance")}</div>
-			</div>` : ""}
-			<div class="tf-stat-item">
-				<div class="tf-stat-label">\u23F1\uFE0F ${t("stats.hours")}</div>
-				<div class="tf-stat-value">${stats.totalHours.toFixed(1)}t</div>
-			</div>
-			<div class="tf-stat-item">
-				<div class="tf-stat-label">\u{1F4CA} ${t("stats.avgPerDay")}</div>
-				<div class="tf-stat-value">${avgDaily.toFixed(1)}t</div>
-			</div>
-			<div class="tf-stat-item">
-				<div class="tf-stat-label">\u{1F4C5} ${t("stats.avgPerWeek")}</div>
-				<div class="tf-stat-value">${avgWeekly.toFixed(1)}t</div>
-				${weekComparisonText}
-			</div>
-			${this.settings.enableGoalTracking && this.settings.enableWeeklyGoals ? `<div class="tf-stat-item">
-				<div class="tf-stat-label">\u{1F4AA} ${t("stats.workIntensity")}</div>
-				<div class="tf-stat-value">${workloadPct}%</div>
-				<div style="font-size: 0.75em; margin-top: 4px;">${t("stats.ofNormalWeek")}</div>
-			</div>` : ""}
-			<div class="tf-stat-item">
-				<div class="tf-stat-label">\u{1F4BC} ${t("stats.work")}</div>
-				<div class="tf-stat-value">${stats.jobb.count} ${t("ui.days")}</div>
-				<div style="font-size: 0.75em; margin-top: 4px;">${stats.jobb.hours.toFixed(1)}t</div>
-			</div>
-			${stats.weekendDays > 0 ? `<div class="tf-stat-item">
-				<div class="tf-stat-label">\u{1F319} ${t("stats.weekendDaysWorked")}</div>
-				<div class="tf-stat-value">${stats.weekendDays} ${t("ui.days")}</div>
-				<div style="font-size: 0.75em; margin-top: 4px;">${stats.weekendHours.toFixed(1)}${this.settings.hourUnit}</div>
-			</div>` : ""}
-			<div class="tf-stat-item">
-				<div class="tf-stat-label">\u{1F6CC} ${t("stats.flexTimeOff")}</div>
-				<div class="tf-stat-value">${stats.avspasering.count} ${t("ui.days")}</div>
-				<div style="font-size: 0.75em; margin-top: 4px;">${stats.avspasering.hours.toFixed(1)}${this.settings.hourUnit}</div>
-			</div>
-			<div class="tf-stat-item">
-				<div class="tf-stat-label">\u{1F3D6}\uFE0F ${t("stats.vacation")}</div>
-				<div class="tf-stat-value" style="font-size: ${this.statsTimeframe === "year" ? "0.9em" : "1.3em"};">${ferieDisplay}</div>
-				<div style="font-size: 0.75em; margin-top: 4px;"></div>
-			</div>
-			<div class="tf-stat-item">
-				<div class="tf-stat-label">\u{1F3E5} ${t("stats.welfareLeave")}</div>
-				<div class="tf-stat-value">${stats.velferdspermisjon.count} ${t("ui.days")}</div>
-			</div>
-			<div class="tf-stat-item">
-				<div class="tf-stat-label">\u{1F912} ${t("stats.selfReportedSick")}</div>
-				<div class="tf-stat-value" style="font-size: ${this.statsTimeframe === "year" ? "0.9em" : "1.3em"};">${egenmeldingDisplay}</div>
-				<div style="font-size: 0.75em; margin-top: 4px;">${egenmeldingPeriodLabel}</div>
-			</div>
-			<div class="tf-stat-item">
-				<div class="tf-stat-label">\u{1F3E5} ${t("stats.doctorSick")}</div>
-				<div class="tf-stat-value">${stats.sykemelding.count} ${t("ui.days")}</div>
-			</div>
-			<div class="tf-stat-item">
-				<div class="tf-stat-label">\u{1F4DA} ${t("stats.study")}</div>
-				<div class="tf-stat-value">${stats.studie.count} ${t("ui.days")}</div>
-				<div style="font-size: 0.75em; margin-top: 4px;">${stats.studie.hours.toFixed(1)}${this.settings.hourUnit}</div>
-			</div>
-			<div class="tf-stat-item">
-				<div class="tf-stat-label">\u{1F4DA} ${t("stats.course")}</div>
-				<div class="tf-stat-value">${stats.kurs.count} ${t("ui.days")}</div>
-				<div style="font-size: 0.75em; margin-top: 4px;">${stats.kurs.hours.toFixed(1)}${this.settings.hourUnit}</div>
-			</div>
-		`;
+    this.elements.statsCard.empty();
+    const createStatItem = (label, value, subtitle, extraCls, extraStyle) => {
+      const item = this.elements.statsCard.createDiv({ cls: `tf-stat-item${extraCls ? " " + extraCls : ""}` });
+      if (extraStyle)
+        item.style.cssText = extraStyle;
+      item.createDiv({ cls: "tf-stat-label", text: label });
+      const valueDiv = item.createDiv({ cls: "tf-stat-value", text: value });
+      if (subtitle !== void 0) {
+        const subDiv = item.createDiv({ text: subtitle });
+        subDiv.style.cssText = "font-size: 0.75em; margin-top: 4px;";
+      }
+      return { item, valueDiv };
+    };
+    if (this.settings.enableGoalTracking) {
+      createStatItem(t("stats.flextimeBalance"), `${sign}${balance.toFixed(1)}t`, t("stats.totalBalance"), "tf-stat-colored", `background: ${timesaldoColor};`);
+    }
+    createStatItem(`\u23F1\uFE0F ${t("stats.hours")}`, `${stats.totalHours.toFixed(1)}t`);
+    createStatItem(`\u{1F4CA} ${t("stats.avgPerDay")}`, `${avgDaily.toFixed(1)}t`);
+    const weekItem = this.elements.statsCard.createDiv({ cls: "tf-stat-item" });
+    weekItem.createDiv({ cls: "tf-stat-label", text: `\u{1F4C5} ${t("stats.avgPerWeek")}` });
+    weekItem.createDiv({ cls: "tf-stat-value", text: `${avgWeekly.toFixed(1)}t` });
+    if (context.lastWeekHours > 0) {
+      const currWeekHours = this.data.getCurrentWeekHours(this.today);
+      const diff = currWeekHours - context.lastWeekHours;
+      if (Math.abs(diff) > 2) {
+        const arrow = diff > 0 ? "\u{1F4C8}" : "\u{1F4C9}";
+        const signDiff = diff > 0 ? "+" : "";
+        const compDiv = weekItem.createDiv({ text: `${t("ui.vsLastWeek")}: ${signDiff}${diff.toFixed(1)}t ${arrow}` });
+        compDiv.style.cssText = "font-size: 0.75em; margin-top: 4px;";
+      }
+    }
+    if (this.settings.enableGoalTracking && this.settings.enableWeeklyGoals) {
+      createStatItem(`\u{1F4AA} ${t("stats.workIntensity")}`, `${workloadPct}%`, t("stats.ofNormalWeek"));
+    }
+    createStatItem(`\u{1F4BC} ${t("stats.work")}`, `${stats.jobb.count} ${t("ui.days")}`, `${stats.jobb.hours.toFixed(1)}t`);
+    if (stats.weekendDays > 0) {
+      createStatItem(`\u{1F319} ${t("stats.weekendDaysWorked")}`, `${stats.weekendDays} ${t("ui.days")}`, `${stats.weekendHours.toFixed(1)}${this.settings.hourUnit}`);
+    }
+    createStatItem(`\u{1F6CC} ${t("stats.flexTimeOff")}`, `${stats.avspasering.count} ${t("ui.days")}`, `${stats.avspasering.hours.toFixed(1)}${this.settings.hourUnit}`);
+    const vacationItem = this.elements.statsCard.createDiv({ cls: "tf-stat-item" });
+    vacationItem.createDiv({ cls: "tf-stat-label", text: `\u{1F3D6}\uFE0F ${t("stats.vacation")}` });
+    const vacationValue = vacationItem.createDiv({ cls: "tf-stat-value", text: ferieDisplay });
+    vacationValue.style.fontSize = this.statsTimeframe === "year" ? "0.9em" : "1.3em";
+    const vacationSub = vacationItem.createDiv();
+    vacationSub.style.cssText = "font-size: 0.75em; margin-top: 4px;";
+    createStatItem(`\u{1F3E5} ${t("stats.welfareLeave")}`, `${stats.velferdspermisjon.count} ${t("ui.days")}`);
+    const sickItem = this.elements.statsCard.createDiv({ cls: "tf-stat-item" });
+    sickItem.createDiv({ cls: "tf-stat-label", text: `\u{1F912} ${t("stats.selfReportedSick")}` });
+    const sickValue = sickItem.createDiv({ cls: "tf-stat-value", text: egenmeldingDisplay });
+    sickValue.style.fontSize = this.statsTimeframe === "year" ? "0.9em" : "1.3em";
+    const sickSub = sickItem.createDiv({ text: egenmeldingPeriodLabel });
+    sickSub.style.cssText = "font-size: 0.75em; margin-top: 4px;";
+    createStatItem(`\u{1F3E5} ${t("stats.doctorSick")}`, `${stats.sykemelding.count} ${t("ui.days")}`);
+    createStatItem(`\u{1F4DA} ${t("stats.study")}`, `${stats.studie.count} ${t("ui.days")}`, `${stats.studie.hours.toFixed(1)}${this.settings.hourUnit}`);
+    createStatItem(`\u{1F4DA} ${t("stats.course")}`, `${stats.kurs.count} ${t("ui.days")}`, `${stats.kurs.hours.toFixed(1)}${this.settings.hourUnit}`);
     const tabs = (_b = this.elements.statsCard.parentElement) == null ? void 0 : _b.querySelectorAll(".tf-tab");
     tabs == null ? void 0 : tabs.forEach((tab) => {
       var _a2;
@@ -5587,7 +5638,7 @@ var UIBuilder = class {
     const displayDate = new Date(this.today);
     displayDate.setMonth(this.today.getMonth() + this.currentMonthOffset);
     const grid = this.createMonthGrid(displayDate);
-    this.elements.monthCard.innerHTML = "";
+    this.elements.monthCard.empty();
     this.elements.monthCard.appendChild(grid);
     const card = this.elements.monthCard.parentElement;
     if (card) {
@@ -5611,7 +5662,8 @@ var UIBuilder = class {
             date: dateStr,
             type: translatedLabel,
             label: holiday.description || translatedLabel,
-            color: behavior.color
+            color: behavior.color,
+            textColor: behavior.textColor || "#000000"
           });
         }
       }
@@ -5620,21 +5672,20 @@ var UIBuilder = class {
     const limit = this.settings.enableGoalTracking ? 10 : 7;
     const limitedDays = futureDays.slice(0, limit);
     if (limitedDays.length === 0) {
-      container.innerHTML = "";
+      container.empty();
       return;
     }
-    let html = `<h4>${t("ui.upcomingPlannedDays")}</h4>`;
+    container.empty();
+    container.createEl("h4", { text: t("ui.upcomingPlannedDays") });
     limitedDays.forEach((day) => {
       const date = /* @__PURE__ */ new Date(day.date + "T00:00:00");
       const dateStr = formatDate(date, "long");
-      html += `
-				<div class="tf-future-day-item">
-					<span class="tf-future-day-date">${dateStr}</span>
-					<span class="tf-future-day-type" style="background-color: ${day.color}">${day.label}</span>
-				</div>
-			`;
+      const itemDiv = container.createDiv({ cls: "tf-future-day-item" });
+      itemDiv.createSpan({ cls: "tf-future-day-date", text: dateStr });
+      const typeSpan = itemDiv.createSpan({ cls: "tf-future-day-type", text: day.label });
+      typeSpan.style.backgroundColor = day.color;
+      typeSpan.style.color = day.textColor;
     });
-    container.innerHTML = html;
   }
   createMonthGrid(displayDate) {
     var _a;
@@ -6010,31 +6061,31 @@ var UIBuilder = class {
     }
     const diff = data.totalHours - data.expectedHours;
     const diffText = diff >= 0 ? `+${diff.toFixed(1)}` : diff.toFixed(1);
-    panel.innerHTML = `
-			<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-				<strong style="font-size: 1.1em;">${t("ui.week")} ${data.weekNumber}</strong>
-				<span style="color: ${statusColor}; font-weight: bold;">${statusIcon} ${statusText}</span>
-			</div>
-			<div style="display: flex; flex-direction: column; gap: 8px; font-size: 0.9em;">
-				<div style="display: flex; justify-content: space-between;">
-					<span>${t("ui.hoursLogged")}:</span>
-					<strong>${data.totalHours.toFixed(1)}t</strong>
-				</div>
-				<div style="display: flex; justify-content: space-between;">
-					<span>${t("ui.expected")}:</span>
-					<span>${data.expectedHours.toFixed(1)}t (${data.workDaysPassed}/${data.workDaysInWeek} ${t("ui.days")})</span>
-				</div>
-				<div style="display: flex; justify-content: space-between; border-top: 1px solid var(--background-modifier-border); padding-top: 8px;">
-					<span>${t("ui.difference")}:</span>
-					<strong style="color: ${statusColor};">${diffText}t</strong>
-				</div>
-				${data.totalHours > data.weeklyLimit ? `
-				<div style="color: #f44336; margin-top: 4px;">
-					\u26A0\uFE0F ${t("ui.overWeekLimit")} (${data.weeklyLimit}t)
-				</div>
-				` : ""}
-			</div>
-		`;
+    const headerRow = panel.createDiv();
+    headerRow.style.cssText = "display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;";
+    const weekTitle = headerRow.createEl("strong", { text: `${t("ui.week")} ${data.weekNumber}` });
+    weekTitle.style.fontSize = "1.1em";
+    const statusSpan = headerRow.createSpan({ text: `${statusIcon} ${statusText}` });
+    statusSpan.style.cssText = `color: ${statusColor}; font-weight: bold;`;
+    const contentDiv = panel.createDiv();
+    contentDiv.style.cssText = "display: flex; flex-direction: column; gap: 8px; font-size: 0.9em;";
+    const hoursRow = contentDiv.createDiv();
+    hoursRow.style.cssText = "display: flex; justify-content: space-between;";
+    hoursRow.createSpan({ text: `${t("ui.hoursLogged")}:` });
+    hoursRow.createEl("strong", { text: `${data.totalHours.toFixed(1)}t` });
+    const expectedRow = contentDiv.createDiv();
+    expectedRow.style.cssText = "display: flex; justify-content: space-between;";
+    expectedRow.createSpan({ text: `${t("ui.expected")}:` });
+    expectedRow.createSpan({ text: `${data.expectedHours.toFixed(1)}t (${data.workDaysPassed}/${data.workDaysInWeek} ${t("ui.days")})` });
+    const diffRow = contentDiv.createDiv();
+    diffRow.style.cssText = "display: flex; justify-content: space-between; border-top: 1px solid var(--background-modifier-border); padding-top: 8px;";
+    diffRow.createSpan({ text: `${t("ui.difference")}:` });
+    const diffValue = diffRow.createEl("strong", { text: `${diffText}t` });
+    diffValue.style.color = statusColor;
+    if (data.totalHours > data.weeklyLimit) {
+      const warningDiv = contentDiv.createDiv({ text: `\u26A0\uFE0F ${t("ui.overWeekLimit")} (${data.weeklyLimit}t)` });
+      warningDiv.style.cssText = "color: #f44336; margin-top: 4px;";
+    }
     panel.style.left = `${cellRect.right + 8}px`;
     panel.style.top = `${cellRect.top}px`;
     document.body.appendChild(panel);
@@ -6104,7 +6155,8 @@ var UIBuilder = class {
     const hasWorkEntries = hasWorkEntriesInDaily || hasRunningTimerForDate;
     const workTimeItem = document.createElement("div");
     workTimeItem.className = "tf-menu-item";
-    workTimeItem.innerHTML = `<span>\u23F1\uFE0F</span><span>${t("menu.logWork")}</span>`;
+    workTimeItem.createSpan({ text: "\u23F1\uFE0F" });
+    workTimeItem.createSpan({ text: t("menu.logWork") });
     workTimeItem.onclick = () => {
       menu.remove();
       this.showWorkTimeModal(dateObj);
@@ -6113,7 +6165,8 @@ var UIBuilder = class {
     if (hasWorkEntries) {
       const editItem = document.createElement("div");
       editItem.className = "tf-menu-item";
-      editItem.innerHTML = `<span>\u270F\uFE0F</span><span>${t("menu.editWork")}</span>`;
+      editItem.createSpan({ text: "\u270F\uFE0F" });
+      editItem.createSpan({ text: t("menu.editWork") });
       editItem.onclick = () => {
         menu.remove();
         this.showEditEntriesModal(dateObj);
@@ -6122,7 +6175,8 @@ var UIBuilder = class {
     }
     const specialDayItem = document.createElement("div");
     specialDayItem.className = "tf-menu-item";
-    specialDayItem.innerHTML = `<span>\u{1F4C5}</span><span>${t("menu.registerSpecialDay")}</span>`;
+    specialDayItem.createSpan({ text: "\u{1F4C5}" });
+    specialDayItem.createSpan({ text: t("menu.registerSpecialDay") });
     specialDayItem.onclick = () => {
       menu.remove();
       this.showSpecialDayModal(dateObj);
@@ -6134,7 +6188,8 @@ var UIBuilder = class {
     this.settings.noteTypes.forEach((noteType) => {
       const item = document.createElement("div");
       item.className = "tf-menu-item";
-      item.innerHTML = `<span>${noteType.icon}</span><span>${translateNoteTypeName(noteType.id, noteType.label)}</span>`;
+      item.createSpan({ text: noteType.icon });
+      item.createSpan({ text: translateNoteTypeName(noteType.id, noteType.label) });
       item.onclick = async () => {
         await this.createNoteFromType(dateObj, noteType);
         menu.remove();
@@ -6155,54 +6210,70 @@ var UIBuilder = class {
       const entryDate = new Date(entry.startTime);
       return Utils.toLocalDateStr(entryDate) === dateStr && !entry.endTime;
     });
-    let infoHTML = `<h4>\u{1F4C5} ${dateStr}</h4>`;
+    menuInfo.createEl("h4", { text: "\u{1F4C5} " + dateStr });
     if (isPlannedDay && plannedInfo) {
       const emoji = Utils.getEmoji({ name: plannedInfo.type, date: dateObj });
       const halfDayText = plannedInfo.halfDay ? " (halv dag)" : "";
-      infoHTML += `<p><strong>${emoji} ${plannedInfo.description}${halfDayText}</strong></p>`;
+      const plannedP = menuInfo.createEl("p");
+      plannedP.createEl("strong", { text: emoji + " " + plannedInfo.description + halfDayText });
     }
     if (runningTimersForDate.length > 0) {
-      infoHTML += `<p><strong>${t("timer.runningTimers")}:</strong></p>`;
+      const timersP = menuInfo.createEl("p");
+      timersP.createEl("strong", { text: t("timer.runningTimers") + ":" });
       runningTimersForDate.forEach((timer) => {
         const startTime = new Date(timer.startTime);
         const startTimeStr = `${startTime.getHours().toString().padStart(2, "0")}:${startTime.getMinutes().toString().padStart(2, "0")}`;
         const now = /* @__PURE__ */ new Date();
         const elapsed = ((now.getTime() - startTime.getTime()) / (1e3 * 60 * 60)).toFixed(1);
-        infoHTML += `<p style="margin-left: 8px;">\u23F1\uFE0F ${timer.name}: ${startTimeStr} - P\xE5g\xE5r (${elapsed}t)</p>`;
+        const timerP = menuInfo.createEl("p", { text: "\u23F1\uFE0F " + timer.name + ": " + startTimeStr + " - P\xE5g\xE5r (" + elapsed + "t)" });
+        timerP.style.marginLeft = "8px";
       });
     }
     const completedEntries = allEntries.filter((e) => e.duration && e.duration > 0);
     if (completedEntries.length > 0) {
-      infoHTML += `<p><strong>${t("ui.history")}:</strong></p>`;
+      const historyP = menuInfo.createEl("p");
+      historyP.createEl("strong", { text: t("ui.history") + ":" });
       completedEntries.forEach((e) => {
         const emoji = Utils.getEmoji(e);
         const duration = `${e.duration.toFixed(1)}${this.settings.hourUnit}`;
-        infoHTML += `<p style="margin-left: 8px;">${emoji} ${translateSpecialDayName(e.name.toLowerCase(), e.name)}: ${duration}</p>`;
+        const entryP = menuInfo.createEl("p", { text: emoji + " " + translateSpecialDayName(e.name.toLowerCase(), e.name) + ": " + duration });
+        entryP.style.marginLeft = "8px";
       });
       if (!isFutureDay) {
         const totalHours = allEntries.reduce((sum, e) => sum + (e.duration || 0), 0);
         const dayGoal = this.data.getDailyGoal(dateStr);
         const dailyDelta = dayGoal === 0 ? totalHours : totalHours - dayGoal;
         const runningBalance = this.data.getBalanceUpToDate(dateStr);
-        infoHTML += `<p style="margin-top: 8px;"><strong>${t("ui.goal")}:</strong> ${dayGoal.toFixed(1)}t</p>`;
-        infoHTML += `<p><strong>${t("ui.dailyBalance")}:</strong> ${dailyDelta >= 0 ? "+" : ""}${dailyDelta.toFixed(1)}t</p>`;
-        infoHTML += `<p><strong>${t("ui.runningBalance")}:</strong> ${runningBalance >= 0 ? "+" : ""}${Utils.formatHoursToHM(runningBalance, this.settings.hourUnit)}</p>`;
+        const goalP = menuInfo.createEl("p");
+        goalP.style.marginTop = "8px";
+        goalP.createEl("strong", { text: t("ui.goal") + ":" });
+        goalP.appendText(" " + dayGoal.toFixed(1) + "t");
+        const dailyP = menuInfo.createEl("p");
+        dailyP.createEl("strong", { text: t("ui.dailyBalance") + ":" });
+        dailyP.appendText(" " + (dailyDelta >= 0 ? "+" : "") + dailyDelta.toFixed(1) + "t");
+        const balanceP = menuInfo.createEl("p");
+        balanceP.createEl("strong", { text: t("ui.runningBalance") + ":" });
+        balanceP.appendText(" " + (runningBalance >= 0 ? "+" : "") + Utils.formatHoursToHM(runningBalance, this.settings.hourUnit));
       }
     } else if (isPastDay && !isPlannedDay && runningTimersForDate.length === 0) {
-      infoHTML += `<p style="color: var(--text-muted);">${t("ui.noRegistration")}</p>`;
+      const noRegP = menuInfo.createEl("p", { text: t("ui.noRegistration") });
+      noRegP.style.color = "var(--text-muted)";
     }
     if (((_a = this.settings.complianceSettings) == null ? void 0 : _a.enableWarnings) && !isFutureDay && completedEntries.length > 0) {
       const restCheck = this.data.checkRestPeriodViolation(dateStr);
       if (restCheck.violated && restCheck.restHours !== null) {
         const minimumRest = (_c = (_b = this.settings.complianceSettings) == null ? void 0 : _b.minimumRestHours) != null ? _c : 11;
-        infoHTML += `<div class="tf-rest-period-warning">
-					<span class="warning-icon">\u26A0\uFE0F</span>
-					<span>${t("ui.restPeriod")}: ${restCheck.restHours.toFixed(1)}h (${t("ui.minimum")} ${minimumRest}h)</span>
-				</div>`;
+        const warningDiv = menuInfo.createDiv({ cls: "tf-rest-period-warning" });
+        warningDiv.createSpan({ cls: "warning-icon", text: "\u26A0\uFE0F" });
+        warningDiv.createSpan({ text: t("ui.restPeriod") + ": " + restCheck.restHours.toFixed(1) + "h (" + t("ui.minimum") + " " + minimumRest + "h)" });
       }
     }
-    infoHTML += '<p style="margin-top: 12px; font-size: 0.8em; color: var(--text-muted); border-top: 1px solid var(--background-modifier-border); padding-top: 8px;">\u{1F4A1} Velg et alternativ fra menyen til venstre</p>';
-    menuInfo.innerHTML = infoHTML;
+    const tipP = menuInfo.createEl("p", { text: "\u{1F4A1} Velg et alternativ fra menyen til venstre" });
+    tipP.style.marginTop = "12px";
+    tipP.style.fontSize = "0.8em";
+    tipP.style.color = "var(--text-muted)";
+    tipP.style.borderTop = "1px solid var(--background-modifier-border)";
+    tipP.style.paddingTop = "8px";
     menu.appendChild(menuInfo);
     setTimeout(() => {
       const closeMenu = (e) => {
@@ -6324,11 +6395,23 @@ var UIBuilder = class {
   showEditEntriesModal(dateObj) {
     const dateStr = Utils.toLocalDateStr(dateObj);
     const allEntries = this.timerManager.data.entries;
-    const workEntries = allEntries.filter((entry) => {
-      if (!entry.startTime)
-        return false;
-      const entryDate = new Date(entry.startTime);
-      return Utils.toLocalDateStr(entryDate) === dateStr;
+    const workEntries = [];
+    allEntries.forEach((entry) => {
+      if (entry.collapsed && entry.subEntries) {
+        entry.subEntries.forEach((sub, idx) => {
+          if (sub.startTime) {
+            const entryDate = new Date(sub.startTime);
+            if (Utils.toLocalDateStr(entryDate) === dateStr) {
+              workEntries.push({ entry: sub, parent: entry, subIndex: idx });
+            }
+          }
+        });
+      } else if (entry.startTime) {
+        const entryDate = new Date(entry.startTime);
+        if (Utils.toLocalDateStr(entryDate) === dateStr) {
+          workEntries.push({ entry });
+        }
+      }
     });
     if (workEntries.length === 0) {
       new import_obsidian4.Notice("Ingen arbeidstidsoppf\xF8ringer funnet for denne datoen");
@@ -6353,7 +6436,8 @@ var UIBuilder = class {
     const content = document.createElement("div");
     content.className = "modal-content";
     content.style.padding = "20px";
-    workEntries.forEach((entry, index) => {
+    workEntries.forEach((item, index) => {
+      const entry = item.entry;
       const entryDiv = document.createElement("div");
       entryDiv.style.padding = "15px";
       entryDiv.style.marginBottom = "10px";
@@ -6367,11 +6451,11 @@ var UIBuilder = class {
       const duration = endDate ? ((endDate.getTime() - startDate.getTime()) / (1e3 * 60 * 60)).toFixed(1) : "N/A";
       const infoDiv = document.createElement("div");
       infoDiv.style.marginBottom = "10px";
-      infoDiv.innerHTML = `
-				<div style="font-weight: bold; margin-bottom: 5px;">Oppf\xF8ring ${index + 1}</div>
-				<div>\u23F0 ${startTimeStr} - ${endTimeStr}</div>
-				<div>\u23F1\uFE0F ${duration} timer</div>
-			`;
+      const entryLabel = item.parent ? `${item.parent.name} - ${entry.name}` : `Oppf\xF8ring ${index + 1}`;
+      const titleDiv = infoDiv.createDiv({ text: entryLabel });
+      titleDiv.style.cssText = "font-weight: bold; margin-bottom: 5px;";
+      infoDiv.createDiv({ text: `\u23F0 ${startTimeStr} - ${endTimeStr}` });
+      infoDiv.createDiv({ text: `\u23F1\uFE0F ${duration} timer` });
       entryDiv.appendChild(infoDiv);
       const editDiv = document.createElement("div");
       editDiv.style.display = "none";
@@ -6433,8 +6517,8 @@ var UIBuilder = class {
               return;
             }
           }
-          entry.startTime = newStartDate.toISOString();
-          entry.endTime = newEndDate ? newEndDate.toISOString() : null;
+          entry.startTime = Utils.toLocalISOString(newStartDate);
+          entry.endTime = newEndDate ? Utils.toLocalISOString(newEndDate) : null;
           this.timerManager.save();
           new import_obsidian4.Notice("\u2705 Oppf\xF8ring oppdatert");
           this.data.rawEntries = this.timerManager.convertToTimeEntries();
@@ -6452,9 +6536,26 @@ var UIBuilder = class {
       deleteBtn.style.flex = "1";
       deleteBtn.onclick = () => {
         this.showDeleteConfirmation(entry, dateObj, () => {
-          const entryIndex = this.timerManager.data.entries.indexOf(entry);
-          if (entryIndex > -1) {
-            this.timerManager.data.entries.splice(entryIndex, 1);
+          let deleted = false;
+          if (item.parent && item.subIndex !== void 0) {
+            if (item.parent.subEntries) {
+              item.parent.subEntries.splice(item.subIndex, 1);
+              if (item.parent.subEntries.length === 0) {
+                const parentIndex = this.timerManager.data.entries.indexOf(item.parent);
+                if (parentIndex > -1) {
+                  this.timerManager.data.entries.splice(parentIndex, 1);
+                }
+              }
+              deleted = true;
+            }
+          } else {
+            const entryIndex = this.timerManager.data.entries.indexOf(entry);
+            if (entryIndex > -1) {
+              this.timerManager.data.entries.splice(entryIndex, 1);
+              deleted = true;
+            }
+          }
+          if (deleted) {
             this.timerManager.save();
             new import_obsidian4.Notice("\u2705 Oppf\xF8ring slettet");
             this.data.rawEntries = this.timerManager.convertToTimeEntries();
@@ -6710,7 +6811,7 @@ ${noteType.tags.join(" ")}`;
     }
   }
   refreshHistoryView(container) {
-    container.innerHTML = "";
+    container.empty();
     const years = {};
     Object.keys(this.data.daily).sort().reverse().forEach((dateKey) => {
       const year = dateKey.split("-")[0];
@@ -6774,7 +6875,7 @@ ${noteType.tags.join(" ")}`;
       const actualWidth = container.offsetWidth;
       const shouldBeWide = actualWidth >= 450;
       if (shouldBeWide !== isWide) {
-        container.innerHTML = "";
+        container.empty();
         this.renderFilterBar(container);
         if (shouldBeWide) {
           this.renderWideListView(container, years);
@@ -6815,7 +6916,8 @@ ${noteType.tags.join(" ")}`;
   renderNarrowListView(container, years) {
     Object.keys(years).forEach((year) => {
       const yearDiv = document.createElement("div");
-      yearDiv.innerHTML = `<h4 style="color: var(--text-normal);">${year}</h4>`;
+      const h4 = yearDiv.createEl("h4", { text: year });
+      h4.style.color = "var(--text-normal)";
       Object.keys(years[year]).forEach((month) => {
         const monthEntries = years[year][month];
         const table = document.createElement("table");
@@ -6877,7 +6979,8 @@ ${noteType.tags.join(" ")}`;
   renderWideListView(container, years) {
     Object.keys(years).forEach((year) => {
       const yearDiv = document.createElement("div");
-      yearDiv.innerHTML = `<h4 style="color: var(--text-normal);">${year}</h4>`;
+      const h4 = yearDiv.createEl("h4", { text: year });
+      h4.style.color = "var(--text-normal)";
       Object.keys(years[year]).forEach((month) => {
         const monthEntries = years[year][month];
         const table = document.createElement("table");
@@ -6901,19 +7004,30 @@ ${noteType.tags.join(" ")}`;
           entriesByDate[dateStr].push(e);
         });
         const rawEntries = this.timerManager.data.entries;
+        const flatRawEntries = [];
+        rawEntries.forEach((entry) => {
+          if (entry.collapsed && entry.subEntries) {
+            entry.subEntries.forEach((sub, idx) => {
+              if (sub.startTime) {
+                flatRawEntries.push({ entry: sub, parent: entry, subIndex: idx });
+              }
+            });
+          } else if (entry.startTime) {
+            flatRawEntries.push({ entry });
+          }
+        });
         Object.keys(entriesByDate).sort().reverse().forEach((dateStr) => {
           const dayEntries = entriesByDate[dateStr];
-          const rawDayEntries = rawEntries.filter((entry) => {
-            if (!entry.startTime)
-              return false;
-            const entryDate = new Date(entry.startTime);
+          const rawDayEntries = flatRawEntries.filter((item) => {
+            const entryDate = new Date(item.entry.startTime);
             return Utils.toLocalDateStr(entryDate) === dateStr;
           });
           dayEntries.forEach((e, idx) => {
             const row = document.createElement("tr");
-            const matchingRaw = rawDayEntries.find(
-              (raw) => raw.name.toLowerCase() === e.name.toLowerCase()
+            const matchingItem = rawDayEntries.find(
+              (item) => item.entry.name.toLowerCase() === e.name.toLowerCase()
             ) || rawDayEntries[idx];
+            const matchingRaw = matchingItem == null ? void 0 : matchingItem.entry;
             const dateCell = document.createElement("td");
             const holidayInfo = this.data.getHolidayInfo(dateStr);
             const hasConflict = holidayInfo && ["ferie", "helligdag", "egenmelding", "sykemelding", "velferdspermisjon"].includes(holidayInfo.type) && e.name.toLowerCase() !== "avspasering";
@@ -6963,7 +7077,7 @@ ${noteType.tags.join(" ")}`;
                   const [hours, minutes] = input.value.split(":").map(Number);
                   const newStart = new Date(matchingRaw.startTime);
                   newStart.setHours(hours, minutes, 0, 0);
-                  matchingRaw.startTime = newStart.toISOString();
+                  matchingRaw.startTime = Utils.toLocalISOString(newStart);
                   await this.timerManager.save();
                   await ((_b = (_a = this.plugin.timerManager).onTimerChange) == null ? void 0 : _b.call(_a));
                 };
@@ -6988,7 +7102,7 @@ ${noteType.tags.join(" ")}`;
                   const [hours, minutes] = input.value.split(":").map(Number);
                   const newEnd = new Date(matchingRaw.endTime);
                   newEnd.setHours(hours, minutes, 0, 0);
-                  matchingRaw.endTime = newEnd.toISOString();
+                  matchingRaw.endTime = Utils.toLocalISOString(newEnd);
                   await this.timerManager.save();
                   await ((_b = (_a = this.plugin.timerManager).onTimerChange) == null ? void 0 : _b.call(_a));
                 };
@@ -7008,7 +7122,7 @@ ${noteType.tags.join(" ")}`;
             row.appendChild(flextimeCell);
             if (this.inlineEditMode) {
               const actionCell = document.createElement("td");
-              if (matchingRaw) {
+              if (matchingItem) {
                 const deleteBtn = document.createElement("button");
                 deleteBtn.className = "tf-history-delete-btn";
                 deleteBtn.textContent = "\u{1F5D1}\uFE0F";
@@ -7016,12 +7130,24 @@ ${noteType.tags.join(" ")}`;
                 deleteBtn.onclick = async () => {
                   var _a, _b;
                   if (confirm(`${t("confirm.deleteEntryFor")} ${dateStr}?`)) {
-                    const entryIndex = this.timerManager.data.entries.indexOf(matchingRaw);
-                    if (entryIndex > -1) {
-                      this.timerManager.data.entries.splice(entryIndex, 1);
-                      await this.timerManager.save();
-                      await ((_b = (_a = this.plugin.timerManager).onTimerChange) == null ? void 0 : _b.call(_a));
+                    if (matchingItem.parent && matchingItem.subIndex !== void 0) {
+                      if (matchingItem.parent.subEntries) {
+                        matchingItem.parent.subEntries.splice(matchingItem.subIndex, 1);
+                        if (matchingItem.parent.subEntries.length === 0) {
+                          const parentIndex = this.timerManager.data.entries.indexOf(matchingItem.parent);
+                          if (parentIndex > -1) {
+                            this.timerManager.data.entries.splice(parentIndex, 1);
+                          }
+                        }
+                      }
+                    } else {
+                      const entryIndex = this.timerManager.data.entries.indexOf(matchingRaw);
+                      if (entryIndex > -1) {
+                        this.timerManager.data.entries.splice(entryIndex, 1);
+                      }
                     }
+                    await this.timerManager.save();
+                    await ((_b = (_a = this.plugin.timerManager).onTimerChange) == null ? void 0 : _b.call(_a));
                   }
                 };
                 actionCell.appendChild(deleteBtn);
@@ -7152,7 +7278,11 @@ ${noteType.tags.join(" ")}`;
     document.body.appendChild(modal);
   }
   renderWeeklyView(container, years) {
-    container.innerHTML = '<div style="padding: 20px; text-align: center;">Weekly view - Coming soon</div>';
+    container.empty();
+    const div = container.createDiv();
+    div.style.padding = "20px";
+    div.style.textAlign = "center";
+    div.textContent = "Weekly view - Coming soon";
   }
   renderHeatmapView(container, years) {
     const heatmap = document.createElement("div");
@@ -7239,13 +7369,23 @@ ${noteType.tags.join(" ")}`;
     const startDate = new Date(entry.startTime);
     const endDate = entry.endTime ? new Date(entry.endTime) : null;
     const duration = endDate ? ((endDate.getTime() - startDate.getTime()) / (1e3 * 60 * 60)).toFixed(2) : t("ui.ongoing");
-    details.innerHTML = `
-			<div><strong>${t("ui.date")}:</strong> ${Utils.toLocalDateStr(dateObj)}</div>
-			<div><strong>${t("ui.type")}:</strong> ${translateSpecialDayName(entry.name.toLowerCase(), entry.name)}</div>
-			<div><strong>${t("ui.start")}:</strong> ${formatTime(startDate)}</div>
-			${endDate ? `<div><strong>${t("ui.end")}:</strong> ${formatTime(endDate)}</div>` : ""}
-			<div><strong>${t("ui.duration")}:</strong> ${typeof duration === "string" ? duration : duration + " " + t("ui.hours").toLowerCase()}</div>
-		`;
+    const dateRow = details.createDiv();
+    dateRow.createEl("strong", { text: t("ui.date") + ":" });
+    dateRow.appendText(" " + Utils.toLocalDateStr(dateObj));
+    const typeRow = details.createDiv();
+    typeRow.createEl("strong", { text: t("ui.type") + ":" });
+    typeRow.appendText(" " + translateSpecialDayName(entry.name.toLowerCase(), entry.name));
+    const startRow = details.createDiv();
+    startRow.createEl("strong", { text: t("ui.start") + ":" });
+    startRow.appendText(" " + formatTime(startDate));
+    if (endDate) {
+      const endRow = details.createDiv();
+      endRow.createEl("strong", { text: t("ui.end") + ":" });
+      endRow.appendText(" " + formatTime(endDate));
+    }
+    const durationRow = details.createDiv();
+    durationRow.createEl("strong", { text: t("ui.duration") + ":" });
+    durationRow.appendText(" " + (typeof duration === "string" ? duration : duration + " " + t("ui.hours").toLowerCase()));
     dialog.appendChild(details);
     const buttons = document.createElement("div");
     buttons.className = "tf-confirm-buttons";
@@ -7338,7 +7478,6 @@ var TimeFlowView = class extends import_obsidian5.ItemView {
         this.plugin.settings
       );
       if (converted > 0) {
-        console.log(`TimeFlow: Converted ${converted} past planned days to entries`);
         const updatedEntries = this.plugin.timerManager.convertToTimeEntries();
         this.dataManager = new DataManager(updatedEntries, this.plugin.settings, this.app);
         await this.dataManager.loadHolidays();
@@ -7474,7 +7613,7 @@ ${JSON.stringify(this.data, null, 2)}
   async startTimer(name = "Jobb") {
     const timer = {
       name,
-      startTime: (/* @__PURE__ */ new Date()).toISOString(),
+      startTime: Utils.toLocalISOString(/* @__PURE__ */ new Date()),
       endTime: null,
       subEntries: null
     };
@@ -7490,7 +7629,7 @@ ${JSON.stringify(this.data, null, 2)}
     if (!timer.startTime || timer.endTime) {
       return null;
     }
-    timer.endTime = (/* @__PURE__ */ new Date()).toISOString();
+    timer.endTime = Utils.toLocalISOString(/* @__PURE__ */ new Date());
     await this.save();
     if (this.onTimerChange) {
       this.onTimerChange();
@@ -7689,18 +7828,16 @@ ${JSON.stringify(this.data, null, 2)}
 var TimeFlowPlugin = class extends import_obsidian7.Plugin {
   async onload() {
     var _a;
-    console.log("Loading TimeFlow plugin");
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
     this.timerManager = new TimerManager(this.app, this.settings);
     const syncedSettings = await this.timerManager.load();
     if (syncedSettings) {
-      console.log("TimeFlow: Merging synced settings from data file");
       this.settings = Object.assign({}, DEFAULT_SETTINGS, this.settings, syncedSettings);
       this.timerManager.settings = this.settings;
     }
     const needsSave = this.migrateWorkDaysSettings() || this.migrateSpecialDayBehaviors();
-    if (needsSave) {
-      console.log("TimeFlow: Saving migrated settings");
+    const timestampMigrated = await this.migrateTimestamps();
+    if (needsSave || timestampMigrated) {
       await this.saveSettings();
     }
     setLanguage((_a = this.settings.language) != null ? _a : "nb");
@@ -7766,35 +7903,26 @@ var TimeFlowPlugin = class extends import_obsidian7.Plugin {
     });
   }
   onunload() {
-    console.log("Unloading TimeFlow plugin");
   }
   async loadSettings() {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
   }
   migrateSpecialDayBehaviors() {
-    var _a, _b;
-    console.log("TimeFlow Migration: Starting specialDayBehaviors migration");
-    console.log("TimeFlow Migration: Current behaviors:", (_a = this.settings.specialDayBehaviors) == null ? void 0 : _a.map((b) => b.id));
-    console.log("TimeFlow Migration: Default behaviors:", DEFAULT_SPECIAL_DAY_BEHAVIORS.map((b) => b.id));
     let changed = false;
     if (!this.settings.specialDayBehaviors || this.settings.specialDayBehaviors.length === 0) {
-      console.log("TimeFlow: Migrating special day settings to new behavior system");
       this.settings.specialDayBehaviors = DEFAULT_SPECIAL_DAY_BEHAVIORS.map((defaultBehavior) => {
-        var _a2, _b2;
+        var _a, _b;
         return {
           ...defaultBehavior,
-          label: ((_a2 = this.settings.specialDayLabels) == null ? void 0 : _a2[defaultBehavior.id]) || defaultBehavior.label,
-          color: ((_b2 = this.settings.specialDayColors) == null ? void 0 : _b2[defaultBehavior.id]) || defaultBehavior.color
+          label: ((_a = this.settings.specialDayLabels) == null ? void 0 : _a[defaultBehavior.id]) || defaultBehavior.label,
+          color: ((_b = this.settings.specialDayColors) == null ? void 0 : _b[defaultBehavior.id]) || defaultBehavior.color
         };
       });
       changed = true;
     } else {
-      console.log("TimeFlow Migration: Behaviors exist, checking for missing defaults...");
       DEFAULT_SPECIAL_DAY_BEHAVIORS.forEach((defaultBehavior) => {
         const existingIndex = this.settings.specialDayBehaviors.findIndex((b) => b.id === defaultBehavior.id);
-        console.log(`TimeFlow Migration: Checking '${defaultBehavior.id}', existingIndex=${existingIndex}, isWorkType=${defaultBehavior.isWorkType}`);
         if (existingIndex === -1) {
-          console.log(`TimeFlow: Adding missing behavior '${defaultBehavior.id}'`);
           if (defaultBehavior.isWorkType) {
             this.settings.specialDayBehaviors.unshift({ ...defaultBehavior });
           } else {
@@ -7802,13 +7930,49 @@ var TimeFlowPlugin = class extends import_obsidian7.Plugin {
           }
           changed = true;
         } else if (defaultBehavior.isWorkType && !this.settings.specialDayBehaviors[existingIndex].isWorkType) {
-          console.log(`TimeFlow Migration: Setting isWorkType=true on existing '${defaultBehavior.id}'`);
           this.settings.specialDayBehaviors[existingIndex].isWorkType = true;
           changed = true;
         }
       });
-      console.log("TimeFlow Migration: After migration:", (_b = this.settings.specialDayBehaviors) == null ? void 0 : _b.map((b) => ({ id: b.id, isWorkType: b.isWorkType })));
     }
+    return changed;
+  }
+  /**
+   * Migrate UTC timestamps (ending with Z) to local ISO format.
+   * This ensures times display correctly regardless of timezone.
+   */
+  async migrateTimestamps() {
+    if (this.settings.hasTimestampMigration) {
+      return false;
+    }
+    let changed = false;
+    const convertTimestamp = (timestamp) => {
+      if (!timestamp)
+        return null;
+      if (timestamp.endsWith("Z")) {
+        const date = new Date(timestamp);
+        return Utils.toLocalISOString(date);
+      }
+      return timestamp;
+    };
+    const migrateEntry = (entry) => {
+      const newStart = convertTimestamp(entry.startTime);
+      const newEnd = convertTimestamp(entry.endTime);
+      if (newStart !== entry.startTime || newEnd !== entry.endTime) {
+        entry.startTime = newStart;
+        entry.endTime = newEnd;
+        changed = true;
+      }
+      if (entry.subEntries) {
+        entry.subEntries.forEach((sub) => migrateEntry(sub));
+      }
+    };
+    this.timerManager.data.entries.forEach((entry) => migrateEntry(entry));
+    if (changed) {
+      await this.timerManager.save();
+      console.log("TimeFlow: Migrated timestamps to local format");
+    }
+    this.settings.hasTimestampMigration = true;
     return changed;
   }
   migrateWorkDaysSettings() {
@@ -7830,7 +7994,28 @@ var TimeFlowPlugin = class extends import_obsidian7.Plugin {
     }
     return changed;
   }
+  /**
+   * Validate and clamp settings to sensible bounds to prevent division by zero
+   * and other edge cases.
+   */
+  validateSettings() {
+    this.settings.workPercent = Math.max(0.01, Math.min(2, this.settings.workPercent));
+    this.settings.baseWorkday = Math.max(0.5, Math.min(24, this.settings.baseWorkday));
+    this.settings.baseWorkweek = Math.max(1, Math.min(168, this.settings.baseWorkweek));
+    this.settings.workdaysPerWeek = Math.max(1, Math.min(7, this.settings.workdaysPerWeek));
+    this.settings.workdaysPerMonth = Math.max(1, Math.min(31, this.settings.workdaysPerMonth));
+    this.settings.workdaysPerYear = Math.max(1, Math.min(366, this.settings.workdaysPerYear));
+    this.settings.lunchBreakMinutes = Math.max(0, Math.min(120, this.settings.lunchBreakMinutes));
+    this.settings.halfDayHours = Math.max(0.5, Math.min(12, this.settings.halfDayHours));
+    this.settings.maxEgenmeldingDays = Math.max(0, Math.min(365, this.settings.maxEgenmeldingDays));
+    this.settings.maxFerieDays = Math.max(0, Math.min(365, this.settings.maxFerieDays));
+    this.settings.heatmapColumns = Math.max(12, Math.min(96, this.settings.heatmapColumns));
+    if (!this.settings.workDays || this.settings.workDays.length === 0) {
+      this.settings.workDays = [1, 2, 3, 4, 5];
+    }
+  }
   async saveSettings() {
+    this.validateSettings();
     await this.saveData(this.settings);
     await this.timerManager.saveSettings(this.settings);
   }
