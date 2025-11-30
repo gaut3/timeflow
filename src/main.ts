@@ -99,6 +99,8 @@ export default class TimeFlowPlugin extends Plugin {
 			this.registerEvent(
 				this.app.vault.on('modify', async (file) => {
 					if (file.path === this.settings.dataFilePath) {
+						// Skip reload if we just saved (prevents race condition)
+						if (!this.timerManager.shouldReloadFromFile()) return;
 						// Reload data from file
 						await this.timerManager.load();
 						// Refresh all open TimeFlow views
@@ -257,6 +259,17 @@ export default class TimeFlowPlugin extends Plugin {
 		this.settings.maxEgenmeldingDays = Math.max(0, Math.min(365, this.settings.maxEgenmeldingDays));
 		this.settings.maxFerieDays = Math.max(0, Math.min(365, this.settings.maxFerieDays));
 		this.settings.heatmapColumns = Math.max(12, Math.min(96, this.settings.heatmapColumns));
+
+		// Cross-validation: halfDayHours cannot exceed baseWorkday
+		if (this.settings.halfDayHours >= this.settings.baseWorkday) {
+			this.settings.halfDayHours = this.settings.baseWorkday / 2;
+		}
+
+		// Cross-validation: ensure threshold ordering (criticalLow < warningLow < warningHigh < criticalHigh)
+		const t = this.settings.balanceThresholds;
+		if (t.criticalLow >= t.warningLow) t.warningLow = t.criticalLow + 1;
+		if (t.warningLow >= t.warningHigh) t.warningHigh = t.warningLow + 1;
+		if (t.warningHigh >= t.criticalHigh) t.criticalHigh = t.warningHigh + 1;
 
 		// Ensure arrays have at least one element
 		if (!this.settings.workDays || this.settings.workDays.length === 0) {

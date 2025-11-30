@@ -22,12 +22,25 @@ export class TimerManager {
 	data: TimekeepData;
 	dataFile: string; // Main data file - uses settings.dataFilePath
 	onTimerChange?: () => void;
+	private isSaving = false;
+	private lastSaveTime = 0;
 
 	constructor(app: App, settings: TimeFlowSettings) {
 		this.app = app;
 		this.settings = settings;
 		this.dataFile = settings.dataFilePath;
 		this.data = { entries: [] };
+	}
+
+	/**
+	 * Check if we should reload data from file.
+	 * Returns false if we're currently saving or just saved (within 500ms)
+	 * to prevent race conditions with the file watcher.
+	 */
+	shouldReloadFromFile(): boolean {
+		if (this.isSaving) return false;
+		if (Date.now() - this.lastSaveTime < 500) return false;
+		return true;
 	}
 
 	async load(): Promise<TimeFlowSettings | null> {
@@ -93,6 +106,8 @@ ${JSON.stringify(this.data)}
 	}
 
 	async save(): Promise<void> {
+		this.isSaving = true;
+		this.lastSaveTime = Date.now();
 		try {
 			const file = this.app.vault.getAbstractFileByPath(this.dataFile);
 			const content = `# timeflow data
@@ -117,6 +132,8 @@ ${JSON.stringify(this.data, null, 2)}
 			}
 		} catch (error) {
 			console.error('TimeFlow: Error saving timer data:', error);
+		} finally {
+			this.isSaving = false;
 		}
 	}
 

@@ -1,5 +1,5 @@
 import { App, TFile } from 'obsidian';
-import { TimeFlowSettings } from './settings';
+import { TimeFlowSettings, SpecialDayBehavior } from './settings';
 import { Utils } from './utils';
 
 export interface TimeEntry {
@@ -122,8 +122,23 @@ export class DataManager {
 		return this.holidays[dateStr] || null;
 	}
 
-	getSpecialDayBehavior(id: string) {
-		return this.settings.specialDayBehaviors.find(b => b.id === id);
+	getSpecialDayBehavior(id: string): SpecialDayBehavior | undefined {
+		const behavior = this.settings.specialDayBehaviors.find(b => b.id === id);
+		if (!behavior) {
+			// Return a neutral fallback for orphaned/unknown types
+			// This ensures deleted types don't break historical data
+			return {
+				id: id,
+				label: id,
+				icon: '❓',
+				color: '#cccccc',
+				textColor: '#000000',
+				noHoursRequired: true,
+				flextimeEffect: 'none',
+				includeInStats: false
+			};
+		}
+		return behavior;
 	}
 
 	getDailyGoal(dateStr: string): number {
@@ -248,7 +263,7 @@ export class DataManager {
 			const date = new Date(day);
 			const monthKey = `${date.getFullYear()}-${date.getMonth() + 1}`;
 			if (!this.months[monthKey]) this.months[monthKey] = {};
-			const weekNum = Math.ceil((date.getDate() - date.getDay() + 1) / 7);
+			const weekNum = Utils.getWeekNumber(date);
 			if (!this.months[monthKey][weekNum]) this.months[monthKey][weekNum] = [];
 			this.months[monthKey][weekNum].push(...this.daily[day]);
 		}

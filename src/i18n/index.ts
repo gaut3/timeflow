@@ -243,6 +243,7 @@ const translations: Record<Language, TranslationStrings> = {
 		validation: {
 			endAfterStart: 'Sluttid må være etter starttid',
 			invalidTimePeriod: 'Ugyldig tidsperiode',
+			overlappingEntry: 'Denne oppføringen overlapper med en eksisterende oppføring',
 		},
 		notifications: {
 			added: 'Lagt til',
@@ -253,6 +254,8 @@ const translations: Record<Language, TranslationStrings> = {
 		confirm: {
 			deleteEntry: 'Er du sikker på at du vil slette denne oppføringen?',
 			deleteEntryFor: 'Slette oppføring for',
+			overnightShiftTitle: 'Nattskift?',
+			overnightShift: 'Sluttid er før starttid. Er dette et nattskift som går over midnatt?',
 		},
 		stats: {
 			flextimeBalance: 'Fleksitidsaldo',
@@ -502,6 +505,7 @@ const translations: Record<Language, TranslationStrings> = {
 		validation: {
 			endAfterStart: 'End time must be after start time',
 			invalidTimePeriod: 'Invalid time period',
+			overlappingEntry: 'This entry overlaps with an existing entry',
 		},
 		notifications: {
 			added: 'Added',
@@ -512,6 +516,8 @@ const translations: Record<Language, TranslationStrings> = {
 		confirm: {
 			deleteEntry: 'Are you sure you want to delete this entry?',
 			deleteEntryFor: 'Delete entry for',
+			overnightShiftTitle: 'Overnight shift?',
+			overnightShift: 'End time is before start time. Is this an overnight shift that crosses midnight?',
 		},
 		stats: {
 			flextimeBalance: 'Flextime Balance',
@@ -763,6 +769,7 @@ interface TranslationStrings {
 	validation: {
 		endAfterStart: string;
 		invalidTimePeriod: string;
+		overlappingEntry: string;
 	};
 	notifications: {
 		added: string;
@@ -773,6 +780,8 @@ interface TranslationStrings {
 	confirm: {
 		deleteEntry: string;
 		deleteEntryFor: string;
+		overnightShiftTitle: string;
+		overnightShift: string;
 	};
 	stats: {
 		flextimeBalance: string;

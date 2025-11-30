@@ -81,8 +81,7 @@ var Utils = {
     if (!settings)
       return day === 0 || day === 6;
     if (settings.enableAlternatingWeeks) {
-      const onejan = new Date(date.getFullYear(), 0, 1);
-      const weekNum = Math.ceil(((date.getTime() - onejan.getTime()) / 864e5 + onejan.getDay() + 1) / 7);
+      const weekNum = Utils.getWeekNumber(date);
       const isAlternatingWeek = weekNum % 2 === 0;
       const workDays = isAlternatingWeek ? settings.alternatingWeekWorkDays : settings.workDays;
       return !workDays.includes(day);
@@ -333,7 +332,8 @@ var translations = {
     },
     validation: {
       endAfterStart: "Sluttid m\xE5 v\xE6re etter starttid",
-      invalidTimePeriod: "Ugyldig tidsperiode"
+      invalidTimePeriod: "Ugyldig tidsperiode",
+      overlappingEntry: "Denne oppf\xF8ringen overlapper med en eksisterende oppf\xF8ring"
     },
     notifications: {
       added: "Lagt til",
@@ -343,7 +343,9 @@ var translations = {
     },
     confirm: {
       deleteEntry: "Er du sikker p\xE5 at du vil slette denne oppf\xF8ringen?",
-      deleteEntryFor: "Slette oppf\xF8ring for"
+      deleteEntryFor: "Slette oppf\xF8ring for",
+      overnightShiftTitle: "Nattskift?",
+      overnightShift: "Sluttid er f\xF8r starttid. Er dette et nattskift som g\xE5r over midnatt?"
     },
     stats: {
       flextimeBalance: "Fleksitidsaldo",
@@ -592,7 +594,8 @@ var translations = {
     },
     validation: {
       endAfterStart: "End time must be after start time",
-      invalidTimePeriod: "Invalid time period"
+      invalidTimePeriod: "Invalid time period",
+      overlappingEntry: "This entry overlaps with an existing entry"
     },
     notifications: {
       added: "Added",
@@ -602,7 +605,9 @@ var translations = {
     },
     confirm: {
       deleteEntry: "Are you sure you want to delete this entry?",
-      deleteEntryFor: "Delete entry for"
+      deleteEntryFor: "Delete entry for",
+      overnightShiftTitle: "Overnight shift?",
+      overnightShift: "End time is before start time. Is this an overnight shift that crosses midnight?"
     },
     stats: {
       flextimeBalance: "Flextime Balance",
@@ -858,7 +863,7 @@ var CSVParser = class {
           result.warnings.push(`${t("import.errors.row")} ${i + 1}: ${t("import.errors.missingDateOrTime")}`);
           continue;
         }
-        const parsedDate = this.parseDate(dateStr);
+        const parsedDate = this.parseDate(dateStr, result.warnings);
         if (!parsedDate) {
           result.warnings.push(`${t("import.errors.row")} ${i + 1}: ${t("import.errors.invalidDateFormat")} "${dateStr}"`);
           continue;
@@ -933,29 +938,43 @@ var CSVParser = class {
     }
     return -1;
   }
-  parseDate(dateStr) {
+  parseDate(dateStr, warnings) {
+    let yearNum, monthNum, dayNum;
     const norwegianMatch = dateStr.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
     if (norwegianMatch) {
       const [, day, month, year] = norwegianMatch;
-      const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-      if (!isNaN(date.getTime()))
-        return date;
+      dayNum = parseInt(day);
+      monthNum = parseInt(month);
+      yearNum = parseInt(year);
+    } else {
+      const isoMatch = dateStr.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+      if (isoMatch) {
+        const [, year, month, day] = isoMatch;
+        dayNum = parseInt(day);
+        monthNum = parseInt(month);
+        yearNum = parseInt(year);
+      } else {
+        const slashMatch = dateStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+        if (slashMatch) {
+          const [, day, month, year] = slashMatch;
+          dayNum = parseInt(day);
+          monthNum = parseInt(month);
+          yearNum = parseInt(year);
+        } else {
+          return null;
+        }
+      }
     }
-    const isoMatch = dateStr.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-    if (isoMatch) {
-      const [, year, month, day] = isoMatch;
-      const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-      if (!isNaN(date.getTime()))
-        return date;
+    const date = new Date(yearNum, monthNum - 1, dayNum);
+    if (isNaN(date.getTime()))
+      return null;
+    if (date.getFullYear() !== yearNum || date.getMonth() !== monthNum - 1 || date.getDate() !== dayNum) {
+      const correctedStr = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, "0")}-${date.getDate().toString().padStart(2, "0")}`;
+      if (warnings) {
+        warnings.push(`Invalid date ${dateStr} was auto-corrected to ${correctedStr}`);
+      }
     }
-    const slashMatch = dateStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-    if (slashMatch) {
-      const [, day, month, year] = slashMatch;
-      const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-      if (!isNaN(date.getTime()))
-        return date;
-    }
-    return null;
+    return date;
   }
   parseTime(timeStr) {
     const match = timeStr.match(/^(\d{1,2}):(\d{2})$/);
@@ -2622,7 +2641,20 @@ var DataManager = class {
     return this.holidays[dateStr] || null;
   }
   getSpecialDayBehavior(id) {
-    return this.settings.specialDayBehaviors.find((b) => b.id === id);
+    const behavior = this.settings.specialDayBehaviors.find((b) => b.id === id);
+    if (!behavior) {
+      return {
+        id,
+        label: id,
+        icon: "\u2753",
+        color: "#cccccc",
+        textColor: "#000000",
+        noHoursRequired: true,
+        flextimeEffect: "none",
+        includeInStats: false
+      };
+    }
+    return behavior;
   }
   getDailyGoal(dateStr) {
     if (!this.settings.enableGoalTracking) {
@@ -2720,7 +2752,7 @@ var DataManager = class {
       const monthKey = `${date.getFullYear()}-${date.getMonth() + 1}`;
       if (!this.months[monthKey])
         this.months[monthKey] = {};
-      const weekNum = Math.ceil((date.getDate() - date.getDay() + 1) / 7);
+      const weekNum = Utils.getWeekNumber(date);
       if (!this.months[monthKey][weekNum])
         this.months[monthKey][weekNum] = [];
       this.months[monthKey][weekNum].push(...this.daily[day]);
@@ -6285,6 +6317,81 @@ var UIBuilder = class {
       document.addEventListener("click", closeMenu);
     }, 0);
   }
+  /**
+   * Show confirmation dialog for overnight shift detection.
+   */
+  showOvernightShiftConfirmation(onConfirm) {
+    const modal = document.createElement("div");
+    modal.className = "modal-container mod-dim";
+    modal.style.zIndex = "1001";
+    const modalBg = document.createElement("div");
+    modalBg.className = "modal-bg";
+    modalBg.onclick = () => modal.remove();
+    modal.appendChild(modalBg);
+    const modalContent = document.createElement("div");
+    modalContent.className = "modal";
+    modalContent.style.width = "350px";
+    const title = document.createElement("div");
+    title.className = "modal-title";
+    title.textContent = t("confirm.overnightShiftTitle");
+    modalContent.appendChild(title);
+    const content = document.createElement("div");
+    content.className = "modal-content";
+    content.style.padding = "20px";
+    const message = document.createElement("p");
+    message.textContent = t("confirm.overnightShift");
+    content.appendChild(message);
+    const buttonDiv = document.createElement("div");
+    buttonDiv.style.display = "flex";
+    buttonDiv.style.gap = "10px";
+    buttonDiv.style.justifyContent = "flex-end";
+    buttonDiv.style.marginTop = "15px";
+    const cancelBtn = document.createElement("button");
+    cancelBtn.textContent = t("buttons.cancel");
+    cancelBtn.onclick = () => modal.remove();
+    buttonDiv.appendChild(cancelBtn);
+    const confirmBtn = document.createElement("button");
+    confirmBtn.textContent = t("buttons.confirm");
+    confirmBtn.className = "mod-cta";
+    confirmBtn.onclick = () => {
+      modal.remove();
+      onConfirm();
+    };
+    buttonDiv.appendChild(confirmBtn);
+    content.appendChild(buttonDiv);
+    modalContent.appendChild(content);
+    modal.appendChild(modalContent);
+    document.body.appendChild(modal);
+  }
+  /**
+   * Check if a new/edited entry would create a prohibited overlap.
+   * Blocks: same-type overlaps AND overlaps between accumulate-type entries.
+   */
+  checkProhibitedOverlap(dateStr, entryType, startTime, endTime, excludeEntry) {
+    const newBehavior = this.settings.specialDayBehaviors.find((b) => b.id === entryType.toLowerCase());
+    const newIsAccumulate = (newBehavior == null ? void 0 : newBehavior.flextimeEffect) === "accumulate";
+    const dayEntries = this.timerManager.data.entries.filter((e) => {
+      if (e === excludeEntry)
+        return false;
+      if (!e.startTime || !e.endTime)
+        return false;
+      return Utils.toLocalDateStr(new Date(e.startTime)) === dateStr;
+    });
+    for (const entry of dayEntries) {
+      const existingStart = new Date(entry.startTime);
+      const existingEnd = new Date(entry.endTime);
+      if (startTime < existingEnd && endTime > existingStart) {
+        const existingType = entry.name.toLowerCase();
+        const existingBehavior = this.settings.specialDayBehaviors.find((b) => b.id === existingType);
+        const existingIsAccumulate = (existingBehavior == null ? void 0 : existingBehavior.flextimeEffect) === "accumulate";
+        if (entryType.toLowerCase() === existingType)
+          return true;
+        if (newIsAccumulate && existingIsAccumulate)
+          return true;
+      }
+    }
+    return false;
+  }
   showWorkTimeModal(dateObj) {
     const dateStr = Utils.toLocalDateStr(dateObj);
     const modal = document.createElement("div");
@@ -6357,31 +6464,42 @@ var UIBuilder = class {
       startDate.setHours(startHour, startMin, 0, 0);
       const endDate = new Date(dateObj);
       endDate.setHours(endHour, endMin, 0, 0);
+      const addEntry = async (finalEndDate) => {
+        if (this.checkProhibitedOverlap(dateStr, "jobb", startDate, finalEndDate)) {
+          new import_obsidian4.Notice(`\u274C ${t("validation.overlappingEntry")}`);
+          return;
+        }
+        try {
+          this.timerManager.data.entries.push({
+            name: "jobb",
+            startTime: startDate.toISOString(),
+            endTime: finalEndDate.toISOString(),
+            subEntries: null,
+            collapsed: false
+          });
+          await this.timerManager.save();
+          const duration = (finalEndDate.getTime() - startDate.getTime()) / (1e3 * 60 * 60);
+          new import_obsidian4.Notice(`\u2705 Lagt til ${duration.toFixed(1)} timer arbeidstid for ${dateStr}`);
+          this.data.rawEntries = this.timerManager.convertToTimeEntries();
+          this.data.processEntries();
+          this.updateDayCard();
+          this.updateWeekCard();
+          this.updateStatsCard();
+          this.updateMonthCard();
+          modal.remove();
+        } catch (error) {
+          console.error("Failed to add work time:", error);
+          new import_obsidian4.Notice("\u274C Kunne ikke legge til arbeidstid");
+        }
+      };
       if (endDate <= startDate) {
-        new import_obsidian4.Notice(`\u274C ${t("validation.endAfterStart")}`);
-        return;
-      }
-      try {
-        this.timerManager.data.entries.push({
-          name: "jobb",
-          startTime: startDate.toISOString(),
-          endTime: endDate.toISOString(),
-          subEntries: null,
-          collapsed: false
+        this.showOvernightShiftConfirmation(() => {
+          const nextDayEndDate = new Date(endDate);
+          nextDayEndDate.setDate(nextDayEndDate.getDate() + 1);
+          addEntry(nextDayEndDate);
         });
-        this.timerManager.save();
-        const duration = (endDate.getTime() - startDate.getTime()) / (1e3 * 60 * 60);
-        new import_obsidian4.Notice(`\u2705 Lagt til ${duration.toFixed(1)} timer arbeidstid for ${dateStr}`);
-        this.data.rawEntries = this.timerManager.convertToTimeEntries();
-        this.data.processEntries();
-        this.updateDayCard();
-        this.updateWeekCard();
-        this.updateStatsCard();
-        this.updateMonthCard();
-        modal.remove();
-      } catch (error) {
-        console.error("Failed to add work time:", error);
-        new import_obsidian4.Notice("\u274C Kunne ikke legge til arbeidstid");
+      } else {
+        addEntry(endDate);
       }
     };
     buttonDiv.appendChild(addBtn);
@@ -6507,27 +6625,41 @@ var UIBuilder = class {
           const [startHour, startMin] = newStartTime.split(":").map(Number);
           const newStartDate = new Date(dateObj);
           newStartDate.setHours(startHour, startMin, 0, 0);
-          let newEndDate = null;
+          const saveUpdate = async (finalEndDate) => {
+            if (finalEndDate) {
+              if (this.checkProhibitedOverlap(dateStr, entry.name, newStartDate, finalEndDate, entry)) {
+                new import_obsidian4.Notice(`\u274C ${t("validation.overlappingEntry")}`);
+                return;
+              }
+            }
+            entry.startTime = Utils.toLocalISOString(newStartDate);
+            entry.endTime = finalEndDate ? Utils.toLocalISOString(finalEndDate) : null;
+            await this.timerManager.save();
+            new import_obsidian4.Notice("\u2705 Oppf\xF8ring oppdatert");
+            this.data.rawEntries = this.timerManager.convertToTimeEntries();
+            this.data.processEntries();
+            this.updateDayCard();
+            this.updateWeekCard();
+            this.updateStatsCard();
+            this.updateMonthCard();
+            modal.remove();
+          };
           if (newEndTime) {
             const [endHour, endMin] = newEndTime.split(":").map(Number);
-            newEndDate = new Date(dateObj);
+            let newEndDate = new Date(dateObj);
             newEndDate.setHours(endHour, endMin, 0, 0);
             if (newEndDate <= newStartDate) {
-              new import_obsidian4.Notice(`\u274C ${t("validation.endAfterStart")}`);
-              return;
+              this.showOvernightShiftConfirmation(() => {
+                const nextDayEndDate = new Date(newEndDate);
+                nextDayEndDate.setDate(nextDayEndDate.getDate() + 1);
+                saveUpdate(nextDayEndDate);
+              });
+            } else {
+              saveUpdate(newEndDate);
             }
+          } else {
+            saveUpdate(null);
           }
-          entry.startTime = Utils.toLocalISOString(newStartDate);
-          entry.endTime = newEndDate ? Utils.toLocalISOString(newEndDate) : null;
-          this.timerManager.save();
-          new import_obsidian4.Notice("\u2705 Oppf\xF8ring oppdatert");
-          this.data.rawEntries = this.timerManager.convertToTimeEntries();
-          this.data.processEntries();
-          this.updateDayCard();
-          this.updateWeekCard();
-          this.updateStatsCard();
-          this.updateMonthCard();
-          modal.remove();
         }
       };
       buttonDiv.appendChild(editBtn);
@@ -6535,7 +6667,7 @@ var UIBuilder = class {
       deleteBtn.textContent = `\u{1F5D1}\uFE0F ${t("buttons.delete")}`;
       deleteBtn.style.flex = "1";
       deleteBtn.onclick = () => {
-        this.showDeleteConfirmation(entry, dateObj, () => {
+        this.showDeleteConfirmation(entry, dateObj, async () => {
           let deleted = false;
           if (item.parent && item.subIndex !== void 0) {
             if (item.parent.subEntries) {
@@ -6556,7 +6688,7 @@ var UIBuilder = class {
             }
           }
           if (deleted) {
-            this.timerManager.save();
+            await this.timerManager.save();
             new import_obsidian4.Notice("\u2705 Oppf\xF8ring slettet");
             this.data.rawEntries = this.timerManager.convertToTimeEntries();
             this.data.processEntries();
@@ -7523,10 +7655,24 @@ var TimeFlowView = class extends import_obsidian5.ItemView {
 var import_obsidian6 = require("obsidian");
 var TimerManager = class {
   constructor(app, settings) {
+    this.isSaving = false;
+    this.lastSaveTime = 0;
     this.app = app;
     this.settings = settings;
     this.dataFile = settings.dataFilePath;
     this.data = { entries: [] };
+  }
+  /**
+   * Check if we should reload data from file.
+   * Returns false if we're currently saving or just saved (within 500ms)
+   * to prevent race conditions with the file watcher.
+   */
+  shouldReloadFromFile() {
+    if (this.isSaving)
+      return false;
+    if (Date.now() - this.lastSaveTime < 500)
+      return false;
+    return true;
   }
   async load() {
     try {
@@ -7580,6 +7726,8 @@ ${JSON.stringify(this.data)}
     return null;
   }
   async save() {
+    this.isSaving = true;
+    this.lastSaveTime = Date.now();
     try {
       const file = this.app.vault.getAbstractFileByPath(this.dataFile);
       const content = `# timeflow data
@@ -7602,6 +7750,8 @@ ${JSON.stringify(this.data, null, 2)}
       }
     } catch (error) {
       console.error("TimeFlow: Error saving timer data:", error);
+    } finally {
+      this.isSaving = false;
     }
   }
   // Save settings to the data file for cross-device sync
@@ -7889,6 +8039,8 @@ var TimeFlowPlugin = class extends import_obsidian7.Plugin {
       this.registerEvent(
         this.app.vault.on("modify", async (file) => {
           if (file.path === this.settings.dataFilePath) {
+            if (!this.timerManager.shouldReloadFromFile())
+              return;
             await this.timerManager.load();
             const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_TIMEFLOW);
             leaves.forEach((leaf) => {
@@ -8010,6 +8162,16 @@ var TimeFlowPlugin = class extends import_obsidian7.Plugin {
     this.settings.maxEgenmeldingDays = Math.max(0, Math.min(365, this.settings.maxEgenmeldingDays));
     this.settings.maxFerieDays = Math.max(0, Math.min(365, this.settings.maxFerieDays));
     this.settings.heatmapColumns = Math.max(12, Math.min(96, this.settings.heatmapColumns));
+    if (this.settings.halfDayHours >= this.settings.baseWorkday) {
+      this.settings.halfDayHours = this.settings.baseWorkday / 2;
+    }
+    const t2 = this.settings.balanceThresholds;
+    if (t2.criticalLow >= t2.warningLow)
+      t2.warningLow = t2.criticalLow + 1;
+    if (t2.warningLow >= t2.warningHigh)
+      t2.warningHigh = t2.warningLow + 1;
+    if (t2.warningHigh >= t2.criticalHigh)
+      t2.criticalHigh = t2.warningHigh + 1;
     if (!this.settings.workDays || this.settings.workDays.length === 0) {
       this.settings.workDays = [1, 2, 3, 4, 5];
     }

@@ -83,9 +83,8 @@ export const Utils = {
 
 		// If alternating weeks enabled, determine which week we're in
 		if (settings.enableAlternatingWeeks) {
-			// Calculate week number (ISO week date)
-			const onejan = new Date(date.getFullYear(), 0, 1);
-			const weekNum = Math.ceil((((date.getTime() - onejan.getTime()) / 86400000) + onejan.getDay() + 1) / 7);
+			// Use ISO 8601 week number for consistent alternating week calculation
+			const weekNum = Utils.getWeekNumber(date);
 			const isAlternatingWeek = weekNum % 2 === 0;
 
 			const workDays = isAlternatingWeek ? settings.alternatingWeekWorkDays : settings.workDays;

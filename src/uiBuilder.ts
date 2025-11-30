@@ -3533,6 +3533,100 @@ export class UIBuilder {
 		}, 0);
 	}
 
+	/**
+	 * Show confirmation dialog for overnight shift detection.
+	 */
+	private showOvernightShiftConfirmation(onConfirm: () => void): void {
+		const modal = document.createElement('div');
+		modal.className = 'modal-container mod-dim';
+		modal.style.zIndex = '1001';
+
+		const modalBg = document.createElement('div');
+		modalBg.className = 'modal-bg';
+		modalBg.onclick = () => modal.remove();
+		modal.appendChild(modalBg);
+
+		const modalContent = document.createElement('div');
+		modalContent.className = 'modal';
+		modalContent.style.width = '350px';
+
+		const title = document.createElement('div');
+		title.className = 'modal-title';
+		title.textContent = t('confirm.overnightShiftTitle');
+		modalContent.appendChild(title);
+
+		const content = document.createElement('div');
+		content.className = 'modal-content';
+		content.style.padding = '20px';
+
+		const message = document.createElement('p');
+		message.textContent = t('confirm.overnightShift');
+		content.appendChild(message);
+
+		const buttonDiv = document.createElement('div');
+		buttonDiv.style.display = 'flex';
+		buttonDiv.style.gap = '10px';
+		buttonDiv.style.justifyContent = 'flex-end';
+		buttonDiv.style.marginTop = '15px';
+
+		const cancelBtn = document.createElement('button');
+		cancelBtn.textContent = t('buttons.cancel');
+		cancelBtn.onclick = () => modal.remove();
+		buttonDiv.appendChild(cancelBtn);
+
+		const confirmBtn = document.createElement('button');
+		confirmBtn.textContent = t('buttons.confirm');
+		confirmBtn.className = 'mod-cta';
+		confirmBtn.onclick = () => {
+			modal.remove();
+			onConfirm();
+		};
+		buttonDiv.appendChild(confirmBtn);
+
+		content.appendChild(buttonDiv);
+		modalContent.appendChild(content);
+		modal.appendChild(modalContent);
+		document.body.appendChild(modal);
+	}
+
+	/**
+	 * Check if a new/edited entry would create a prohibited overlap.
+	 * Blocks: same-type overlaps AND overlaps between accumulate-type entries.
+	 */
+	private checkProhibitedOverlap(
+		dateStr: string,
+		entryType: string,
+		startTime: Date,
+		endTime: Date,
+		excludeEntry?: Timer
+	): boolean {
+		const newBehavior = this.settings.specialDayBehaviors.find(b => b.id === entryType.toLowerCase());
+		const newIsAccumulate = newBehavior?.flextimeEffect === 'accumulate';
+
+		const dayEntries = this.timerManager.data.entries.filter(e => {
+			if (e === excludeEntry) return false;
+			if (!e.startTime || !e.endTime) return false;
+			return Utils.toLocalDateStr(new Date(e.startTime)) === dateStr;
+		});
+
+		for (const entry of dayEntries) {
+			const existingStart = new Date(entry.startTime!);
+			const existingEnd = new Date(entry.endTime!);
+
+			// Check if ranges overlap (startTime < existingEnd && endTime > existingStart)
+			if (startTime < existingEnd && endTime > existingStart) {
+				const existingType = entry.name.toLowerCase();
+				const existingBehavior = this.settings.specialDayBehaviors.find(b => b.id === existingType);
+				const existingIsAccumulate = existingBehavior?.flextimeEffect === 'accumulate';
+
+				// Block if: same type OR both are accumulate types
+				if (entryType.toLowerCase() === existingType) return true;
+				if (newIsAccumulate && existingIsAccumulate) return true;
+			}
+		}
+		return false;
+	}
+
 	showWorkTimeModal(dateObj: Date): void {
 		const dateStr = Utils.toLocalDateStr(dateObj);
 
@@ -3630,41 +3724,56 @@ export class UIBuilder {
 			const endDate = new Date(dateObj);
 			endDate.setHours(endHour, endMin, 0, 0);
 
-			// If end time is before start time, assume it's the next day
+			// Helper to add the entry
+			const addEntry = async (finalEndDate: Date) => {
+				// Check for prohibited overlaps
+				if (this.checkProhibitedOverlap(dateStr, 'jobb', startDate, finalEndDate)) {
+					new Notice(`❌ ${t('validation.overlappingEntry')}`);
+					return;
+				}
+
+				// Add the work session using the timer manager
+				try {
+					this.timerManager.data.entries.push({
+						name: 'jobb',
+						startTime: startDate.toISOString(),
+						endTime: finalEndDate.toISOString(),
+						subEntries: null,
+						collapsed: false
+					});
+
+					await this.timerManager.save();
+
+					const duration = (finalEndDate.getTime() - startDate.getTime()) / (1000 * 60 * 60);
+					new Notice(`✅ Lagt til ${duration.toFixed(1)} timer arbeidstid for ${dateStr}`);
+
+					// Reload data to reflect changes
+					this.data.rawEntries = this.timerManager.convertToTimeEntries();
+					this.data.processEntries();
+
+					// Refresh the dashboard
+					this.updateDayCard();
+					this.updateWeekCard();
+					this.updateStatsCard();
+					this.updateMonthCard();
+
+					modal.remove();
+				} catch (error) {
+					console.error('Failed to add work time:', error);
+					new Notice('❌ Kunne ikke legge til arbeidstid');
+				}
+			};
+
+			// If end time is before or equal to start time, ask if it's an overnight shift
 			if (endDate <= startDate) {
-				new Notice(`❌ ${t('validation.endAfterStart')}`);
-				return;
-			}
-
-			// Add the work session using the timer manager
-			try {
-				this.timerManager.data.entries.push({
-					name: 'jobb',
-					startTime: startDate.toISOString(),
-					endTime: endDate.toISOString(),
-					subEntries: null,
-					collapsed: false
+				this.showOvernightShiftConfirmation(() => {
+					// User confirmed overnight shift - add a day to end date
+					const nextDayEndDate = new Date(endDate);
+					nextDayEndDate.setDate(nextDayEndDate.getDate() + 1);
+					addEntry(nextDayEndDate);
 				});
-
-				this.timerManager.save();
-
-				const duration = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60);
-				new Notice(`✅ Lagt til ${duration.toFixed(1)} timer arbeidstid for ${dateStr}`);
-
-				// Reload data to reflect changes
-				this.data.rawEntries = this.timerManager.convertToTimeEntries();
-				this.data.processEntries();
-
-				// Refresh the dashboard
-				this.updateDayCard();
-				this.updateWeekCard();
-				this.updateStatsCard();
-				this.updateMonthCard();
-
-				modal.remove();
-			} catch (error) {
-				console.error('Failed to add work time:', error);
-				new Notice('❌ Kunne ikke legge til arbeidstid');
+			} else {
+				addEntry(endDate);
 			}
 		};
 		buttonDiv.appendChild(addBtn);
@@ -3831,36 +3940,55 @@ export class UIBuilder {
 					const newStartDate = new Date(dateObj);
 					newStartDate.setHours(startHour, startMin, 0, 0);
 
-					let newEndDate: Date | null = null;
+					// Helper to save the entry update
+					const saveUpdate = async (finalEndDate: Date | null) => {
+						if (finalEndDate) {
+							// Check for prohibited overlaps (exclude current entry being edited)
+							if (this.checkProhibitedOverlap(dateStr, entry.name, newStartDate, finalEndDate, entry)) {
+								new Notice(`❌ ${t('validation.overlappingEntry')}`);
+								return;
+							}
+						}
+
+						// Update the entry (use local ISO format)
+						entry.startTime = Utils.toLocalISOString(newStartDate);
+						entry.endTime = finalEndDate ? Utils.toLocalISOString(finalEndDate) : null;
+
+						await this.timerManager.save();
+						new Notice('✅ Oppføring oppdatert');
+
+						// Reload data to reflect changes
+						this.data.rawEntries = this.timerManager.convertToTimeEntries();
+						this.data.processEntries();
+
+						// Refresh the dashboard
+						this.updateDayCard();
+						this.updateWeekCard();
+						this.updateStatsCard();
+						this.updateMonthCard();
+
+						modal.remove();
+					};
+
 					if (newEndTime) {
 						const [endHour, endMin] = newEndTime.split(':').map(Number);
-						newEndDate = new Date(dateObj);
+						let newEndDate = new Date(dateObj);
 						newEndDate.setHours(endHour, endMin, 0, 0);
 
 						if (newEndDate <= newStartDate) {
-							new Notice(`❌ ${t('validation.endAfterStart')}`);
-							return;
+							// Ask if it's an overnight shift
+							this.showOvernightShiftConfirmation(() => {
+								const nextDayEndDate = new Date(newEndDate);
+								nextDayEndDate.setDate(nextDayEndDate.getDate() + 1);
+								saveUpdate(nextDayEndDate);
+							});
+						} else {
+							saveUpdate(newEndDate);
 						}
+					} else {
+						// No end time (active timer)
+						saveUpdate(null);
 					}
-
-					// Update the entry (use local ISO format)
-					entry.startTime = Utils.toLocalISOString(newStartDate);
-					entry.endTime = newEndDate ? Utils.toLocalISOString(newEndDate) : null;
-
-					this.timerManager.save();
-					new Notice('✅ Oppføring oppdatert');
-
-					// Reload data to reflect changes
-					this.data.rawEntries = this.timerManager.convertToTimeEntries();
-					this.data.processEntries();
-
-					// Refresh the dashboard
-					this.updateDayCard();
-					this.updateWeekCard();
-					this.updateStatsCard();
-					this.updateMonthCard();
-
-					modal.remove();
 				}
 			};
 			buttonDiv.appendChild(editBtn);
@@ -3870,7 +3998,7 @@ export class UIBuilder {
 			deleteBtn.style.flex = '1';
 			deleteBtn.onclick = () => {
 				// Show confirmation dialog
-				this.showDeleteConfirmation(entry, dateObj, () => {
+				this.showDeleteConfirmation(entry, dateObj, async () => {
 					let deleted = false;
 
 					if (item.parent && item.subIndex !== undefined) {
@@ -3896,7 +4024,7 @@ export class UIBuilder {
 					}
 
 					if (deleted) {
-						this.timerManager.save();
+						await this.timerManager.save();
 						new Notice('✅ Oppføring slettet');
 
 						// Reload data to reflect changes

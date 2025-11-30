@@ -167,7 +167,7 @@ export class CSVParser implements ImportParser {
 				}
 
 				// Parse date (Norwegian DD.MM.YYYY or ISO YYYY-MM-DD)
-				const parsedDate = this.parseDate(dateStr);
+				const parsedDate = this.parseDate(dateStr, result.warnings);
 				if (!parsedDate) {
 					result.warnings.push(`${t('import.errors.row')} ${i + 1}: ${t('import.errors.invalidDateFormat')} "${dateStr}"`);
 					continue;
@@ -258,32 +258,52 @@ export class CSVParser implements ImportParser {
 		return -1;
 	}
 
-	private parseDate(dateStr: string): Date | null {
+	private parseDate(dateStr: string, warnings?: string[]): Date | null {
+		let yearNum: number, monthNum: number, dayNum: number;
+
 		// Try Norwegian format (DD.MM.YYYY)
 		const norwegianMatch = dateStr.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
 		if (norwegianMatch) {
 			const [, day, month, year] = norwegianMatch;
-			const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-			if (!isNaN(date.getTime())) return date;
+			dayNum = parseInt(day);
+			monthNum = parseInt(month);
+			yearNum = parseInt(year);
+		} else {
+			// Try ISO format (YYYY-MM-DD)
+			const isoMatch = dateStr.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+			if (isoMatch) {
+				const [, year, month, day] = isoMatch;
+				dayNum = parseInt(day);
+				monthNum = parseInt(month);
+				yearNum = parseInt(year);
+			} else {
+				// Try DD/MM/YYYY format
+				const slashMatch = dateStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+				if (slashMatch) {
+					const [, day, month, year] = slashMatch;
+					dayNum = parseInt(day);
+					monthNum = parseInt(month);
+					yearNum = parseInt(year);
+				} else {
+					return null;
+				}
+			}
 		}
 
-		// Try ISO format (YYYY-MM-DD)
-		const isoMatch = dateStr.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-		if (isoMatch) {
-			const [, year, month, day] = isoMatch;
-			const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-			if (!isNaN(date.getTime())) return date;
+		const date = new Date(yearNum, monthNum - 1, dayNum);
+		if (isNaN(date.getTime())) return null;
+
+		// Validate the date didn't roll over (e.g., 2025-02-30 becoming March 2nd)
+		if (date.getFullYear() !== yearNum ||
+			date.getMonth() !== monthNum - 1 ||
+			date.getDate() !== dayNum) {
+			const correctedStr = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`;
+			if (warnings) {
+				warnings.push(`Invalid date ${dateStr} was auto-corrected to ${correctedStr}`);
+			}
 		}
 
-		// Try DD/MM/YYYY format
-		const slashMatch = dateStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-		if (slashMatch) {
-			const [, day, month, year] = slashMatch;
-			const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-			if (!isNaN(date.getTime())) return date;
-		}
-
-		return null;
+		return date;
 	}
 
 	private parseTime(timeStr: string): { hours: number; minutes: number } | null {
