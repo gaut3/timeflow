@@ -26,6 +26,8 @@ timeflow provides a comprehensive flextime tracking dashboard with **built-in ti
 - **Comprehensive Statistics** - View statistics for total, yearly, and monthly periods
 - **Contextual Messages** - Get motivational and informative messages based on your work patterns
 - **Multiple History Views** - List and heatmap visualizations of your work history
+  - Filtering by day type in list view
+  - Bulk editing in wide mode
 ![timeflow-history-info](https://github.com/gaut3/timeflow/blob/main/images/timeflow%20info-history.png?raw=true)
 
 ### 🎯 Planning & Organization
@@ -70,7 +72,8 @@ timeflow provides a comprehensive flextime tracking dashboard with **built-in ti
   - Dashboard displays usage against configured limits
 
 #### Special Day Types
-- **Fully Customizable** - Change names and colors for all special day types:
+- **Fully Customizable** - Change names, colors, icons, and text colors for all day types:
+  - Jobb (Work) - configurable as a work type
   - Avspasering (Comp time)
   - Ferie (Vacation)
   - Velferdspermisjon (Welfare leave)
@@ -78,6 +81,7 @@ timeflow provides a comprehensive flextime tracking dashboard with **built-in ti
   - Sykemelding (Doctor's note sick leave)
   - Kurs (Course/Training)
   - Studie (Study leave)
+- **Automatic History Conversion** - Planned special days are automatically converted to timer entries when they pass, ensuring they appear in Historikk and statistics
 
 #### Advanced Configuration
 - **Balance Calculation Settings**
@@ -86,14 +90,16 @@ timeflow provides a comprehensive flextime tracking dashboard with **built-in ti
   - Balance color thresholds - Customize when balance shows green/yellow/red
   - Data validation thresholds - Adjust warning levels for long sessions, weekly totals, etc.
 
-#### Theme Support
-- **Multiple Theme Options**
-  - Light theme with vibrant gradients
-  - Dark theme with muted tones
-  - System theme matching Obsidian's theme
-  - Hour unit preference (h or t for "timer")
+#### Theme & Layout
+- **System Theme** - Automatically follows Obsidian's light/dark theme
+- **Hour Unit Preference** - Display hours as "h" or "t" (timer)
+- **Flexible View Location** - Open in sidebar or main window
+  - Default location configurable in settings
+  - Quick toggle button below System Status
 - **Responsive Design**
   - Scales smoothly with sidebar width
+  - Wide mode enables bulk editing in Historikk
+  - Two-column Informasjon layout in wide mode
   - Optimized for mobile devices
   - Collapsible sections prevent content cut-off
 
@@ -191,9 +197,9 @@ Your Vault/
 Go to Settings → timeflow to configure:
 
 ### Display Settings
-- **Theme** - Choose between Light, Dark, or System theme
 - **Hour Unit** - Display hours as "h" or "t" (timer)
 - **Week Numbers** - Show/hide ISO week numbers in calendar and week card
+- **Default View Location** - Open in sidebar or main window by default
 
 ### Special Day Types
 Customize names and colors for:
@@ -262,20 +268,24 @@ Create a file (default: `timeflow/holidays.md`) with the following format:
 - 2025-12-25: helligdag: Jul
 - 2025-07-01: ferie: Sommerferie
 - 2025-06-23: ferie:half: Halv dag før sankthans
+- 2025-06-15: avspasering:14:00-16:00: Leaving early
 ```
 
-Format: `- YYYY-MM-DD: type[:half]: description`
+Format: `- YYYY-MM-DD: type[:modifier]: description`
+
+Modifiers:
+- `:half` - Half day (4 hours instead of full workday)
+- `:HH:MM-HH:MM` - Time range for avspasering (e.g., `14:00-16:00` for leaving early)
 
 Supported types:
 - `helligdag` - Public holiday (counts as full workday, no flextime change)
 - `ferie` - Vacation (counts as full workday, no flextime change)
-- `avspasering` - Comp time (withdraws from flextime)
+- `avspasering` - Comp time (withdraws from flextime based on duration)
 - `egenmelding` - Self-reported sick leave (counts as full workday, no flextime change)
 - `sykemelding` - Doctor's note sick leave (counts as full workday, no flextime change)
 - `velferdspermisjon` - Welfare leave (counts as full workday, no flextime change)
 - `kurs` - Course/Training (regular workday applies)
 - `studie` - Study leave (regular workday applies)
-- `half` - Half day modifier (4 hours instead of full workday)
 
 ## Importing Data
 
@@ -414,9 +424,13 @@ Result: No weekly goals shown, just daily tracking and flextime balance
 ## Color Coding
 
 ### Timesaldo Badge
-- 🟢 **Green**: 0-80 hours (healthy flextime balance)
-- 🟡 **Yellow**: -15 to 0 or 80-95 hours (approaching limits)
-- 🔴 **Red**: < -15 or > 95 hours (outside recommended range)
+The flextime balance badge uses color coding to indicate compliance with recommended limits:
+
+- 🟢 **Green**: 0-80 hours (healthy flextime balance within guidelines)
+- 🟡 **Yellow**: -15 to 0 or 80-95 hours (approaching limits, consider adjusting)
+- 🔴 **Red**: < -15 or > 95 hours (outside recommended range, action needed)
+
+These thresholds are configurable in Settings → Advanced Configuration → Balance Color Thresholds.
 
 ### Calendar Days
 - **Light to dark green gradient**: Positive flextime (overtid) - darker green = more hours worked beyond goal
