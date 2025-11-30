@@ -11,8 +11,8 @@ export default class TimeFlowPlugin extends Plugin {
 	async onload() {
 		console.log('Loading TimeFlow plugin');
 
-		// Load settings
-		await this.loadSettings();
+		// Load settings (without migration yet)
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
 
 		// Initialize timer manager
 		this.timerManager = new TimerManager(this.app, this.settings);
@@ -24,6 +24,12 @@ export default class TimeFlowPlugin extends Plugin {
 			console.log('TimeFlow: Merging synced settings from data file');
 			this.settings = Object.assign({}, DEFAULT_SETTINGS, this.settings, syncedSettings);
 			this.timerManager.settings = this.settings;
+		}
+
+		// Now run migrations AFTER merging synced settings
+		const needsSave = this.migrateWorkDaysSettings() || this.migrateSpecialDayBehaviors();
+		if (needsSave) {
+			console.log('TimeFlow: Saving migrated settings');
 			await this.saveSettings();
 		}
 
@@ -113,13 +119,18 @@ export default class TimeFlowPlugin extends Plugin {
 	}
 
 	async loadSettings() {
+		// This is called when settings tab is opened - just reload from storage
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
-		this.migrateWorkDaysSettings();
-		this.migrateSpecialDayBehaviors();
 	}
 
-	migrateSpecialDayBehaviors() {
+	migrateSpecialDayBehaviors(): boolean {
 		// Migrate from old specialDayColors/specialDayLabels to new specialDayBehaviors
+		console.log('TimeFlow Migration: Starting specialDayBehaviors migration');
+		console.log('TimeFlow Migration: Current behaviors:', this.settings.specialDayBehaviors?.map(b => b.id));
+		console.log('TimeFlow Migration: Default behaviors:', DEFAULT_SPECIAL_DAY_BEHAVIORS.map(b => b.id));
+
+		let changed = false;
+
 		if (!this.settings.specialDayBehaviors || this.settings.specialDayBehaviors.length === 0) {
 			console.log('TimeFlow: Migrating special day settings to new behavior system');
 
@@ -132,10 +143,36 @@ export default class TimeFlowPlugin extends Plugin {
 					color: this.settings.specialDayColors?.[defaultBehavior.id] || defaultBehavior.color
 				};
 			});
+			changed = true;
+		} else {
+			console.log('TimeFlow Migration: Behaviors exist, checking for missing defaults...');
+			// Ensure all default behaviors exist (add any missing ones like 'jobb')
+			DEFAULT_SPECIAL_DAY_BEHAVIORS.forEach(defaultBehavior => {
+				const existingIndex = this.settings.specialDayBehaviors.findIndex(b => b.id === defaultBehavior.id);
+				console.log(`TimeFlow Migration: Checking '${defaultBehavior.id}', existingIndex=${existingIndex}, isWorkType=${defaultBehavior.isWorkType}`);
+				if (existingIndex === -1) {
+					console.log(`TimeFlow: Adding missing behavior '${defaultBehavior.id}'`);
+					// Add work types at the beginning, others at the end
+					if (defaultBehavior.isWorkType) {
+						this.settings.specialDayBehaviors.unshift({ ...defaultBehavior });
+					} else {
+						this.settings.specialDayBehaviors.push({ ...defaultBehavior });
+					}
+					changed = true;
+				} else if (defaultBehavior.isWorkType && !this.settings.specialDayBehaviors[existingIndex].isWorkType) {
+					// Ensure existing work types have the isWorkType flag
+					console.log(`TimeFlow Migration: Setting isWorkType=true on existing '${defaultBehavior.id}'`);
+					this.settings.specialDayBehaviors[existingIndex].isWorkType = true;
+					changed = true;
+				}
+			});
+			console.log('TimeFlow Migration: After migration:', this.settings.specialDayBehaviors?.map(b => ({ id: b.id, isWorkType: b.isWorkType })));
 		}
+		return changed;
 	}
 
-	migrateWorkDaysSettings() {
+	migrateWorkDaysSettings(): boolean {
+		let changed = false;
 		// Migrate from old includeSaturday/Sunday to new workDays array
 		if (!this.settings.workDays || this.settings.workDays.length === 0) {
 			const workDays = [1, 2, 3, 4, 5]; // Monday-Friday
@@ -151,12 +188,15 @@ export default class TimeFlowPlugin extends Plugin {
 			}
 
 			this.settings.workDays = workDays.sort((a, b) => a - b);
+			changed = true;
 		}
 
 		// Ensure alternating week work days exist
 		if (!this.settings.alternatingWeekWorkDays || this.settings.alternatingWeekWorkDays.length === 0) {
 			this.settings.alternatingWeekWorkDays = [...this.settings.workDays];
+			changed = true;
 		}
+		return changed;
 	}
 
 	async saveSettings() {
@@ -165,7 +205,8 @@ export default class TimeFlowPlugin extends Plugin {
 		await this.timerManager.saveSettings(this.settings);
 	}
 
-	async activateView() {
+	async activateView(location?: 'sidebar' | 'main') {
+		const targetLocation = location ?? this.settings.defaultViewLocation;
 		const { workspace } = this.app;
 
 		let leaf: WorkspaceLeaf | null = null;
@@ -175,8 +216,12 @@ export default class TimeFlowPlugin extends Plugin {
 			// A TimeFlow view already exists, use the first one
 			leaf = leaves[0];
 		} else {
-			// Create a new leaf in the right sidebar
-			leaf = workspace.getRightLeaf(false);
+			// Create a new leaf based on target location
+			if (targetLocation === 'main') {
+				leaf = workspace.getLeaf('tab');
+			} else {
+				leaf = workspace.getRightLeaf(false);
+			}
 			if (leaf) {
 				await leaf.setViewState({ type: VIEW_TYPE_TIMEFLOW, active: true });
 			}
@@ -186,5 +231,18 @@ export default class TimeFlowPlugin extends Plugin {
 		if (leaf) {
 			workspace.revealLeaf(leaf);
 		}
+	}
+
+	async moveViewToLocation(location: 'sidebar' | 'main') {
+		const { workspace } = this.app;
+		const leaves = workspace.getLeavesOfType(VIEW_TYPE_TIMEFLOW);
+
+		// Close any existing TimeFlow views
+		for (const leaf of leaves) {
+			leaf.detach();
+		}
+
+		// Open in new location
+		await this.activateView(location);
 	}
 }

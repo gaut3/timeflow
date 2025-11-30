@@ -38,6 +38,11 @@ var FIXED_DAY_COLORS = {
   halfday: "#ffd54f",
   "Ingen registrering": "#cccccc"
 };
+var FIXED_DAY_TEXT_COLORS = {
+  helligdag: "#ffffff",
+  halfday: "#000000",
+  "Ingen registrering": "#000000"
+};
 function getSpecialDayColors(settings) {
   const colors = { ...FIXED_DAY_COLORS };
   settings.specialDayBehaviors.forEach((behavior) => {
@@ -46,6 +51,13 @@ function getSpecialDayColors(settings) {
   if (settings.specialDayColors) {
     Object.assign(colors, settings.specialDayColors);
   }
+  return colors;
+}
+function getSpecialDayTextColors(settings) {
+  const colors = { ...FIXED_DAY_TEXT_COLORS };
+  settings.specialDayBehaviors.forEach((behavior) => {
+    colors[behavior.id] = behavior.textColor || "#000000";
+  });
   return colors;
 }
 var EMOJI_MAP = {
@@ -739,10 +751,26 @@ var ImportModal = class extends import_obsidian.Modal {
 // src/settings.ts
 var DEFAULT_SPECIAL_DAY_BEHAVIORS = [
   {
+    id: "jobb",
+    label: "Jobb",
+    icon: "\u{1F4BC}",
+    color: "#4caf50",
+    // Green for positive flextime (over goal)
+    textColor: "#ffffff",
+    negativeColor: "#64b5f6",
+    // Blue for negative flextime (under goal)
+    negativeTextColor: "#000000",
+    noHoursRequired: false,
+    flextimeEffect: "accumulate",
+    includeInStats: true,
+    isWorkType: true
+  },
+  {
     id: "ferie",
     label: "Ferie",
     icon: "\u{1F3D6}\uFE0F",
     color: "#b3e5fc",
+    textColor: "#000000",
     noHoursRequired: true,
     flextimeEffect: "none",
     includeInStats: true,
@@ -753,6 +781,7 @@ var DEFAULT_SPECIAL_DAY_BEHAVIORS = [
     label: "Avspasering",
     icon: "\u{1F6CC}",
     color: "#ffe0b2",
+    textColor: "#000000",
     noHoursRequired: true,
     flextimeEffect: "withdraw",
     includeInStats: true
@@ -762,6 +791,7 @@ var DEFAULT_SPECIAL_DAY_BEHAVIORS = [
     label: "Egenmelding",
     icon: "\u{1F912}",
     color: "#c8e6c9",
+    textColor: "#000000",
     noHoursRequired: true,
     flextimeEffect: "none",
     includeInStats: true,
@@ -773,6 +803,7 @@ var DEFAULT_SPECIAL_DAY_BEHAVIORS = [
     label: "Sykemelding",
     icon: "\u{1F3E5}",
     color: "#c8e6c9",
+    textColor: "#000000",
     noHoursRequired: true,
     flextimeEffect: "none",
     includeInStats: true
@@ -782,6 +813,7 @@ var DEFAULT_SPECIAL_DAY_BEHAVIORS = [
     label: "Velferdspermisjon",
     icon: "\u{1F3E5}",
     color: "#e1bee7",
+    textColor: "#000000",
     noHoursRequired: true,
     flextimeEffect: "none",
     includeInStats: true
@@ -791,6 +823,7 @@ var DEFAULT_SPECIAL_DAY_BEHAVIORS = [
     label: "Kurs",
     icon: "\u{1F4DA}",
     color: "#f8bbd0",
+    textColor: "#000000",
     noHoursRequired: false,
     flextimeEffect: "accumulate",
     includeInStats: true
@@ -800,6 +833,7 @@ var DEFAULT_SPECIAL_DAY_BEHAVIORS = [
     label: "Studie",
     icon: "\u{1F4D6}",
     color: "#f8bbd0",
+    textColor: "#000000",
     noHoursRequired: false,
     flextimeEffect: "accumulate",
     includeInStats: true
@@ -809,6 +843,7 @@ var DEFAULT_SPECIAL_DAY_BEHAVIORS = [
     label: "Helligdag",
     icon: "\u{1F389}",
     color: "#ef5350",
+    textColor: "#ffffff",
     noHoursRequired: true,
     flextimeEffect: "none",
     includeInStats: true
@@ -816,7 +851,7 @@ var DEFAULT_SPECIAL_DAY_BEHAVIORS = [
 ];
 var DEFAULT_SETTINGS = {
   version: "1.0.0",
-  theme: "light",
+  defaultViewLocation: "sidebar",
   hourUnit: "t",
   showWeekNumbers: true,
   workPercent: 1,
@@ -957,11 +992,12 @@ var SpecialDayBehaviorModal = class extends import_obsidian2.Modal {
     this.onSave = onSave;
   }
   onOpen() {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p;
     const { contentEl } = this;
     contentEl.empty();
-    contentEl.createEl("h2", { text: this.behavior ? "Edit Special Day Type" : "Add Special Day Type" });
-    if (this.behavior) {
+    const isWorkType = (_b = (_a = this.behavior) == null ? void 0 : _a.isWorkType) != null ? _b : false;
+    contentEl.createEl("h2", { text: isWorkType ? "Edit Work Entry Type" : this.behavior ? "Edit Special Day Type" : "Add Special Day Type" });
+    if (this.behavior && !isWorkType) {
       const norwegianTerms = {
         "egenmelding": "Norwegian self-reported sick leave (max 8 days/year per Norwegian labor law)",
         "velferdspermisjon": "Norwegian welfare leave for personal/family health matters",
@@ -978,37 +1014,62 @@ var SpecialDayBehaviorModal = class extends import_obsidian2.Modal {
         infoBox.innerHTML = `\u2139\uFE0F ${explanation}`;
       }
     }
+    if (isWorkType) {
+      const infoBox = contentEl.createDiv({ cls: "setting-item-description" });
+      infoBox.style.padding = "10px";
+      infoBox.style.marginBottom = "15px";
+      infoBox.style.background = "var(--background-secondary)";
+      infoBox.style.borderRadius = "5px";
+      infoBox.style.fontSize = "0.9em";
+      infoBox.innerHTML = `\u{1F4BC} This is your regular work entry type. Customize its appearance in the calendar.`;
+    }
     const formData = {
-      id: ((_a = this.behavior) == null ? void 0 : _a.id) || "",
-      label: ((_b = this.behavior) == null ? void 0 : _b.label) || "",
-      icon: ((_c = this.behavior) == null ? void 0 : _c.icon) || "",
-      color: ((_d = this.behavior) == null ? void 0 : _d.color) || "#b3e5fc",
-      noHoursRequired: (_f = (_e = this.behavior) == null ? void 0 : _e.noHoursRequired) != null ? _f : true,
-      flextimeEffect: ((_g = this.behavior) == null ? void 0 : _g.flextimeEffect) || "none",
-      includeInStats: (_i = (_h = this.behavior) == null ? void 0 : _h.includeInStats) != null ? _i : true,
-      maxDaysPerYear: ((_j = this.behavior) == null ? void 0 : _j.maxDaysPerYear) || void 0,
-      countingPeriod: ((_k = this.behavior) == null ? void 0 : _k.countingPeriod) || "calendar"
+      id: ((_c = this.behavior) == null ? void 0 : _c.id) || "",
+      label: ((_d = this.behavior) == null ? void 0 : _d.label) || "",
+      icon: ((_e = this.behavior) == null ? void 0 : _e.icon) || "",
+      color: ((_f = this.behavior) == null ? void 0 : _f.color) || "#b3e5fc",
+      textColor: ((_g = this.behavior) == null ? void 0 : _g.textColor) || "#000000",
+      negativeColor: ((_h = this.behavior) == null ? void 0 : _h.negativeColor) || "#64b5f6",
+      negativeTextColor: ((_i = this.behavior) == null ? void 0 : _i.negativeTextColor) || "#000000",
+      noHoursRequired: (_k = (_j = this.behavior) == null ? void 0 : _j.noHoursRequired) != null ? _k : true,
+      flextimeEffect: ((_l = this.behavior) == null ? void 0 : _l.flextimeEffect) || "none",
+      includeInStats: (_n = (_m = this.behavior) == null ? void 0 : _m.includeInStats) != null ? _n : true,
+      maxDaysPerYear: ((_o = this.behavior) == null ? void 0 : _o.maxDaysPerYear) || void 0,
+      countingPeriod: ((_p = this.behavior) == null ? void 0 : _p.countingPeriod) || "calendar",
+      isWorkType
     };
-    new import_obsidian2.Setting(contentEl).setName("ID").setDesc("Unique identifier (lowercase, no spaces). Used in holiday file format.").addText((text) => {
-      text.setPlaceholder("ferie").setValue(formData.id).onChange((value) => formData.id = value.toLowerCase().replace(/\s+/g, ""));
-      if (this.behavior) {
-        text.setDisabled(true);
-      }
-    });
-    new import_obsidian2.Setting(contentEl).setName("Label").setDesc("Display name shown in the dashboard").addText((text) => text.setPlaceholder("Ferie").setValue(formData.label).onChange((value) => formData.label = value));
-    new import_obsidian2.Setting(contentEl).setName("Icon").setDesc("Emoji to display").addText((text) => text.setPlaceholder("\u{1F3D6}\uFE0F").setValue(formData.icon).onChange((value) => formData.icon = value));
-    new import_obsidian2.Setting(contentEl).setName("Color").setDesc("Background color for this day type in calendar").addColorPicker((color) => color.setValue(formData.color).onChange((value) => formData.color = value));
-    new import_obsidian2.Setting(contentEl).setName("No hours required").setDesc("If enabled, you don't need to log any work hours this day (e.g., vacation, sick leave). If disabled, regular workday goal applies.").addToggle((toggle) => toggle.setValue(formData.noHoursRequired).onChange((value) => formData.noHoursRequired = value));
-    new import_obsidian2.Setting(contentEl).setName("Flextime effect").setDesc("How this day type affects your flextime balance").addDropdown((dropdown) => dropdown.addOption("none", "No effect (counts as full workday)").addOption("withdraw", "Withdraw (uses flextime balance)").addOption("accumulate", "Accumulate (excess hours add to flextime)").setValue(formData.flextimeEffect).onChange((value) => formData.flextimeEffect = value));
-    new import_obsidian2.Setting(contentEl).setName("Include in statistics").setDesc("Show this day type in yearly statistics").addToggle((toggle) => toggle.setValue(formData.includeInStats).onChange((value) => formData.includeInStats = value));
-    new import_obsidian2.Setting(contentEl).setName("Max days per year (optional)").setDesc("Yearly limit for this day type (e.g., 25 for vacation). Leave empty for no limit.").addText((text) => {
-      var _a2;
-      return text.setPlaceholder("25").setValue(((_a2 = formData.maxDaysPerYear) == null ? void 0 : _a2.toString()) || "").onChange((value) => {
-        const num = parseInt(value);
-        formData.maxDaysPerYear = isNaN(num) ? void 0 : num;
+    if (!isWorkType) {
+      new import_obsidian2.Setting(contentEl).setName("ID").setDesc("Unique identifier (lowercase, no spaces). Used in holiday file format.").addText((text) => {
+        text.setPlaceholder("ferie").setValue(formData.id).onChange((value) => formData.id = value.toLowerCase().replace(/\s+/g, ""));
+        if (this.behavior) {
+          text.setDisabled(true);
+        }
       });
-    });
-    new import_obsidian2.Setting(contentEl).setName("Counting period").setDesc("How to count the max days limit. Calendar year resets each January 1st. Rolling 365 days counts backwards from today.").addDropdown((dropdown) => dropdown.addOption("calendar", "Calendar year").addOption("rolling365", "Rolling 365 days").setValue(formData.countingPeriod).onChange((value) => formData.countingPeriod = value));
+    }
+    new import_obsidian2.Setting(contentEl).setName("Label").setDesc("Display name shown in the dashboard").addText((text) => text.setPlaceholder(isWorkType ? "Jobb" : "Ferie").setValue(formData.label).onChange((value) => formData.label = value));
+    new import_obsidian2.Setting(contentEl).setName("Icon").setDesc("Emoji to display").addText((text) => text.setPlaceholder(isWorkType ? "\u{1F4BC}" : "\u{1F3D6}\uFE0F").setValue(formData.icon).onChange((value) => formData.icon = value));
+    if (isWorkType) {
+      new import_obsidian2.Setting(contentEl).setName("Positive flextime color").setDesc("Background color when hours exceed daily goal (green gradient base)").addColorPicker((color) => color.setValue(formData.color).onChange((value) => formData.color = value));
+      new import_obsidian2.Setting(contentEl).setName("Positive flextime text color").setDesc("Text color for positive flextime days").addColorPicker((color) => color.setValue(formData.textColor).onChange((value) => formData.textColor = value));
+      new import_obsidian2.Setting(contentEl).setName("Negative flextime color").setDesc("Background color when hours are below daily goal (blue gradient base)").addColorPicker((color) => color.setValue(formData.negativeColor).onChange((value) => formData.negativeColor = value));
+      new import_obsidian2.Setting(contentEl).setName("Negative flextime text color").setDesc("Text color for negative flextime days").addColorPicker((color) => color.setValue(formData.negativeTextColor).onChange((value) => formData.negativeTextColor = value));
+    } else {
+      new import_obsidian2.Setting(contentEl).setName("Color").setDesc("Background color for this day type in calendar").addColorPicker((color) => color.setValue(formData.color).onChange((value) => formData.color = value));
+      new import_obsidian2.Setting(contentEl).setName("Text color").setDesc("Text color for this day type (use white for dark backgrounds)").addColorPicker((color) => color.setValue(formData.textColor).onChange((value) => formData.textColor = value));
+    }
+    if (!isWorkType) {
+      new import_obsidian2.Setting(contentEl).setName("No hours required").setDesc("If enabled, you don't need to log any work hours this day (e.g., vacation, sick leave). If disabled, regular workday goal applies.").addToggle((toggle) => toggle.setValue(formData.noHoursRequired).onChange((value) => formData.noHoursRequired = value));
+      new import_obsidian2.Setting(contentEl).setName("Flextime effect").setDesc("How this day type affects your flextime balance").addDropdown((dropdown) => dropdown.addOption("none", "No effect (counts as full workday)").addOption("withdraw", "Withdraw (uses flextime balance)").addOption("accumulate", "Accumulate (excess hours add to flextime)").setValue(formData.flextimeEffect).onChange((value) => formData.flextimeEffect = value));
+      new import_obsidian2.Setting(contentEl).setName("Include in statistics").setDesc("Show this day type in yearly statistics").addToggle((toggle) => toggle.setValue(formData.includeInStats).onChange((value) => formData.includeInStats = value));
+      new import_obsidian2.Setting(contentEl).setName("Max days per year (optional)").setDesc("Yearly limit for this day type (e.g., 25 for vacation). Leave empty for no limit.").addText((text) => {
+        var _a2;
+        return text.setPlaceholder("25").setValue(((_a2 = formData.maxDaysPerYear) == null ? void 0 : _a2.toString()) || "").onChange((value) => {
+          const num = parseInt(value);
+          formData.maxDaysPerYear = isNaN(num) ? void 0 : num;
+        });
+      });
+      new import_obsidian2.Setting(contentEl).setName("Counting period").setDesc("How to count the max days limit. Calendar year resets each January 1st. Rolling 365 days counts backwards from today.").addDropdown((dropdown) => dropdown.addOption("calendar", "Calendar year").addOption("rolling365", "Rolling 365 days").setValue(formData.countingPeriod).onChange((value) => formData.countingPeriod = value));
+    }
     const buttonDiv = contentEl.createDiv();
     buttonDiv.style.display = "flex";
     buttonDiv.style.gap = "10px";
@@ -1040,15 +1101,20 @@ var SpecialDayBehaviorModal = class extends import_obsidian2.Modal {
         }
       }
       const behavior = {
-        id: formData.id,
+        id: formData.isWorkType ? this.behavior.id : formData.id,
+        // Keep original ID for work types
         label: formData.label,
         icon: formData.icon,
         color: formData.color,
-        noHoursRequired: formData.noHoursRequired,
-        flextimeEffect: formData.flextimeEffect,
-        includeInStats: formData.includeInStats,
-        maxDaysPerYear: formData.maxDaysPerYear,
-        countingPeriod: formData.countingPeriod
+        textColor: formData.textColor,
+        negativeColor: formData.isWorkType ? formData.negativeColor : void 0,
+        negativeTextColor: formData.isWorkType ? formData.negativeTextColor : void 0,
+        noHoursRequired: formData.isWorkType ? false : formData.noHoursRequired,
+        flextimeEffect: formData.isWorkType ? "accumulate" : formData.flextimeEffect,
+        includeInStats: formData.isWorkType ? true : formData.includeInStats,
+        maxDaysPerYear: formData.isWorkType ? void 0 : formData.maxDaysPerYear,
+        countingPeriod: formData.isWorkType ? void 0 : formData.countingPeriod,
+        isWorkType: formData.isWorkType
       };
       this.onSave(behavior, this.index);
       this.close();
@@ -1371,10 +1437,13 @@ var TimeFlowSettingTab = class extends import_obsidian2.PluginSettingTab {
         }
       });
     });
-    new import_obsidian2.Setting(settingsContainer).setName("Special Day Types").setDesc("Configure how different types of special days affect your workday and flextime balance. These settings determine how days are counted in flextime calculations.").setHeading();
     const getBehaviorDescription = (behavior) => {
       const parts = [];
-      parts.push(behavior.noHoursRequired ? "No hours required" : "Regular workday applies");
+      if (behavior.isWorkType) {
+        parts.push("Regular work entry");
+      } else {
+        parts.push(behavior.noHoursRequired ? "No hours required" : "Regular workday applies");
+      }
       if (behavior.flextimeEffect === "withdraw") {
         parts.push("withdraws from flextime");
       } else if (behavior.flextimeEffect === "accumulate") {
@@ -1387,15 +1456,32 @@ var TimeFlowSettingTab = class extends import_obsidian2.PluginSettingTab {
       }
       return parts.join(", ");
     };
-    this.plugin.settings.specialDayBehaviors.forEach((behavior, index) => {
-      const colorDot = settingsContainer.createEl("span");
-      colorDot.style.display = "inline-block";
-      colorDot.style.width = "12px";
-      colorDot.style.height = "12px";
-      colorDot.style.borderRadius = "50%";
-      colorDot.style.backgroundColor = behavior.color;
-      colorDot.style.marginRight = "6px";
-      colorDot.style.verticalAlign = "middle";
+    console.log("TimeFlow Settings Debug - All behaviors:", JSON.stringify(this.plugin.settings.specialDayBehaviors.map((b) => ({ id: b.id, isWorkType: b.isWorkType })), null, 2));
+    const workTypes = this.plugin.settings.specialDayBehaviors.filter((b) => b.isWorkType || b.id === "jobb");
+    const specialDays = this.plugin.settings.specialDayBehaviors.filter((b) => !b.isWorkType && b.id !== "jobb");
+    console.log("TimeFlow Settings Debug - Work types:", workTypes.map((b) => b.id));
+    console.log("TimeFlow Settings Debug - Special days:", specialDays.map((b) => b.id));
+    new import_obsidian2.Setting(settingsContainer).setName("Work Entry Type").setDesc("Configure the appearance of your regular work entries").setHeading();
+    workTypes.forEach((behavior) => {
+      const index = this.plugin.settings.specialDayBehaviors.findIndex((b) => b.id === behavior.id);
+      new import_obsidian2.Setting(settingsContainer).setName(`${behavior.icon} ${behavior.label}`).setDesc(getBehaviorDescription(behavior)).addButton((btn) => btn.setButtonText("Edit").onClick(() => {
+        new SpecialDayBehaviorModal(
+          this.app,
+          this.plugin,
+          behavior,
+          index,
+          async (updatedBehavior, idx) => {
+            this.plugin.settings.specialDayBehaviors[idx] = updatedBehavior;
+            await this.plugin.saveSettings();
+            await this.refreshView();
+            this.display();
+          }
+        ).open();
+      }));
+    });
+    new import_obsidian2.Setting(settingsContainer).setName("Special Day Types").setDesc("Configure how different types of special days affect your workday and flextime balance. These settings determine how days are counted in flextime calculations.").setHeading();
+    specialDays.forEach((behavior) => {
+      const index = this.plugin.settings.specialDayBehaviors.findIndex((b) => b.id === behavior.id);
       new import_obsidian2.Setting(settingsContainer).setName(`${behavior.icon} ${behavior.label}`).setDesc(getBehaviorDescription(behavior)).addButton((btn) => btn.setButtonText("Edit").onClick(() => {
         new SpecialDayBehaviorModal(
           this.app,
@@ -1440,10 +1526,9 @@ Note: Historical data in your holidays file using "${behavior.id}" will no longe
       ).open();
     }));
     new import_obsidian2.Setting(settingsContainer).setName("Display & Interface").setDesc("Customize the appearance and behavior of the TimeFlow interface").setHeading();
-    new import_obsidian2.Setting(settingsContainer).setName("Theme").setDesc("Choose the color scheme for TimeFlow cards").addDropdown((dropdown) => dropdown.addOption("light", "Light (Colorful gradients)").addOption("system", "System (Match Obsidian theme)").addOption("dark", "Dark (Dark gradients)").setValue(this.plugin.settings.theme).onChange(async (value) => {
-      this.plugin.settings.theme = value;
+    new import_obsidian2.Setting(settingsContainer).setName("Default view location").setDesc("Choose where TimeFlow opens by default").addDropdown((dropdown) => dropdown.addOption("sidebar", "Sidebar (right panel)").addOption("main", "Main area (as a tab)").setValue(this.plugin.settings.defaultViewLocation).onChange(async (value) => {
+      this.plugin.settings.defaultViewLocation = value;
       await this.plugin.saveSettings();
-      await this.refreshView();
     }));
     new import_obsidian2.Setting(settingsContainer).setName("Hour unit").setDesc('Choose the unit symbol for displaying hours: "h" for hours or "t" for timer').addDropdown((dropdown) => dropdown.addOption("h", "h (hours)").addOption("t", "t (timer)").setValue(this.plugin.settings.hourUnit).onChange(async (value) => {
       this.plugin.settings.hourUnit = value;
@@ -1884,14 +1969,23 @@ var DataManager = class {
         const content = await this.app.vault.read(holidayFile);
         const lines = content.split("\n");
         lines.forEach((line) => {
-          const match = line.match(/^-\s*(\d{4}-\d{2}-\d{2}):\s*(\w+)(?::half)?:\s*(.+)$/);
+          const match = line.match(/^-\s*(\d{4}-\d{2}-\d{2}):\s*(\w+)(?::(half|\d{2}:\d{2}-\d{2}:\d{2})?)?:\s*(.+)$/);
           if (match) {
-            const [, date, type, description] = match;
-            const isHalfDay = line.includes(":half:");
+            const [, date, type, modifier, description] = match;
+            const isHalfDay = modifier === "half";
+            let startTime;
+            let endTime;
+            if (modifier && modifier.includes("-") && modifier.includes(":")) {
+              const [start, end] = modifier.split("-");
+              startTime = start;
+              endTime = end;
+            }
             this.holidays[date] = {
               type: type.trim().toLowerCase(),
               description: description.trim(),
-              halfDay: isHalfDay
+              halfDay: isHalfDay,
+              startTime,
+              endTime
             };
           }
         });
@@ -2873,16 +2967,20 @@ var MessageGenerator = class {
 
 // src/uiBuilder.ts
 var UIBuilder = class {
-  constructor(dataManager, systemStatus, settings, app, timerManager) {
+  constructor(dataManager, systemStatus, settings, app, timerManager, plugin) {
     this.intervals = [];
     this.statsTimeframe = "total";
     this.historyView = "list";
     this.currentMonthOffset = 0;
+    this.historyFilter = [];
+    // empty = all, or list of type IDs to filter by
+    this.inlineEditMode = false;
     this.data = dataManager;
     this.systemStatus = systemStatus;
     this.settings = settings;
     this.app = app;
     this.timerManager = timerManager;
+    this.plugin = plugin;
     this.container = this.createContainer();
     this.today = /* @__PURE__ */ new Date();
     this.selectedYear = this.today.getFullYear();
@@ -2921,7 +3019,6 @@ var UIBuilder = class {
     container.style.margin = "0 auto";
     container.style.padding = "20px";
     container.style.boxSizing = "border-box";
-    container.className = `timeflow-theme-${this.settings.theme}`;
     return container;
   }
   injectStyles() {
@@ -3028,23 +3125,11 @@ var UIBuilder = class {
 				text-align: center;
 				max-width: 100%;
 				min-height: 44px;
-				background: linear-gradient(135deg, #f0f4c3, #e1f5fe);
-				color: #1a1a1a;
+				background: var(--background-primary-alt);
+				color: var(--text-normal);
 				font-weight: bold;
 				font-variant-numeric: tabular-nums;
 				box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-			}
-
-			/* Dark theme - Clock badge uses consistent dark gradient */
-			.timeflow-theme-dark .tf-clock {
-				background: linear-gradient(135deg, #2d3a2d, #2d3d45);
-				color: #e0e0e0;
-			}
-
-			/* System theme - Clock badge adapts to Obsidian theme */
-			.timeflow-theme-system .tf-clock {
-				background: var(--background-primary-alt);
-				color: var(--text-normal);
 				border: 1px solid var(--background-modifier-border);
 			}
 
@@ -3165,12 +3250,13 @@ var UIBuilder = class {
 			.tf-card {
 				padding: 20px;
 				border-radius: 12px;
-				background: linear-gradient(135deg, #f0f4c3, #e1f5fe);
-				color: #1a1a1a;
-				box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+				background: var(--background-primary-alt);
+				color: var(--text-normal);
+				box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 				box-sizing: border-box;
 				min-width: 0;
 				overflow: hidden;
+				border: 1px solid var(--background-modifier-border);
 			}
 
 			.tf-card-spaced {
@@ -3181,7 +3267,7 @@ var UIBuilder = class {
 				margin-top: 0;
 				margin-bottom: 15px;
 				font-size: 18px;
-				color: #1a1a1a;
+				color: var(--text-normal);
 			}
 
 			/* Daily and Weekly cards use dynamic backgrounds set in updateDayCard/updateWeekCard */
@@ -3191,59 +3277,34 @@ var UIBuilder = class {
 				position: relative;
 			}
 
-			/* System theme - match Obsidian's theme */
-			.timeflow-theme-system .tf-card {
+			/* Stats and history cards */
+			.tf-card-stats,
+			.tf-card-history {
 				background: var(--background-primary-alt);
 				color: var(--text-normal);
-				border: 1px solid var(--background-modifier-border);
 			}
 
-			.timeflow-theme-system .tf-card h3 {
+			.tf-card-stats h3,
+			.tf-card-history h3 {
 				color: var(--text-normal);
 			}
 
-			.timeflow-theme-system .tf-card-stats {
-				background: var(--background-primary-alt) !important;
-				color: var(--text-normal) !important;
-			}
-
-			.timeflow-theme-system .tf-card-stats h3 {
-				color: var(--text-normal) !important;
-			}
-
-			.timeflow-theme-system .tf-card-history {
-				background: var(--background-primary-alt) !important;
-				color: var(--text-normal) !important;
-			}
-
-			.timeflow-theme-system .tf-card-history h3 {
-				color: var(--text-normal) !important;
-			}
-
-			.timeflow-theme-system .tf-stat-item {
+			.tf-stat-item {
 				background: var(--background-secondary);
 				color: var(--text-normal);
 			}
 
-			.timeflow-theme-system .tf-stat-label {
+			.tf-stat-label,
+			.tf-stat-value {
 				color: var(--text-normal);
 			}
 
-			.timeflow-theme-system .tf-stat-value {
+			.tf-stat-item div,
+			.tf-stat-item .tf-stat-label {
 				color: var(--text-normal);
 			}
 
-			/* System theme - ensure all text inside stat items is readable */
-			.timeflow-theme-system .tf-stat-item div {
-				color: var(--text-normal);
-			}
-
-			.timeflow-theme-system .tf-stat-item .tf-stat-label {
-				color: var(--text-normal);
-			}
-
-			/* System theme - stat labels in card stats should be readable */
-			.timeflow-theme-system .tf-card-stats .tf-stat-label {
+			.tf-card-stats .tf-stat-label {
 				color: var(--text-normal);
 			}
 
@@ -3255,32 +3316,14 @@ var UIBuilder = class {
 				color: white !important;
 			}
 
-			/* Dark theme - internally consistent with dark greens and blues */
-			.timeflow-theme-dark .tf-card {
-				background: linear-gradient(135deg, #2d3a2d, #2d3d45);
-				color: #e0e0e0;
-			}
-
-			.timeflow-theme-dark .tf-card h3 {
-				color: #e0e0e0;
-			}
-
-			.timeflow-theme-dark .tf-badge {
-				/* Badge colors are set dynamically in updateBadge() */
-			}
-
-			/* Light theme - Progress bar */
+			/* Progress bar */
 			.tf-progress-bar {
 				width: 100%;
 				height: 12px;
-				background: #ddd;
+				background: var(--background-secondary);
 				border-radius: 6px;
 				overflow: hidden;
 				margin: 10px 0;
-			}
-
-			.timeflow-theme-dark .tf-progress-bar {
-				background: rgba(255, 255, 255, 0.1);
 			}
 
 			/* Light theme - Progress fill uses green gradient from timeflow.js */
@@ -3288,10 +3331,6 @@ var UIBuilder = class {
 				height: 100%;
 				background: linear-gradient(90deg, #4caf50, #2e7d32);
 				transition: width 0.3s ease;
-			}
-
-			.timeflow-theme-dark .tf-progress-fill {
-				background: linear-gradient(90deg, #4caf50, #2e7d32);
 			}
 
 			.tf-month-grid {
@@ -3311,7 +3350,7 @@ var UIBuilder = class {
 
 			.tf-week-number-cell {
 				font-size: clamp(9px, 2cqw, 11px);
-				color: #1a1a1a;
+				color: var(--text-normal);
 				display: flex;
 				align-items: center;
 				justify-content: center;
@@ -3323,15 +3362,19 @@ var UIBuilder = class {
 			/* Week compliance colors */
 			.tf-week-number-cell.week-ok {
 				background: linear-gradient(135deg, #c8e6c9, #a5d6a7);
+				color: #ffffff;
 			}
 			.tf-week-number-cell.week-over {
 				background: linear-gradient(135deg, #ffe0b2, #ffcc80);
+				color: #000000;
 			}
 			.tf-week-number-cell.week-under {
 				background: linear-gradient(135deg, #ffcdd2, #ef9a9a);
+				color: #ffffff;
 			}
 			.tf-week-number-cell.week-partial {
 				background: linear-gradient(135deg, #e0e0e0, #bdbdbd);
+				color: #000000;
 			}
 			.tf-week-number-cell.week-future {
 				background: transparent;
@@ -3387,14 +3430,14 @@ var UIBuilder = class {
 				overflow: hidden;
 			}
 
-			/* Days with entries - black text in all themes */
+			/* Days with entries - text color set dynamically based on special day */
 			.tf-day-cell.has-entry {
-				color: #000000;
+				color: var(--text-normal);
 			}
 
-			/* Days without entries - dark grey text in all themes */
+			/* Days without entries */
 			.tf-day-cell.no-entry {
-				color: #4a4a4a;
+				color: var(--text-muted);
 			}
 
 			.tf-day-cell:hover {
@@ -3403,52 +3446,8 @@ var UIBuilder = class {
 			}
 
 			.tf-day-cell.today {
-				border-color: #4caf50;
-				font-weight: bold;
-			}
-
-			.timeflow-theme-system .tf-day-cell.today {
 				border-color: var(--interactive-accent);
-			}
-
-			/* Light theme - Stats card uses green gradient from timeflow.js */
-			.tf-card-stats {
-				background: linear-gradient(135deg, #e8f5e9, #c8e6c9) !important;
-				color: #1a1a1a !important;
-			}
-
-			.tf-card-stats h3 {
-				color: #1a1a1a !important;
-			}
-
-			/* Dark theme - Stats card uses darker consistent greens */
-			.timeflow-theme-dark .tf-card-stats {
-				background: linear-gradient(135deg, #253d25, #2d4d3d) !important;
-				color: #e0e0e0 !important;
-			}
-
-			.timeflow-theme-dark .tf-card-stats h3 {
-				color: #e0e0e0 !important;
-			}
-
-			/* Light theme - History card uses darker green from timeflow.js */
-			.tf-card-history {
-				background: linear-gradient(135deg, #a8d5ab, #8dc491) !important;
-				color: #1a1a1a !important;
-			}
-
-			.tf-card-history h3 {
-				color: #1a1a1a !important;
-			}
-
-			/* Dark theme - History card uses consistent dark greens */
-			.timeflow-theme-dark .tf-card-history {
-				background: linear-gradient(135deg, #2d4528, #2d5035) !important;
-				color: #e0e0e0 !important;
-			}
-
-			.timeflow-theme-dark .tf-card-history h3 {
-				color: #e0e0e0 !important;
+				font-weight: bold;
 			}
 
 			.tf-stats-grid {
@@ -3475,11 +3474,7 @@ var UIBuilder = class {
 					display: block;
 					margin-top: 20px;
 					padding-top: 15px;
-					border-top: 1px solid rgba(0, 0, 0, 0.1);
-				}
-
-				.timeflow-theme-dark .tf-future-days-list {
-					border-top-color: rgba(255, 255, 255, 0.1);
+					border-top: 1px solid var(--background-modifier-border);
 				}
 
 				.tf-future-days-list h4 {
@@ -3495,11 +3490,7 @@ var UIBuilder = class {
 					align-items: center;
 					padding: 6px 0;
 					font-size: 13px;
-					border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-				}
-
-				.timeflow-theme-dark .tf-future-day-item {
-					border-bottom-color: rgba(255, 255, 255, 0.05);
+					border-bottom: 1px solid var(--background-modifier-border);
 				}
 
 				.tf-future-day-item:last-child {
@@ -3518,60 +3509,28 @@ var UIBuilder = class {
 				}
 			}
 
-			/* Light theme - Stat items match timeflow.js */
+			/* Stat items */
 			.tf-stat-item {
 				padding: 15px;
-				background: rgba(155, 155, 155, 0.4);
+				background: var(--background-secondary);
 				border-radius: 8px;
-				color: #1a1a1a;
-			}
-
-			/* Dark theme - Stat items use semi-transparent white for consistency */
-			.timeflow-theme-dark .tf-stat-item {
-				background: rgba(255, 255, 255, 0.1);
-				color: #e0e0e0;
+				color: var(--text-normal);
 			}
 
 			.tf-stat-label {
 				font-size: 12px;
 				margin-bottom: 5px;
-			}
-
-			/* Light theme - stat labels should be dark but slightly muted */
-			.tf-card-stats .tf-stat-label {
-				color: rgba(26, 26, 26, 0.7);
-			}
-
-			/* Dark theme - stat labels should be light but slightly muted */
-			.timeflow-theme-dark .tf-card-stats .tf-stat-label {
-				color: rgba(224, 224, 224, 0.7);
+				color: var(--text-muted);
 			}
 
 			.tf-stat-value {
 				font-size: 20px;
 				font-weight: bold;
-			}
-
-			/* Light theme - stat values should be dark */
-			.tf-card-stats .tf-stat-value {
-				color: #1a1a1a;
-			}
-
-			/* Dark theme - stat values should be light */
-			.timeflow-theme-dark .tf-card-stats .tf-stat-value {
-				color: #e0e0e0;
+				color: var(--text-normal);
 			}
 
 			/* Timeframe label styling */
 			.tf-timeframe-label {
-				color: #1a1a1a;
-			}
-
-			.timeflow-theme-dark .tf-timeframe-label {
-				color: #e0e0e0;
-			}
-
-			.timeflow-theme-system .tf-timeframe-label {
 				color: var(--text-normal);
 			}
 
@@ -3586,8 +3545,8 @@ var UIBuilder = class {
 				padding: 6px 12px;
 				cursor: pointer;
 				border: none;
-				background: rgba(0, 0, 0, 0.1);
-				color: #1a1a1a !important;
+				background: var(--background-secondary);
+				color: var(--text-normal);
 				font-size: 0.9em;
 				border-radius: 6px;
 				transition: all 0.2s;
@@ -3595,44 +3554,14 @@ var UIBuilder = class {
 			}
 
 			.tf-tab.active {
-				background: rgba(0, 0, 0, 0.2);
-				color: #1a1a1a !important;
+				background: var(--interactive-accent);
+				color: var(--text-on-accent);
 				font-weight: bold;
 			}
 
 			.tf-tab:hover {
-				background: rgba(0, 0, 0, 0.15);
-				color: #1a1a1a !important;
-			}
-
-			.timeflow-theme-dark .tf-tab {
-				background: rgba(255, 255, 255, 0.1);
-				color: #e0e0e0 !important;
-			}
-
-			.timeflow-theme-dark .tf-tab.active {
-				background: rgba(255, 255, 255, 0.2);
-				color: #e0e0e0 !important;
-			}
-
-			.timeflow-theme-dark .tf-tab:hover {
-				background: rgba(255, 255, 255, 0.15);
-				color: #e0e0e0 !important;
-			}
-
-			.timeflow-theme-system .tf-tab {
-				background: var(--background-modifier-border);
-				color: var(--text-normal) !important;
-			}
-
-			.timeflow-theme-system .tf-tab.active {
-				background: var(--interactive-accent);
-				color: var(--text-on-accent) !important;
-			}
-
-			.timeflow-theme-system .tf-tab:hover {
 				background: var(--background-modifier-hover);
-				color: var(--text-normal) !important;
+				color: var(--text-normal);
 			}
 
 			.tf-button {
@@ -3741,10 +3670,6 @@ var UIBuilder = class {
 				}
 			}
 
-			.timeflow-theme-dark .tf-context-menu-info {
-				background: rgba(0, 0, 0, 0.2);
-			}
-
 			.tf-context-menu-info h4 {
 				margin: 0 0 8px 0;
 				font-size: 0.95em;
@@ -3789,10 +3714,6 @@ var UIBuilder = class {
 				color: var(--text-normal);
 			}
 
-			.timeflow-theme-dark .tf-compliance-info-panel {
-				background: var(--background-secondary);
-			}
-
 			.tf-menu-item {
 				padding: 8px 16px;
 				cursor: pointer;
@@ -3800,37 +3721,17 @@ var UIBuilder = class {
 				display: flex;
 				align-items: center;
 				gap: 10px;
-				color: #1a1a1a;
-			}
-
-			.timeflow-theme-dark .tf-menu-item {
-				color: #e0e0e0;
-			}
-
-			.timeflow-theme-system .tf-menu-item {
 				color: var(--text-normal);
 			}
 
 			.tf-menu-item:hover {
-				background: rgba(76, 175, 80, 0.2);
-			}
-
-			.timeflow-theme-system .tf-menu-item:hover {
 				background: var(--background-modifier-hover);
 			}
 
 			.tf-menu-separator {
 				height: 1px;
-				background: rgba(0, 0, 0, 0.2);
-				margin: 4px 0;
-			}
-
-			.timeflow-theme-dark .tf-menu-separator {
-				background: rgba(255, 255, 255, 0.2);
-			}
-
-			.timeflow-theme-system .tf-menu-separator {
 				background: var(--background-modifier-border);
+				margin: 4px 0;
 			}
 
 			/* Submenu styles */
@@ -3846,23 +3747,13 @@ var UIBuilder = class {
 				position: absolute;
 				left: 100%;
 				top: 0;
-				background: linear-gradient(135deg, #f0f4c3, #e1f5fe);
-				border: 2px solid #4caf50;
+				background: var(--background-primary);
+				border: 1px solid var(--background-modifier-border);
 				border-radius: 8px;
 				box-shadow: 0 4px 12px rgba(0,0,0,0.3);
 				padding: 4px;
 				min-width: 180px;
 				z-index: 1001;
-			}
-
-			.timeflow-theme-dark .tf-submenu {
-				background: linear-gradient(135deg, #2d3a2d, #2d3d45);
-				border: 2px solid #4caf50;
-			}
-
-			.timeflow-theme-system .tf-submenu {
-				background: var(--background-primary);
-				border: 1px solid var(--background-modifier-border);
 			}
 
 			.tf-menu-item-with-submenu:hover .tf-submenu {
@@ -3896,6 +3787,224 @@ var UIBuilder = class {
 			.tf-collapsible-content.open {
 				max-height: none;
 				overflow: visible;
+			}
+
+			/* Info section two-column grid */
+			.tf-info-grid {
+				display: grid;
+				grid-template-columns: 1fr;
+				gap: 20px;
+				margin-top: 15px;
+			}
+
+			.tf-info-column {
+				display: flex;
+				flex-direction: column;
+				gap: 15px;
+			}
+
+			.tf-info-box {
+				padding: 12px;
+				background: var(--background-primary);
+				border-radius: 8px;
+			}
+
+			.tf-info-box h4 {
+				margin: 0 0 10px 0;
+				font-size: 0.95em;
+			}
+
+			/* Two columns when dashboard is wide enough */
+			@container dashboard (min-width: 500px) {
+				.tf-info-grid {
+					grid-template-columns: 1fr 1fr;
+				}
+			}
+
+			/* History header layout */
+			.tf-history-header {
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+				gap: 10px;
+			}
+
+			.tf-history-controls {
+				display: flex;
+				align-items: center;
+				gap: 10px;
+				flex: 0 0 auto;
+			}
+
+			/* History filter chips */
+			.tf-history-filters {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 8px;
+				padding: 10px 0;
+				border-bottom: 1px solid var(--background-modifier-border);
+				margin-bottom: 10px;
+			}
+
+			.tf-filter-chip {
+				padding: 4px 12px;
+				border-radius: 16px;
+				border: 1px solid var(--background-modifier-border);
+				background: var(--background-primary);
+				color: var(--text-normal);
+				cursor: pointer;
+				font-size: 0.85em;
+				transition: all 0.15s ease;
+			}
+
+			.tf-filter-chip:hover {
+				background: var(--background-secondary);
+			}
+
+			.tf-filter-chip.active {
+				background: var(--interactive-accent);
+				color: var(--text-on-accent);
+				border-color: var(--interactive-accent);
+			}
+
+			/* History table - shared styles for consistent column widths */
+			.tf-history-table-wide,
+			.tf-history-table-narrow {
+				width: 100%;
+				border-collapse: collapse;
+				margin-bottom: 15px;
+				table-layout: fixed;
+			}
+
+			.tf-history-table-wide th,
+			.tf-history-table-wide td,
+			.tf-history-table-narrow th,
+			.tf-history-table-narrow td {
+				padding: 8px;
+				color: var(--text-normal);
+				border-bottom: 1px solid var(--background-modifier-border);
+				overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+			}
+
+			.tf-history-table-wide thead tr,
+			.tf-history-table-narrow thead tr {
+				background: var(--background-secondary);
+			}
+
+			/* Fixed column widths for wide table */
+			.tf-history-table-wide th:nth-child(1),
+			.tf-history-table-wide td:nth-child(1) { width: 100px; } /* Dato */
+			.tf-history-table-wide th:nth-child(2),
+			.tf-history-table-wide td:nth-child(2) { width: 120px; } /* Type */
+			.tf-history-table-wide th:nth-child(3),
+			.tf-history-table-wide td:nth-child(3) { width: 80px; } /* Start */
+			.tf-history-table-wide th:nth-child(4),
+			.tf-history-table-wide td:nth-child(4) { width: 80px; } /* Slutt */
+			.tf-history-table-wide th:nth-child(5),
+			.tf-history-table-wide td:nth-child(5) { width: 70px; } /* Timer */
+			.tf-history-table-wide th:nth-child(6),
+			.tf-history-table-wide td:nth-child(6) { width: 80px; } /* Fleksitid */
+			.tf-history-table-wide th:nth-child(7),
+			.tf-history-table-wide td:nth-child(7) { width: 40px; } /* Delete */
+
+			/* Fixed column widths for narrow table */
+			.tf-history-table-narrow th:nth-child(1),
+			.tf-history-table-narrow td:nth-child(1) { width: 100px; } /* Dato */
+			.tf-history-table-narrow th:nth-child(2),
+			.tf-history-table-narrow td:nth-child(2) { width: auto; } /* Type */
+			.tf-history-table-narrow th:nth-child(3),
+			.tf-history-table-narrow td:nth-child(3) { width: 70px; } /* Timer */
+			.tf-history-table-narrow th:nth-child(4),
+			.tf-history-table-narrow td:nth-child(4) { width: 80px; } /* Fleksitid */
+			.tf-history-table-narrow th:nth-child(5),
+			.tf-history-table-narrow td:nth-child(5) { width: 50px; } /* Handling */
+
+			.tf-history-table-wide input[type="time"] {
+				padding: 4px 6px;
+				border: 1px solid var(--background-modifier-border);
+				border-radius: 4px;
+				background: var(--background-primary);
+				color: var(--text-normal);
+				font-size: 0.9em;
+				width: 100%;
+				box-sizing: border-box;
+			}
+
+			.tf-history-table-wide select {
+				padding: 4px 6px;
+				border: 1px solid var(--background-modifier-border);
+				border-radius: 4px;
+				background: var(--background-primary);
+				color: var(--text-normal);
+				font-size: 0.9em;
+				width: 100%;
+				box-sizing: border-box;
+			}
+
+			.tf-history-table-wide input:focus,
+			.tf-history-table-wide select:focus {
+				outline: none;
+				border-color: var(--interactive-accent);
+			}
+
+			.tf-history-edit-btn {
+				padding: 4px 10px;
+				border-radius: 4px;
+				border: 1px solid var(--background-modifier-border);
+				background: var(--background-primary);
+				color: var(--text-normal);
+				cursor: pointer;
+				font-size: 0.85em;
+				white-space: nowrap;
+				min-width: 80px;
+			}
+
+			.tf-history-edit-btn:hover {
+				background: var(--background-secondary);
+			}
+
+			.tf-history-edit-btn.active {
+				background: var(--interactive-accent);
+				color: var(--text-on-accent);
+				border-color: var(--interactive-accent);
+			}
+
+			/* Hide edit button in narrow mode */
+			.tf-history-edit-btn.tf-hide-narrow {
+				display: none;
+			}
+
+			.tf-history-delete-btn {
+				padding: 4px 8px;
+				border: none;
+				background: transparent;
+				color: var(--text-muted);
+				cursor: pointer;
+				font-size: 1em;
+				opacity: 0.7;
+				transition: opacity 0.15s ease;
+			}
+
+			.tf-history-delete-btn:hover {
+				opacity: 1;
+				color: #f44336;
+			}
+
+			.tf-history-add-row {
+				cursor: pointer;
+			}
+
+			.tf-history-add-row td {
+				text-align: center;
+				color: var(--text-muted);
+				padding: 8px;
+			}
+
+			.tf-history-add-row:hover td {
+				background: var(--background-secondary);
+				color: var(--text-normal);
 			}
 
 			/* Delete confirmation dialog */
@@ -4297,82 +4406,102 @@ var UIBuilder = class {
     header.innerHTML = "<h3 style='margin:0'>Informasjon</h3>";
     const content = document.createElement("div");
     content.className = "tf-collapsible-content";
-    const halfDayHours = this.settings.halfDayMode === "percentage" ? this.settings.baseWorkday / 2 : this.settings.halfDayHours;
-    const halfDayReduction = this.settings.baseWorkday - halfDayHours;
-    const specialDayInfo = [
-      { key: "avspasering", emoji: "\u{1F6CC}", desc: "Trekkes fra fleksitid" },
-      { key: "egenmelding", emoji: "\u{1F912}", desc: "P\xE5virker ikke fleksitid" },
-      { key: "ferie", emoji: "\u{1F3D6}\uFE0F", desc: "P\xE5virker ikke fleksitid" },
-      { key: "velferdspermisjon", emoji: "\u{1F3E5}", desc: "P\xE5virker ikke fleksitid" },
-      { key: "studie", emoji: "\u{1F4D6}", desc: `Teller som fleksitid ved mer enn ${this.settings.baseWorkday}t` },
-      { key: "kurs", emoji: "\u{1F4DA}", desc: `Teller som fleksitid ved mer enn ${this.settings.baseWorkday}t` },
-      { key: "helligdag", emoji: "\u{1F389}", desc: "Offentlig fridag - p\xE5virker ikke fleksitid" },
-      { key: "halfday", emoji: "\u23F0", desc: `Halv arbeidsdag (${halfDayHours}t) - reduserer ukem\xE5let med ${halfDayReduction}t` },
-      { key: "Ingen registrering", emoji: "\u26AA", desc: "Ingen data for den dagen" }
-    ];
+    const specialDayInfo = this.settings.specialDayBehaviors.filter((b) => !b.isWorkType).map((behavior) => ({
+      key: behavior.id,
+      emoji: behavior.icon,
+      desc: this.getFlextimeEffectDescription(behavior)
+    }));
+    specialDayInfo.push({ key: "Ingen registrering", emoji: "\u26AA", desc: "Ingen data for den dagen" });
     content.innerHTML = `
-			<div style="margin-top: 15px;">
-				<h4>Spesielle dagtyper</h4>
-				<ul style="list-style: none; padding-left: 0; margin-bottom: 20px;">
-					${specialDayInfo.map((item) => {
+			<div class="tf-info-grid">
+				<!-- Left Column: Dagtyper og farger -->
+				<div class="tf-info-column">
+					<div class="tf-info-box">
+						<h4>Spesielle dagtyper</h4>
+						<ul style="list-style: none; padding-left: 0; margin: 0;">
+							${specialDayInfo.map((item) => {
       var _a2, _b2;
       const color = getSpecialDayColors(this.settings)[item.key] || "transparent";
       const label = ((_a2 = this.settings.specialDayBehaviors.find((b) => b.id === item.key)) == null ? void 0 : _a2.label) || ((_b2 = this.settings.specialDayLabels) == null ? void 0 : _b2[item.key]) || item.key;
-      return `<li style="display: flex; align-items: center; margin-bottom: 8px; font-size: 0.95em;">
-							<div style="width: 16px; height: 16px; background: ${color}; border-radius: 3px; border: 1px solid var(--background-modifier-border); margin-right: 8px; flex-shrink: 0;"></div>
-							<span>${item.emoji} <strong>${label}</strong>: ${item.desc}</span>
-						</li>`;
+      return `<li style="display: flex; align-items: center; margin-bottom: 8px; font-size: 0.9em;">
+									<div style="width: 16px; height: 16px; background: ${color}; border-radius: 3px; border: 1px solid var(--background-modifier-border); margin-right: 8px; flex-shrink: 0;"></div>
+									<span>${item.emoji} <strong>${label}</strong>: ${item.desc}</span>
+								</li>`;
     }).join("")}
-				</ul>
-
-				<div style="margin-top: 20px; padding: 12px; background: var(--background-primary); border-radius: 8px;">
-					<h4 style="margin-top: 0;">Kalenderkontekstmeny</h4>
-					<p style="margin: 8px 0; font-size: 0.9em;">
-						Trykk p\xE5 en dag i kalenderen for \xE5 f\xE5 opp en meny med flere alternativer:
-					</p>
-					<ul style="margin: 8px 0 0 20px; font-size: 0.9em;">
-						<li>Opprett daglig notat for valgt dag</li>
-						<li>Opprett m\xF8tenotat, prosjektnotat eller refleksjonsnotat</li>
-						<li>Rediger fleksitid for dagen manuelt</li>
-						<li>Registrer spesielle dagtyper (ferie, kurs, avspasering, etc.)</li>
-					</ul>
-				</div>
-
-				<div style="margin-top: 20px; padding: 12px; background: var(--background-primary); border-radius: 8px;">
-					<h4 style="margin-top: 0;">Fleksitidsaldo - advarselsoner</h4>
-					<div style="display: flex; flex-direction: column; gap: 8px; font-size: 0.9em;">
-						<div style="display: flex; align-items: center; gap: 8px;">
-							<span style="display: inline-block; width: 20px; height: 20px; border-radius: 4px; background: ${((_a = this.settings.customColors) == null ? void 0 : _a.balanceOk) || "#4caf50"}; flex-shrink: 0;"></span>
-							<span><strong>Gr\xF8nn sone:</strong> ${this.settings.balanceThresholds.warningLow}t til +${this.settings.balanceThresholds.warningHigh}t (trygg)</span>
-						</div>
-						<div style="display: flex; align-items: center; gap: 8px;">
-							<span style="display: inline-block; width: 20px; height: 20px; border-radius: 4px; background: ${((_b = this.settings.customColors) == null ? void 0 : _b.balanceWarning) || "#ff9800"}; flex-shrink: 0;"></span>
-							<span><strong>Gul sone:</strong> ${this.settings.balanceThresholds.criticalLow}t til ${this.settings.balanceThresholds.warningLow - 1}t ELLER +${this.settings.balanceThresholds.warningHigh}t til +${this.settings.balanceThresholds.criticalHigh}t (forsiktig)</span>
-						</div>
-						<div style="display: flex; align-items: center; gap: 8px;">
-							<span style="display: inline-block; width: 20px; height: 20px; border-radius: 4px; background: ${((_c = this.settings.customColors) == null ? void 0 : _c.balanceCritical) || "#f44336"}; flex-shrink: 0;"></span>
-							<span><strong>R\xF8d sone:</strong> Under ${this.settings.balanceThresholds.criticalLow}t ELLER over +${this.settings.balanceThresholds.criticalHigh}t (kritisk)</span>
-						</div>
+						</ul>
 					</div>
-					<div style="margin-top: 10px; font-size: 0.85em; opacity: 0.8;">
-						<em>Grenser: ${this.settings.balanceThresholds.criticalLow - 5}t til +${this.settings.balanceThresholds.criticalHigh + 5}t</em>
+
+					<div class="tf-info-box">
+						<h4>Arbeidsdager - fargegradient</h4>
+						<p style="margin: 0 0 10px 0; font-size: 0.9em;">
+							Fargen viser fleksitid i forhold til dagens m\xE5l (${this.settings.baseWorkday}t):
+						</p>
+						<div style="height: 16px; border-radius: 8px; background: linear-gradient(to right, ${this.flextimeColor(0)}, ${this.flextimeColor(1.5)}, ${this.flextimeColor(3)}); margin: 4px 0; border: 1px solid var(--background-modifier-border);"></div>
+						<div style="display: flex; justify-content: space-between; font-size: 0.8em; color: var(--text-muted); margin-bottom: 10px;">
+							<span>0t</span><span>+1,5t</span><span>+3t</span>
+						</div>
+						<div style="height: 16px; border-radius: 8px; background: linear-gradient(to right, ${this.flextimeColor(-3)}, ${this.flextimeColor(-1.5)}, ${this.flextimeColor(0)}); margin: 4px 0; border: 1px solid var(--background-modifier-border);"></div>
+						<div style="display: flex; justify-content: space-between; font-size: 0.8em; color: var(--text-muted);">
+							<span>-3t</span><span>-1,5t</span><span>0t</span>
+						</div>
 					</div>
 				</div>
 
-				<div style="margin-top: 20px;">
-					<h4>Arbeidsdager - fargegradient</h4>
-					<p style="margin: 8px 0; font-size: 0.9em;">
-						Arbeidsdager vises med farge basert p\xE5 hvor mye du jobbet i forhold til dagens m\xE5l (${this.settings.baseWorkday}t):
-					</p>
-					<div style="margin-top: 10px;">
-						<div style="height: 16px; border-radius: 8px; background: linear-gradient(to right, rgb(144,238,144), rgb(89,188,89), rgb(34,139,34)); margin: 4px 0; border: 1px solid var(--background-modifier-border);"></div>
-						<div style="display: flex; justify-content: space-between; font-size: 0.85em; color: var(--text-muted); margin-bottom: 12px;">
-							<span>0t over m\xE5l</span><span>+1,5t</span><span>+3t eller mer</span>
+				<!-- Right Column: Kalender og saldo -->
+				<div class="tf-info-column">
+					<div class="tf-info-box">
+						<h4>Kalenderkontekstmeny</h4>
+						<p style="margin: 0 0 8px 0; font-size: 0.9em;">
+							Trykk p\xE5 en dag i kalenderen for:
+						</p>
+						<ul style="margin: 0 0 0 16px; font-size: 0.9em; padding-left: 0; list-style-position: inside;">
+							<li>Opprett daglig notat</li>
+							<li>Rediger fleksitid manuelt</li>
+							<li>Registrer spesielle dagtyper</li>
+						</ul>
+					</div>
+
+					<div class="tf-info-box">
+						<h4>Fleksitidsaldo - soner</h4>
+						<div style="display: flex; flex-direction: column; gap: 6px; font-size: 0.9em;">
+							<div style="display: flex; align-items: center; gap: 8px;">
+								<span style="display: inline-block; width: 16px; height: 16px; border-radius: 3px; background: ${((_a = this.settings.customColors) == null ? void 0 : _a.balanceOk) || "#4caf50"}; flex-shrink: 0;"></span>
+								<span><strong>Gr\xF8nn:</strong> ${this.settings.balanceThresholds.warningLow}t til +${this.settings.balanceThresholds.warningHigh}t</span>
+							</div>
+							<div style="display: flex; align-items: center; gap: 8px;">
+								<span style="display: inline-block; width: 16px; height: 16px; border-radius: 3px; background: ${((_b = this.settings.customColors) == null ? void 0 : _b.balanceWarning) || "#ff9800"}; flex-shrink: 0;"></span>
+								<span><strong>Gul:</strong> ${this.settings.balanceThresholds.criticalLow}t til ${this.settings.balanceThresholds.warningLow - 1}t / +${this.settings.balanceThresholds.warningHigh}t til +${this.settings.balanceThresholds.criticalHigh}t</span>
+							</div>
+							<div style="display: flex; align-items: center; gap: 8px;">
+								<span style="display: inline-block; width: 16px; height: 16px; border-radius: 3px; background: ${((_c = this.settings.customColors) == null ? void 0 : _c.balanceCritical) || "#f44336"}; flex-shrink: 0;"></span>
+								<span><strong>R\xF8d:</strong> Under ${this.settings.balanceThresholds.criticalLow}t / over +${this.settings.balanceThresholds.criticalHigh}t</span>
+							</div>
 						</div>
-						<div style="height: 16px; border-radius: 8px; background: linear-gradient(to right, rgb(100,150,255), rgb(150,200,255), rgb(200,220,255)); margin: 4px 0; border: 1px solid var(--background-modifier-border);"></div>
-						<div style="display: flex; justify-content: space-between; font-size: 0.85em; color: var(--text-muted);">
-							<span>-3t eller mindre</span><span>-1,5t</span><span>0t fra m\xE5l</span>
+					</div>
+
+					<div class="tf-info-box">
+						<h4>Ukenummer - kompliansfarger</h4>
+						<div style="display: flex; flex-direction: column; gap: 6px; font-size: 0.9em;">
+							<div style="display: flex; align-items: center; gap: 8px;">
+								<span style="display: inline-block; width: 16px; height: 16px; border-radius: 3px; background: linear-gradient(135deg, #c8e6c9, #a5d6a7); flex-shrink: 0;"></span>
+								<span><strong>Gr\xF8nn:</strong> N\xE5dd m\xE5l (\xB10.5t)</span>
+							</div>
+							<div style="display: flex; align-items: center; gap: 8px;">
+								<span style="display: inline-block; width: 16px; height: 16px; border-radius: 3px; background: linear-gradient(135deg, #ffe0b2, #ffcc80); flex-shrink: 0;"></span>
+								<span><strong>Oransje:</strong> Over m\xE5l</span>
+							</div>
+							<div style="display: flex; align-items: center; gap: 8px;">
+								<span style="display: inline-block; width: 16px; height: 16px; border-radius: 3px; background: linear-gradient(135deg, #ffcdd2, #ef9a9a); flex-shrink: 0;"></span>
+								<span><strong>R\xF8d:</strong> Under m\xE5l</span>
+							</div>
+							<div style="display: flex; align-items: center; gap: 8px;">
+								<span style="display: inline-block; width: 16px; height: 16px; border-radius: 3px; background: linear-gradient(135deg, #e0e0e0, #bdbdbd); flex-shrink: 0;"></span>
+								<span><strong>Gr\xE5:</strong> Uke p\xE5g\xE5r</span>
+							</div>
 						</div>
+						<p style="margin: 8px 0 0 0; font-size: 0.8em; opacity: 0.8;">
+							<em>Trykk p\xE5 ukenummer for detaljer.</em>
+						</p>
 					</div>
 				</div>
 			</div>
@@ -4388,16 +4517,31 @@ var UIBuilder = class {
     const card = document.createElement("div");
     card.className = "tf-card tf-card-history tf-card-spaced";
     const header = document.createElement("div");
-    header.className = "tf-collapsible";
-    header.style.display = "flex";
-    header.style.justifyContent = "space-between";
-    header.style.alignItems = "center";
-    header.style.flexWrap = "wrap";
-    header.style.gap = "10px";
+    header.className = "tf-collapsible tf-history-header";
     const title = document.createElement("h3");
     title.textContent = "Historikk";
     title.style.margin = "0";
+    title.style.flex = "1 1 auto";
     header.appendChild(title);
+    const rightControls = document.createElement("div");
+    rightControls.className = "tf-history-controls";
+    const content = document.createElement("div");
+    content.className = "tf-collapsible-content";
+    const detailsElement = document.createElement("div");
+    detailsElement.className = "tf-history-content";
+    detailsElement.style.maxHeight = "500px";
+    detailsElement.style.overflow = "auto";
+    const editToggle = document.createElement("button");
+    editToggle.className = `tf-history-edit-btn ${this.inlineEditMode ? "active" : ""}`;
+    editToggle.textContent = this.inlineEditMode ? "\u2713 Ferdig" : "\u270F\uFE0F Rediger";
+    editToggle.onclick = (e) => {
+      e.stopPropagation();
+      this.inlineEditMode = !this.inlineEditMode;
+      editToggle.textContent = this.inlineEditMode ? "\u2713 Ferdig" : "\u270F\uFE0F Rediger";
+      editToggle.classList.toggle("active", this.inlineEditMode);
+      this.refreshHistoryView(detailsElement);
+    };
+    rightControls.appendChild(editToggle);
     const tabs = document.createElement("div");
     tabs.className = "tf-tabs";
     tabs.style.marginBottom = "0";
@@ -4406,17 +4550,16 @@ var UIBuilder = class {
       { id: "list", label: "Liste" },
       { id: "heatmap", label: "Heatmap" }
     ];
-    const content = document.createElement("div");
-    content.className = "tf-collapsible-content";
-    const detailsElement = document.createElement("div");
-    detailsElement.style.maxHeight = "500px";
-    detailsElement.style.overflow = "auto";
     views.forEach((view) => {
       const tab = document.createElement("button");
       tab.textContent = view.label;
       tab.className = `tf-tab ${this.historyView === view.id ? "active" : ""}`;
-      tab.onclick = () => {
+      tab.onclick = (e) => {
+        e.stopPropagation();
         this.historyView = view.id;
+        this.inlineEditMode = false;
+        editToggle.textContent = "\u270F\uFE0F Rediger";
+        editToggle.classList.remove("active");
         tabs.querySelectorAll(".tf-tab").forEach((t) => t.classList.remove("active"));
         tab.classList.add("active");
         if (!content.classList.contains("open")) {
@@ -4426,15 +4569,21 @@ var UIBuilder = class {
       };
       tabs.appendChild(tab);
     });
-    header.appendChild(tabs);
+    rightControls.appendChild(tabs);
+    header.appendChild(rightControls);
+    card._editToggle = editToggle;
+    card._detailsElement = detailsElement;
     content.appendChild(detailsElement);
-    title.onclick = () => {
+    header.onclick = () => {
       content.classList.toggle("open");
     };
-    title.style.cursor = "pointer";
+    header.style.cursor = "pointer";
     card.appendChild(header);
     card.appendChild(content);
     this.refreshHistoryView(detailsElement);
+    requestAnimationFrame(() => {
+      this.updateEditToggleVisibility(detailsElement);
+    });
     return card;
   }
   buildStatusBar() {
@@ -4512,6 +4661,44 @@ var UIBuilder = class {
     }
     return bar;
   }
+  buildViewToggle() {
+    const container = document.createElement("div");
+    container.style.cssText = "display: flex; justify-content: flex-end; margin-top: 8px;";
+    const viewToggle = document.createElement("button");
+    const isInSidebar = this.isViewInSidebar();
+    viewToggle.className = "tf-view-toggle";
+    viewToggle.style.cssText = `
+			background: var(--background-secondary);
+			border: 1px solid var(--background-modifier-border);
+			border-radius: 4px;
+			padding: 6px 10px;
+			cursor: pointer;
+			font-size: 12px;
+			display: flex;
+			align-items: center;
+			gap: 6px;
+			color: var(--text-normal);
+			transition: background 0.2s, border-color 0.2s;
+			font-weight: 500;
+		`;
+    viewToggle.innerHTML = isInSidebar ? `<span style="font-size: 14px;">\u229E</span> Move to main area` : `<span style="font-size: 14px;">\u25E7</span> Move to sidebar`;
+    viewToggle.title = isInSidebar ? "Open in main content area" : "Open in right sidebar";
+    viewToggle.onmouseenter = () => {
+      viewToggle.style.background = "var(--background-modifier-hover)";
+      viewToggle.style.borderColor = "var(--interactive-accent)";
+    };
+    viewToggle.onmouseleave = () => {
+      viewToggle.style.background = "var(--background-secondary)";
+      viewToggle.style.borderColor = "var(--background-modifier-border)";
+    };
+    viewToggle.onclick = (e) => {
+      e.stopPropagation();
+      const newLocation = isInSidebar ? "main" : "sidebar";
+      this.plugin.moveViewToLocation(newLocation);
+    };
+    container.appendChild(viewToggle);
+    return container;
+  }
   updateClock() {
     if (!this.elements.clock)
       return;
@@ -4532,6 +4719,17 @@ var UIBuilder = class {
     this.elements.badge.style.background = color;
     this.elements.badge.style.color = "white";
     this.elements.badge.textContent = `Fleksitidsaldo: ${sign}${formatted}`;
+  }
+  /**
+   * Check if the current view is in the sidebar (right or left)
+   */
+  isViewInSidebar() {
+    const leaves = this.app.workspace.getLeavesOfType("timeflow-view");
+    if (leaves.length === 0)
+      return true;
+    const leaf = leaves[0];
+    const root = leaf.getRoot();
+    return root === this.app.workspace.rightSplit || root === this.app.workspace.leftSplit;
   }
   /**
    * Get compliance status: 'ok' | 'approaching' | 'exceeded'
@@ -4636,8 +4834,6 @@ var UIBuilder = class {
     const restCheck = this.data.checkRestPeriodViolation(todayStr);
     const panel = document.createElement("div");
     panel.className = "tf-compliance-info-panel";
-    const themeClass = `timeflow-theme-${this.settings.theme}`;
-    panel.classList.add(themeClass);
     let html = "<h4>\u2696\uFE0F Arbeidstidsgrenser</h4>";
     const dailyIcon = dailyStatus === "ok" ? "\u{1F7E9}" : dailyStatus === "approaching" ? "\u{1F7E8}" : "\u{1F7E5}";
     html += `<p><strong>I dag:</strong> ${dailyIcon} ${todayHours.toFixed(1)}t / ${dailyLimit}t</p>`;
@@ -4711,10 +4907,10 @@ var UIBuilder = class {
     const todayHours = this.data.getTodayHours(today);
     this.updateComplianceBadge();
     if (!this.settings.enableGoalTracking) {
-      this.elements.dayCard.style.background = "linear-gradient(135deg, #607d8b, #78909c)";
-      this.elements.dayCard.style.color = "white";
+      this.elements.dayCard.style.background = "var(--background-secondary)";
+      this.elements.dayCard.style.color = "var(--text-normal)";
       this.elements.dayCard.innerHTML = `
-				<h3 style="color: white;">I dag</h3>
+				<h3 style="color: inherit;">I dag</h3>
 				<div style="font-size: 32px; font-weight: bold; margin: 10px 0;">
 					${Utils.formatHoursToHM(todayHours, this.settings.hourUnit)}
 				</div>
@@ -4785,11 +4981,11 @@ var UIBuilder = class {
     const currentWeekNumber = Utils.getWeekNumber(today);
     const weekBadgeHtml = this.settings.showWeekNumbers ? `<div class="tf-week-badge">Uke ${currentWeekNumber}</div>` : "";
     if (!this.settings.enableGoalTracking) {
-      this.elements.weekCard.style.background = "linear-gradient(135deg, #607d8b, #78909c)";
-      this.elements.weekCard.style.color = "white";
+      this.elements.weekCard.style.background = "var(--background-secondary)";
+      this.elements.weekCard.style.color = "var(--text-normal)";
       this.elements.weekCard.innerHTML = `
 				${weekBadgeHtml}
-				<h3 style="color: white;">Denne uken</h3>
+				<h3 style="color: inherit;">Denne uken</h3>
 				<div style="font-size: 32px; font-weight: bold; margin: 10px 0;">
 					${Utils.formatHoursToHM(weekHours, this.settings.hourUnit)}
 				</div>
@@ -4843,8 +5039,8 @@ var UIBuilder = class {
     let bgColor;
     let textColor;
     if (!this.settings.enableWeeklyGoals) {
-      bgColor = "linear-gradient(135deg, #607d8b, #78909c)";
-      textColor = "white";
+      bgColor = "var(--background-secondary)";
+      textColor = "var(--text-normal)";
     } else if (weekHours <= adjustedGoal) {
       bgColor = "linear-gradient(135deg, #4caf50, #81c784)";
       textColor = "white";
@@ -5238,31 +5434,36 @@ var UIBuilder = class {
       const holidayInfo = this.data.getHolidayInfo(dateKey);
       const dayEntries = this.data.daily[dateKey];
       const specialDayColors = getSpecialDayColors(this.settings);
+      const specialDayTextColors = getSpecialDayTextColors(this.settings);
       const specialEntry = dayEntries == null ? void 0 : dayEntries.find(
         (e) => specialDayColors[e.name.toLowerCase()]
       );
       const hasEntry = !!(holidayInfo || specialEntry || dayEntries);
       if (holidayInfo) {
         const colorKey = holidayInfo.halfDay ? "halfday" : holidayInfo.type;
-        cell.style.background = specialDayColors[colorKey] || specialDayColors[holidayInfo.type] || "#eee";
+        cell.style.background = specialDayColors[colorKey] || specialDayColors[holidayInfo.type] || "var(--background-secondary)";
+        cell.style.color = specialDayTextColors[colorKey] || specialDayTextColors[holidayInfo.type] || "var(--text-normal)";
       } else if (specialEntry) {
-        cell.style.background = specialDayColors[specialEntry.name.toLowerCase()];
+        const entryKey = specialEntry.name.toLowerCase();
+        cell.style.background = specialDayColors[entryKey];
+        cell.style.color = specialDayTextColors[entryKey] || "var(--text-normal)";
       } else if (dayEntries) {
         if (!this.settings.enableGoalTracking) {
-          cell.style.background = "#78909c";
+          cell.style.background = "var(--background-secondary)";
         } else {
           const dayFlextime = dayEntries.reduce((sum, e) => sum + (e.flextime || 0), 0);
           cell.style.background = this.flextimeColor(dayFlextime);
+          cell.style.color = this.flextimeTextColor(dayFlextime);
         }
       } else if (Utils.isWeekend(date, this.settings)) {
-        cell.style.background = "#b0b0b0";
+        cell.style.background = "var(--background-modifier-border)";
       } else {
         const today = /* @__PURE__ */ new Date();
         today.setHours(0, 0, 0, 0);
         const cellDate = new Date(date);
         cellDate.setHours(0, 0, 0, 0);
         if (cellDate < today) {
-          cell.style.background = "#e0e0e0";
+          cell.style.background = "var(--background-secondary)";
         } else {
           cell.style.background = "transparent";
         }
@@ -5271,13 +5472,7 @@ var UIBuilder = class {
         cell.classList.add("has-entry");
       } else {
         cell.classList.add("no-entry");
-        const today = /* @__PURE__ */ new Date();
-        today.setHours(0, 0, 0, 0);
-        const cellDate = new Date(date);
-        cellDate.setHours(0, 0, 0, 0);
-        if (!Utils.isWeekend(date, this.settings) && cellDate >= today) {
-          cell.style.color = "#ffffff";
-        }
+        cell.style.color = "var(--text-muted)";
       }
       if (dateKey === todayKey) {
         cell.classList.add("today");
@@ -5307,18 +5502,63 @@ var UIBuilder = class {
     return container;
   }
   flextimeColor(val) {
+    var _a;
+    const jobbBehavior = (_a = this.settings.specialDayBehaviors) == null ? void 0 : _a.find((b) => b.id === "jobb");
+    const hexToRgb = (hex) => {
+      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+      return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+      } : { r: 128, g: 128, b: 128 };
+    };
     if (val < 0) {
+      const baseColor = (jobbBehavior == null ? void 0 : jobbBehavior.negativeColor) || "#64b5f6";
+      const rgb = hexToRgb(baseColor);
       const t = Math.min(Math.abs(val) / 3, 1);
-      const r = Math.floor(100 + 50 * t);
-      const g = Math.floor(150 + 50 * t);
-      const b = Math.floor(200 + 55 * t);
+      const r = Math.floor(rgb.r + (255 - rgb.r) * (1 - t) * 0.4);
+      const g = Math.floor(rgb.g + (255 - rgb.g) * (1 - t) * 0.4);
+      const b = Math.floor(rgb.b + (255 - rgb.b) * (1 - t) * 0.4);
       return `rgb(${r},${g},${b})`;
     } else {
+      const baseColor = (jobbBehavior == null ? void 0 : jobbBehavior.color) || "#4caf50";
+      const rgb = hexToRgb(baseColor);
       const t = Math.min(val / 3, 1);
-      const r = Math.floor(144 - 110 * t);
-      const g = Math.floor(238 - 99 * t);
-      const b = Math.floor(144 - 110 * t);
+      const r = Math.floor(rgb.r + (255 - rgb.r) * (1 - t) * 0.4);
+      const g = Math.floor(rgb.g + (255 - rgb.g) * (1 - t) * 0.4);
+      const b = Math.floor(rgb.b + (255 - rgb.b) * (1 - t) * 0.4);
       return `rgb(${r},${g},${b})`;
+    }
+  }
+  flextimeTextColor(val) {
+    var _a;
+    const jobbBehavior = (_a = this.settings.specialDayBehaviors) == null ? void 0 : _a.find((b) => b.id === "jobb");
+    if (val < 0) {
+      return (jobbBehavior == null ? void 0 : jobbBehavior.negativeTextColor) || "#000000";
+    } else {
+      return (jobbBehavior == null ? void 0 : jobbBehavior.textColor) || "#ffffff";
+    }
+  }
+  /**
+   * Generate description for a special day behavior based on its flextimeEffect setting
+   */
+  getFlextimeEffectDescription(behavior) {
+    if (behavior.id === "helligdag") {
+      return "Offentlig fridag - p\xE5virker ikke fleksitid";
+    }
+    if (behavior.id === "halfday") {
+      const halfDayHours = this.settings.halfDayMode === "percentage" ? this.settings.baseWorkday / 2 : this.settings.halfDayHours;
+      const halfDayReduction = this.settings.baseWorkday - halfDayHours;
+      return `Halv arbeidsdag (${halfDayHours}t) - reduserer ukem\xE5let med ${halfDayReduction}t`;
+    }
+    switch (behavior.flextimeEffect) {
+      case "withdraw":
+        return "Trekkes fra fleksitid";
+      case "accumulate":
+        return `Teller som fleksitid ved mer enn ${this.settings.baseWorkday}t`;
+      case "none":
+      default:
+        return "P\xE5virker ikke fleksitid";
     }
   }
   /**
@@ -5533,8 +5773,6 @@ var UIBuilder = class {
       existingMenu.remove();
     const menu = document.createElement("div");
     menu.className = "tf-context-menu";
-    const themeClass = `timeflow-theme-${this.settings.theme}`;
-    menu.classList.add(themeClass);
     const menuMain = document.createElement("div");
     menuMain.className = "tf-context-menu-main";
     let menuLeft = cellRect.right;
@@ -6005,6 +6243,67 @@ var UIBuilder = class {
       typeSelect.appendChild(option);
     });
     content.appendChild(typeSelect);
+    const timeContainer = document.createElement("div");
+    timeContainer.style.marginBottom = "15px";
+    timeContainer.style.display = "none";
+    const timeLabel = document.createElement("div");
+    timeLabel.textContent = "Tidsperiode:";
+    timeLabel.style.marginBottom = "5px";
+    timeLabel.style.fontWeight = "bold";
+    timeContainer.appendChild(timeLabel);
+    const timeInputRow = document.createElement("div");
+    timeInputRow.style.display = "flex";
+    timeInputRow.style.gap = "10px";
+    timeInputRow.style.alignItems = "center";
+    const fromLabel = document.createElement("span");
+    fromLabel.textContent = "Fra:";
+    timeInputRow.appendChild(fromLabel);
+    const fromTimeInput = document.createElement("input");
+    fromTimeInput.type = "time";
+    fromTimeInput.value = "08:00";
+    fromTimeInput.style.padding = "8px";
+    fromTimeInput.style.fontSize = "14px";
+    timeInputRow.appendChild(fromTimeInput);
+    const toLabel = document.createElement("span");
+    toLabel.textContent = "Til:";
+    timeInputRow.appendChild(toLabel);
+    const toTimeInput = document.createElement("input");
+    toTimeInput.type = "time";
+    const workdayHours = this.settings.baseWorkday * this.settings.workPercent;
+    const defaultEndHour = 8 + workdayHours;
+    const endH = Math.floor(defaultEndHour);
+    const endM = Math.round((defaultEndHour - endH) * 60);
+    toTimeInput.value = `${endH.toString().padStart(2, "0")}:${endM.toString().padStart(2, "0")}`;
+    toTimeInput.style.padding = "8px";
+    toTimeInput.style.fontSize = "14px";
+    timeInputRow.appendChild(toTimeInput);
+    timeContainer.appendChild(timeInputRow);
+    const durationDisplay = document.createElement("div");
+    durationDisplay.style.fontSize = "12px";
+    durationDisplay.style.color = "var(--text-muted)";
+    durationDisplay.style.marginTop = "8px";
+    const updateDuration = () => {
+      const from = fromTimeInput.value;
+      const to = toTimeInput.value;
+      if (from && to) {
+        const [fH, fM] = from.split(":").map(Number);
+        const [tH, tM] = to.split(":").map(Number);
+        const hours = tH + tM / 60 - (fH + fM / 60);
+        if (hours > 0) {
+          durationDisplay.textContent = `Varighet: ${hours.toFixed(1)} timer`;
+        } else {
+          durationDisplay.textContent = "Ugyldig tidsperiode";
+        }
+      }
+    };
+    updateDuration();
+    fromTimeInput.addEventListener("change", updateDuration);
+    toTimeInput.addEventListener("change", updateDuration);
+    timeContainer.appendChild(durationDisplay);
+    content.appendChild(timeContainer);
+    typeSelect.addEventListener("change", () => {
+      timeContainer.style.display = typeSelect.value === "avspasering" ? "block" : "none";
+    });
     const noteLabel = document.createElement("div");
     noteLabel.textContent = "Kommentar (valgfritt):";
     noteLabel.style.marginBottom = "5px";
@@ -6032,7 +6331,9 @@ var UIBuilder = class {
     addBtn.onclick = async () => {
       const dayType = typeSelect.value;
       const note = noteInput.value.trim();
-      await this.addSpecialDay(dateObj, dayType, note);
+      const startTime = dayType === "avspasering" ? fromTimeInput.value : void 0;
+      const endTime = dayType === "avspasering" ? toTimeInput.value : void 0;
+      await this.addSpecialDay(dateObj, dayType, note, startTime, endTime);
       modal.remove();
     };
     buttonDiv.appendChild(addBtn);
@@ -6042,7 +6343,7 @@ var UIBuilder = class {
     document.body.appendChild(modal);
     typeSelect.focus();
   }
-  async addSpecialDay(dateObj, dayType, note = "") {
+  async addSpecialDay(dateObj, dayType, note = "", startTime, endTime) {
     var _a, _b;
     try {
       const filePath = this.settings.holidaysFilePath;
@@ -6068,7 +6369,11 @@ var UIBuilder = class {
         new import_obsidian4.Notice("\u274C Fant ikke kodeblokk i seksjonen");
         return;
       }
-      const newEntry = `- ${dateStr}: ${dayType}: ${note}`;
+      let typeWithModifier = dayType;
+      if (dayType === "avspasering" && startTime && endTime) {
+        typeWithModifier = `${dayType}:${startTime}-${endTime}`;
+      }
+      const newEntry = `- ${dateStr}: ${typeWithModifier}: ${note}`;
       const beforeClosing = content.substring(0, codeBlockEnd);
       const afterClosing = content.substring(codeBlockEnd);
       const needsNewline = !beforeClosing.endsWith("\n");
@@ -6128,7 +6433,26 @@ ${noteType.tags.join(" ")}`;
       const month = dateKey.split("-")[1];
       if (!years[year][month])
         years[year][month] = [];
-      years[year][month].push(...this.data.daily[dateKey]);
+      const dayEntries = this.data.daily[dateKey];
+      dayEntries.forEach((entry) => {
+        if (this.historyView === "list" && this.historyFilter.length > 0) {
+          const entryType = entry.name.toLowerCase();
+          if (!this.historyFilter.includes(entryType)) {
+            return;
+          }
+        }
+        years[year][month].push(entry);
+      });
+    });
+    Object.keys(years).forEach((year) => {
+      Object.keys(years[year]).forEach((month) => {
+        if (years[year][month].length === 0) {
+          delete years[year][month];
+        }
+      });
+      if (Object.keys(years[year]).length === 0) {
+        delete years[year];
+      }
     });
     if (this.historyView === "list") {
       this.renderListView(container, years);
@@ -6137,70 +6461,117 @@ ${noteType.tags.join(" ")}`;
     } else if (this.historyView === "heatmap") {
       this.renderHeatmapView(container, years);
     }
+    this.updateEditToggleVisibility(container);
+  }
+  updateEditToggleVisibility(container) {
+    const historyCard = container.closest(".tf-card-history");
+    if (!historyCard)
+      return;
+    const editToggle = historyCard._editToggle;
+    if (!editToggle)
+      return;
+    const isWide = container.offsetWidth >= 450;
+    const isListView = this.historyView === "list";
+    editToggle.style.display = isWide && isListView ? "block" : "none";
+    editToggle.textContent = this.inlineEditMode ? "\u2713 Ferdig" : "\u270F\uFE0F Rediger";
+    editToggle.classList.toggle("active", this.inlineEditMode);
   }
   renderListView(container, years) {
+    this.renderFilterBar(container);
+    const isWide = container.offsetWidth >= 450;
+    if (isWide) {
+      this.renderWideListView(container, years);
+    } else {
+      this.renderNarrowListView(container, years);
+    }
+    requestAnimationFrame(() => {
+      const actualWidth = container.offsetWidth;
+      const shouldBeWide = actualWidth >= 450;
+      if (shouldBeWide !== isWide) {
+        container.innerHTML = "";
+        this.renderFilterBar(container);
+        if (shouldBeWide) {
+          this.renderWideListView(container, years);
+        } else {
+          this.renderNarrowListView(container, years);
+        }
+      }
+    });
+  }
+  renderFilterBar(container) {
+    const filterBar = document.createElement("div");
+    filterBar.className = "tf-history-filters";
+    const alleChip = document.createElement("button");
+    alleChip.className = `tf-filter-chip ${this.historyFilter.length === 0 ? "active" : ""}`;
+    alleChip.textContent = "Alle";
+    alleChip.onclick = () => {
+      this.historyFilter = [];
+      this.refreshHistoryView(container);
+    };
+    filterBar.appendChild(alleChip);
+    this.settings.specialDayBehaviors.forEach((behavior) => {
+      const chip = document.createElement("button");
+      const isActive = this.historyFilter.includes(behavior.id);
+      chip.className = `tf-filter-chip ${isActive ? "active" : ""}`;
+      chip.textContent = `${behavior.icon} ${behavior.label}`;
+      chip.onclick = () => {
+        if (isActive) {
+          this.historyFilter = this.historyFilter.filter((f) => f !== behavior.id);
+        } else {
+          this.historyFilter = [...this.historyFilter, behavior.id];
+        }
+        this.refreshHistoryView(container);
+      };
+      filterBar.appendChild(chip);
+    });
+    container.appendChild(filterBar);
+  }
+  renderNarrowListView(container, years) {
     Object.keys(years).forEach((year) => {
       const yearDiv = document.createElement("div");
       yearDiv.innerHTML = `<h4 style="color: var(--text-normal);">${year}</h4>`;
       Object.keys(years[year]).forEach((month) => {
         const monthEntries = years[year][month];
         const table = document.createElement("table");
-        table.style.width = "100%";
-        table.style.borderCollapse = "collapse";
-        table.style.marginBottom = "15px";
+        table.className = "tf-history-table-narrow";
         const thead = document.createElement("thead");
-        thead.innerHTML = `
-					<tr style="background: var(--background-secondary); color: var(--text-normal);">
-						<th style="padding: 8px; color: var(--text-normal);">Dato</th>
-						<th style="padding: 8px; color: var(--text-normal);">Type</th>
-						<th style="padding: 8px; color: var(--text-normal);">Timer</th>
-						<th style="padding: 8px; color: var(--text-normal);">Fleksitid</th>
-						<th style="padding: 8px; color: var(--text-normal);">Handling</th>
-					</tr>
-				`;
+        const headerRow = document.createElement("tr");
+        ["Dato", "Type", "Timer", "Fleksitid", ""].forEach((h) => {
+          const th = document.createElement("th");
+          th.textContent = h;
+          headerRow.appendChild(th);
+        });
+        thead.appendChild(headerRow);
         table.appendChild(thead);
         const tbody = document.createElement("tbody");
         monthEntries.forEach((e) => {
-          var _a, _b, _c, _d;
+          var _a, _b;
           const row = document.createElement("tr");
-          row.style.borderBottom = "1px solid var(--background-modifier-border)";
-          row.style.color = "var(--text-normal)";
           const dateCell = document.createElement("td");
-          dateCell.style.padding = "8px";
-          dateCell.style.color = "var(--text-normal)";
           const dateStr = Utils.toLocalDateStr(e.date);
           const holidayInfo = this.data.getHolidayInfo(dateStr);
           const hasConflict = holidayInfo && ["ferie", "helligdag", "egenmelding", "sykemelding", "velferdspermisjon"].includes(holidayInfo.type) && e.name.toLowerCase() !== "avspasering";
           if (hasConflict) {
             const flagIcon = document.createElement("span");
             flagIcon.textContent = "\u26A0\uFE0F ";
-            flagIcon.title = `Arbeid registrert p\xE5 ${((_a = this.settings.specialDayBehaviors.find((b) => b.id === holidayInfo.type)) == null ? void 0 : _a.label) || ((_b = this.settings.specialDayLabels) == null ? void 0 : _b[holidayInfo.type]) || holidayInfo.type}`;
+            flagIcon.title = `Arbeid registrert p\xE5 ${((_a = this.settings.specialDayBehaviors.find((b) => b.id === holidayInfo.type)) == null ? void 0 : _a.label) || holidayInfo.type}`;
             flagIcon.style.cursor = "help";
             dateCell.appendChild(flagIcon);
           }
-          const dateText = document.createTextNode(dateStr);
-          dateCell.appendChild(dateText);
+          dateCell.appendChild(document.createTextNode(dateStr));
           row.appendChild(dateCell);
           const typeCell = document.createElement("td");
-          typeCell.style.padding = "8px";
-          typeCell.style.color = "var(--text-normal)";
           const entryNameLower = e.name.toLowerCase();
-          const customLabel = ((_c = this.settings.specialDayBehaviors.find((b) => b.id === entryNameLower)) == null ? void 0 : _c.label) || ((_d = this.settings.specialDayLabels) == null ? void 0 : _d[entryNameLower]);
+          const customLabel = (_b = this.settings.specialDayBehaviors.find((b) => b.id === entryNameLower)) == null ? void 0 : _b.label;
           typeCell.textContent = customLabel || e.name;
           row.appendChild(typeCell);
           const hoursCell = document.createElement("td");
-          hoursCell.style.padding = "8px";
-          hoursCell.style.color = "var(--text-normal)";
           hoursCell.textContent = Utils.formatHoursToHM(e.duration || 0, this.settings.hourUnit);
           row.appendChild(hoursCell);
           const flextimeCell = document.createElement("td");
-          flextimeCell.style.padding = "8px";
-          flextimeCell.style.color = "var(--text-normal)";
           flextimeCell.textContent = Utils.formatHoursToHM(e.flextime || 0, this.settings.hourUnit);
           row.appendChild(flextimeCell);
           const actionCell = document.createElement("td");
-          actionCell.style.padding = "8px";
-          actionCell.style.color = "var(--text-normal)";
           const editBtn = document.createElement("button");
           editBtn.textContent = "\u270F\uFE0F";
           editBtn.style.padding = "4px 8px";
@@ -6218,6 +6589,285 @@ ${noteType.tags.join(" ")}`;
       });
       container.appendChild(yearDiv);
     });
+  }
+  renderWideListView(container, years) {
+    Object.keys(years).forEach((year) => {
+      const yearDiv = document.createElement("div");
+      yearDiv.innerHTML = `<h4 style="color: var(--text-normal);">${year}</h4>`;
+      Object.keys(years[year]).forEach((month) => {
+        const monthEntries = years[year][month];
+        const table = document.createElement("table");
+        table.className = "tf-history-table-wide";
+        const thead = document.createElement("thead");
+        const headerRow = document.createElement("tr");
+        const headers = this.inlineEditMode ? ["Dato", "Type", "Start", "Slutt", "Timer", "Fleksitid", ""] : ["Dato", "Type", "Start", "Slutt", "Timer", "Fleksitid"];
+        headers.forEach((h) => {
+          const th = document.createElement("th");
+          th.textContent = h;
+          headerRow.appendChild(th);
+        });
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+        const tbody = document.createElement("tbody");
+        const entriesByDate = {};
+        monthEntries.forEach((e) => {
+          const dateStr = Utils.toLocalDateStr(e.date);
+          if (!entriesByDate[dateStr])
+            entriesByDate[dateStr] = [];
+          entriesByDate[dateStr].push(e);
+        });
+        const rawEntries = this.timerManager.data.entries;
+        Object.keys(entriesByDate).sort().reverse().forEach((dateStr) => {
+          const dayEntries = entriesByDate[dateStr];
+          const rawDayEntries = rawEntries.filter((entry) => {
+            if (!entry.startTime)
+              return false;
+            const entryDate = new Date(entry.startTime);
+            return Utils.toLocalDateStr(entryDate) === dateStr;
+          });
+          dayEntries.forEach((e, idx) => {
+            var _a, _b;
+            const row = document.createElement("tr");
+            const matchingRaw = rawDayEntries.find(
+              (raw) => raw.name.toLowerCase() === e.name.toLowerCase()
+            ) || rawDayEntries[idx];
+            const dateCell = document.createElement("td");
+            const holidayInfo = this.data.getHolidayInfo(dateStr);
+            const hasConflict = holidayInfo && ["ferie", "helligdag", "egenmelding", "sykemelding", "velferdspermisjon"].includes(holidayInfo.type) && e.name.toLowerCase() !== "avspasering";
+            if (hasConflict) {
+              const flagIcon = document.createElement("span");
+              flagIcon.textContent = "\u26A0\uFE0F ";
+              flagIcon.title = `Arbeid registrert p\xE5 ${((_a = this.settings.specialDayBehaviors.find((b) => b.id === holidayInfo.type)) == null ? void 0 : _a.label) || holidayInfo.type}`;
+              flagIcon.style.cursor = "help";
+              dateCell.appendChild(flagIcon);
+            }
+            dateCell.appendChild(document.createTextNode(dateStr));
+            row.appendChild(dateCell);
+            const typeCell = document.createElement("td");
+            if (this.inlineEditMode && matchingRaw) {
+              const select = document.createElement("select");
+              this.settings.specialDayBehaviors.forEach((behavior) => {
+                const option = document.createElement("option");
+                option.value = behavior.id;
+                option.textContent = `${behavior.icon} ${behavior.label}`;
+                if (behavior.id === e.name.toLowerCase()) {
+                  option.selected = true;
+                }
+                select.appendChild(option);
+              });
+              select.onchange = async () => {
+                var _a2, _b2;
+                matchingRaw.name = select.value;
+                await this.timerManager.save();
+                await ((_b2 = (_a2 = this.plugin.timerManager).onTimerChange) == null ? void 0 : _b2.call(_a2));
+              };
+              typeCell.appendChild(select);
+            } else {
+              const entryNameLower = e.name.toLowerCase();
+              const customLabel = (_b = this.settings.specialDayBehaviors.find((b) => b.id === entryNameLower)) == null ? void 0 : _b.label;
+              typeCell.textContent = customLabel || e.name;
+            }
+            row.appendChild(typeCell);
+            const startCell = document.createElement("td");
+            if (matchingRaw == null ? void 0 : matchingRaw.startTime) {
+              const startDate = new Date(matchingRaw.startTime);
+              const startTimeStr = `${startDate.getHours().toString().padStart(2, "0")}:${startDate.getMinutes().toString().padStart(2, "0")}`;
+              if (this.inlineEditMode) {
+                const input = document.createElement("input");
+                input.type = "time";
+                input.value = startTimeStr;
+                input.onchange = async () => {
+                  var _a2, _b2;
+                  const [hours, minutes] = input.value.split(":").map(Number);
+                  const newStart = new Date(matchingRaw.startTime);
+                  newStart.setHours(hours, minutes, 0, 0);
+                  matchingRaw.startTime = newStart.toISOString();
+                  await this.timerManager.save();
+                  await ((_b2 = (_a2 = this.plugin.timerManager).onTimerChange) == null ? void 0 : _b2.call(_a2));
+                };
+                startCell.appendChild(input);
+              } else {
+                startCell.textContent = startTimeStr;
+              }
+            } else {
+              startCell.textContent = "-";
+            }
+            row.appendChild(startCell);
+            const endCell = document.createElement("td");
+            if (matchingRaw == null ? void 0 : matchingRaw.endTime) {
+              const endDate = new Date(matchingRaw.endTime);
+              const endTimeStr = `${endDate.getHours().toString().padStart(2, "0")}:${endDate.getMinutes().toString().padStart(2, "0")}`;
+              if (this.inlineEditMode) {
+                const input = document.createElement("input");
+                input.type = "time";
+                input.value = endTimeStr;
+                input.onchange = async () => {
+                  var _a2, _b2;
+                  const [hours, minutes] = input.value.split(":").map(Number);
+                  const newEnd = new Date(matchingRaw.endTime);
+                  newEnd.setHours(hours, minutes, 0, 0);
+                  matchingRaw.endTime = newEnd.toISOString();
+                  await this.timerManager.save();
+                  await ((_b2 = (_a2 = this.plugin.timerManager).onTimerChange) == null ? void 0 : _b2.call(_a2));
+                };
+                endCell.appendChild(input);
+              } else {
+                endCell.textContent = endTimeStr;
+              }
+            } else {
+              endCell.textContent = matchingRaw ? "P\xE5g\xE5ende" : "-";
+            }
+            row.appendChild(endCell);
+            const hoursCell = document.createElement("td");
+            hoursCell.textContent = Utils.formatHoursToHM(e.duration || 0, this.settings.hourUnit);
+            row.appendChild(hoursCell);
+            const flextimeCell = document.createElement("td");
+            flextimeCell.textContent = Utils.formatHoursToHM(e.flextime || 0, this.settings.hourUnit);
+            row.appendChild(flextimeCell);
+            if (this.inlineEditMode) {
+              const actionCell = document.createElement("td");
+              if (matchingRaw) {
+                const deleteBtn = document.createElement("button");
+                deleteBtn.className = "tf-history-delete-btn";
+                deleteBtn.textContent = "\u{1F5D1}\uFE0F";
+                deleteBtn.title = "Slett oppf\xF8ring";
+                deleteBtn.onclick = async () => {
+                  var _a2, _b2;
+                  if (confirm(`Slette oppf\xF8ring for ${dateStr}?`)) {
+                    const entryIndex = this.timerManager.data.entries.indexOf(matchingRaw);
+                    if (entryIndex > -1) {
+                      this.timerManager.data.entries.splice(entryIndex, 1);
+                      await this.timerManager.save();
+                      await ((_b2 = (_a2 = this.plugin.timerManager).onTimerChange) == null ? void 0 : _b2.call(_a2));
+                    }
+                  }
+                };
+                actionCell.appendChild(deleteBtn);
+              }
+              row.appendChild(actionCell);
+            }
+            tbody.appendChild(row);
+          });
+        });
+        if (this.inlineEditMode) {
+          const addRow = document.createElement("tr");
+          addRow.className = "tf-history-add-row";
+          const addCell = document.createElement("td");
+          addCell.colSpan = 7;
+          addCell.textContent = "+ Legg til ny oppf\xF8ring";
+          addCell.onclick = () => {
+            const lastEntry = monthEntries[0];
+            const targetDate = (lastEntry == null ? void 0 : lastEntry.date) || /* @__PURE__ */ new Date();
+            this.showAddEntryModal(targetDate);
+          };
+          addRow.appendChild(addCell);
+          tbody.appendChild(addRow);
+        }
+        table.appendChild(tbody);
+        yearDiv.appendChild(table);
+      });
+      container.appendChild(yearDiv);
+    });
+  }
+  showAddEntryModal(targetDate) {
+    const dateStr = Utils.toLocalDateStr(targetDate);
+    const modal = document.createElement("div");
+    modal.className = "modal-container mod-dim";
+    modal.style.zIndex = "1000";
+    const modalBg = document.createElement("div");
+    modalBg.className = "modal-bg";
+    modalBg.onclick = () => modal.remove();
+    modal.appendChild(modalBg);
+    const modalContent = document.createElement("div");
+    modalContent.className = "modal";
+    modalContent.style.width = "400px";
+    const title = document.createElement("div");
+    title.className = "modal-title";
+    title.textContent = `Legg til oppf\xF8ring for ${dateStr}`;
+    modalContent.appendChild(title);
+    const content = document.createElement("div");
+    content.className = "modal-content";
+    content.style.padding = "20px";
+    const typeLabel = document.createElement("div");
+    typeLabel.textContent = "Type:";
+    typeLabel.style.fontWeight = "bold";
+    typeLabel.style.marginBottom = "5px";
+    content.appendChild(typeLabel);
+    const typeSelect = document.createElement("select");
+    typeSelect.style.width = "100%";
+    typeSelect.style.marginBottom = "15px";
+    typeSelect.style.padding = "8px";
+    this.settings.specialDayBehaviors.forEach((behavior) => {
+      const option = document.createElement("option");
+      option.value = behavior.id;
+      option.textContent = `${behavior.icon} ${behavior.label}`;
+      typeSelect.appendChild(option);
+    });
+    content.appendChild(typeSelect);
+    const startLabel = document.createElement("div");
+    startLabel.textContent = "Starttid:";
+    startLabel.style.fontWeight = "bold";
+    startLabel.style.marginBottom = "5px";
+    content.appendChild(startLabel);
+    const startInput = document.createElement("input");
+    startInput.type = "time";
+    startInput.value = "08:00";
+    startInput.style.width = "100%";
+    startInput.style.marginBottom = "15px";
+    startInput.style.padding = "8px";
+    content.appendChild(startInput);
+    const endLabel = document.createElement("div");
+    endLabel.textContent = "Sluttid:";
+    endLabel.style.fontWeight = "bold";
+    endLabel.style.marginBottom = "5px";
+    content.appendChild(endLabel);
+    const endInput = document.createElement("input");
+    endInput.type = "time";
+    endInput.value = "16:00";
+    endInput.style.width = "100%";
+    endInput.style.marginBottom = "20px";
+    endInput.style.padding = "8px";
+    content.appendChild(endInput);
+    const buttonContainer = document.createElement("div");
+    buttonContainer.style.display = "flex";
+    buttonContainer.style.gap = "10px";
+    buttonContainer.style.justifyContent = "flex-end";
+    const cancelBtn = document.createElement("button");
+    cancelBtn.textContent = "Avbryt";
+    cancelBtn.onclick = () => modal.remove();
+    buttonContainer.appendChild(cancelBtn);
+    const saveBtn = document.createElement("button");
+    saveBtn.className = "mod-cta";
+    saveBtn.textContent = "Lagre";
+    saveBtn.onclick = async () => {
+      var _a, _b;
+      const [startHours, startMinutes] = startInput.value.split(":").map(Number);
+      const [endHours, endMinutes] = endInput.value.split(":").map(Number);
+      const startDate = new Date(targetDate);
+      startDate.setHours(startHours, startMinutes, 0, 0);
+      const endDate = new Date(targetDate);
+      endDate.setHours(endHours, endMinutes, 0, 0);
+      if (endDate <= startDate) {
+        new import_obsidian4.Notice("Sluttid m\xE5 v\xE6re etter starttid");
+        return;
+      }
+      this.timerManager.data.entries.push({
+        name: typeSelect.value,
+        startTime: startDate.toISOString(),
+        endTime: endDate.toISOString(),
+        subEntries: null
+      });
+      await this.timerManager.save();
+      modal.remove();
+      const duration = (endDate.getTime() - startDate.getTime()) / (1e3 * 60 * 60);
+      new import_obsidian4.Notice(`\u2705 Lagt til ${duration.toFixed(1)} timer for ${dateStr}`);
+      await ((_b = (_a = this.plugin.timerManager).onTimerChange) == null ? void 0 : _b.call(_a));
+    };
+    buttonContainer.appendChild(saveBtn);
+    content.appendChild(buttonContainer);
+    modalContent.appendChild(content);
+    modal.appendChild(modalContent);
+    document.body.appendChild(modal);
   }
   renderWeeklyView(container, years) {
     container.innerHTML = '<div style="padding: 20px; text-align: center;">Weekly view - Coming soon</div>';
@@ -6238,13 +6888,13 @@ ${noteType.tags.join(" ")}`;
       const dayEntries = this.data.daily[dateKey];
       if (dayEntries) {
         if (!this.settings.enableGoalTracking) {
-          cell.style.background = "#78909c";
+          cell.style.background = "var(--background-secondary)";
         } else {
           const dayFlextime = dayEntries.reduce((sum, e) => sum + (e.flextime || 0), 0);
           cell.style.background = this.flextimeColor(dayFlextime);
         }
       } else {
-        cell.style.background = "#eee";
+        cell.style.background = "var(--background-modifier-border)";
       }
       heatmap.appendChild(cell);
     }
@@ -6356,6 +7006,7 @@ ${noteType.tags.join(" ")}`;
     this.container.appendChild(this.buildInfoCard());
     this.container.appendChild(this.buildHistoryCard());
     this.container.appendChild(this.buildStatusBar());
+    this.container.appendChild(this.buildViewToggle());
     return this.container;
   }
 };
@@ -6400,6 +7051,16 @@ var TimeFlowView = class extends import_obsidian5.ItemView {
       }
       this.dataManager = new DataManager(allEntries, this.plugin.settings, this.app);
       const holidayStatus = await this.dataManager.loadHolidays();
+      const converted = await this.plugin.timerManager.convertPastPlannedDays(
+        this.dataManager.holidays,
+        this.plugin.settings
+      );
+      if (converted > 0) {
+        console.log(`TimeFlow: Converted ${converted} past planned days to entries`);
+        const updatedEntries = this.plugin.timerManager.convertToTimeEntries();
+        this.dataManager = new DataManager(updatedEntries, this.plugin.settings, this.app);
+        await this.dataManager.loadHolidays();
+      }
       this.dataManager.processEntries();
       const validationResults = this.dataManager.validateData();
       const systemStatus = {
@@ -6412,7 +7073,8 @@ var TimeFlowView = class extends import_obsidian5.ItemView {
         systemStatus,
         this.plugin.settings,
         this.app,
-        this.plugin.timerManager
+        this.plugin.timerManager,
+        this.plugin
       );
       this.plugin.timerManager.onTimerChange = () => {
         this.refresh();
@@ -6689,19 +7351,73 @@ ${JSON.stringify(this.data, null, 2)}
     }
     return false;
   }
+  // Convert past planned days (from holidays.md) to timer entries
+  // This ensures planned days like ferie, avspasering appear in Historikk
+  async convertPastPlannedDays(holidays, settings) {
+    const today = /* @__PURE__ */ new Date();
+    today.setHours(0, 0, 0, 0);
+    let converted = 0;
+    for (const [dateStr, info] of Object.entries(holidays)) {
+      const plannedDate = new Date(dateStr);
+      if (plannedDate >= today)
+        continue;
+      const behavior = settings.specialDayBehaviors.find((b) => b.id === info.type);
+      if (!(behavior == null ? void 0 : behavior.noHoursRequired))
+        continue;
+      if (info.type === "helligdag")
+        continue;
+      const hasEntry = this.data.entries.some((e) => {
+        if (!e.startTime)
+          return false;
+        const entryDate = new Date(e.startTime);
+        return Utils.toLocalDateStr(entryDate) === dateStr && e.name.toLowerCase() === info.type;
+      });
+      if (hasEntry)
+        continue;
+      let startTime = `${dateStr}T00:00:00`;
+      let endTime = `${dateStr}T00:00:00`;
+      if (info.type === "avspasering") {
+        if (info.startTime && info.endTime) {
+          startTime = `${dateStr}T${info.startTime}:00`;
+          endTime = `${dateStr}T${info.endTime}:00`;
+        } else {
+          const hours = settings.baseWorkday * settings.workPercent;
+          const h = Math.floor(hours);
+          const m = Math.round((hours - h) * 60);
+          endTime = `${dateStr}T${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:00`;
+        }
+      }
+      const entry = {
+        name: info.type,
+        startTime,
+        endTime,
+        subEntries: null
+      };
+      this.data.entries.push(entry);
+      converted++;
+    }
+    if (converted > 0) {
+      await this.save();
+    }
+    return converted;
+  }
 };
 
 // src/main.ts
 var TimeFlowPlugin = class extends import_obsidian7.Plugin {
   async onload() {
     console.log("Loading TimeFlow plugin");
-    await this.loadSettings();
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
     this.timerManager = new TimerManager(this.app, this.settings);
     const syncedSettings = await this.timerManager.load();
     if (syncedSettings) {
       console.log("TimeFlow: Merging synced settings from data file");
       this.settings = Object.assign({}, DEFAULT_SETTINGS, this.settings, syncedSettings);
       this.timerManager.settings = this.settings;
+    }
+    const needsSave = this.migrateWorkDaysSettings() || this.migrateSpecialDayBehaviors();
+    if (needsSave) {
+      console.log("TimeFlow: Saving migrated settings");
       await this.saveSettings();
     }
     this.registerView(
@@ -6770,23 +7486,49 @@ var TimeFlowPlugin = class extends import_obsidian7.Plugin {
   }
   async loadSettings() {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
-    this.migrateWorkDaysSettings();
-    this.migrateSpecialDayBehaviors();
   }
   migrateSpecialDayBehaviors() {
+    var _a, _b;
+    console.log("TimeFlow Migration: Starting specialDayBehaviors migration");
+    console.log("TimeFlow Migration: Current behaviors:", (_a = this.settings.specialDayBehaviors) == null ? void 0 : _a.map((b) => b.id));
+    console.log("TimeFlow Migration: Default behaviors:", DEFAULT_SPECIAL_DAY_BEHAVIORS.map((b) => b.id));
+    let changed = false;
     if (!this.settings.specialDayBehaviors || this.settings.specialDayBehaviors.length === 0) {
       console.log("TimeFlow: Migrating special day settings to new behavior system");
       this.settings.specialDayBehaviors = DEFAULT_SPECIAL_DAY_BEHAVIORS.map((defaultBehavior) => {
-        var _a, _b;
+        var _a2, _b2;
         return {
           ...defaultBehavior,
-          label: ((_a = this.settings.specialDayLabels) == null ? void 0 : _a[defaultBehavior.id]) || defaultBehavior.label,
-          color: ((_b = this.settings.specialDayColors) == null ? void 0 : _b[defaultBehavior.id]) || defaultBehavior.color
+          label: ((_a2 = this.settings.specialDayLabels) == null ? void 0 : _a2[defaultBehavior.id]) || defaultBehavior.label,
+          color: ((_b2 = this.settings.specialDayColors) == null ? void 0 : _b2[defaultBehavior.id]) || defaultBehavior.color
         };
       });
+      changed = true;
+    } else {
+      console.log("TimeFlow Migration: Behaviors exist, checking for missing defaults...");
+      DEFAULT_SPECIAL_DAY_BEHAVIORS.forEach((defaultBehavior) => {
+        const existingIndex = this.settings.specialDayBehaviors.findIndex((b) => b.id === defaultBehavior.id);
+        console.log(`TimeFlow Migration: Checking '${defaultBehavior.id}', existingIndex=${existingIndex}, isWorkType=${defaultBehavior.isWorkType}`);
+        if (existingIndex === -1) {
+          console.log(`TimeFlow: Adding missing behavior '${defaultBehavior.id}'`);
+          if (defaultBehavior.isWorkType) {
+            this.settings.specialDayBehaviors.unshift({ ...defaultBehavior });
+          } else {
+            this.settings.specialDayBehaviors.push({ ...defaultBehavior });
+          }
+          changed = true;
+        } else if (defaultBehavior.isWorkType && !this.settings.specialDayBehaviors[existingIndex].isWorkType) {
+          console.log(`TimeFlow Migration: Setting isWorkType=true on existing '${defaultBehavior.id}'`);
+          this.settings.specialDayBehaviors[existingIndex].isWorkType = true;
+          changed = true;
+        }
+      });
+      console.log("TimeFlow Migration: After migration:", (_b = this.settings.specialDayBehaviors) == null ? void 0 : _b.map((b) => ({ id: b.id, isWorkType: b.isWorkType })));
     }
+    return changed;
   }
   migrateWorkDaysSettings() {
+    let changed = false;
     if (!this.settings.workDays || this.settings.workDays.length === 0) {
       const workDays = [1, 2, 3, 4, 5];
       if (this.settings.includeSaturdayInWorkWeek) {
@@ -6796,23 +7538,31 @@ var TimeFlowPlugin = class extends import_obsidian7.Plugin {
         workDays.push(0);
       }
       this.settings.workDays = workDays.sort((a, b) => a - b);
+      changed = true;
     }
     if (!this.settings.alternatingWeekWorkDays || this.settings.alternatingWeekWorkDays.length === 0) {
       this.settings.alternatingWeekWorkDays = [...this.settings.workDays];
+      changed = true;
     }
+    return changed;
   }
   async saveSettings() {
     await this.saveData(this.settings);
     await this.timerManager.saveSettings(this.settings);
   }
-  async activateView() {
+  async activateView(location) {
+    const targetLocation = location != null ? location : this.settings.defaultViewLocation;
     const { workspace } = this.app;
     let leaf = null;
     const leaves = workspace.getLeavesOfType(VIEW_TYPE_TIMEFLOW);
     if (leaves.length > 0) {
       leaf = leaves[0];
     } else {
-      leaf = workspace.getRightLeaf(false);
+      if (targetLocation === "main") {
+        leaf = workspace.getLeaf("tab");
+      } else {
+        leaf = workspace.getRightLeaf(false);
+      }
       if (leaf) {
         await leaf.setViewState({ type: VIEW_TYPE_TIMEFLOW, active: true });
       }
@@ -6820,5 +7570,13 @@ var TimeFlowPlugin = class extends import_obsidian7.Plugin {
     if (leaf) {
       workspace.revealLeaf(leaf);
     }
+  }
+  async moveViewToLocation(location) {
+    const { workspace } = this.app;
+    const leaves = workspace.getLeavesOfType(VIEW_TYPE_TIMEFLOW);
+    for (const leaf of leaves) {
+      leaf.detach();
+    }
+    await this.activateView(location);
   }
 };

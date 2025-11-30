@@ -16,6 +16,8 @@ export interface HolidayInfo {
 	type: string;
 	description: string;
 	halfDay: boolean;
+	startTime?: string;  // HH:MM format for avspasering
+	endTime?: string;    // HH:MM format for avspasering
 }
 
 export interface ValidationResults {
@@ -69,14 +71,30 @@ export class DataManager {
 				const lines = content.split('\n');
 
 				lines.forEach(line => {
-					const match = line.match(/^-\s*(\d{4}-\d{2}-\d{2}):\s*(\w+)(?::half)?:\s*(.+)$/);
+					// Match formats:
+					// - YYYY-MM-DD: type: description
+					// - YYYY-MM-DD: type:half: description
+					// - YYYY-MM-DD: avspasering:14:00-16:00: description (time range)
+					const match = line.match(/^-\s*(\d{4}-\d{2}-\d{2}):\s*(\w+)(?::(half|\d{2}:\d{2}-\d{2}:\d{2})?)?:\s*(.+)$/);
 					if (match) {
-						const [, date, type, description] = match;
-						const isHalfDay = line.includes(':half:');
+						const [, date, type, modifier, description] = match;
+						const isHalfDay = modifier === 'half';
+
+						// Parse time range (e.g., "14:00-16:00")
+						let startTime: string | undefined;
+						let endTime: string | undefined;
+						if (modifier && modifier.includes('-') && modifier.includes(':')) {
+							const [start, end] = modifier.split('-');
+							startTime = start;
+							endTime = end;
+						}
+
 						this.holidays[date] = {
 							type: type.trim().toLowerCase(),
 							description: description.trim(),
-							halfDay: isHalfDay
+							halfDay: isHalfDay,
+							startTime,
+							endTime
 						};
 					}
 				});

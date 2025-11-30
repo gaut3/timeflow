@@ -5,7 +5,7 @@ import { ImportModal } from './importModal';
 
 export interface TimeFlowSettings {
 	version: string;
-	theme: 'light' | 'dark' | 'system';
+	defaultViewLocation: 'sidebar' | 'main';
 	hourUnit: 'h' | 't';
 	showWeekNumbers: boolean;
 	workPercent: number;
@@ -75,20 +75,38 @@ export interface SpecialDayBehavior {
 	id: string;                    // Unique identifier (e.g., "ferie")
 	label: string;                 // Display name
 	icon: string;                  // Emoji
-	color: string;                 // Hex color
+	color: string;                 // Hex color for background (positive flextime for work types)
+	textColor?: string;            // Hex color for text (default: #000000)
+	negativeColor?: string;        // Hex color for negative flextime (work types only)
+	negativeTextColor?: string;    // Hex color for text on negative flextime background
 	noHoursRequired: boolean;      // No work hours required this day?
 	flextimeEffect: 'none' | 'withdraw' | 'accumulate';
 	includeInStats: boolean;       // Count in yearly statistics?
 	maxDaysPerYear?: number;       // Optional limit
 	countingPeriod?: 'calendar' | 'rolling365'; // How to count max days: calendar year or rolling 365 days
+	isWorkType?: boolean;          // True for regular work entry types (jobb), cannot be deleted
 }
 
 export const DEFAULT_SPECIAL_DAY_BEHAVIORS: SpecialDayBehavior[] = [
+	{
+		id: 'jobb',
+		label: 'Jobb',
+		icon: '💼',
+		color: '#4caf50',           // Green for positive flextime (over goal)
+		textColor: '#ffffff',
+		negativeColor: '#64b5f6',   // Blue for negative flextime (under goal)
+		negativeTextColor: '#000000',
+		noHoursRequired: false,
+		flextimeEffect: 'accumulate',
+		includeInStats: true,
+		isWorkType: true
+	},
 	{
 		id: 'ferie',
 		label: 'Ferie',
 		icon: '🏖️',
 		color: '#b3e5fc',
+		textColor: '#000000',
 		noHoursRequired: true,
 		flextimeEffect: 'none',
 		includeInStats: true,
@@ -99,6 +117,7 @@ export const DEFAULT_SPECIAL_DAY_BEHAVIORS: SpecialDayBehavior[] = [
 		label: 'Avspasering',
 		icon: '🛌',
 		color: '#ffe0b2',
+		textColor: '#000000',
 		noHoursRequired: true,
 		flextimeEffect: 'withdraw',
 		includeInStats: true
@@ -108,6 +127,7 @@ export const DEFAULT_SPECIAL_DAY_BEHAVIORS: SpecialDayBehavior[] = [
 		label: 'Egenmelding',
 		icon: '🤒',
 		color: '#c8e6c9',
+		textColor: '#000000',
 		noHoursRequired: true,
 		flextimeEffect: 'none',
 		includeInStats: true,
@@ -119,6 +139,7 @@ export const DEFAULT_SPECIAL_DAY_BEHAVIORS: SpecialDayBehavior[] = [
 		label: 'Sykemelding',
 		icon: '🏥',
 		color: '#c8e6c9',
+		textColor: '#000000',
 		noHoursRequired: true,
 		flextimeEffect: 'none',
 		includeInStats: true
@@ -128,6 +149,7 @@ export const DEFAULT_SPECIAL_DAY_BEHAVIORS: SpecialDayBehavior[] = [
 		label: 'Velferdspermisjon',
 		icon: '🏥',
 		color: '#e1bee7',
+		textColor: '#000000',
 		noHoursRequired: true,
 		flextimeEffect: 'none',
 		includeInStats: true
@@ -137,6 +159,7 @@ export const DEFAULT_SPECIAL_DAY_BEHAVIORS: SpecialDayBehavior[] = [
 		label: 'Kurs',
 		icon: '📚',
 		color: '#f8bbd0',
+		textColor: '#000000',
 		noHoursRequired: false,
 		flextimeEffect: 'accumulate',
 		includeInStats: true
@@ -146,6 +169,7 @@ export const DEFAULT_SPECIAL_DAY_BEHAVIORS: SpecialDayBehavior[] = [
 		label: 'Studie',
 		icon: '📖',
 		color: '#f8bbd0',
+		textColor: '#000000',
 		noHoursRequired: false,
 		flextimeEffect: 'accumulate',
 		includeInStats: true
@@ -155,6 +179,7 @@ export const DEFAULT_SPECIAL_DAY_BEHAVIORS: SpecialDayBehavior[] = [
 		label: 'Helligdag',
 		icon: '🎉',
 		color: '#ef5350',
+		textColor: '#ffffff',
 		noHoursRequired: true,
 		flextimeEffect: 'none',
 		includeInStats: true
@@ -173,7 +198,7 @@ export interface NoteType {
 
 export const DEFAULT_SETTINGS: TimeFlowSettings = {
 	version: "1.0.0",
-	theme: "light",
+	defaultViewLocation: "sidebar",
 	hourUnit: "t",
 	showWeekNumbers: true,
 	workPercent: 1.0,
@@ -325,10 +350,12 @@ export class SpecialDayBehaviorModal extends Modal {
 		const { contentEl } = this;
 		contentEl.empty();
 
-		contentEl.createEl('h2', { text: this.behavior ? 'Edit Special Day Type' : 'Add Special Day Type' });
+		const isWorkType = this.behavior?.isWorkType ?? false;
+
+		contentEl.createEl('h2', { text: isWorkType ? 'Edit Work Entry Type' : (this.behavior ? 'Edit Special Day Type' : 'Add Special Day Type') });
 
 		// Add Norwegian term explanations if applicable
-		if (this.behavior) {
+		if (this.behavior && !isWorkType) {
 			const norwegianTerms: Record<string, string> = {
 				'egenmelding': 'Norwegian self-reported sick leave (max 8 days/year per Norwegian labor law)',
 				'velferdspermisjon': 'Norwegian welfare leave for personal/family health matters',
@@ -347,39 +374,56 @@ export class SpecialDayBehaviorModal extends Modal {
 			}
 		}
 
+		// For work types, show a simpler info message
+		if (isWorkType) {
+			const infoBox = contentEl.createDiv({ cls: 'setting-item-description' });
+			infoBox.style.padding = '10px';
+			infoBox.style.marginBottom = '15px';
+			infoBox.style.background = 'var(--background-secondary)';
+			infoBox.style.borderRadius = '5px';
+			infoBox.style.fontSize = '0.9em';
+			infoBox.innerHTML = `💼 This is your regular work entry type. Customize its appearance in the calendar.`;
+		}
+
 		// Store form values
 		const formData = {
 			id: this.behavior?.id || '',
 			label: this.behavior?.label || '',
 			icon: this.behavior?.icon || '',
 			color: this.behavior?.color || '#b3e5fc',
+			textColor: this.behavior?.textColor || '#000000',
+			negativeColor: this.behavior?.negativeColor || '#64b5f6',
+			negativeTextColor: this.behavior?.negativeTextColor || '#000000',
 			noHoursRequired: this.behavior?.noHoursRequired ?? true,
 			flextimeEffect: this.behavior?.flextimeEffect || 'none',
 			includeInStats: this.behavior?.includeInStats ?? true,
 			maxDaysPerYear: this.behavior?.maxDaysPerYear || undefined,
-			countingPeriod: this.behavior?.countingPeriod || 'calendar'
+			countingPeriod: this.behavior?.countingPeriod || 'calendar',
+			isWorkType: isWorkType
 		};
 
-		// ID field (readonly if editing)
-		new Setting(contentEl)
-			.setName('ID')
-			.setDesc('Unique identifier (lowercase, no spaces). Used in holiday file format.')
-			.addText(text => {
-				text
-					.setPlaceholder('ferie')
-					.setValue(formData.id)
-					.onChange(value => formData.id = value.toLowerCase().replace(/\s+/g, ''));
-				if (this.behavior) {
-					text.setDisabled(true); // Can't change ID when editing
-				}
-			});
+		// ID field (readonly if editing, hidden for work types)
+		if (!isWorkType) {
+			new Setting(contentEl)
+				.setName('ID')
+				.setDesc('Unique identifier (lowercase, no spaces). Used in holiday file format.')
+				.addText(text => {
+					text
+						.setPlaceholder('ferie')
+						.setValue(formData.id)
+						.onChange(value => formData.id = value.toLowerCase().replace(/\s+/g, ''));
+					if (this.behavior) {
+						text.setDisabled(true); // Can't change ID when editing
+					}
+				});
+		}
 
 		// Label field
 		new Setting(contentEl)
 			.setName('Label')
 			.setDesc('Display name shown in the dashboard')
 			.addText(text => text
-				.setPlaceholder('Ferie')
+				.setPlaceholder(isWorkType ? 'Jobb' : 'Ferie')
 				.setValue(formData.label)
 				.onChange(value => formData.label = value));
 
@@ -388,66 +432,110 @@ export class SpecialDayBehaviorModal extends Modal {
 			.setName('Icon')
 			.setDesc('Emoji to display')
 			.addText(text => text
-				.setPlaceholder('🏖️')
+				.setPlaceholder(isWorkType ? '💼' : '🏖️')
 				.setValue(formData.icon)
 				.onChange(value => formData.icon = value));
 
-		// Color field
-		new Setting(contentEl)
-			.setName('Color')
-			.setDesc('Background color for this day type in calendar')
-			.addColorPicker(color => color
-				.setValue(formData.color)
-				.onChange(value => formData.color = value));
+		// Color fields - different labels for work types
+		if (isWorkType) {
+			// Positive flextime color (over goal)
+			new Setting(contentEl)
+				.setName('Positive flextime color')
+				.setDesc('Background color when hours exceed daily goal (green gradient base)')
+				.addColorPicker(color => color
+					.setValue(formData.color)
+					.onChange(value => formData.color = value));
 
-		// No hours required toggle
-		new Setting(contentEl)
-			.setName('No hours required')
-			.setDesc('If enabled, you don\'t need to log any work hours this day (e.g., vacation, sick leave). If disabled, regular workday goal applies.')
-			.addToggle(toggle => toggle
-				.setValue(formData.noHoursRequired)
-				.onChange(value => formData.noHoursRequired = value));
+			new Setting(contentEl)
+				.setName('Positive flextime text color')
+				.setDesc('Text color for positive flextime days')
+				.addColorPicker(color => color
+					.setValue(formData.textColor)
+					.onChange(value => formData.textColor = value));
 
-		// Flextime effect dropdown
-		new Setting(contentEl)
-			.setName('Flextime effect')
-			.setDesc('How this day type affects your flextime balance')
-			.addDropdown(dropdown => dropdown
-				.addOption('none', 'No effect (counts as full workday)')
-				.addOption('withdraw', 'Withdraw (uses flextime balance)')
-				.addOption('accumulate', 'Accumulate (excess hours add to flextime)')
-				.setValue(formData.flextimeEffect)
-				.onChange(value => formData.flextimeEffect = value as 'none' | 'withdraw' | 'accumulate'));
+			// Negative flextime color (under goal)
+			new Setting(contentEl)
+				.setName('Negative flextime color')
+				.setDesc('Background color when hours are below daily goal (blue gradient base)')
+				.addColorPicker(color => color
+					.setValue(formData.negativeColor)
+					.onChange(value => formData.negativeColor = value));
 
-		// Include in stats toggle
-		new Setting(contentEl)
-			.setName('Include in statistics')
-			.setDesc('Show this day type in yearly statistics')
-			.addToggle(toggle => toggle
-				.setValue(formData.includeInStats)
-				.onChange(value => formData.includeInStats = value));
+			new Setting(contentEl)
+				.setName('Negative flextime text color')
+				.setDesc('Text color for negative flextime days')
+				.addColorPicker(color => color
+					.setValue(formData.negativeTextColor)
+					.onChange(value => formData.negativeTextColor = value));
+		} else {
+			// Regular color field for special days
+			new Setting(contentEl)
+				.setName('Color')
+				.setDesc('Background color for this day type in calendar')
+				.addColorPicker(color => color
+					.setValue(formData.color)
+					.onChange(value => formData.color = value));
 
-		// Max days per year
-		new Setting(contentEl)
-			.setName('Max days per year (optional)')
-			.setDesc('Yearly limit for this day type (e.g., 25 for vacation). Leave empty for no limit.')
-			.addText(text => text
-				.setPlaceholder('25')
-				.setValue(formData.maxDaysPerYear?.toString() || '')
-				.onChange(value => {
-					const num = parseInt(value);
-					formData.maxDaysPerYear = isNaN(num) ? undefined : num;
-				}));
+			// Text color field
+			new Setting(contentEl)
+				.setName('Text color')
+				.setDesc('Text color for this day type (use white for dark backgrounds)')
+				.addColorPicker(color => color
+					.setValue(formData.textColor)
+					.onChange(value => formData.textColor = value));
+		}
 
-		// Counting period dropdown (only show if maxDaysPerYear is set)
-		new Setting(contentEl)
-			.setName('Counting period')
-			.setDesc('How to count the max days limit. Calendar year resets each January 1st. Rolling 365 days counts backwards from today.')
-			.addDropdown(dropdown => dropdown
-				.addOption('calendar', 'Calendar year')
-				.addOption('rolling365', 'Rolling 365 days')
-				.setValue(formData.countingPeriod)
-				.onChange(value => formData.countingPeriod = value as 'calendar' | 'rolling365'));
+		// The following settings are hidden for work types
+		if (!isWorkType) {
+			// No hours required toggle
+			new Setting(contentEl)
+				.setName('No hours required')
+				.setDesc('If enabled, you don\'t need to log any work hours this day (e.g., vacation, sick leave). If disabled, regular workday goal applies.')
+				.addToggle(toggle => toggle
+					.setValue(formData.noHoursRequired)
+					.onChange(value => formData.noHoursRequired = value));
+
+			// Flextime effect dropdown
+			new Setting(contentEl)
+				.setName('Flextime effect')
+				.setDesc('How this day type affects your flextime balance')
+				.addDropdown(dropdown => dropdown
+					.addOption('none', 'No effect (counts as full workday)')
+					.addOption('withdraw', 'Withdraw (uses flextime balance)')
+					.addOption('accumulate', 'Accumulate (excess hours add to flextime)')
+					.setValue(formData.flextimeEffect)
+					.onChange(value => formData.flextimeEffect = value as 'none' | 'withdraw' | 'accumulate'));
+
+			// Include in stats toggle
+			new Setting(contentEl)
+				.setName('Include in statistics')
+				.setDesc('Show this day type in yearly statistics')
+				.addToggle(toggle => toggle
+					.setValue(formData.includeInStats)
+					.onChange(value => formData.includeInStats = value));
+
+			// Max days per year
+			new Setting(contentEl)
+				.setName('Max days per year (optional)')
+				.setDesc('Yearly limit for this day type (e.g., 25 for vacation). Leave empty for no limit.')
+				.addText(text => text
+					.setPlaceholder('25')
+					.setValue(formData.maxDaysPerYear?.toString() || '')
+					.onChange(value => {
+						const num = parseInt(value);
+						formData.maxDaysPerYear = isNaN(num) ? undefined : num;
+					}));
+
+			// Counting period dropdown (only show if maxDaysPerYear is set)
+			new Setting(contentEl)
+				.setName('Counting period')
+				.setDesc('How to count the max days limit. Calendar year resets each January 1st. Rolling 365 days counts backwards from today.')
+				.addDropdown(dropdown => dropdown
+					.addOption('calendar', 'Calendar year')
+					.addOption('rolling365', 'Rolling 365 days')
+					.setValue(formData.countingPeriod)
+					.onChange(value => formData.countingPeriod = value as 'calendar' | 'rolling365'));
+		}
 
 		// Buttons
 		const buttonDiv = contentEl.createDiv();
@@ -488,15 +576,19 @@ export class SpecialDayBehaviorModal extends Modal {
 
 			// Create behavior object
 			const behavior: SpecialDayBehavior = {
-				id: formData.id,
+				id: formData.isWorkType ? this.behavior!.id : formData.id, // Keep original ID for work types
 				label: formData.label,
 				icon: formData.icon,
 				color: formData.color,
-				noHoursRequired: formData.noHoursRequired,
-				flextimeEffect: formData.flextimeEffect,
-				includeInStats: formData.includeInStats,
-				maxDaysPerYear: formData.maxDaysPerYear,
-				countingPeriod: formData.countingPeriod as 'calendar' | 'rolling365'
+				textColor: formData.textColor,
+				negativeColor: formData.isWorkType ? formData.negativeColor : undefined,
+				negativeTextColor: formData.isWorkType ? formData.negativeTextColor : undefined,
+				noHoursRequired: formData.isWorkType ? false : formData.noHoursRequired,
+				flextimeEffect: formData.isWorkType ? 'accumulate' : formData.flextimeEffect,
+				includeInStats: formData.isWorkType ? true : formData.includeInStats,
+				maxDaysPerYear: formData.isWorkType ? undefined : formData.maxDaysPerYear,
+				countingPeriod: formData.isWorkType ? undefined : formData.countingPeriod as 'calendar' | 'rolling365',
+				isWorkType: formData.isWorkType
 			};
 
 			this.onSave(behavior, this.index);
@@ -979,19 +1071,19 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 				}));
 
 		// ============================================================
-		// SECTION 3: SPECIAL DAY TYPES
+		// SECTION 3: ENTRY TYPES
 		// ============================================================
-		new Setting(settingsContainer)
-			.setName('Special Day Types')
-			.setDesc('Configure how different types of special days affect your workday and flextime balance. These settings determine how days are counted in flextime calculations.')
-			.setHeading();
 
 		// Helper function to get behavior description
 		const getBehaviorDescription = (behavior: SpecialDayBehavior): string => {
 			const parts: string[] = [];
 
 			// Workday status
-			parts.push(behavior.noHoursRequired ? 'No hours required' : 'Regular workday applies');
+			if (behavior.isWorkType) {
+				parts.push('Regular work entry');
+			} else {
+				parts.push(behavior.noHoursRequired ? 'No hours required' : 'Regular workday applies');
+			}
 
 			// Flextime effect
 			if (behavior.flextimeEffect === 'withdraw') {
@@ -1010,16 +1102,52 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 			return parts.join(', ');
 		};
 
-		// List existing behaviors
-		this.plugin.settings.specialDayBehaviors.forEach((behavior, index) => {
-			const colorDot = settingsContainer.createEl('span');
-			colorDot.style.display = 'inline-block';
-			colorDot.style.width = '12px';
-			colorDot.style.height = '12px';
-			colorDot.style.borderRadius = '50%';
-			colorDot.style.backgroundColor = behavior.color;
-			colorDot.style.marginRight = '6px';
-			colorDot.style.verticalAlign = 'middle';
+		// Separate work types from special day types
+		console.log('TimeFlow Settings Debug - All behaviors:', JSON.stringify(this.plugin.settings.specialDayBehaviors.map(b => ({ id: b.id, isWorkType: b.isWorkType })), null, 2));
+		const workTypes = this.plugin.settings.specialDayBehaviors.filter(b => b.isWorkType || b.id === 'jobb');
+		const specialDays = this.plugin.settings.specialDayBehaviors.filter(b => !b.isWorkType && b.id !== 'jobb');
+		console.log('TimeFlow Settings Debug - Work types:', workTypes.map(b => b.id));
+		console.log('TimeFlow Settings Debug - Special days:', specialDays.map(b => b.id));
+
+		// Work Entry Types section
+		new Setting(settingsContainer)
+			.setName('Work Entry Type')
+			.setDesc('Configure the appearance of your regular work entries')
+			.setHeading();
+
+		workTypes.forEach((behavior) => {
+			const index = this.plugin.settings.specialDayBehaviors.findIndex(b => b.id === behavior.id);
+
+			new Setting(settingsContainer)
+				.setName(`${behavior.icon} ${behavior.label}`)
+				.setDesc(getBehaviorDescription(behavior))
+				.addButton(btn => btn
+					.setButtonText('Edit')
+					.onClick(() => {
+						new SpecialDayBehaviorModal(
+							this.app,
+							this.plugin,
+							behavior,
+							index,
+							async (updatedBehavior, idx) => {
+								this.plugin.settings.specialDayBehaviors[idx] = updatedBehavior;
+								await this.plugin.saveSettings();
+								await this.refreshView();
+								this.display(); // Refresh settings panel
+							}
+						).open();
+					}));
+		});
+
+		// Special Day Types section
+		new Setting(settingsContainer)
+			.setName('Special Day Types')
+			.setDesc('Configure how different types of special days affect your workday and flextime balance. These settings determine how days are counted in flextime calculations.')
+			.setHeading();
+
+		// List special day behaviors (excluding work types)
+		specialDays.forEach((behavior) => {
+			const index = this.plugin.settings.specialDayBehaviors.findIndex(b => b.id === behavior.id);
 
 			new Setting(settingsContainer)
 				.setName(`${behavior.icon} ${behavior.label}`)
@@ -1089,17 +1217,15 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 			.setHeading();
 
 		new Setting(settingsContainer)
-			.setName('Theme')
-			.setDesc('Choose the color scheme for TimeFlow cards')
+			.setName('Default view location')
+			.setDesc('Choose where TimeFlow opens by default')
 			.addDropdown(dropdown => dropdown
-				.addOption('light', 'Light (Colorful gradients)')
-				.addOption('system', 'System (Match Obsidian theme)')
-				.addOption('dark', 'Dark (Dark gradients)')
-				.setValue(this.plugin.settings.theme)
-				.onChange(async (value: 'light' | 'dark' | 'system') => {
-					this.plugin.settings.theme = value;
+				.addOption('sidebar', 'Sidebar (right panel)')
+				.addOption('main', 'Main area (as a tab)')
+				.setValue(this.plugin.settings.defaultViewLocation)
+				.onChange(async (value: 'sidebar' | 'main') => {
+					this.plugin.settings.defaultViewLocation = value;
 					await this.plugin.saveSettings();
-					await this.refreshView();
 				}));
 
 		new Setting(settingsContainer)

@@ -333,4 +333,66 @@ ${JSON.stringify(this.data, null, 2)}
 		}
 		return false;
 	}
+
+	// Convert past planned days (from holidays.md) to timer entries
+	// This ensures planned days like ferie, avspasering appear in Historikk
+	async convertPastPlannedDays(holidays: Record<string, { type: string; description: string; halfDay: boolean; startTime?: string; endTime?: string }>, settings: TimeFlowSettings): Promise<number> {
+		const today = new Date();
+		today.setHours(0, 0, 0, 0);
+		let converted = 0;
+
+		for (const [dateStr, info] of Object.entries(holidays)) {
+			const plannedDate = new Date(dateStr);
+			if (plannedDate >= today) continue; // Skip future/today
+
+			// Skip types that don't auto-convert
+			const behavior = settings.specialDayBehaviors.find(b => b.id === info.type);
+			if (!behavior?.noHoursRequired) continue; // studie, kurs don't convert
+			if (info.type === 'helligdag') continue; // System holiday
+
+			// Check if entry of same type already exists for this date
+			const hasEntry = this.data.entries.some(e => {
+				if (!e.startTime) return false;
+				const entryDate = new Date(e.startTime);
+				return Utils.toLocalDateStr(entryDate) === dateStr &&
+					   e.name.toLowerCase() === info.type;
+			});
+
+			if (hasEntry) continue;
+
+			// Calculate times based on type
+			let startTime = `${dateStr}T00:00:00`;
+			let endTime = `${dateStr}T00:00:00`;
+
+			if (info.type === 'avspasering') {
+				// Avspasering uses startTime/endTime from holidays.md (e.g., 14:00-16:00)
+				if (info.startTime && info.endTime) {
+					startTime = `${dateStr}T${info.startTime}:00`;
+					endTime = `${dateStr}T${info.endTime}:00`;
+				} else {
+					// Fallback: full workday if no time specified
+					const hours = settings.baseWorkday * settings.workPercent;
+					const h = Math.floor(hours);
+					const m = Math.round((hours - h) * 60);
+					endTime = `${dateStr}T${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:00`;
+				}
+			}
+			// ferie, velferdspermisjon, sykemelding, egenmelding: 00:00-00:00 (0 duration is fine)
+
+			const entry: Timer = {
+				name: info.type,
+				startTime,
+				endTime,
+				subEntries: null
+			};
+
+			this.data.entries.push(entry);
+			converted++;
+		}
+
+		if (converted > 0) {
+			await this.save();
+		}
+		return converted;
+	}
 }

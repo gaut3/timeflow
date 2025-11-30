@@ -8,6 +8,13 @@ export const FIXED_DAY_COLORS: Record<string, string> = {
 	"Ingen registrering": "#cccccc",
 };
 
+// Constant text colors for holidays (not configurable)
+export const FIXED_DAY_TEXT_COLORS: Record<string, string> = {
+	helligdag: "#ffffff",
+	halfday: "#000000",
+	"Ingen registrering": "#000000",
+};
+
 // Function to get special day colors from settings
 export function getSpecialDayColors(settings: TimeFlowSettings): Record<string, string> {
 	const colors: Record<string, string> = { ...FIXED_DAY_COLORS };
@@ -25,13 +32,23 @@ export function getSpecialDayColors(settings: TimeFlowSettings): Record<string, 
 	return colors;
 }
 
+// Function to get special day text colors from settings
+export function getSpecialDayTextColors(settings: TimeFlowSettings): Record<string, string> {
+	const colors: Record<string, string> = { ...FIXED_DAY_TEXT_COLORS };
+
+	// Build text color map from special day behaviors
+	settings.specialDayBehaviors.forEach(behavior => {
+		colors[behavior.id] = behavior.textColor || '#000000';
+	});
+
+	return colors;
+}
+
 // Function to build emoji map from settings
 export function getEmojiMap(settings: TimeFlowSettings): Record<string, string> {
-	const emojiMap: Record<string, string> = {
-		jobb: "💼" // Always include jobb
-	};
+	const emojiMap: Record<string, string> = {};
 
-	// Build emoji map from special day behaviors
+	// Build emoji map from special day behaviors (includes jobb)
 	settings.specialDayBehaviors.forEach(behavior => {
 		emojiMap[behavior.id] = behavior.icon;
 	});
