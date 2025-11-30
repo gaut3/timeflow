@@ -2,9 +2,11 @@ import { App, PluginSettingTab, Setting, Notice, Modal } from 'obsidian';
 import TimeFlowPlugin from './main';
 import { Utils } from './utils';
 import { ImportModal } from './importModal';
+import { setLanguage, t } from './i18n';
 
 export interface TimeFlowSettings {
 	version: string;
+	language: 'nb' | 'en';
 	defaultViewLocation: 'sidebar' | 'main';
 	hourUnit: 'h' | 't';
 	showWeekNumbers: boolean;
@@ -60,8 +62,6 @@ export interface TimeFlowSettings {
 		balanceCritical?: string;  // Default: #f44336
 		progressBar?: string;      // Default: #4caf50
 	};
-	// NEW: Message preferences
-	enableMotivationalMessages?: boolean;  // Default: true
 	// Norwegian labor law compliance settings
 	complianceSettings?: {
 		enableWarnings: boolean;       // Enable/disable compliance warnings
@@ -198,6 +198,7 @@ export interface NoteType {
 
 export const DEFAULT_SETTINGS: TimeFlowSettings = {
 	version: "1.0.0",
+	language: "nb",
 	defaultViewLocation: "sidebar",
 	hourUnit: "t",
 	showWeekNumbers: true,
@@ -229,7 +230,7 @@ export const DEFAULT_SETTINGS: TimeFlowSettings = {
 	noteTypes: [
 		{
 			id: "daily",
-			label: "Daglig Notat",
+			label: "Daily Note",
 			icon: "📅",
 			folder: "Daily Notes",
 			template: "timeflow/templates/daily-notes.md",
@@ -238,39 +239,39 @@ export const DEFAULT_SETTINGS: TimeFlowSettings = {
 		},
 		{
 			id: "meeting",
-			label: "Møtenotat",
+			label: "Meeting Note",
 			icon: "👥",
-			folder: "Møter",
+			folder: "Meetings",
 			template: "timeflow/templates/meeting-note.md",
-			tags: ["#møte", "#timeflow"],
-			filenamePattern: "{YYYY}-{MM}-{DD} Møte"
+			tags: ["#meeting", "#timeflow"],
+			filenamePattern: "{YYYY}-{MM}-{DD} Meeting"
 		},
 		{
 			id: "project",
-			label: "Prosjektnotat",
+			label: "Project Note",
 			icon: "📋",
-			folder: "Prosjekter",
+			folder: "Projects",
 			template: "timeflow/templates/project-note.md",
-			tags: ["#prosjekt", "#timeflow"],
-			filenamePattern: "{YYYY}-{MM}-{DD} Prosjekt"
+			tags: ["#project", "#timeflow"],
+			filenamePattern: "{YYYY}-{MM}-{DD} Project"
 		},
 		{
 			id: "review",
-			label: "Ukesoppsummering",
+			label: "Weekly Review",
 			icon: "🔍",
-			folder: "Oppsummeringer",
+			folder: "Reviews",
 			template: "timeflow/templates/weekly-review.md",
-			tags: ["#oppsummering", "#uke", "#timeflow"],
-			filenamePattern: "{YYYY}-{MM}-{DD} Uke {WEEK}"
+			tags: ["#review", "#weekly", "#timeflow"],
+			filenamePattern: "{YYYY}-{MM}-{DD} Week {WEEK}"
 		},
 		{
 			id: "reflection",
-			label: "Refleksjonsnotat",
+			label: "Reflection Note",
 			icon: "💭",
-			folder: "Refleksjoner",
+			folder: "Reflections",
 			template: "timeflow/templates/reflection-note.md",
-			tags: ["#refleksjon", "#timeflow"],
-			filenamePattern: "{YYYY}-{MM}-{DD} Refleksjon"
+			tags: ["#reflection", "#timeflow"],
+			filenamePattern: "{YYYY}-{MM}-{DD} Reflection"
 		}
 	],
 	specialDayBehaviors: DEFAULT_SPECIAL_DAY_BEHAVIORS,
@@ -315,8 +316,6 @@ export const DEFAULT_SETTINGS: TimeFlowSettings = {
 		balanceCritical: "#f44336",
 		progressBar: "#4caf50"
 	},
-	// NEW: Message preferences
-	enableMotivationalMessages: true,
 	// Norwegian labor law compliance settings
 	complianceSettings: {
 		enableWarnings: true,
@@ -700,7 +699,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 		const { containerEl } = this;
 		containerEl.empty();
 
-		containerEl.createEl("h2", { text: "TimeFlow Settings" });
+		containerEl.createEl("h2", { text: "timeflow Settings" });
 
 		// NEW: Search box
 		const searchContainer = containerEl.createDiv({ cls: "tf-settings-search" });
@@ -735,7 +734,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 		// ============================================================
 		new Setting(settingsContainer)
 			.setName('Quick Start')
-			.setDesc('Essential settings to get started with TimeFlow')
+			.setDesc('Essential settings to get started with timeflow')
 			.setHeading();
 
 		// Settings sync info
@@ -749,6 +748,22 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 			<strong>📱 Cross-Device Settings Sync</strong><br>
 			Settings are automatically saved to <code>timeflow/data.md</code> and will sync across devices when using Obsidian Sync or any other vault sync solution. When you open the plugin on another device, your settings will be automatically loaded.
 		`;
+
+		// Language selector
+		new Setting(settingsContainer)
+			.setName('Language / Språk')
+			.setDesc('Interface language / Grensesnittspråk')
+			.addDropdown(dropdown => dropdown
+				.addOption('nb', 'Norsk')
+				.addOption('en', 'English')
+				.setValue(this.plugin.settings.language)
+				.onChange(async (value: 'nb' | 'en') => {
+					this.plugin.settings.language = value;
+					setLanguage(value);
+					await this.plugin.saveSettings();
+					this.display(); // Refresh settings UI
+					await this.refreshView(); // Refresh dashboard
+				}));
 
 		new Setting(settingsContainer)
 			.setName('Data file path')
@@ -974,10 +989,10 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 			}
 		} // End of enableGoalTracking conditional
 
-		// Compliance warnings subsection (Arbeidstidsgrenser)
+		// Compliance warnings subsection
 		const complianceSection = this.createCollapsibleSubsection(
 			settingsContainer,
-			'Arbeidstidsgrenser (Work Time Limits)',
+			'Work Time Limits',
 			false
 		);
 		complianceSection.content.addClass('tf-compliance-settings');
@@ -1213,12 +1228,12 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 		// ============================================================
 		new Setting(settingsContainer)
 			.setName('Display & Interface')
-			.setDesc('Customize the appearance and behavior of the TimeFlow interface')
+			.setDesc('Customize the appearance and behavior of the timeflow interface')
 			.setHeading();
 
 		new Setting(settingsContainer)
 			.setName('Default view location')
-			.setDesc('Choose where TimeFlow opens by default')
+			.setDesc('Choose where timeflow opens by default')
 			.addDropdown(dropdown => dropdown
 				.addOption('sidebar', 'Sidebar (right panel)')
 				.addOption('main', 'Main area (as a tab)')
@@ -1242,23 +1257,12 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(settingsContainer)
-			.setName('Vis ukenummer')
-			.setDesc('Vis ukenummer i kalender og uke-kortet (ISO 8601 ukenummer)')
+			.setName(t('settings.showWeekNumbers'))
+			.setDesc(t('settings.showWeekNumbersDesc'))
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.showWeekNumbers ?? true)
 				.onChange(async (value) => {
 					this.plugin.settings.showWeekNumbers = value;
-					await this.plugin.saveSettings();
-					await this.refreshView();
-				}));
-
-		new Setting(settingsContainer)
-			.setName('Enable motivational messages')
-			.setDesc('Show contextual messages in day/week cards (e.g., encouraging messages, progress updates)')
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.enableMotivationalMessages ?? true)
-				.onChange(async (value) => {
-					this.plugin.settings.enableMotivationalMessages = value;
 					await this.plugin.saveSettings();
 					await this.refreshView();
 				}));
@@ -1393,10 +1397,10 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(settingsContainer)
-			.setName('Importer data')
-			.setDesc('Importer tidsdata fra ulike formater: Timekeep JSON, CSV (norsk/ISO datoformat), eller JSON-arrays')
+			.setName(t('settings.importData'))
+			.setDesc(t('settings.importDataDesc'))
 			.addButton(button => button
-				.setButtonText('Importer data')
+				.setButtonText(t('settings.importData'))
 				.setCta()
 				.onClick(async () => {
 					this.showImportModal();

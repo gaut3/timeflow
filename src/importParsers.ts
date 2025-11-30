@@ -1,4 +1,5 @@
 import { Timer } from './timerManager';
+import { t } from './i18n';
 
 export interface ParseResult {
 	success: boolean;
@@ -43,7 +44,7 @@ export class TimekeepParser implements ImportParser {
 			const data = JSON.parse(content.trim());
 
 			if (!data.entries || !Array.isArray(data.entries)) {
-				result.errors.push('Ugyldig format: mangler "entries" array');
+				result.errors.push(`${t('import.errors.invalidFormat')}: ${t('import.errors.missingEntries')}`);
 				return result;
 			}
 
@@ -51,21 +52,21 @@ export class TimekeepParser implements ImportParser {
 				const entry = data.entries[i];
 
 				if (!entry.name || !entry.startTime) {
-					result.warnings.push(`Oppføring ${i + 1}: Mangler påkrevde felt (name, startTime)`);
+					result.warnings.push(`${t('import.errors.entry')} ${i + 1}: ${t('import.errors.missingFields')} (name, startTime)`);
 					continue;
 				}
 
 				// Validate timestamps
 				const startDate = new Date(entry.startTime);
 				if (isNaN(startDate.getTime())) {
-					result.warnings.push(`Oppføring ${i + 1}: Ugyldig starttid`);
+					result.warnings.push(`${t('import.errors.entry')} ${i + 1}: ${t('import.errors.invalidStartTime')}`);
 					continue;
 				}
 
 				if (entry.endTime) {
 					const endDate = new Date(entry.endTime);
 					if (isNaN(endDate.getTime())) {
-						result.warnings.push(`Oppføring ${i + 1}: Ugyldig sluttid`);
+						result.warnings.push(`${t('import.errors.entry')} ${i + 1}: ${t('import.errors.invalidEndTime')}`);
 						continue;
 					}
 				}
@@ -81,7 +82,7 @@ export class TimekeepParser implements ImportParser {
 
 			result.success = result.entries.length > 0;
 		} catch (error: any) {
-			result.errors.push(`JSON-feil: ${error.message}`);
+			result.errors.push(`${t('import.errors.jsonError')}: ${error.message}`);
 		}
 
 		return result;
@@ -120,7 +121,7 @@ export class CSVParser implements ImportParser {
 			const lines = content.trim().split('\n').map(line => line.trim()).filter(line => line.length > 0);
 
 			if (lines.length < 2) {
-				result.errors.push('CSV må ha minst en overskriftsrad og en datarad');
+				result.errors.push(t('import.errors.csvNeedsHeader'));
 				return result;
 			}
 
@@ -137,12 +138,12 @@ export class CSVParser implements ImportParser {
 			const activityCol = this.findColumn(headers, ['aktivitet', 'activity', 'type', 'navn', 'name', 'beskrivelse', 'description']);
 
 			if (dateCol === -1) {
-				result.errors.push('Kunne ikke finne dato-kolonne. Forventet: Dato, Date, Dag');
+				result.errors.push(t('import.errors.couldNotFindDateColumn'));
 				return result;
 			}
 
 			if (startCol === -1) {
-				result.errors.push('Kunne ikke finne starttid-kolonne. Forventet: Start, Starttid, Fra');
+				result.errors.push(t('import.errors.couldNotFindStartColumn'));
 				return result;
 			}
 
@@ -151,7 +152,7 @@ export class CSVParser implements ImportParser {
 				const values = this.parseCSVLine(lines[i], delimiter);
 
 				if (values.length <= Math.max(dateCol, startCol)) {
-					result.warnings.push(`Rad ${i + 1}: For få kolonner`);
+					result.warnings.push(`${t('import.errors.row')} ${i + 1}: ${t('import.errors.tooFewColumns')}`);
 					continue;
 				}
 
@@ -161,21 +162,21 @@ export class CSVParser implements ImportParser {
 				const activity = activityCol !== -1 ? values[activityCol]?.trim() : 'jobb';
 
 				if (!dateStr || !startStr) {
-					result.warnings.push(`Rad ${i + 1}: Mangler dato eller starttid`);
+					result.warnings.push(`${t('import.errors.row')} ${i + 1}: ${t('import.errors.missingDateOrTime')}`);
 					continue;
 				}
 
 				// Parse date (Norwegian DD.MM.YYYY or ISO YYYY-MM-DD)
 				const parsedDate = this.parseDate(dateStr);
 				if (!parsedDate) {
-					result.warnings.push(`Rad ${i + 1}: Ugyldig datoformat "${dateStr}". Bruk DD.MM.YYYY eller YYYY-MM-DD`);
+					result.warnings.push(`${t('import.errors.row')} ${i + 1}: ${t('import.errors.invalidDateFormat')} "${dateStr}"`);
 					continue;
 				}
 
 				// Parse start time
 				const startTime = this.parseTime(startStr);
 				if (!startTime) {
-					result.warnings.push(`Rad ${i + 1}: Ugyldig starttid "${startStr}". Bruk HH:MM`);
+					result.warnings.push(`${t('import.errors.row')} ${i + 1}: ${t('import.errors.invalidTimeFormat')} "${startStr}"`);
 					continue;
 				}
 
@@ -196,7 +197,7 @@ export class CSVParser implements ImportParser {
 							endDateTime.setDate(endDateTime.getDate() + 1);
 						}
 					} else {
-						result.warnings.push(`Rad ${i + 1}: Ugyldig sluttid "${endStr}". Bruk HH:MM`);
+						result.warnings.push(`${t('import.errors.row')} ${i + 1}: ${t('import.errors.invalidTimeFormat')} "${endStr}"`);
 					}
 				}
 
@@ -211,7 +212,7 @@ export class CSVParser implements ImportParser {
 
 			result.success = result.entries.length > 0;
 		} catch (error: any) {
-			result.errors.push(`CSV-feil: ${error.message}`);
+			result.errors.push(`CSV ${t('import.errors_label')}: ${error.message}`);
 		}
 
 		return result;
@@ -340,7 +341,7 @@ export class GenericJSONParser implements ImportParser {
 			const data = JSON.parse(content.trim());
 
 			if (!Array.isArray(data)) {
-				result.errors.push('Forventet en JSON-array');
+				result.errors.push(t('import.errors.expectedJsonArray'));
 				return result;
 			}
 
@@ -369,7 +370,7 @@ export class GenericJSONParser implements ImportParser {
 							continue;
 						}
 					}
-					result.warnings.push(`Oppføring ${i + 1}: Mangler dato/tid-felt`);
+					result.warnings.push(`${t('import.errors.entry')} ${i + 1}: ${t('import.errors.missingDateOrTime')}`);
 					continue;
 				}
 
@@ -389,7 +390,7 @@ export class GenericJSONParser implements ImportParser {
 				}
 
 				if (!startDateTime) {
-					result.warnings.push(`Oppføring ${i + 1}: Kunne ikke tolke dato/tid`);
+					result.warnings.push(`${t('import.errors.entry')} ${i + 1}: ${t('import.errors.couldNotParseDateTime')}`);
 					continue;
 				}
 
@@ -404,7 +405,7 @@ export class GenericJSONParser implements ImportParser {
 
 			result.success = result.entries.length > 0;
 		} catch (error: any) {
-			result.errors.push(`JSON-feil: ${error.message}`);
+			result.errors.push(`${t('import.errors.jsonError')}: ${error.message}`);
 		}
 
 		return result;
@@ -457,8 +458,8 @@ export function autoDetectAndParse(content: string): ParseResult & { format: str
 	return {
 		success: false,
 		entries: [],
-		errors: ['Kunne ikke gjenkjenne formatet. Støttede formater: Timekeep JSON, CSV, JSON Array'],
+		errors: [t('import.errors.unknownFormat')],
 		warnings: [],
-		format: 'Ukjent'
+		format: '?'
 	};
 }

@@ -130,6 +130,605 @@ var Utils = {
 // src/importModal.ts
 var import_obsidian = require("obsidian");
 
+// src/i18n/index.ts
+var currentLanguage = "nb";
+function setLanguage(lang) {
+  currentLanguage = lang;
+}
+function getLocale() {
+  return currentLanguage === "nb" ? "nb-NO" : "en-GB";
+}
+function t(key) {
+  const keys = key.split(".");
+  let value = translations[currentLanguage];
+  for (const k of keys) {
+    value = value == null ? void 0 : value[k];
+  }
+  return value != null ? value : key;
+}
+function formatDate(date, format = "short") {
+  if (currentLanguage === "en") {
+    const year = date.getFullYear();
+    const month = (date.getMonth() + 1).toString().padStart(2, "0");
+    const day = date.getDate().toString().padStart(2, "0");
+    if (format === "long") {
+      return date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+    }
+    return `${year}-${month}-${day}`;
+  }
+  if (format === "long") {
+    return date.toLocaleDateString("nb-NO", { day: "numeric", month: "short", year: "numeric" });
+  }
+  return date.toLocaleDateString("nb-NO");
+}
+function formatTime(date, includeSeconds = false) {
+  const options = {
+    hour: "2-digit",
+    minute: "2-digit"
+  };
+  if (includeSeconds)
+    options.second = "2-digit";
+  return date.toLocaleTimeString(getLocale(), options);
+}
+function getDayNamesShort() {
+  return t("dates.dayNamesShort");
+}
+function getMonthName(date) {
+  return date.toLocaleDateString(getLocale(), { month: "long", year: "numeric" });
+}
+var specialDayTranslationMap = {
+  "jobb": "specialDays.work",
+  "ferie": "specialDays.vacation",
+  "avspasering": "specialDays.flexTimeOff",
+  "egenmelding": "specialDays.selfReportedSick",
+  "sykemelding": "specialDays.doctorSick",
+  "velferdspermisjon": "specialDays.welfareLeave",
+  "kurs": "specialDays.course",
+  "studie": "specialDays.study",
+  "helligdag": "specialDays.publicHoliday"
+};
+function translateSpecialDayName(id, fallbackLabel) {
+  const translationKey = specialDayTranslationMap[id.toLowerCase()];
+  if (translationKey) {
+    return t(translationKey);
+  }
+  return fallbackLabel || id;
+}
+var noteTypeTranslationMap = {
+  "daily": "noteTypes.daily",
+  "meeting": "noteTypes.meeting",
+  "project": "noteTypes.project",
+  "review": "noteTypes.review",
+  "reflection": "noteTypes.reflection"
+};
+function translateNoteTypeName(id, fallbackLabel) {
+  const translationKey = noteTypeTranslationMap[id.toLowerCase()];
+  if (translationKey) {
+    return t(translationKey);
+  }
+  return fallbackLabel || id;
+}
+var translations = {
+  nb: {
+    dates: {
+      dayNamesShort: ["Man", "Tir", "Ons", "Tor", "Fre", "L\xF8r", "S\xF8n"],
+      dayNamesFull: ["S\xF8ndag", "Mandag", "Tirsdag", "Onsdag", "Torsdag", "Fredag", "L\xF8rdag"]
+    },
+    ui: {
+      today: "I dag",
+      thisWeek: "Denne uken",
+      week: "Uke",
+      calendar: "Kalender",
+      statistics: "Statistikk",
+      history: "Historikk",
+      information: "Informasjon",
+      flextimeBalance: "Fleksitidsaldo",
+      hoursWorked: "Timer arbeidet",
+      hoursLogged: "Timer logget",
+      hours: "Timer",
+      dayGoal: "Dagsm\xE5l",
+      weekGoal: "Ukem\xE5l",
+      flextime: "Fleksitid",
+      activeTimers: "Aktive timer",
+      ongoing: "P\xE5g\xE5ende",
+      total: "Totalt",
+      year: "\xC5r",
+      month: "M\xE5ned",
+      all: "Alle",
+      date: "Dato",
+      type: "Type",
+      start: "Start",
+      end: "Slutt",
+      duration: "Varighet",
+      comment: "Kommentar",
+      optional: "valgfritt",
+      days: "dager",
+      goal: "M\xE5l",
+      expected: "Forventet",
+      difference: "Differanse",
+      overWeekLimit: "Over ukegrense",
+      vsLastWeek: "vs forrige uke",
+      upcomingPlannedDays: "Kommende planlagte dager",
+      dailyBalance: "Dagssaldo",
+      runningBalance: "L\xF8pende saldo",
+      noRegistration: "Ingen registrering",
+      noDataForDay: "Ingen data for den dagen",
+      restPeriodWarning: "Hviletid: Kun {hours} timer mellom arbeids\xF8kter (minimum {min} timer)",
+      restPeriod: "Hviletid",
+      minimum: "minimum"
+    },
+    status: {
+      ok: "OK",
+      near: "N\xE6r",
+      over: "Over",
+      onTarget: "P\xE5 m\xE5l",
+      overTarget: "Over m\xE5l",
+      underTarget: "Under m\xE5l",
+      inProgress: "P\xE5g\xE5r",
+      allLimitsOk: "Alle grenser er OK.",
+      withinLimits: "Innenfor grensene",
+      approachingLimits: "N\xE6rmer seg",
+      systemStatus: "Systemstatus",
+      clickForDetails: "klikk for detaljer",
+      holidayNotLoaded: "Helligdagsdata ikke lastet",
+      activeTimers: "aktive timer",
+      entriesChecked: "oppf\xF8ringer sjekket"
+    },
+    buttons: {
+      cancel: "Avbryt",
+      save: "Lagre",
+      delete: "Slett",
+      edit: "Rediger",
+      close: "Lukk",
+      add: "Legg til",
+      done: "Ferdig",
+      start: "Start",
+      stop: "Stopp",
+      export: "Eksporter",
+      import: "Importer",
+      preview: "Forh\xE5ndsvis",
+      list: "Liste",
+      heatmap: "Heatmap",
+      moveToMain: "Flytt til hovedomr\xE5de",
+      moveToSidebar: "Flytt til sidepanel"
+    },
+    menu: {
+      logWork: "Logg arbeidstimer",
+      editWork: "Rediger arbeidstid",
+      registerSpecialDay: "Registrer spesialdag",
+      addEntry: "Legg til oppf\xF8ring",
+      deleteEntry: "Slett oppf\xF8ring"
+    },
+    timeframes: {
+      total: "Totalt",
+      year: "\xC5r",
+      month: "M\xE5ned"
+    },
+    modals: {
+      logWorkTitle: "Logg arbeidstimer for",
+      editWorkTitle: "Rediger arbeidstid for",
+      registerSpecialDayTitle: "Registrer spesialdag",
+      addEntryTitle: "Legg til oppf\xF8ring for",
+      deleteEntryTitle: "Slett oppf\xF8ring",
+      startTime: "Starttid",
+      endTime: "Sluttid",
+      startTimeFormat: "Starttid (HH:MM):",
+      endTimeFormat: "Sluttid (HH:MM):",
+      dayType: "Type dag:",
+      timePeriod: "Tidsperiode:",
+      from: "Fra:",
+      to: "Til:",
+      commentOptional: "Kommentar (valgfritt):"
+    },
+    validation: {
+      endAfterStart: "Sluttid m\xE5 v\xE6re etter starttid",
+      invalidTimePeriod: "Ugyldig tidsperiode"
+    },
+    notifications: {
+      added: "Lagt til",
+      updated: "Oppdatert",
+      deleted: "Slettet",
+      exported: "Eksportert til CSV"
+    },
+    confirm: {
+      deleteEntry: "Er du sikker p\xE5 at du vil slette denne oppf\xF8ringen?",
+      deleteEntryFor: "Slette oppf\xF8ring for"
+    },
+    stats: {
+      flextimeBalance: "Fleksitidsaldo",
+      hours: "Timer",
+      avgPerDay: "Snitt/dag",
+      avgPerWeek: "Snitt/uke",
+      workIntensity: "Intensitet",
+      ofNormalWeek: "av normaluke",
+      work: "Jobb",
+      weekendDaysWorked: "Helgedager jobbet",
+      flexTimeOff: "Avspasering",
+      vacation: "Ferie",
+      welfareLeave: "Velferdspermisjon",
+      selfReportedSick: "Egenmelding",
+      doctorSick: "Sykemelding",
+      study: "Studiedag",
+      course: "Kursdag",
+      totalBalance: "Total saldo"
+    },
+    specialDays: {
+      work: "Jobb",
+      vacation: "Ferie",
+      flexTimeOff: "Avspasering",
+      selfReportedSick: "Egenmelding",
+      doctorSick: "Sykemelding",
+      welfareLeave: "Velferdspermisjon",
+      course: "Kursdag",
+      study: "Studiedag",
+      publicHoliday: "Helligdag"
+    },
+    import: {
+      title: "Importer data",
+      description: "Importer tidsdata fra ulike formater. St\xF8tter Timekeep JSON, CSV og JSON-arrays.",
+      selectFile: "Velg fil...",
+      noFile: "Ingen fil valgt",
+      orPasteData: "Eller lim inn data:",
+      placeholder: "Lim inn Timekeep JSON, CSV eller JSON-array her...\n\nEksempel CSV (norsk format):\nDato;Start;Slutt;Aktivitet\n25.11.2024;08:00;16:00;jobb\n26.11.2024;09:00;17:00;jobb",
+      format: "Format:",
+      autoDetect: "Auto-detekter",
+      supportedFormats: "St\xF8ttede formater:",
+      noEntries: "Ingen oppf\xF8ringer \xE5 importere",
+      entriesFound: "oppf\xF8ringer funnet",
+      imported: "Importerte",
+      entries: "oppf\xF8ringer",
+      skippedDuplicates: "hoppet over",
+      duplicates: "duplikater",
+      andMore: "og",
+      more: "flere",
+      errors: {
+        invalidFormat: "Ugyldig format",
+        missingEntries: 'mangler "entries" array',
+        missingFields: "Mangler p\xE5krevde felt",
+        invalidStartTime: "Ugyldig starttid",
+        invalidEndTime: "Ugyldig sluttid",
+        csvNeedsHeader: "CSV m\xE5 ha minst en overskriftsrad og en datarad",
+        jsonError: "JSON-feil",
+        unknownFormat: "Kunne ikke gjenkjenne formatet. St\xF8ttede formater: Timekeep JSON, CSV, JSON Array",
+        couldNotFindDateColumn: "Kunne ikke finne dato-kolonne. Forventet: Dato, Date, Dag",
+        couldNotFindStartColumn: "Kunne ikke finne starttid-kolonne. Forventet: Start, Starttid, Fra",
+        tooFewColumns: "For f\xE5 kolonner",
+        missingDateOrTime: "Mangler dato eller starttid",
+        invalidDateFormat: "Ugyldig datoformat. Bruk DD.MM.YYYY eller YYYY-MM-DD",
+        invalidTimeFormat: "Ugyldig tid. Bruk HH:MM",
+        expectedJsonArray: "Forventet en JSON-array",
+        couldNotParseDateTime: "Kunne ikke tolke dato/tid",
+        entry: "Oppf\xF8ring",
+        row: "Rad"
+      },
+      warnings: "Advarsler",
+      errors_label: "Feil",
+      tableHeaders: {
+        date: "Dato",
+        start: "Start",
+        end: "Slutt",
+        type: "Type"
+      }
+    },
+    settings: {
+      language: "Spr\xE5k",
+      languageDesc: "Velg spr\xE5k for grensesnittet",
+      showWeekNumbers: "Vis ukenummer",
+      showWeekNumbersDesc: "Vis ukenummer i kalender og uke-kortet (ISO 8601 ukenummer)",
+      importData: "Importer data",
+      importDataDesc: "Importer tidsdata fra ulike formater: Timekeep JSON, CSV (norsk/ISO datoformat), eller JSON-arrays"
+    },
+    compliance: {
+      title: "Arbeidstidsgrenser",
+      today: "I dag",
+      thisWeek: "Denne uken",
+      restPeriod: "Hviletid",
+      limit: "grense",
+      approaching: "n\xE6rmer seg",
+      exceeds: "Overstiger"
+    },
+    timer: {
+      runningTimers: "P\xE5g\xE5ende timer",
+      noActiveTimers: "Ingen aktive timer"
+    },
+    noteTypes: {
+      daily: "Daglig Notat",
+      meeting: "M\xF8tenotat",
+      project: "Prosjektnotat",
+      review: "Ukesoppsummering",
+      reflection: "Refleksjonsnotat"
+    },
+    info: {
+      specialDayTypes: "Spesielle dagtyper",
+      workDaysGradient: "Arbeidsdager - fargegradient",
+      colorShowsFlextime: "Fargen viser fleksitid i forhold til dagens m\xE5l",
+      calendarContextMenu: "Kalenderkontekstmeny",
+      clickDayFor: "Trykk p\xE5 en dag i kalenderen for:",
+      createDailyNote: "Opprett daglig notat",
+      editFlextimeManually: "Rediger arbeidstid manuelt",
+      registerSpecialDays: "Registrer spesielle dagtyper",
+      flextimeBalanceZones: "Fleksitidsaldo - soner",
+      green: "Gr\xF8nn",
+      yellow: "Gul",
+      orange: "Oransje",
+      red: "R\xF8d",
+      gray: "Gr\xE5",
+      to: "til",
+      weekNumberCompliance: "Ukenummer - statusfarger",
+      reachedGoal: "N\xE5dd m\xE5l",
+      overGoal: "Over m\xE5l",
+      underGoal: "Under m\xE5l",
+      weekInProgress: "Uke p\xE5g\xE5r",
+      clickWeekForDetails: "Trykk p\xE5 ukenummer for detaljer.",
+      publicHolidayDesc: "Offentlig fridag - p\xE5virker ikke fleksitid",
+      halfDayDesc: "Halv arbeidsdag ({hours}t) - reduserer ukem\xE5let med {reduction}t",
+      withdrawFromFlextime: "Trekkes fra fleksitid",
+      countsAsFlextime: "Teller som fleksitid ved mer enn {hours}t",
+      noFlextimeEffect: "P\xE5virker ikke fleksitid",
+      workRegisteredOnSpecialDay: "Arbeid registrert p\xE5 {dayType}"
+    }
+  },
+  en: {
+    dates: {
+      dayNamesShort: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+      dayNamesFull: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+    },
+    ui: {
+      today: "Today",
+      thisWeek: "This Week",
+      week: "Week",
+      calendar: "Calendar",
+      statistics: "Statistics",
+      history: "History",
+      information: "Information",
+      flextimeBalance: "Flextime Balance",
+      hoursWorked: "Hours worked",
+      hoursLogged: "Hours logged",
+      hours: "Hours",
+      dayGoal: "Daily Goal",
+      weekGoal: "Weekly Goal",
+      flextime: "Flextime",
+      activeTimers: "Active timers",
+      ongoing: "Ongoing",
+      total: "Total",
+      year: "Year",
+      month: "Month",
+      all: "All",
+      date: "Date",
+      type: "Type",
+      start: "Start",
+      end: "End",
+      duration: "Duration",
+      comment: "Comment",
+      optional: "optional",
+      days: "days",
+      goal: "Goal",
+      expected: "Expected",
+      difference: "Difference",
+      overWeekLimit: "Over weekly limit",
+      vsLastWeek: "vs last week",
+      upcomingPlannedDays: "Upcoming planned days",
+      dailyBalance: "Daily balance",
+      runningBalance: "Running balance",
+      noRegistration: "No registration",
+      noDataForDay: "No data for this day",
+      restPeriodWarning: "Rest period: Only {hours} hours between work sessions (minimum {min} hours)",
+      restPeriod: "Rest period",
+      minimum: "minimum"
+    },
+    status: {
+      ok: "OK",
+      near: "Near",
+      over: "Over",
+      onTarget: "On target",
+      overTarget: "Over target",
+      underTarget: "Under target",
+      inProgress: "In progress",
+      allLimitsOk: "All limits are OK.",
+      withinLimits: "Within limits",
+      approachingLimits: "Approaching",
+      systemStatus: "System Status",
+      clickForDetails: "click for details",
+      holidayNotLoaded: "Holiday data not loaded",
+      activeTimers: "active timers",
+      entriesChecked: "entries checked"
+    },
+    buttons: {
+      cancel: "Cancel",
+      save: "Save",
+      delete: "Delete",
+      edit: "Edit",
+      close: "Close",
+      add: "Add",
+      done: "Done",
+      start: "Start",
+      stop: "Stop",
+      export: "Export",
+      import: "Import",
+      preview: "Preview",
+      list: "List",
+      heatmap: "Heatmap",
+      moveToMain: "Move to main area",
+      moveToSidebar: "Move to sidebar"
+    },
+    menu: {
+      logWork: "Log work hours",
+      editWork: "Edit work time",
+      registerSpecialDay: "Register special day",
+      addEntry: "Add entry",
+      deleteEntry: "Delete entry"
+    },
+    timeframes: {
+      total: "Total",
+      year: "Year",
+      month: "Month"
+    },
+    modals: {
+      logWorkTitle: "Log work hours for",
+      editWorkTitle: "Edit work time for",
+      registerSpecialDayTitle: "Register special day",
+      addEntryTitle: "Add entry for",
+      deleteEntryTitle: "Delete entry",
+      startTime: "Start time",
+      endTime: "End time",
+      startTimeFormat: "Start time (HH:MM):",
+      endTimeFormat: "End time (HH:MM):",
+      dayType: "Day type:",
+      timePeriod: "Time period:",
+      from: "From:",
+      to: "To:",
+      commentOptional: "Comment (optional):"
+    },
+    validation: {
+      endAfterStart: "End time must be after start time",
+      invalidTimePeriod: "Invalid time period"
+    },
+    notifications: {
+      added: "Added",
+      updated: "Updated",
+      deleted: "Deleted",
+      exported: "Exported to CSV"
+    },
+    confirm: {
+      deleteEntry: "Are you sure you want to delete this entry?",
+      deleteEntryFor: "Delete entry for"
+    },
+    stats: {
+      flextimeBalance: "Flextime Balance",
+      hours: "Hours",
+      avgPerDay: "Avg/day",
+      avgPerWeek: "Avg/week",
+      workIntensity: "Workload",
+      ofNormalWeek: "of normal week",
+      work: "Work",
+      weekendDaysWorked: "Weekend days worked",
+      flexTimeOff: "Comp time",
+      vacation: "Vacation",
+      welfareLeave: "Welfare leave",
+      selfReportedSick: "Sick day (self-reported)",
+      doctorSick: "Certified sick leave",
+      study: "Study",
+      course: "Course",
+      totalBalance: "Total balance"
+    },
+    specialDays: {
+      work: "Work",
+      vacation: "Vacation",
+      flexTimeOff: "Comp time",
+      selfReportedSick: "Sick day (self-reported)",
+      doctorSick: "Certified sick leave",
+      welfareLeave: "Welfare leave",
+      course: "Course",
+      study: "Study",
+      publicHoliday: "Public holiday"
+    },
+    import: {
+      title: "Import data",
+      description: "Import time data from various formats. Supports Timekeep JSON, CSV and JSON arrays.",
+      selectFile: "Select file...",
+      noFile: "No file selected",
+      orPasteData: "Or paste data:",
+      placeholder: "Paste Timekeep JSON, CSV or JSON array here...\n\nExample CSV:\nDate;Start;End;Activity\n2024-11-25;08:00;16:00;work\n2024-11-26;09:00;17:00;work",
+      format: "Format:",
+      autoDetect: "Auto-detect",
+      supportedFormats: "Supported formats:",
+      noEntries: "No entries to import",
+      entriesFound: "entries found",
+      imported: "Imported",
+      entries: "entries",
+      skippedDuplicates: "skipped",
+      duplicates: "duplicates",
+      andMore: "and",
+      more: "more",
+      errors: {
+        invalidFormat: "Invalid format",
+        missingEntries: 'missing "entries" array',
+        missingFields: "Missing required fields",
+        invalidStartTime: "Invalid start time",
+        invalidEndTime: "Invalid end time",
+        csvNeedsHeader: "CSV must have at least a header row and a data row",
+        jsonError: "JSON error",
+        unknownFormat: "Could not recognize format. Supported formats: Timekeep JSON, CSV, JSON Array",
+        couldNotFindDateColumn: "Could not find date column. Expected: Date, Dato, Day",
+        couldNotFindStartColumn: "Could not find start time column. Expected: Start, From",
+        tooFewColumns: "Too few columns",
+        missingDateOrTime: "Missing date or start time",
+        invalidDateFormat: "Invalid date format. Use DD.MM.YYYY or YYYY-MM-DD",
+        invalidTimeFormat: "Invalid time. Use HH:MM",
+        expectedJsonArray: "Expected a JSON array",
+        couldNotParseDateTime: "Could not parse date/time",
+        entry: "Entry",
+        row: "Row"
+      },
+      warnings: "Warnings",
+      errors_label: "Errors",
+      tableHeaders: {
+        date: "Date",
+        start: "Start",
+        end: "End",
+        type: "Type"
+      }
+    },
+    settings: {
+      language: "Language",
+      languageDesc: "Choose interface language",
+      showWeekNumbers: "Show week numbers",
+      showWeekNumbersDesc: "Show week numbers in calendar and week card (ISO 8601 week numbers)",
+      importData: "Import data",
+      importDataDesc: "Import time data from various formats: Timekeep JSON, CSV (Norwegian/ISO date format), or JSON arrays"
+    },
+    compliance: {
+      title: "Work time limits",
+      today: "Today",
+      thisWeek: "This week",
+      restPeriod: "Rest period",
+      limit: "limit",
+      approaching: "approaching",
+      exceeds: "Exceeds"
+    },
+    timer: {
+      runningTimers: "Running timers",
+      noActiveTimers: "No active timers"
+    },
+    noteTypes: {
+      daily: "Daily Note",
+      meeting: "Meeting Note",
+      project: "Project Note",
+      review: "Weekly Review",
+      reflection: "Reflection Note"
+    },
+    info: {
+      specialDayTypes: "Special day types",
+      workDaysGradient: "Work days - color gradient",
+      colorShowsFlextime: "Color shows flextime relative to daily goal",
+      calendarContextMenu: "Calendar context menu",
+      clickDayFor: "Click on a day in the calendar for:",
+      createDailyNote: "Create daily note",
+      editFlextimeManually: "Edit flextime manually",
+      registerSpecialDays: "Register special day types",
+      flextimeBalanceZones: "Flextime balance - zones",
+      green: "Green",
+      yellow: "Yellow",
+      orange: "Orange",
+      red: "Red",
+      gray: "Gray",
+      to: "to",
+      weekNumberCompliance: "Week number - status colors",
+      reachedGoal: "Reached goal",
+      overGoal: "Over goal",
+      underGoal: "Under goal",
+      weekInProgress: "Week in progress",
+      clickWeekForDetails: "Click on a week number for details.",
+      publicHolidayDesc: "Public holiday - does not affect flextime",
+      halfDayDesc: "Half work day ({hours}h) - reduces weekly goal by {reduction}h",
+      withdrawFromFlextime: "Deducted from flextime balance",
+      countsAsFlextime: "Counts as flextime above {hours}h",
+      noFlextimeEffect: "Does not affect flextime",
+      workRegisteredOnSpecialDay: "Work registered on {dayType}"
+    }
+  }
+};
+
 // src/importParsers.ts
 var TimekeepParser = class {
   constructor() {
@@ -157,24 +756,24 @@ var TimekeepParser = class {
     try {
       const data = JSON.parse(content.trim());
       if (!data.entries || !Array.isArray(data.entries)) {
-        result.errors.push('Ugyldig format: mangler "entries" array');
+        result.errors.push(`${t("import.errors.invalidFormat")}: ${t("import.errors.missingEntries")}`);
         return result;
       }
       for (let i = 0; i < data.entries.length; i++) {
         const entry = data.entries[i];
         if (!entry.name || !entry.startTime) {
-          result.warnings.push(`Oppf\xF8ring ${i + 1}: Mangler p\xE5krevde felt (name, startTime)`);
+          result.warnings.push(`${t("import.errors.entry")} ${i + 1}: ${t("import.errors.missingFields")} (name, startTime)`);
           continue;
         }
         const startDate = new Date(entry.startTime);
         if (isNaN(startDate.getTime())) {
-          result.warnings.push(`Oppf\xF8ring ${i + 1}: Ugyldig starttid`);
+          result.warnings.push(`${t("import.errors.entry")} ${i + 1}: ${t("import.errors.invalidStartTime")}`);
           continue;
         }
         if (entry.endTime) {
           const endDate = new Date(entry.endTime);
           if (isNaN(endDate.getTime())) {
-            result.warnings.push(`Oppf\xF8ring ${i + 1}: Ugyldig sluttid`);
+            result.warnings.push(`${t("import.errors.entry")} ${i + 1}: ${t("import.errors.invalidEndTime")}`);
             continue;
           }
         }
@@ -188,7 +787,7 @@ var TimekeepParser = class {
       }
       result.success = result.entries.length > 0;
     } catch (error) {
-      result.errors.push(`JSON-feil: ${error.message}`);
+      result.errors.push(`${t("import.errors.jsonError")}: ${error.message}`);
     }
     return result;
   }
@@ -217,7 +816,7 @@ var CSVParser = class {
     try {
       const lines = content.trim().split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
       if (lines.length < 2) {
-        result.errors.push("CSV m\xE5 ha minst en overskriftsrad og en datarad");
+        result.errors.push(t("import.errors.csvNeedsHeader"));
         return result;
       }
       const delimiter = this.detectDelimiter(lines[0]);
@@ -227,17 +826,17 @@ var CSVParser = class {
       const endCol = this.findColumn(headers, ["slutt", "end", "sluttid", "end time", "til", "to"]);
       const activityCol = this.findColumn(headers, ["aktivitet", "activity", "type", "navn", "name", "beskrivelse", "description"]);
       if (dateCol === -1) {
-        result.errors.push("Kunne ikke finne dato-kolonne. Forventet: Dato, Date, Dag");
+        result.errors.push(t("import.errors.couldNotFindDateColumn"));
         return result;
       }
       if (startCol === -1) {
-        result.errors.push("Kunne ikke finne starttid-kolonne. Forventet: Start, Starttid, Fra");
+        result.errors.push(t("import.errors.couldNotFindStartColumn"));
         return result;
       }
       for (let i = 1; i < lines.length; i++) {
         const values = this.parseCSVLine(lines[i], delimiter);
         if (values.length <= Math.max(dateCol, startCol)) {
-          result.warnings.push(`Rad ${i + 1}: For f\xE5 kolonner`);
+          result.warnings.push(`${t("import.errors.row")} ${i + 1}: ${t("import.errors.tooFewColumns")}`);
           continue;
         }
         const dateStr = (_a = values[dateCol]) == null ? void 0 : _a.trim();
@@ -245,17 +844,17 @@ var CSVParser = class {
         const endStr = endCol !== -1 ? (_c = values[endCol]) == null ? void 0 : _c.trim() : "";
         const activity = activityCol !== -1 ? (_d = values[activityCol]) == null ? void 0 : _d.trim() : "jobb";
         if (!dateStr || !startStr) {
-          result.warnings.push(`Rad ${i + 1}: Mangler dato eller starttid`);
+          result.warnings.push(`${t("import.errors.row")} ${i + 1}: ${t("import.errors.missingDateOrTime")}`);
           continue;
         }
         const parsedDate = this.parseDate(dateStr);
         if (!parsedDate) {
-          result.warnings.push(`Rad ${i + 1}: Ugyldig datoformat "${dateStr}". Bruk DD.MM.YYYY eller YYYY-MM-DD`);
+          result.warnings.push(`${t("import.errors.row")} ${i + 1}: ${t("import.errors.invalidDateFormat")} "${dateStr}"`);
           continue;
         }
         const startTime = this.parseTime(startStr);
         if (!startTime) {
-          result.warnings.push(`Rad ${i + 1}: Ugyldig starttid "${startStr}". Bruk HH:MM`);
+          result.warnings.push(`${t("import.errors.row")} ${i + 1}: ${t("import.errors.invalidTimeFormat")} "${startStr}"`);
           continue;
         }
         const startDateTime = new Date(parsedDate);
@@ -270,7 +869,7 @@ var CSVParser = class {
               endDateTime.setDate(endDateTime.getDate() + 1);
             }
           } else {
-            result.warnings.push(`Rad ${i + 1}: Ugyldig sluttid "${endStr}". Bruk HH:MM`);
+            result.warnings.push(`${t("import.errors.row")} ${i + 1}: ${t("import.errors.invalidTimeFormat")} "${endStr}"`);
           }
         }
         result.entries.push({
@@ -283,7 +882,7 @@ var CSVParser = class {
       }
       result.success = result.entries.length > 0;
     } catch (error) {
-      result.errors.push(`CSV-feil: ${error.message}`);
+      result.errors.push(`CSV ${t("import.errors_label")}: ${error.message}`);
     }
     return result;
   }
@@ -392,7 +991,7 @@ var GenericJSONParser = class {
     try {
       const data = JSON.parse(content.trim());
       if (!Array.isArray(data)) {
-        result.errors.push("Forventet en JSON-array");
+        result.errors.push(t("import.errors.expectedJsonArray"));
         return result;
       }
       for (let i = 0; i < data.length; i++) {
@@ -415,7 +1014,7 @@ var GenericJSONParser = class {
               continue;
             }
           }
-          result.warnings.push(`Oppf\xF8ring ${i + 1}: Mangler dato/tid-felt`);
+          result.warnings.push(`${t("import.errors.entry")} ${i + 1}: ${t("import.errors.missingDateOrTime")}`);
           continue;
         }
         let startDateTime = null;
@@ -430,7 +1029,7 @@ var GenericJSONParser = class {
           }
         }
         if (!startDateTime) {
-          result.warnings.push(`Oppf\xF8ring ${i + 1}: Kunne ikke tolke dato/tid`);
+          result.warnings.push(`${t("import.errors.entry")} ${i + 1}: ${t("import.errors.couldNotParseDateTime")}`);
           continue;
         }
         result.entries.push({
@@ -443,7 +1042,7 @@ var GenericJSONParser = class {
       }
       result.success = result.entries.length > 0;
     } catch (error) {
-      result.errors.push(`JSON-feil: ${error.message}`);
+      result.errors.push(`${t("import.errors.jsonError")}: ${error.message}`);
     }
     return result;
   }
@@ -480,9 +1079,9 @@ function autoDetectAndParse(content) {
   return {
     success: false,
     entries: [],
-    errors: ["Kunne ikke gjenkjenne formatet. St\xF8ttede formater: Timekeep JSON, CSV, JSON Array"],
+    errors: [t("import.errors.unknownFormat")],
     warnings: [],
-    format: "Ukjent"
+    format: "?"
   };
 }
 
@@ -500,21 +1099,21 @@ var ImportModal = class extends import_obsidian.Modal {
     const { contentEl } = this;
     contentEl.empty();
     contentEl.addClass("timeflow-import-modal");
-    contentEl.createEl("h2", { text: "Importer data" });
+    contentEl.createEl("h2", { text: t("import.title") });
     contentEl.createEl("p", {
-      text: "Importer tidsdata fra ulike formater. St\xF8tter Timekeep JSON, CSV og JSON-arrays.",
+      text: t("import.description"),
       cls: "setting-item-description"
     });
     const formatDiv = contentEl.createDiv();
     formatDiv.style.marginBottom = "15px";
-    const formatLabel = formatDiv.createEl("label", { text: "Format: " });
+    const formatLabel = formatDiv.createEl("label", { text: t("import.format") + " " });
     formatLabel.style.fontWeight = "bold";
     formatLabel.style.marginRight = "10px";
     const formatSelect = formatDiv.createEl("select");
     formatSelect.style.padding = "5px 10px";
     formatSelect.style.borderRadius = "4px";
     const formats = [
-      { value: "auto", label: "Auto-detekter" },
+      { value: "auto", label: t("import.autoDetect") },
       { value: "timekeep", label: "Timekeep JSON" },
       { value: "csv", label: "CSV" },
       { value: "json", label: "JSON Array" }
@@ -534,19 +1133,19 @@ var ImportModal = class extends import_obsidian.Modal {
       attr: { accept: ".json,.csv,.txt" }
     });
     fileInput.style.display = "none";
-    const uploadBtn = uploadDiv.createEl("button", { text: "\u{1F4C1} Velg fil..." });
+    const uploadBtn = uploadDiv.createEl("button", { text: "\u{1F4C1} " + t("import.selectFile") });
     uploadBtn.style.marginRight = "10px";
     uploadBtn.onclick = () => fileInput.click();
-    const fileNameSpan = uploadDiv.createEl("span", { text: "Ingen fil valgt" });
+    const fileNameSpan = uploadDiv.createEl("span", { text: t("import.noFile") });
     fileNameSpan.style.color = "var(--text-muted)";
     fileNameSpan.style.fontSize = "12px";
-    const textAreaLabel = contentEl.createEl("div", { text: "Eller lim inn data:" });
+    const textAreaLabel = contentEl.createEl("div", { text: t("import.orPasteData") });
     textAreaLabel.style.fontWeight = "bold";
     textAreaLabel.style.marginBottom = "5px";
     const textArea = contentEl.createEl("textarea", {
       attr: {
         rows: "12",
-        placeholder: "Lim inn Timekeep JSON, CSV eller JSON-array her...\n\nEksempel CSV (norsk format):\nDato;Start;Slutt;Aktivitet\n25.11.2024;08:00;16:00;jobb\n26.11.2024;09:00;17:00;jobb"
+        placeholder: t("import.placeholder")
       }
     });
     textArea.style.width = "100%";
@@ -574,7 +1173,7 @@ var ImportModal = class extends import_obsidian.Modal {
     previewDiv.style.background = "var(--background-secondary)";
     previewDiv.style.borderRadius = "5px";
     previewDiv.style.display = "none";
-    const parseBtn = contentEl.createEl("button", { text: "\u{1F50D} Forh\xE5ndsvis" });
+    const parseBtn = contentEl.createEl("button", { text: "\u{1F50D} " + t("buttons.preview") });
     parseBtn.style.marginBottom = "15px";
     parseBtn.onclick = () => {
       this.updatePreview(textArea.value, previewDiv, importBtn);
@@ -593,23 +1192,23 @@ var ImportModal = class extends import_obsidian.Modal {
     infoDiv.style.padding = "10px";
     infoDiv.style.background = "var(--background-secondary)";
     infoDiv.style.borderRadius = "5px";
-    infoDiv.createEl("strong", { text: "\u{1F4CB} St\xF8ttede formater:" });
+    infoDiv.createEl("strong", { text: "\u{1F4CB} " + t("import.supportedFormats") });
     const list = infoDiv.createEl("ul");
     list.style.marginBottom = "0";
     list.createEl("li", { text: 'Timekeep JSON: {"entries": [...]}' });
-    list.createEl("li", { text: "CSV: Dato;Start;Slutt;Aktivitet (norsk eller ISO-format)" });
+    list.createEl("li", { text: `CSV: ${t("import.tableHeaders.date")};${t("import.tableHeaders.start")};${t("import.tableHeaders.end")};Type` });
     list.createEl("li", { text: 'JSON Array: [{"date": "...", "start": "...", ...}]' });
     const buttonDiv = contentEl.createDiv();
     buttonDiv.style.display = "flex";
     buttonDiv.style.gap = "10px";
     buttonDiv.style.justifyContent = "flex-end";
-    const cancelBtn = buttonDiv.createEl("button", { text: "Avbryt" });
+    const cancelBtn = buttonDiv.createEl("button", { text: t("buttons.cancel") });
     cancelBtn.onclick = () => this.close();
-    const importBtn = buttonDiv.createEl("button", { text: "Importer", cls: "mod-cta" });
+    const importBtn = buttonDiv.createEl("button", { text: t("buttons.import"), cls: "mod-cta" });
     importBtn.disabled = true;
     importBtn.onclick = async () => {
       if (this.parsedEntries.length === 0) {
-        new import_obsidian.Notice("\u26A0\uFE0F Ingen oppf\xF8ringer \xE5 importere");
+        new import_obsidian.Notice("\u26A0\uFE0F " + t("import.noEntries"));
         return;
       }
       try {
@@ -630,14 +1229,14 @@ var ImportModal = class extends import_obsidian.Modal {
         this.timerManager.data.entries = currentEntries;
         await this.timerManager.save();
         if (skippedCount > 0) {
-          new import_obsidian.Notice(`\u2705 Importerte ${addedCount} oppf\xF8ringer, hoppet over ${skippedCount} duplikater`);
+          new import_obsidian.Notice(`\u2705 ${t("import.imported")} ${addedCount} ${t("import.entries")}, ${t("import.skippedDuplicates")} ${skippedCount} ${t("import.duplicates")}`);
         } else {
-          new import_obsidian.Notice(`\u2705 Importerte ${addedCount} oppf\xF8ringer!`);
+          new import_obsidian.Notice(`\u2705 ${t("import.imported")} ${addedCount} ${t("import.entries")}!`);
         }
         this.close();
         this.onSuccess();
       } catch (error) {
-        new import_obsidian.Notice(`\u274C Feil: ${error.message}`);
+        new import_obsidian.Notice(`\u274C ${t("import.errors_label")}: ${error.message}`);
         console.error("Import error:", error);
       }
     };
@@ -674,12 +1273,12 @@ var ImportModal = class extends import_obsidian.Modal {
     previewDiv.style.display = "block";
     const formatInfo = previewDiv.createEl("div");
     formatInfo.style.marginBottom = "10px";
-    formatInfo.innerHTML = `<strong>Format:</strong> ${result.format || "Ukjent"}`;
+    formatInfo.innerHTML = `<strong>${t("import.format")}</strong> ${result.format || "?"}`;
     if (result.errors.length > 0) {
       const errorDiv = previewDiv.createEl("div");
       errorDiv.style.color = "var(--text-error)";
       errorDiv.style.marginBottom = "10px";
-      errorDiv.createEl("strong", { text: "\u274C Feil:" });
+      errorDiv.createEl("strong", { text: "\u274C " + t("import.errors_label") + ":" });
       const errorList = errorDiv.createEl("ul");
       errorList.style.margin = "5px 0";
       result.errors.forEach((err) => errorList.createEl("li", { text: err }));
@@ -688,12 +1287,12 @@ var ImportModal = class extends import_obsidian.Modal {
       const warnDiv = previewDiv.createEl("div");
       warnDiv.style.color = "var(--text-warning)";
       warnDiv.style.marginBottom = "10px";
-      warnDiv.createEl("strong", { text: "\u26A0\uFE0F Advarsler:" });
+      warnDiv.createEl("strong", { text: "\u26A0\uFE0F " + t("import.warnings") + ":" });
       const warnList = warnDiv.createEl("ul");
       warnList.style.margin = "5px 0";
       result.warnings.slice(0, 5).forEach((warn) => warnList.createEl("li", { text: warn }));
       if (result.warnings.length > 5) {
-        warnList.createEl("li", { text: `... og ${result.warnings.length - 5} flere` });
+        warnList.createEl("li", { text: `... ${t("import.andMore")} ${result.warnings.length - 5} ${t("import.more")}` });
       }
     }
     if (result.entries.length > 0) {
@@ -701,7 +1300,7 @@ var ImportModal = class extends import_obsidian.Modal {
       importBtn.disabled = false;
       const successDiv = previewDiv.createEl("div");
       successDiv.style.color = "var(--text-success)";
-      successDiv.innerHTML = `<strong>\u2705 ${result.entries.length} oppf\xF8ringer funnet</strong>`;
+      successDiv.innerHTML = `<strong>\u2705 ${result.entries.length} ${t("import.entriesFound")}</strong>`;
       const previewTable = previewDiv.createEl("table");
       previewTable.style.width = "100%";
       previewTable.style.marginTop = "10px";
@@ -709,7 +1308,7 @@ var ImportModal = class extends import_obsidian.Modal {
       previewTable.style.borderCollapse = "collapse";
       const thead = previewTable.createEl("thead");
       const headerRow = thead.createEl("tr");
-      ["Dato", "Start", "Slutt", "Type"].forEach((h) => {
+      [t("import.tableHeaders.date"), t("import.tableHeaders.start"), t("import.tableHeaders.end"), t("import.tableHeaders.type")].forEach((h) => {
         const th = headerRow.createEl("th", { text: h });
         th.style.textAlign = "left";
         th.style.padding = "4px";
@@ -720,9 +1319,9 @@ var ImportModal = class extends import_obsidian.Modal {
         const row = tbody.createEl("tr");
         const startDate = new Date(entry.startTime);
         const endDate = entry.endTime ? new Date(entry.endTime) : null;
-        const dateStr = startDate.toLocaleDateString("nb-NO");
-        const startStr = startDate.toLocaleTimeString("nb-NO", { hour: "2-digit", minute: "2-digit" });
-        const endStr = endDate ? endDate.toLocaleTimeString("nb-NO", { hour: "2-digit", minute: "2-digit" }) : "-";
+        const dateStr = formatDate(startDate);
+        const startStr = formatTime(startDate);
+        const endStr = endDate ? formatTime(endDate) : "-";
         [dateStr, startStr, endStr, entry.name].forEach((val) => {
           const td = row.createEl("td", { text: val });
           td.style.padding = "4px";
@@ -731,7 +1330,7 @@ var ImportModal = class extends import_obsidian.Modal {
       if (result.entries.length > 5) {
         const moreRow = tbody.createEl("tr");
         const moreCell = moreRow.createEl("td", {
-          text: `... og ${result.entries.length - 5} flere`,
+          text: `... ${t("import.andMore")} ${result.entries.length - 5} ${t("import.more")}`,
           attr: { colspan: "4" }
         });
         moreCell.style.padding = "4px";
@@ -851,6 +1450,7 @@ var DEFAULT_SPECIAL_DAY_BEHAVIORS = [
 ];
 var DEFAULT_SETTINGS = {
   version: "1.0.0",
+  language: "nb",
   defaultViewLocation: "sidebar",
   hourUnit: "t",
   showWeekNumbers: true,
@@ -887,7 +1487,7 @@ var DEFAULT_SETTINGS = {
   noteTypes: [
     {
       id: "daily",
-      label: "Daglig Notat",
+      label: "Daily Note",
       icon: "\u{1F4C5}",
       folder: "Daily Notes",
       template: "timeflow/templates/daily-notes.md",
@@ -896,39 +1496,39 @@ var DEFAULT_SETTINGS = {
     },
     {
       id: "meeting",
-      label: "M\xF8tenotat",
+      label: "Meeting Note",
       icon: "\u{1F465}",
-      folder: "M\xF8ter",
+      folder: "Meetings",
       template: "timeflow/templates/meeting-note.md",
-      tags: ["#m\xF8te", "#timeflow"],
-      filenamePattern: "{YYYY}-{MM}-{DD} M\xF8te"
+      tags: ["#meeting", "#timeflow"],
+      filenamePattern: "{YYYY}-{MM}-{DD} Meeting"
     },
     {
       id: "project",
-      label: "Prosjektnotat",
+      label: "Project Note",
       icon: "\u{1F4CB}",
-      folder: "Prosjekter",
+      folder: "Projects",
       template: "timeflow/templates/project-note.md",
-      tags: ["#prosjekt", "#timeflow"],
-      filenamePattern: "{YYYY}-{MM}-{DD} Prosjekt"
+      tags: ["#project", "#timeflow"],
+      filenamePattern: "{YYYY}-{MM}-{DD} Project"
     },
     {
       id: "review",
-      label: "Ukesoppsummering",
+      label: "Weekly Review",
       icon: "\u{1F50D}",
-      folder: "Oppsummeringer",
+      folder: "Reviews",
       template: "timeflow/templates/weekly-review.md",
-      tags: ["#oppsummering", "#uke", "#timeflow"],
-      filenamePattern: "{YYYY}-{MM}-{DD} Uke {WEEK}"
+      tags: ["#review", "#weekly", "#timeflow"],
+      filenamePattern: "{YYYY}-{MM}-{DD} Week {WEEK}"
     },
     {
       id: "reflection",
-      label: "Refleksjonsnotat",
+      label: "Reflection Note",
       icon: "\u{1F4AD}",
-      folder: "Refleksjoner",
+      folder: "Reflections",
       template: "timeflow/templates/reflection-note.md",
-      tags: ["#refleksjon", "#timeflow"],
-      filenamePattern: "{YYYY}-{MM}-{DD} Refleksjon"
+      tags: ["#reflection", "#timeflow"],
+      filenamePattern: "{YYYY}-{MM}-{DD} Reflection"
     }
   ],
   specialDayBehaviors: DEFAULT_SPECIAL_DAY_BEHAVIORS,
@@ -973,8 +1573,6 @@ var DEFAULT_SETTINGS = {
     balanceCritical: "#f44336",
     progressBar: "#4caf50"
   },
-  // NEW: Message preferences
-  enableMotivationalMessages: true,
   // Norwegian labor law compliance settings
   complianceSettings: {
     enableWarnings: true,
@@ -1200,7 +1798,7 @@ var TimeFlowSettingTab = class extends import_obsidian2.PluginSettingTab {
   display() {
     const { containerEl } = this;
     containerEl.empty();
-    containerEl.createEl("h2", { text: "TimeFlow Settings" });
+    containerEl.createEl("h2", { text: "timeflow Settings" });
     const searchContainer = containerEl.createDiv({ cls: "tf-settings-search" });
     const searchInput = searchContainer.createEl("input", {
       type: "text",
@@ -1222,7 +1820,7 @@ var TimeFlowSettingTab = class extends import_obsidian2.PluginSettingTab {
         }
       });
     });
-    new import_obsidian2.Setting(settingsContainer).setName("Quick Start").setDesc("Essential settings to get started with TimeFlow").setHeading();
+    new import_obsidian2.Setting(settingsContainer).setName("Quick Start").setDesc("Essential settings to get started with timeflow").setHeading();
     const syncInfo = settingsContainer.createDiv();
     syncInfo.style.marginBottom = "15px";
     syncInfo.style.padding = "10px";
@@ -1233,6 +1831,13 @@ var TimeFlowSettingTab = class extends import_obsidian2.PluginSettingTab {
 			<strong>\u{1F4F1} Cross-Device Settings Sync</strong><br>
 			Settings are automatically saved to <code>timeflow/data.md</code> and will sync across devices when using Obsidian Sync or any other vault sync solution. When you open the plugin on another device, your settings will be automatically loaded.
 		`;
+    new import_obsidian2.Setting(settingsContainer).setName("Language / Spr\xE5k").setDesc("Interface language / Grensesnittspr\xE5k").addDropdown((dropdown) => dropdown.addOption("nb", "Norsk").addOption("en", "English").setValue(this.plugin.settings.language).onChange(async (value) => {
+      this.plugin.settings.language = value;
+      setLanguage(value);
+      await this.plugin.saveSettings();
+      this.display();
+      await this.refreshView();
+    }));
     new import_obsidian2.Setting(settingsContainer).setName("Data file path").setDesc("Path to the file containing timer data and settings").addText((text) => text.setPlaceholder("timeflow/data.md").setValue(this.plugin.settings.dataFilePath).onChange(async (value) => {
       this.plugin.settings.dataFilePath = value;
       await this.plugin.saveSettings();
@@ -1360,7 +1965,7 @@ var TimeFlowSettingTab = class extends import_obsidian2.PluginSettingTab {
     }
     const complianceSection = this.createCollapsibleSubsection(
       settingsContainer,
-      "Arbeidstidsgrenser (Work Time Limits)",
+      "Work Time Limits",
       false
     );
     complianceSection.content.addClass("tf-compliance-settings");
@@ -1525,8 +2130,8 @@ Note: Historical data in your holidays file using "${behavior.id}" will no longe
         }
       ).open();
     }));
-    new import_obsidian2.Setting(settingsContainer).setName("Display & Interface").setDesc("Customize the appearance and behavior of the TimeFlow interface").setHeading();
-    new import_obsidian2.Setting(settingsContainer).setName("Default view location").setDesc("Choose where TimeFlow opens by default").addDropdown((dropdown) => dropdown.addOption("sidebar", "Sidebar (right panel)").addOption("main", "Main area (as a tab)").setValue(this.plugin.settings.defaultViewLocation).onChange(async (value) => {
+    new import_obsidian2.Setting(settingsContainer).setName("Display & Interface").setDesc("Customize the appearance and behavior of the timeflow interface").setHeading();
+    new import_obsidian2.Setting(settingsContainer).setName("Default view location").setDesc("Choose where timeflow opens by default").addDropdown((dropdown) => dropdown.addOption("sidebar", "Sidebar (right panel)").addOption("main", "Main area (as a tab)").setValue(this.plugin.settings.defaultViewLocation).onChange(async (value) => {
       this.plugin.settings.defaultViewLocation = value;
       await this.plugin.saveSettings();
     }));
@@ -1535,18 +2140,10 @@ Note: Historical data in your holidays file using "${behavior.id}" will no longe
       await this.plugin.saveSettings();
       await this.refreshView();
     }));
-    new import_obsidian2.Setting(settingsContainer).setName("Vis ukenummer").setDesc("Vis ukenummer i kalender og uke-kortet (ISO 8601 ukenummer)").addToggle((toggle) => {
+    new import_obsidian2.Setting(settingsContainer).setName(t("settings.showWeekNumbers")).setDesc(t("settings.showWeekNumbersDesc")).addToggle((toggle) => {
       var _a;
       return toggle.setValue((_a = this.plugin.settings.showWeekNumbers) != null ? _a : true).onChange(async (value) => {
         this.plugin.settings.showWeekNumbers = value;
-        await this.plugin.saveSettings();
-        await this.refreshView();
-      });
-    });
-    new import_obsidian2.Setting(settingsContainer).setName("Enable motivational messages").setDesc("Show contextual messages in day/week cards (e.g., encouraging messages, progress updates)").addToggle((toggle) => {
-      var _a;
-      return toggle.setValue((_a = this.plugin.settings.enableMotivationalMessages) != null ? _a : true).onChange(async (value) => {
-        this.plugin.settings.enableMotivationalMessages = value;
         await this.plugin.saveSettings();
         await this.refreshView();
       });
@@ -1601,7 +2198,7 @@ Note: Historical data in your holidays file using "${behavior.id}" will no longe
     new import_obsidian2.Setting(settingsContainer).setName("Export data to CSV").setDesc("Export all your time tracking data to a CSV file").addButton((button) => button.setButtonText("Export CSV").setCta().onClick(async () => {
       this.exportToCSV();
     }));
-    new import_obsidian2.Setting(settingsContainer).setName("Importer data").setDesc("Importer tidsdata fra ulike formater: Timekeep JSON, CSV (norsk/ISO datoformat), eller JSON-arrays").addButton((button) => button.setButtonText("Importer data").setCta().onClick(async () => {
+    new import_obsidian2.Setting(settingsContainer).setName(t("settings.importData")).setDesc(t("settings.importDataDesc")).addButton((button) => button.setButtonText(t("settings.importData")).setCta().onClick(async () => {
       this.showImportModal();
     }));
     new import_obsidian2.Setting(settingsContainer).setName("Advanced Settings").setDesc("Fine-tune balance calculations, thresholds, and visual customization").setHeading();
@@ -1910,7 +2507,7 @@ Note: Historical data in your holidays file using "${behavior.id}" will no longe
         new import_obsidian2.Notice("\u26A0\uFE0F Please fill in all required fields (ID, Label, Folder)");
         return;
       }
-      const tagsArray = formData.tags.split(",").map((t) => t.trim()).filter((t) => t.length > 0);
+      const tagsArray = formData.tags.split(",").map((t2) => t2.trim()).filter((t2) => t2.length > 0);
       const newNoteType = {
         id: formData.id,
         label: formData.label,
@@ -2715,257 +3312,6 @@ var DataManager = class {
 
 // src/uiBuilder.ts
 var import_obsidian4 = require("obsidian");
-
-// src/messageGenerator.ts
-var MessageGenerator = class {
-  static getDailyMessage(hours, goal, specials, isWeekendDay, avgDaily, context, consecutiveFlextimeWarningDays) {
-    if (isWeekendDay) {
-      const weekday = (/* @__PURE__ */ new Date()).getDay();
-      if (weekday === 6) {
-        if (hours === 0)
-          return Utils.randMsg([
-            "L\xF8rdag \u2013 ingen logg enn\xE5, perfekt for fri \u{1F6CC}",
-            "Fri-modus: nyt l\xF8rdagen! \u{1F324}\uFE0F"
-          ]);
-        if (hours < 2)
-          return Utils.randMsg([
-            "Litt helgeinnsats \u2013 godt gjort!",
-            "Rolig l\xF8rdag med litt arbeid \u2013 fin balanse \u2696\uFE0F"
-          ]);
-        return Utils.randMsg([
-          "\u{1F525} Jobbing p\xE5 l\xF8rdagen \u2013 imponerende dedikasjon!",
-          "L\xF8rdag med driv \u2013 pass p\xE5 \xE5 hvile litt ogs\xE5 \u{1F486}"
-        ]);
-      }
-      if (weekday === 0) {
-        if (hours === 0)
-          return Utils.randMsg([
-            "S\xF8ndag \u2013 helt fri, slik det skal v\xE6re \u2615",
-            "S\xF8ndag \u2013 lade opp til en ny uke \u{1F33F}"
-          ]);
-        return Utils.randMsg([
-          "Litt s\xF8ndagsjobbing \u2013 godt for samvittigheten \u{1F4AA}",
-          "Rolig s\xF8ndag med litt innsats \u2013 flott balansert \u{1F31E}"
-        ]);
-      }
-    }
-    if (specials.length > 0) {
-      const s = specials.join(", ").toLowerCase();
-      const now2 = /* @__PURE__ */ new Date();
-      const currentHour2 = now2.getHours();
-      if (s.includes("ferie")) {
-        if (currentHour2 < 12)
-          return Utils.randMsg([
-            "\u2600\uFE0F Feriemorgen \u2013 sov lenge og slapp av!",
-            "\u{1F3D6}\uFE0F Ferie \u2013 ingen tidlig start i dag!"
-          ]);
-        if (currentHour2 < 18)
-          return Utils.randMsg([
-            "\u2600\uFE0F Nyt ferien \u2013 du har fortjent det!",
-            "\u{1F334} Feriedag \u2013 gj\xF8r noe hyggelig!"
-          ]);
-        return Utils.randMsg([
-          "\u{1F319} Feriekveld \u2013 kos deg!",
-          "\u2728 Ferieflyt \u2013 nyt kvelden!"
-        ]);
-      }
-      if (s.includes("velferdspermisjon")) {
-        if (currentHour2 < 12)
-          return Utils.randMsg([
-            "\u{1F3E5} Velferdspermisjon \u2013 ta vare p\xE5 deg selv",
-            "\u{1F49A} Viktig dag for velv\xE6re \u2013 bruk tiden godt"
-          ]);
-        if (currentHour2 < 18)
-          return Utils.randMsg([
-            "\u{1F3E5} Velferdspermisjon \u2013 h\xE5per alt g\xE5r bra",
-            "\u{1F49A} Ta den tiden du trenger i dag"
-          ]);
-        return Utils.randMsg([
-          "\u{1F319} Velferdspermisjon \u2013 hvil og ta vare p\xE5 deg",
-          "\u2728 Viktig \xE5 prioritere eget velv\xE6re"
-        ]);
-      }
-      if (s.includes("avspasering")) {
-        if (currentHour2 < 12)
-          return Utils.randMsg([
-            "\u{1F6CC} Avspasering \u2013 perfekt dag for litt ekstra s\xF8vn!",
-            "\u{1F634} Fri dag \u2013 du har fortjent denne hvilen!"
-          ]);
-        if (currentHour2 < 18)
-          return Utils.randMsg([
-            "\u{1F6CC} Godt med litt fri \u2013 du har fortjent det!",
-            "\u{1F486} Avspasering \u2013 bruk dagen p\xE5 noe du liker!"
-          ]);
-        return Utils.randMsg([
-          "\u{1F319} Avspasering \u2013 slapp av resten av kvelden!",
-          "\u2728 Fin fridag \u2013 h\xE5per du har hatt en god dag!"
-        ]);
-      }
-      if (s.includes("egenmelding")) {
-        if (hours === 0)
-          return Utils.randMsg([
-            "\u{1F912} Egenmelding \u2013 hvil og bli frisk!",
-            "\u{1F48A} Ta det rolig \u2013 kroppen trenger hvile!"
-          ]);
-        if (hours < 2)
-          return Utils.randMsg([
-            "\u{1F912} Egenmelding, men du har v\xE6rt litt aktiv \u2013 ikke overdriv!",
-            "\u{1F48A} H\xE5per du f\xF8ler deg bedre \u2013 husk \xE5 hvile!"
-          ]);
-        return Utils.randMsg([
-          "\u{1F912} Egenmelding med mye aktivitet \u2013 pass p\xE5 \xE5 ikke presse deg!",
-          "\u{1F48A} Ta vare p\xE5 deg selv \u2013 hvil er viktig!"
-        ]);
-      }
-      if (s.includes("studie") || s.includes("kurs")) {
-        if (hours === 0)
-          return Utils.randMsg([
-            "\u{1F4D6} Studiedag \u2013 tid for \xE5 l\xE6re noe nytt!",
-            "\u{1F4DA} Studietid \u2013 lykke til med l\xE6ringen!"
-          ]);
-        if (hours < 3)
-          return Utils.randMsg([
-            "\u{1F4D6} God start p\xE5 studiedagen \u2013 fortsett s\xE5nn!",
-            "\u{1F4DA} Fin studieflyt s\xE5 langt!"
-          ]);
-        if (hours < 5)
-          return Utils.randMsg([
-            "\u{1F4D6} Solid studieinnsats \u2013 godt jobbet!",
-            "\u{1F4DA} Du l\xE6rer mye i dag \u2013 flott fremgang!"
-          ]);
-        return Utils.randMsg([
-          "\u{1F4D6} Imponerende studieinnsats i dag \u2013 husk pauser!",
-          "\u{1F4DA} Dedikert studiedag \u2013 fantastisk innsats!"
-        ]);
-      }
-    }
-    const diff = hours - goal;
-    const now = /* @__PURE__ */ new Date();
-    const currentHour = now.getHours();
-    if (context.consecutiveFlextimeDays >= consecutiveFlextimeWarningDays) {
-      return `\u26A0\uFE0F ${context.consecutiveFlextimeDays} dager p\xE5 rad med fleksitid \u2013 husk \xE5 ta vare p\xE5 deg selv!`;
-    }
-    if (context.sameDayAvg > 0) {
-      const weekdayName = [
-        "s\xF8ndag",
-        "mandag",
-        "tirsdag",
-        "onsdag",
-        "torsdag",
-        "fredag",
-        "l\xF8rdag"
-      ][now.getDay()];
-      if (hours > context.sameDayAvg + 1) {
-        return `Mer aktiv enn vanlig for en ${weekdayName} \u{1F4AA} (snitt: ${context.sameDayAvg.toFixed(1)}t)`;
-      }
-      if (hours < context.sameDayAvg - 1 && hours > 2) {
-        return `Roligere ${weekdayName} enn vanlig (snitt: ${context.sameDayAvg.toFixed(1)}t) \u{1F33F}`;
-      }
-    }
-    if (currentHour < 12 && hours === 0) {
-      return "God morgen! Dagen starter rolig \u2615";
-    }
-    if (currentHour >= 15 && diff < -2) {
-      const hoursNeeded = (goal - hours).toFixed(1);
-      return `${hoursNeeded}t igjen for \xE5 n\xE5 dagsm\xE5l \u2013 fortsatt mulig! \u{1F3AF}`;
-    }
-    if (currentHour >= 16 && hours >= goal) {
-      return "Dagsm\xE5l n\xE5dd! \u{1F389} Ta en pause eller jobb videre mot fleksitid.";
-    }
-    if (avgDaily > 0) {
-      if (hours > avgDaily + 1)
-        return "Du ligger over snittet for de siste dagene \u{1F44D}";
-      if (hours < avgDaily - 1)
-        return "Litt roligere enn vanlig \u2013 fullt fortjent \u{1F486}";
-    }
-    if (hours === 0)
-      return "Rolig start \u2013 kanskje planlegg dagen?";
-    if (diff < -1)
-      return "Dagen har s\xE5 vidt begynt \u2013 god tid til \xE5 n\xE5 m\xE5let.";
-    if (diff >= -1 && diff <= 1)
-      return "Du ligger helt perfekt an i dag \u{1F44C}";
-    if (diff > 1 && diff <= 2)
-      return "Sterk innsats \u2013 n\xE6rmer deg fleksitid \u{1F4AA}";
-    if (diff > 2)
-      return "\u{1F680} Ekstra innsats i dag! Husk \xE5 ta deg tid til en pause.";
-    return "";
-  }
-  static getWeeklyMessage(hours, goal, specials, today, context, weekendWorkHours = 0) {
-    const ferie = specials.some((s) => s.toLowerCase().includes("ferie"));
-    const velferdspermisjon = specials.some((s) => s.toLowerCase().includes("velferdspermisjon"));
-    const avsp = specials.some((s) => s.toLowerCase().includes("avspasering"));
-    const studie = specials.some((s) => s.toLowerCase().includes("studie") || s.toLowerCase().includes("kurs"));
-    if (ferie)
-      return "\u{1F3D6}\uFE0F Ukas rytme er preget av ferie \u2013 nyt det! ";
-    if (velferdspermisjon)
-      return "\u{1F3E5} Velferdspermisjon denne uka \u2013 ta vare p\xE5 deg selv! ";
-    if (avsp)
-      return "\u{1F60C} Litt fri denne uka \u2013 god balanse. ";
-    if (studie)
-      return "\u{1F4DA} Denne uka har du prioritert studier \u2013 flott! ";
-    const weekday = today.getDay();
-    const isWeekendDay = weekday === 6 || weekday === 0;
-    const workdaysPassed = Math.min(Math.max(weekday - 1, 0), 5);
-    const totalWorkdays = 5;
-    const expectedProgress = workdaysPassed / totalWorkdays * goal;
-    const diffFromExpected = hours - expectedProgress;
-    if (context.lastWeekHours > 0) {
-      const diff2 = hours - context.lastWeekHours;
-      if (Math.abs(diff2) > 5 && workdaysPassed >= 3) {
-        if (diff2 > 0) {
-          return `Mer travelt enn forrige uke (+${diff2.toFixed(1)}t) \u{1F4C8} `;
-        } else {
-          return `Roligere enn forrige uke (${diff2.toFixed(1)}t) \u{1F4C9} `;
-        }
-      }
-    }
-    if (isWeekendDay) {
-      if (weekendWorkHours === 0)
-        return "\u{1F319} Helg! Godt jobbet denne uka \u2013 nyt fritiden. ";
-      if (weekendWorkHours < 2)
-        return "\u{1F4C5} Litt helgeinnsats \u2013 ikke glem pauser og p\xE5fyll! ";
-      if (hours >= goal)
-        return "\u{1F525} Jobbing i helga \u2013 imponerende dedikasjon, men pass p\xE5 \xE5 hvile! ";
-      return "\u{1F31E} En rolig helg etter en balansert uke. ";
-    }
-    if (workdaysPassed <= 1) {
-      if (hours < expectedProgress)
-        return "Uka er i gang \u2013 ta det i eget tempo \u{1F4AA} ";
-      if (diffFromExpected >= 1)
-        return "Sterk start p\xE5 uka! \u{1F31F} ";
-      return "Fin rytme s\xE5 langt \u2013 fortsett s\xE5nn. ";
-    }
-    if (workdaysPassed >= 2 && workdaysPassed <= 3) {
-      if (diffFromExpected < -2)
-        return "Du ligger litt bak skjema \u2013 men fortsatt god tid til \xE5 hente inn \u{1F33F} ";
-      if (diffFromExpected >= -2 && diffFromExpected <= 2)
-        return "Jevn og fin flyt gjennom uka \u{1F44C} ";
-      if (diffFromExpected > 2)
-        return "Travle dager \u2013 men du h\xE5ndterer det godt \u{1F4AA} ";
-    }
-    if (weekday === 5) {
-      if (hours < goal * 0.8)
-        return "Fredag \u2013 snart helg! Du er nesten i m\xE5l \u{1F3AF} ";
-      if (hours >= goal && hours <= goal + 3)
-        return "\u{1F44D} Uka i boks \u2013 god innsats! ";
-      if (hours > goal + 3)
-        return "\u{1F525} Ekstra innsats denne uka \u2013 husk \xE5 logge fleksitid! ";
-      return "Fredagsflyt \u{1F324}\uFE0F ";
-    }
-    const diff = hours - goal;
-    if (diff < -3)
-      return "Du ligger litt bak skjema \u2013 ingen fare, uka er ung! ";
-    if (diff >= -3 && diff <= 2)
-      return "Fin flyt denne uka \u{1F33F} ";
-    if (diff > 2 && diff <= 5)
-      return "Travelt, men godt jobbet! ";
-    if (diff > 5)
-      return "\u{1F525} Ekstra innsats denne uka \u2013 pass p\xE5 hvilen! ";
-    return "";
-  }
-};
-
-// src/uiBuilder.ts
 var UIBuilder = class {
   constructor(dataManager, systemStatus, settings, app, timerManager, plugin) {
     this.intervals = [];
@@ -2997,11 +3343,11 @@ var UIBuilder = class {
     };
   }
   getBalanceColor(balance) {
-    const t = this.settings.balanceThresholds;
+    const t2 = this.settings.balanceThresholds;
     const colors = this.settings.customColors;
-    if (balance < t.criticalLow || balance > t.criticalHigh)
+    if (balance < t2.criticalLow || balance > t2.criticalHigh)
       return (colors == null ? void 0 : colors.balanceCritical) || "#f44336";
-    if (balance < t.warningLow || balance > t.warningHigh)
+    if (balance < t2.warningLow || balance > t2.warningHigh)
       return (colors == null ? void 0 : colors.balanceWarning) || "#ff9800";
     return (colors == null ? void 0 : colors.balanceOk) || "#4caf50";
   }
@@ -3028,7 +3374,7 @@ var UIBuilder = class {
     const style = document.createElement("style");
     style.id = styleId;
     style.textContent = `
-			/* TimeFlow Dashboard Styles */
+			/* timeflow Dashboard Styles */
 			.timeflow-dashboard {
 				font-family: var(--font-text);
 				padding: 20px;
@@ -4188,7 +4534,6 @@ var UIBuilder = class {
     }
   }
   showTimerTypeMenu(button) {
-    var _a, _b;
     const existingMenu = document.querySelector(".tf-timer-type-menu");
     if (existingMenu) {
       existingMenu.remove();
@@ -4205,9 +4550,9 @@ var UIBuilder = class {
     menu.style.minWidth = "150px";
     menu.style.overflow = "hidden";
     const timerTypes = [
-      { name: "jobb", icon: "\u{1F4BC}", label: "Jobb" },
-      { name: "kurs", icon: "\u{1F4DA}", label: ((_a = this.settings.specialDayBehaviors.find((b) => b.id === "kurs")) == null ? void 0 : _a.label) || "Kurs" },
-      { name: "studie", icon: "\u{1F393}", label: ((_b = this.settings.specialDayBehaviors.find((b) => b.id === "studie")) == null ? void 0 : _b.label) || "Studie" }
+      { name: "jobb", icon: "\u{1F4BC}", label: translateSpecialDayName("jobb") },
+      { name: "kurs", icon: "\u{1F4DA}", label: translateSpecialDayName("kurs") },
+      { name: "studie", icon: "\u{1F393}", label: translateSpecialDayName("studie") }
     ];
     timerTypes.forEach((type) => {
       const item = document.createElement("div");
@@ -4294,7 +4639,7 @@ var UIBuilder = class {
     header.style.flexWrap = "wrap";
     header.style.gap = "8px";
     const title = document.createElement("h3");
-    title.textContent = "Kalender";
+    title.textContent = t("ui.calendar");
     title.style.margin = "0";
     title.style.flexShrink = "1";
     title.style.minWidth = "0";
@@ -4310,7 +4655,7 @@ var UIBuilder = class {
       this.updateMonthCard();
     };
     const todayBtn = document.createElement("button");
-    todayBtn.textContent = "I dag";
+    todayBtn.textContent = t("ui.today");
     todayBtn.className = "tf-button";
     todayBtn.onclick = () => {
       this.currentMonthOffset = 0;
@@ -4351,7 +4696,7 @@ var UIBuilder = class {
     headerRow.style.flexWrap = "wrap";
     headerRow.style.gap = "10px";
     const header = document.createElement("h3");
-    header.textContent = "Statistikk";
+    header.textContent = t("ui.statistics");
     header.style.margin = "0";
     headerRow.appendChild(header);
     const tabs = document.createElement("div");
@@ -4359,14 +4704,14 @@ var UIBuilder = class {
     tabs.style.marginBottom = "0";
     tabs.style.borderBottom = "none";
     const timeframes = ["total", "year", "month"];
-    const labels = { total: "Totalt", year: "\xC5r", month: "M\xE5ned" };
+    const labels = { total: t("timeframes.total"), year: t("timeframes.year"), month: t("timeframes.month") };
     timeframes.forEach((tf) => {
       const tab = document.createElement("button");
       tab.className = `tf-tab ${tf === this.statsTimeframe ? "active" : ""}`;
       tab.textContent = labels[tf];
       tab.onclick = () => {
         this.statsTimeframe = tf;
-        tabs.querySelectorAll(".tf-tab").forEach((t) => t.classList.remove("active"));
+        tabs.querySelectorAll(".tf-tab").forEach((t2) => t2.classList.remove("active"));
         tab.classList.add("active");
         if (!contentWrapper.classList.contains("open")) {
           contentWrapper.classList.add("open");
@@ -4403,7 +4748,7 @@ var UIBuilder = class {
     card.className = "tf-card tf-card-spaced";
     const header = document.createElement("div");
     header.className = "tf-collapsible";
-    header.innerHTML = "<h3 style='margin:0'>Informasjon</h3>";
+    header.innerHTML = `<h3 style='margin:0'>${t("ui.information")}</h3>`;
     const content = document.createElement("div");
     content.className = "tf-collapsible-content";
     const specialDayInfo = this.settings.specialDayBehaviors.filter((b) => !b.isWorkType).map((behavior) => ({
@@ -4411,18 +4756,17 @@ var UIBuilder = class {
       emoji: behavior.icon,
       desc: this.getFlextimeEffectDescription(behavior)
     }));
-    specialDayInfo.push({ key: "Ingen registrering", emoji: "\u26AA", desc: "Ingen data for den dagen" });
+    specialDayInfo.push({ key: t("ui.noRegistration"), emoji: "\u26AA", desc: t("ui.noDataForDay") });
     content.innerHTML = `
 			<div class="tf-info-grid">
-				<!-- Left Column: Dagtyper og farger -->
+				<!-- Left Column: Day types and colors -->
 				<div class="tf-info-column">
 					<div class="tf-info-box">
-						<h4>Spesielle dagtyper</h4>
+						<h4>${t("info.specialDayTypes")}</h4>
 						<ul style="list-style: none; padding-left: 0; margin: 0;">
 							${specialDayInfo.map((item) => {
-      var _a2, _b2;
       const color = getSpecialDayColors(this.settings)[item.key] || "transparent";
-      const label = ((_a2 = this.settings.specialDayBehaviors.find((b) => b.id === item.key)) == null ? void 0 : _a2.label) || ((_b2 = this.settings.specialDayLabels) == null ? void 0 : _b2[item.key]) || item.key;
+      const label = translateSpecialDayName(item.key);
       return `<li style="display: flex; align-items: center; margin-bottom: 8px; font-size: 0.9em;">
 									<div style="width: 16px; height: 16px; background: ${color}; border-radius: 3px; border: 1px solid var(--background-modifier-border); margin-right: 8px; flex-shrink: 0;"></div>
 									<span>${item.emoji} <strong>${label}</strong>: ${item.desc}</span>
@@ -4432,75 +4776,75 @@ var UIBuilder = class {
 					</div>
 
 					<div class="tf-info-box">
-						<h4>Arbeidsdager - fargegradient</h4>
+						<h4>${t("info.workDaysGradient")}</h4>
 						<p style="margin: 0 0 10px 0; font-size: 0.9em;">
-							Fargen viser fleksitid i forhold til dagens m\xE5l (${this.settings.baseWorkday}t):
+							${t("info.colorShowsFlextime")} (${this.settings.baseWorkday}h):
 						</p>
 						<div style="height: 16px; border-radius: 8px; background: linear-gradient(to right, ${this.flextimeColor(0)}, ${this.flextimeColor(1.5)}, ${this.flextimeColor(3)}); margin: 4px 0; border: 1px solid var(--background-modifier-border);"></div>
 						<div style="display: flex; justify-content: space-between; font-size: 0.8em; color: var(--text-muted); margin-bottom: 10px;">
-							<span>0t</span><span>+1,5t</span><span>+3t</span>
+							<span>0h</span><span>+1.5h</span><span>+3h</span>
 						</div>
 						<div style="height: 16px; border-radius: 8px; background: linear-gradient(to right, ${this.flextimeColor(-3)}, ${this.flextimeColor(-1.5)}, ${this.flextimeColor(0)}); margin: 4px 0; border: 1px solid var(--background-modifier-border);"></div>
 						<div style="display: flex; justify-content: space-between; font-size: 0.8em; color: var(--text-muted);">
-							<span>-3t</span><span>-1,5t</span><span>0t</span>
+							<span>-3h</span><span>-1.5h</span><span>0h</span>
 						</div>
 					</div>
 				</div>
 
-				<!-- Right Column: Kalender og saldo -->
+				<!-- Right Column: Calendar and balance -->
 				<div class="tf-info-column">
 					<div class="tf-info-box">
-						<h4>Kalenderkontekstmeny</h4>
+						<h4>${t("info.calendarContextMenu")}</h4>
 						<p style="margin: 0 0 8px 0; font-size: 0.9em;">
-							Trykk p\xE5 en dag i kalenderen for:
+							${t("info.clickDayFor")}
 						</p>
 						<ul style="margin: 0 0 0 16px; font-size: 0.9em; padding-left: 0; list-style-position: inside;">
-							<li>Opprett daglig notat</li>
-							<li>Rediger fleksitid manuelt</li>
-							<li>Registrer spesielle dagtyper</li>
+							<li>${t("info.createDailyNote")}</li>
+							<li>${t("info.editFlextimeManually")}</li>
+							<li>${t("info.registerSpecialDays")}</li>
 						</ul>
 					</div>
 
 					<div class="tf-info-box">
-						<h4>Fleksitidsaldo - soner</h4>
+						<h4>${t("info.flextimeBalanceZones")}</h4>
 						<div style="display: flex; flex-direction: column; gap: 6px; font-size: 0.9em;">
 							<div style="display: flex; align-items: center; gap: 8px;">
 								<span style="display: inline-block; width: 16px; height: 16px; border-radius: 3px; background: ${((_a = this.settings.customColors) == null ? void 0 : _a.balanceOk) || "#4caf50"}; flex-shrink: 0;"></span>
-								<span><strong>Gr\xF8nn:</strong> ${this.settings.balanceThresholds.warningLow}t til +${this.settings.balanceThresholds.warningHigh}t</span>
+								<span><strong>${t("info.green")}:</strong> ${this.settings.balanceThresholds.warningLow}h ${t("info.to")} +${this.settings.balanceThresholds.warningHigh}h</span>
 							</div>
 							<div style="display: flex; align-items: center; gap: 8px;">
 								<span style="display: inline-block; width: 16px; height: 16px; border-radius: 3px; background: ${((_b = this.settings.customColors) == null ? void 0 : _b.balanceWarning) || "#ff9800"}; flex-shrink: 0;"></span>
-								<span><strong>Gul:</strong> ${this.settings.balanceThresholds.criticalLow}t til ${this.settings.balanceThresholds.warningLow - 1}t / +${this.settings.balanceThresholds.warningHigh}t til +${this.settings.balanceThresholds.criticalHigh}t</span>
+								<span><strong>${t("info.yellow")}:</strong> ${this.settings.balanceThresholds.criticalLow}h ${t("info.to")} ${this.settings.balanceThresholds.warningLow - 1}h / +${this.settings.balanceThresholds.warningHigh}h ${t("info.to")} +${this.settings.balanceThresholds.criticalHigh}h</span>
 							</div>
 							<div style="display: flex; align-items: center; gap: 8px;">
 								<span style="display: inline-block; width: 16px; height: 16px; border-radius: 3px; background: ${((_c = this.settings.customColors) == null ? void 0 : _c.balanceCritical) || "#f44336"}; flex-shrink: 0;"></span>
-								<span><strong>R\xF8d:</strong> Under ${this.settings.balanceThresholds.criticalLow}t / over +${this.settings.balanceThresholds.criticalHigh}t</span>
+								<span><strong>${t("info.red")}:</strong> &lt;${this.settings.balanceThresholds.criticalLow}h / &gt;+${this.settings.balanceThresholds.criticalHigh}h</span>
 							</div>
 						</div>
 					</div>
 
 					<div class="tf-info-box">
-						<h4>Ukenummer - kompliansfarger</h4>
+						<h4>${t("info.weekNumberCompliance")}</h4>
 						<div style="display: flex; flex-direction: column; gap: 6px; font-size: 0.9em;">
 							<div style="display: flex; align-items: center; gap: 8px;">
 								<span style="display: inline-block; width: 16px; height: 16px; border-radius: 3px; background: linear-gradient(135deg, #c8e6c9, #a5d6a7); flex-shrink: 0;"></span>
-								<span><strong>Gr\xF8nn:</strong> N\xE5dd m\xE5l (\xB10.5t)</span>
+								<span><strong>${t("info.green")}:</strong> ${t("info.reachedGoal")} (\xB10.5h)</span>
 							</div>
 							<div style="display: flex; align-items: center; gap: 8px;">
 								<span style="display: inline-block; width: 16px; height: 16px; border-radius: 3px; background: linear-gradient(135deg, #ffe0b2, #ffcc80); flex-shrink: 0;"></span>
-								<span><strong>Oransje:</strong> Over m\xE5l</span>
+								<span><strong>${t("info.orange")}:</strong> ${t("info.overGoal")}</span>
 							</div>
 							<div style="display: flex; align-items: center; gap: 8px;">
 								<span style="display: inline-block; width: 16px; height: 16px; border-radius: 3px; background: linear-gradient(135deg, #ffcdd2, #ef9a9a); flex-shrink: 0;"></span>
-								<span><strong>R\xF8d:</strong> Under m\xE5l</span>
+								<span><strong>${t("info.red")}:</strong> ${t("info.underGoal")}</span>
 							</div>
 							<div style="display: flex; align-items: center; gap: 8px;">
 								<span style="display: inline-block; width: 16px; height: 16px; border-radius: 3px; background: linear-gradient(135deg, #e0e0e0, #bdbdbd); flex-shrink: 0;"></span>
-								<span><strong>Gr\xE5:</strong> Uke p\xE5g\xE5r</span>
+								<span><strong>${t("info.gray")}:</strong> ${t("info.weekInProgress")}</span>
 							</div>
 						</div>
 						<p style="margin: 8px 0 0 0; font-size: 0.8em; opacity: 0.8;">
-							<em>Trykk p\xE5 ukenummer for detaljer.</em>
+							<em>${t("info.clickWeekForDetails")}</em>
 						</p>
 					</div>
 				</div>
@@ -4519,7 +4863,7 @@ var UIBuilder = class {
     const header = document.createElement("div");
     header.className = "tf-collapsible tf-history-header";
     const title = document.createElement("h3");
-    title.textContent = "Historikk";
+    title.textContent = t("ui.history");
     title.style.margin = "0";
     title.style.flex = "1 1 auto";
     header.appendChild(title);
@@ -4533,11 +4877,11 @@ var UIBuilder = class {
     detailsElement.style.overflow = "auto";
     const editToggle = document.createElement("button");
     editToggle.className = `tf-history-edit-btn ${this.inlineEditMode ? "active" : ""}`;
-    editToggle.textContent = this.inlineEditMode ? "\u2713 Ferdig" : "\u270F\uFE0F Rediger";
+    editToggle.textContent = this.inlineEditMode ? `\u2713 ${t("buttons.done")}` : `\u270F\uFE0F ${t("buttons.edit")}`;
     editToggle.onclick = (e) => {
       e.stopPropagation();
       this.inlineEditMode = !this.inlineEditMode;
-      editToggle.textContent = this.inlineEditMode ? "\u2713 Ferdig" : "\u270F\uFE0F Rediger";
+      editToggle.textContent = this.inlineEditMode ? `\u2713 ${t("buttons.done")}` : `\u270F\uFE0F ${t("buttons.edit")}`;
       editToggle.classList.toggle("active", this.inlineEditMode);
       this.refreshHistoryView(detailsElement);
     };
@@ -4547,8 +4891,8 @@ var UIBuilder = class {
     tabs.style.marginBottom = "0";
     tabs.style.borderBottom = "none";
     const views = [
-      { id: "list", label: "Liste" },
-      { id: "heatmap", label: "Heatmap" }
+      { id: "list", label: t("buttons.list") },
+      { id: "heatmap", label: t("buttons.heatmap") }
     ];
     views.forEach((view) => {
       const tab = document.createElement("button");
@@ -4558,9 +4902,9 @@ var UIBuilder = class {
         e.stopPropagation();
         this.historyView = view.id;
         this.inlineEditMode = false;
-        editToggle.textContent = "\u270F\uFE0F Rediger";
+        editToggle.textContent = `\u270F\uFE0F ${t("buttons.edit")}`;
         editToggle.classList.remove("active");
-        tabs.querySelectorAll(".tf-tab").forEach((t) => t.classList.remove("active"));
+        tabs.querySelectorAll(".tf-tab").forEach((t2) => t2.classList.remove("active"));
         tab.classList.add("active");
         if (!content.classList.contains("open")) {
           content.classList.add("open");
@@ -4627,11 +4971,11 @@ var UIBuilder = class {
     header.innerHTML = `
 			<span>${statusIcon}</span>
 			<div style="flex: 1;">
-				<div><strong>System Status</strong> ${hasIssues ? '<span style="font-size: 11px; opacity: 0.7;">(klikk for detaljer)</span>' : ""}</div>
+				<div><strong>${t("status.systemStatus")}</strong> ${hasIssues ? `<span style="font-size: 11px; opacity: 0.7;">(${t("status.clickForDetails")})</span>` : ""}</div>
 				<div style="font-size: 12px; color: var(--text-muted);">
-					${((_d = status.holiday) == null ? void 0 : _d.message) || "Holiday data not loaded"} \u2022
-					${status.activeTimers || 0} active timer(s) \u2022
-					${((_g = (_f = (_e = status.validation) == null ? void 0 : _e.issues) == null ? void 0 : _f.stats) == null ? void 0 : _g.totalEntries) || 0} entries checked
+					${((_d = status.holiday) == null ? void 0 : _d.message) || t("status.holidayNotLoaded")} \u2022
+					${status.activeTimers || 0} ${t("status.activeTimers")} \u2022
+					${((_g = (_f = (_e = status.validation) == null ? void 0 : _e.issues) == null ? void 0 : _f.stats) == null ? void 0 : _g.totalEntries) || 0} ${t("status.entriesChecked")}
 				</div>
 			</div>
 			${hasIssues ? '<span class="tf-status-toggle" style="font-size: 10px; transition: transform 0.2s;">\u25B6</span>' : ""}
@@ -4681,8 +5025,8 @@ var UIBuilder = class {
 			transition: background 0.2s, border-color 0.2s;
 			font-weight: 500;
 		`;
-    viewToggle.innerHTML = isInSidebar ? `<span style="font-size: 14px;">\u229E</span> Move to main area` : `<span style="font-size: 14px;">\u25E7</span> Move to sidebar`;
-    viewToggle.title = isInSidebar ? "Open in main content area" : "Open in right sidebar";
+    viewToggle.innerHTML = isInSidebar ? `<span style="font-size: 14px;">\u229E</span> ${t("buttons.moveToMain")}` : `<span style="font-size: 14px;">\u25E7</span> ${t("buttons.moveToSidebar")}`;
+    viewToggle.title = isInSidebar ? t("buttons.moveToMain") : t("buttons.moveToSidebar");
     viewToggle.onmouseenter = () => {
       viewToggle.style.background = "var(--background-modifier-hover)";
       viewToggle.style.borderColor = "var(--interactive-accent)";
@@ -4718,7 +5062,7 @@ var UIBuilder = class {
     const color = this.getBalanceColor(balance);
     this.elements.badge.style.background = color;
     this.elements.badge.style.color = "white";
-    this.elements.badge.textContent = `Fleksitidsaldo: ${sign}${formatted}`;
+    this.elements.badge.textContent = `${t("ui.flextimeBalance")}: ${sign}${formatted}`;
   }
   /**
    * Check if the current view is in the sidebar (right or left)
@@ -4767,17 +5111,17 @@ var UIBuilder = class {
     }
     const tooltipParts = [];
     if (dailyStatus === "exceeded") {
-      tooltipParts.push(`Dag: ${todayHours.toFixed(1)}t (maks ${dailyLimit}t)`);
+      tooltipParts.push(`${t("ui.today")}: ${todayHours.toFixed(1)}${this.settings.hourUnit} (max ${dailyLimit}${this.settings.hourUnit})`);
     } else if (dailyStatus === "approaching") {
-      tooltipParts.push(`Dag: ${todayHours.toFixed(1)}t (n\xE6rmer seg ${dailyLimit}t)`);
+      tooltipParts.push(`${t("ui.today")}: ${todayHours.toFixed(1)}${this.settings.hourUnit} (${t("status.approachingLimits")} ${dailyLimit}${this.settings.hourUnit})`);
     }
     if (weeklyStatus === "exceeded") {
-      tooltipParts.push(`Uke: ${weekHours.toFixed(1)}t (maks ${weeklyLimit}t)`);
+      tooltipParts.push(`${t("ui.week")}: ${weekHours.toFixed(1)}${this.settings.hourUnit} (max ${weeklyLimit}${this.settings.hourUnit})`);
     } else if (weeklyStatus === "approaching") {
-      tooltipParts.push(`Uke: ${weekHours.toFixed(1)}t (n\xE6rmer seg ${weeklyLimit}t)`);
+      tooltipParts.push(`${t("ui.week")}: ${weekHours.toFixed(1)}${this.settings.hourUnit} (${t("status.approachingLimits")} ${weeklyLimit}${this.settings.hourUnit})`);
     }
     if (tooltipParts.length === 0 && status === "ok") {
-      tooltipParts.push(`Dag: ${todayHours.toFixed(1)}t, Uke: ${weekHours.toFixed(1)}t - Innenfor grensene`);
+      tooltipParts.push(`${t("ui.today")}: ${todayHours.toFixed(1)}${this.settings.hourUnit}, ${t("ui.week")}: ${weekHours.toFixed(1)}${this.settings.hourUnit} - ${t("status.withinLimits")}`);
     }
     return { status, dailyStatus, weeklyStatus, tooltip: tooltipParts.join("\n") };
   }
@@ -4834,23 +5178,23 @@ var UIBuilder = class {
     const restCheck = this.data.checkRestPeriodViolation(todayStr);
     const panel = document.createElement("div");
     panel.className = "tf-compliance-info-panel";
-    let html = "<h4>\u2696\uFE0F Arbeidstidsgrenser</h4>";
+    let html = `<h4>\u2696\uFE0F ${t("compliance.title")}</h4>`;
     const dailyIcon = dailyStatus === "ok" ? "\u{1F7E9}" : dailyStatus === "approaching" ? "\u{1F7E8}" : "\u{1F7E5}";
-    html += `<p><strong>I dag:</strong> ${dailyIcon} ${todayHours.toFixed(1)}t / ${dailyLimit}t</p>`;
+    html += `<p><strong>${t("ui.today")}:</strong> ${dailyIcon} ${todayHours.toFixed(1)}t / ${dailyLimit}t</p>`;
     const weeklyIcon = weeklyStatus === "ok" ? "\u{1F7E9}" : weeklyStatus === "approaching" ? "\u{1F7E8}" : "\u{1F7E5}";
-    html += `<p><strong>Denne uken:</strong> ${weeklyIcon} ${weekHours.toFixed(1)}t / ${weeklyLimit}t</p>`;
+    html += `<p><strong>${t("ui.thisWeek")}:</strong> ${weeklyIcon} ${weekHours.toFixed(1)}t / ${weeklyLimit}t</p>`;
     if (restCheck.violated && restCheck.restHours !== null) {
-      html += `<p class="tf-rest-warning"><strong>Hviletid:</strong> \u{1F7E5} ${restCheck.restHours.toFixed(1)}t (minimum ${minimumRest}t)</p>`;
+      html += `<p class="tf-rest-warning"><strong>${t("ui.restPeriod")}:</strong> \u{1F7E5} ${restCheck.restHours.toFixed(1)}t (${t("ui.minimum")} ${minimumRest}t)</p>`;
     } else if (restCheck.restHours !== null) {
-      html += `<p><strong>Hviletid:</strong> \u{1F7E9} ${restCheck.restHours.toFixed(1)}t (minimum ${minimumRest}t)</p>`;
+      html += `<p><strong>${t("ui.restPeriod")}:</strong> \u{1F7E9} ${restCheck.restHours.toFixed(1)}t (${t("ui.minimum")} ${minimumRest}t)</p>`;
     }
     html += '<hr style="margin: 10px 0; border: none; border-top: 1px solid var(--background-modifier-border);">';
     if (dailyStatus === "exceeded" || weeklyStatus === "exceeded" || restCheck.violated) {
-      html += '<p style="font-size: 12px; color: var(--text-muted);">En eller flere grenser er overskredet.</p>';
+      html += `<p style="font-size: 12px; color: var(--text-muted);">${t("compliance.exceeds")} ${t("compliance.limit")}.</p>`;
     } else if (dailyStatus === "approaching" || weeklyStatus === "approaching") {
-      html += '<p style="font-size: 12px; color: var(--text-muted);">N\xE6rmer seg en eller flere grenser.</p>';
+      html += `<p style="font-size: 12px; color: var(--text-muted);">${t("status.approachingLimits")} ${t("compliance.limit")}.</p>`;
     } else {
-      html += '<p style="font-size: 12px; color: var(--text-muted);">Alle grenser er OK.</p>';
+      html += `<p style="font-size: 12px; color: var(--text-muted);">${t("status.allLimitsOk")}</p>`;
     }
     panel.innerHTML = html;
     const badgeRect = this.elements.complianceBadge.getBoundingClientRect();
@@ -4915,29 +5259,12 @@ var UIBuilder = class {
 					${Utils.formatHoursToHM(todayHours, this.settings.hourUnit)}
 				</div>
 				<div style="font-size: 14px; opacity: 0.9; margin-top: 10px;">
-					Timer arbeidet
+					${t("ui.hoursWorked")}
 				</div>
 			`;
       return;
     }
     const goal = this.data.getDailyGoal(todayKey);
-    const isWeekendDay = Utils.isWeekend(today, this.settings);
-    const context = this.data.getContextualData(today);
-    const { avgDaily } = this.data.getAverages();
-    const specials = [];
-    const holidayInfo = this.data.getHolidayInfo(todayKey);
-    if (holidayInfo) {
-      specials.push(holidayInfo.type);
-    }
-    const message = MessageGenerator.getDailyMessage(
-      todayHours,
-      goal,
-      specials,
-      isWeekendDay,
-      avgDaily,
-      context,
-      this.settings.consecutiveFlextimeWarningDays
-    );
     const progress = goal > 0 ? Math.min(todayHours / goal * 100, 100) : 0;
     let bgColor;
     let textColor;
@@ -4953,23 +5280,17 @@ var UIBuilder = class {
     }
     this.elements.dayCard.style.background = bgColor;
     this.elements.dayCard.style.color = textColor;
-    const messageSection = this.settings.enableMotivationalMessages ? `
-			<div style="margin-top: 10px; font-size: 14px;">
-				${message}
-			</div>
-		` : "";
     this.elements.dayCard.innerHTML = `
-			<h3 style="color: ${textColor};">I dag</h3>
+			<h3 style="color: ${textColor};">${t("ui.today")}</h3>
 			<div style="font-size: 32px; font-weight: bold; margin: 10px 0;">
 				${Utils.formatHoursToHM(todayHours, this.settings.hourUnit)}
 			</div>
 			<div style="font-size: 14px; opacity: 0.9; margin-bottom: 10px;">
-				M\xE5l: ${Utils.formatHoursToHM(goal, this.settings.hourUnit)}
+				${t("ui.goal")}: ${Utils.formatHoursToHM(goal, this.settings.hourUnit)}
 			</div>
 			<div class="tf-progress-bar">
 				<div class="tf-progress-fill" style="width: ${progress}%; background: linear-gradient(90deg, ${((_a = this.settings.customColors) == null ? void 0 : _a.progressBar) || "#4caf50"}, ${this.darkenColor(((_b = this.settings.customColors) == null ? void 0 : _b.progressBar) || "#4caf50", 20)})"></div>
 			</div>
-			${messageSection}
 		`;
   }
   updateWeekCard() {
@@ -4979,62 +5300,34 @@ var UIBuilder = class {
     const today = /* @__PURE__ */ new Date();
     const weekHours = this.data.getCurrentWeekHours(today);
     const currentWeekNumber = Utils.getWeekNumber(today);
-    const weekBadgeHtml = this.settings.showWeekNumbers ? `<div class="tf-week-badge">Uke ${currentWeekNumber}</div>` : "";
+    const weekBadgeHtml = this.settings.showWeekNumbers ? `<div class="tf-week-badge">${t("ui.week")} ${currentWeekNumber}</div>` : "";
     if (!this.settings.enableGoalTracking) {
       this.elements.weekCard.style.background = "var(--background-secondary)";
       this.elements.weekCard.style.color = "var(--text-normal)";
       this.elements.weekCard.innerHTML = `
 				${weekBadgeHtml}
-				<h3 style="color: inherit;">Denne uken</h3>
+				<h3 style="color: inherit;">${t("ui.thisWeek")}</h3>
 				<div style="font-size: 32px; font-weight: bold; margin: 10px 0;">
 					${Utils.formatHoursToHM(weekHours, this.settings.hourUnit)}
 				</div>
 				<div style="font-size: 14px; opacity: 0.9; margin-top: 10px;">
-					Timer arbeidet
+					${t("ui.hoursWorked")}
 				</div>
 			`;
       return;
     }
-    const baseGoal = this.settings.baseWorkweek * this.settings.workPercent;
-    const context = this.data.getContextualData(today);
     const dayOfWeek = today.getDay();
     const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
     const firstDayOfWeek = new Date(today);
     firstDayOfWeek.setDate(today.getDate() - daysFromMonday);
     let adjustedGoal = 0;
-    let specials = [];
-    let weekendWorkHours = 0;
     for (let i = 0; i < 7; i++) {
       const d = new Date(firstDayOfWeek);
       d.setDate(firstDayOfWeek.getDate() + i);
       const dayKey = Utils.toLocalDateStr(d);
       const dayGoal = this.data.getDailyGoal(dayKey);
       adjustedGoal += dayGoal;
-      const holidayInfo = this.data.getHolidayInfo(dayKey);
-      if (holidayInfo) {
-        specials.push(holidayInfo.type);
-      }
-      if (Utils.isWeekend(d, this.settings)) {
-        const dayEntries = this.data.daily[dayKey] || [];
-        weekendWorkHours += dayEntries.reduce((sum, e) => sum + (e.duration || 0), 0);
-      }
     }
-    const message = this.settings.enableWeeklyGoals ? MessageGenerator.getWeeklyMessage(
-      weekHours,
-      adjustedGoal,
-      specials,
-      today,
-      context,
-      weekendWorkHours
-    ) : MessageGenerator.getWeeklyMessage(
-      weekHours,
-      0,
-      // Pass 0 as goal to get non-goal-based messages
-      specials,
-      today,
-      context,
-      weekendWorkHours
-    );
     const progress = adjustedGoal > 0 ? Math.min(weekHours / adjustedGoal * 100, 100) : 0;
     let bgColor;
     let textColor;
@@ -5055,25 +5348,19 @@ var UIBuilder = class {
     this.elements.weekCard.style.color = textColor;
     const goalSection = this.settings.enableWeeklyGoals ? `
 			<div style="font-size: 14px; opacity: 0.9; margin-bottom: 10px;">
-				M\xE5l: ${Utils.formatHoursToHM(adjustedGoal, this.settings.hourUnit)}
+				${t("ui.goal")}: ${Utils.formatHoursToHM(adjustedGoal, this.settings.hourUnit)}
 			</div>
 			<div class="tf-progress-bar">
 				<div class="tf-progress-fill" style="width: ${progress}%; background: linear-gradient(90deg, ${((_a = this.settings.customColors) == null ? void 0 : _a.progressBar) || "#4caf50"}, ${this.darkenColor(((_b = this.settings.customColors) == null ? void 0 : _b.progressBar) || "#4caf50", 20)})"></div>
 			</div>
 		` : "";
-    const weekMessageSection = this.settings.enableMotivationalMessages ? `
-			<div style="margin-top: 10px; font-size: 14px;">
-				${message}
-			</div>
-		` : "";
     this.elements.weekCard.innerHTML = `
 			${weekBadgeHtml}
-			<h3 style="color: ${textColor};">Denne uken</h3>
+			<h3 style="color: ${textColor};">${t("ui.thisWeek")}</h3>
 			<div style="font-size: 32px; font-weight: bold; margin: 10px 0;">
 				${Utils.formatHoursToHM(weekHours, this.settings.hourUnit)}
 			</div>
 			${goalSection}
-			${weekMessageSection}
 		`;
   }
   updateStatsCard() {
@@ -5183,7 +5470,7 @@ var UIBuilder = class {
         const label = document.createElement("div");
         label.style.fontSize = "1.1em";
         label.style.fontWeight = "bold";
-        label.textContent = "Totalt";
+        label.textContent = t("ui.total");
         selectorContainer.appendChild(label);
       }
     }
@@ -5195,93 +5482,92 @@ var UIBuilder = class {
       if (Math.abs(diff) > 2) {
         const arrow = diff > 0 ? "\u{1F4C8}" : "\u{1F4C9}";
         const sign2 = diff > 0 ? "+" : "";
-        weekComparisonText = `<div style="font-size: 0.75em; margin-top: 4px;">vs forrige uke: ${sign2}${diff.toFixed(1)}t ${arrow}</div>`;
+        weekComparisonText = `<div style="font-size: 0.75em; margin-top: 4px;">${t("ui.vsLastWeek")}: ${sign2}${diff.toFixed(1)}t ${arrow}</div>`;
       }
     }
     const sign = balance >= 0 ? "+" : "";
     const timesaldoColor = this.getBalanceColor(balance);
-    let ferieDisplay = `${stats.ferie.count} dager`;
+    let ferieDisplay = `${stats.ferie.count} ${t("ui.days")}`;
     if (this.statsTimeframe === "year" && stats.ferie.max > 0) {
       const feriePercent = (stats.ferie.count / stats.ferie.max * 100).toFixed(0);
-      ferieDisplay = `${stats.ferie.count}/${stats.ferie.max} dager (${feriePercent}%)`;
+      ferieDisplay = `${stats.ferie.count}/${stats.ferie.max} ${t("ui.days")} (${feriePercent}%)`;
     }
     const egenmeldingStats = this.data.getSpecialDayStats("egenmelding", this.selectedYear);
-    let egenmeldingDisplay = `${egenmeldingStats.count} dager`;
+    let egenmeldingDisplay = `${egenmeldingStats.count} ${t("ui.days")}`;
     let egenmeldingPeriodLabel = "";
     if (this.statsTimeframe === "year") {
       if (egenmeldingStats.max && egenmeldingStats.max > 0) {
         const egenmeldingPercent = (egenmeldingStats.count / egenmeldingStats.max * 100).toFixed(0);
-        egenmeldingDisplay = `${egenmeldingStats.count}/${egenmeldingStats.max} dager (${egenmeldingPercent}%)`;
+        egenmeldingDisplay = `${egenmeldingStats.count}/${egenmeldingStats.max} ${t("ui.days")} (${egenmeldingPercent}%)`;
       }
       egenmeldingPeriodLabel = `(${egenmeldingStats.periodLabel})`;
     }
     this.elements.statsCard.innerHTML = `
 			${this.settings.enableGoalTracking ? `<div class="tf-stat-item tf-stat-colored" style="background: ${timesaldoColor};">
-				<div class="tf-stat-label">Fleksitidsaldo</div>
+				<div class="tf-stat-label">${t("stats.flextimeBalance")}</div>
 				<div class="tf-stat-value">${sign}${balance.toFixed(1)}t</div>
-				<div style="font-size: 0.75em; margin-top: 4px;">Total saldo</div>
+				<div style="font-size: 0.75em; margin-top: 4px;">${t("stats.totalBalance")}</div>
 			</div>` : ""}
 			<div class="tf-stat-item">
-				<div class="tf-stat-label">\u23F1\uFE0F Timer</div>
+				<div class="tf-stat-label">\u23F1\uFE0F ${t("stats.hours")}</div>
 				<div class="tf-stat-value">${stats.totalHours.toFixed(1)}t</div>
 			</div>
 			<div class="tf-stat-item">
-				<div class="tf-stat-label">\u{1F4CA} Snitt/dag</div>
+				<div class="tf-stat-label">\u{1F4CA} ${t("stats.avgPerDay")}</div>
 				<div class="tf-stat-value">${avgDaily.toFixed(1)}t</div>
 			</div>
 			<div class="tf-stat-item">
-				<div class="tf-stat-label">\u{1F4C5} Snitt/uke</div>
+				<div class="tf-stat-label">\u{1F4C5} ${t("stats.avgPerWeek")}</div>
 				<div class="tf-stat-value">${avgWeekly.toFixed(1)}t</div>
 				${weekComparisonText}
 			</div>
 			${this.settings.enableGoalTracking && this.settings.enableWeeklyGoals ? `<div class="tf-stat-item">
-				<div class="tf-stat-label">\u{1F4AA} Arbeidsbruk</div>
+				<div class="tf-stat-label">\u{1F4AA} ${t("stats.workIntensity")}</div>
 				<div class="tf-stat-value">${workloadPct}%</div>
-				<div style="font-size: 0.75em; margin-top: 4px;">av normaluke</div>
+				<div style="font-size: 0.75em; margin-top: 4px;">${t("stats.ofNormalWeek")}</div>
 			</div>` : ""}
 			<div class="tf-stat-item">
-				<div class="tf-stat-label">\u{1F4BC} Jobb</div>
-				<div class="tf-stat-value">${stats.jobb.count} ${stats.jobb.count === 1 ? "dag" : "dager"}</div>
+				<div class="tf-stat-label">\u{1F4BC} ${t("stats.work")}</div>
+				<div class="tf-stat-value">${stats.jobb.count} ${t("ui.days")}</div>
 				<div style="font-size: 0.75em; margin-top: 4px;">${stats.jobb.hours.toFixed(1)}t</div>
 			</div>
 			${stats.weekendDays > 0 ? `<div class="tf-stat-item">
-				<div class="tf-stat-label">\u{1F319} Helgedager jobbet</div>
-				<div class="tf-stat-value">${stats.weekendDays} ${stats.weekendDays === 1 ? "dag" : "dager"}</div>
-				<div style="font-size: 0.75em; margin-top: 4px;">${stats.weekendHours.toFixed(1)}t</div>
+				<div class="tf-stat-label">\u{1F319} ${t("stats.weekendDaysWorked")}</div>
+				<div class="tf-stat-value">${stats.weekendDays} ${t("ui.days")}</div>
+				<div style="font-size: 0.75em; margin-top: 4px;">${stats.weekendHours.toFixed(1)}${this.settings.hourUnit}</div>
 			</div>` : ""}
 			<div class="tf-stat-item">
-				<div class="tf-stat-label">\u{1F6CC} Avspasering</div>
-				<div class="tf-stat-value">${stats.avspasering.count} ${stats.avspasering.count === 1 ? "dag" : "dager"}</div>
-				<div style="font-size: 0.75em; margin-top: 4px;">${stats.avspasering.hours.toFixed(1)}t${stats.avspasering.planned > 0 ? `<br>\u{1F4C5} Planlagt: ${stats.avspasering.planned}` : ""}</div>
+				<div class="tf-stat-label">\u{1F6CC} ${t("stats.flexTimeOff")}</div>
+				<div class="tf-stat-value">${stats.avspasering.count} ${t("ui.days")}</div>
+				<div style="font-size: 0.75em; margin-top: 4px;">${stats.avspasering.hours.toFixed(1)}${this.settings.hourUnit}</div>
 			</div>
 			<div class="tf-stat-item">
-				<div class="tf-stat-label">\u{1F3D6}\uFE0F Ferie</div>
+				<div class="tf-stat-label">\u{1F3D6}\uFE0F ${t("stats.vacation")}</div>
 				<div class="tf-stat-value" style="font-size: ${this.statsTimeframe === "year" ? "0.9em" : "1.3em"};">${ferieDisplay}</div>
-				<div style="font-size: 0.75em; margin-top: 4px;">${stats.ferie.planned > 0 ? `\u{1F4C5} Planlagt: ${stats.ferie.planned}` : ""}</div>
+				<div style="font-size: 0.75em; margin-top: 4px;"></div>
 			</div>
 			<div class="tf-stat-item">
-				<div class="tf-stat-label">\u{1F3E5} Velferdspermisjon</div>
-				<div class="tf-stat-value">${stats.velferdspermisjon.count} ${stats.velferdspermisjon.count === 1 ? "dag" : "dager"}</div>
-				<div style="font-size: 0.75em; margin-top: 4px;">${stats.velferdspermisjon.planned > 0 ? `\u{1F4C5} Planlagt: ${stats.velferdspermisjon.planned}` : ""}</div>
+				<div class="tf-stat-label">\u{1F3E5} ${t("stats.welfareLeave")}</div>
+				<div class="tf-stat-value">${stats.velferdspermisjon.count} ${t("ui.days")}</div>
 			</div>
 			<div class="tf-stat-item">
-				<div class="tf-stat-label">\u{1F912} Egenmelding</div>
+				<div class="tf-stat-label">\u{1F912} ${t("stats.selfReportedSick")}</div>
 				<div class="tf-stat-value" style="font-size: ${this.statsTimeframe === "year" ? "0.9em" : "1.3em"};">${egenmeldingDisplay}</div>
 				<div style="font-size: 0.75em; margin-top: 4px;">${egenmeldingPeriodLabel}</div>
 			</div>
 			<div class="tf-stat-item">
-				<div class="tf-stat-label">\u{1F3E5} Sykemelding</div>
-				<div class="tf-stat-value">${stats.sykemelding.count} ${stats.sykemelding.count === 1 ? "dag" : "dager"}</div>
+				<div class="tf-stat-label">\u{1F3E5} ${t("stats.doctorSick")}</div>
+				<div class="tf-stat-value">${stats.sykemelding.count} ${t("ui.days")}</div>
 			</div>
 			<div class="tf-stat-item">
-				<div class="tf-stat-label">\u{1F4DA} Studie</div>
-				<div class="tf-stat-value">${stats.studie.count} ${stats.studie.count === 1 ? "dag" : "dager"}</div>
-				<div style="font-size: 0.75em; margin-top: 4px;">${stats.studie.hours.toFixed(1)}t${stats.studie.planned > 0 ? `<br>\u{1F4C5} Planlagt: ${stats.studie.planned}` : ""}</div>
+				<div class="tf-stat-label">\u{1F4DA} ${t("stats.study")}</div>
+				<div class="tf-stat-value">${stats.studie.count} ${t("ui.days")}</div>
+				<div style="font-size: 0.75em; margin-top: 4px;">${stats.studie.hours.toFixed(1)}${this.settings.hourUnit}</div>
 			</div>
 			<div class="tf-stat-item">
-				<div class="tf-stat-label">\u{1F4DA} Kurs</div>
-				<div class="tf-stat-value">${stats.kurs.count} ${stats.kurs.count === 1 ? "dag" : "dager"}</div>
-				<div style="font-size: 0.75em; margin-top: 4px;">${stats.kurs.hours.toFixed(1)}t${stats.kurs.planned > 0 ? `<br>\u{1F4C5} Planlagt: ${stats.kurs.planned}` : ""}</div>
+				<div class="tf-stat-label">\u{1F4DA} ${t("stats.course")}</div>
+				<div class="tf-stat-value">${stats.kurs.count} ${t("ui.days")}</div>
+				<div style="font-size: 0.75em; margin-top: 4px;">${stats.kurs.hours.toFixed(1)}${this.settings.hourUnit}</div>
 			</div>
 		`;
     const tabs = (_b = this.elements.statsCard.parentElement) == null ? void 0 : _b.querySelectorAll(".tf-tab");
@@ -5320,10 +5606,11 @@ var UIBuilder = class {
         const holiday = this.data.holidays[dateStr];
         const behavior = this.settings.specialDayBehaviors.find((b) => b.id === holiday.type);
         if (behavior) {
+          const translatedLabel = translateSpecialDayName(behavior.id, behavior.label);
           futureDays.push({
             date: dateStr,
-            type: behavior.label,
-            label: holiday.description || behavior.label,
+            type: translatedLabel,
+            label: holiday.description || translatedLabel,
             color: behavior.color
           });
         }
@@ -5336,10 +5623,10 @@ var UIBuilder = class {
       container.innerHTML = "";
       return;
     }
-    let html = "<h4>Kommende planlagte dager</h4>";
+    let html = `<h4>${t("ui.upcomingPlannedDays")}</h4>`;
     limitedDays.forEach((day) => {
       const date = /* @__PURE__ */ new Date(day.date + "T00:00:00");
-      const dateStr = date.toLocaleDateString("nb-NO", { day: "numeric", month: "short", year: "numeric" });
+      const dateStr = formatDate(date, "long");
       html += `
 				<div class="tf-future-day-item">
 					<span class="tf-future-day-date">${dateStr}</span>
@@ -5353,7 +5640,7 @@ var UIBuilder = class {
     var _a;
     const year = displayDate.getFullYear();
     const month = displayDate.getMonth();
-    const monthName = displayDate.toLocaleDateString("nb-NO", { month: "long", year: "numeric" });
+    const monthName = getMonthName(displayDate);
     const showWeekNumbers = (_a = this.settings.showWeekNumbers) != null ? _a : true;
     const container = document.createElement("div");
     const monthTitle = document.createElement("div");
@@ -5367,10 +5654,10 @@ var UIBuilder = class {
     if (showWeekNumbers) {
       const weekHeader = document.createElement("div");
       weekHeader.className = "tf-week-number-header";
-      weekHeader.textContent = "Uke";
+      weekHeader.textContent = t("ui.week");
       grid.appendChild(weekHeader);
     }
-    const dayNames = ["Man", "Tir", "Ons", "Tor", "Fre", "L\xF8r", "S\xF8n"];
+    const dayNames = getDayNamesShort();
     dayNames.forEach((name) => {
       const header = document.createElement("div");
       header.textContent = name;
@@ -5515,18 +5802,18 @@ var UIBuilder = class {
     if (val < 0) {
       const baseColor = (jobbBehavior == null ? void 0 : jobbBehavior.negativeColor) || "#64b5f6";
       const rgb = hexToRgb(baseColor);
-      const t = Math.min(Math.abs(val) / 3, 1);
-      const r = Math.floor(rgb.r + (255 - rgb.r) * (1 - t) * 0.4);
-      const g = Math.floor(rgb.g + (255 - rgb.g) * (1 - t) * 0.4);
-      const b = Math.floor(rgb.b + (255 - rgb.b) * (1 - t) * 0.4);
+      const t2 = Math.min(Math.abs(val) / 3, 1);
+      const r = Math.floor(rgb.r + (255 - rgb.r) * (1 - t2) * 0.4);
+      const g = Math.floor(rgb.g + (255 - rgb.g) * (1 - t2) * 0.4);
+      const b = Math.floor(rgb.b + (255 - rgb.b) * (1 - t2) * 0.4);
       return `rgb(${r},${g},${b})`;
     } else {
       const baseColor = (jobbBehavior == null ? void 0 : jobbBehavior.color) || "#4caf50";
       const rgb = hexToRgb(baseColor);
-      const t = Math.min(val / 3, 1);
-      const r = Math.floor(rgb.r + (255 - rgb.r) * (1 - t) * 0.4);
-      const g = Math.floor(rgb.g + (255 - rgb.g) * (1 - t) * 0.4);
-      const b = Math.floor(rgb.b + (255 - rgb.b) * (1 - t) * 0.4);
+      const t2 = Math.min(val / 3, 1);
+      const r = Math.floor(rgb.r + (255 - rgb.r) * (1 - t2) * 0.4);
+      const g = Math.floor(rgb.g + (255 - rgb.g) * (1 - t2) * 0.4);
+      const b = Math.floor(rgb.b + (255 - rgb.b) * (1 - t2) * 0.4);
       return `rgb(${r},${g},${b})`;
     }
   }
@@ -5544,21 +5831,21 @@ var UIBuilder = class {
    */
   getFlextimeEffectDescription(behavior) {
     if (behavior.id === "helligdag") {
-      return "Offentlig fridag - p\xE5virker ikke fleksitid";
+      return t("info.publicHolidayDesc");
     }
     if (behavior.id === "halfday") {
       const halfDayHours = this.settings.halfDayMode === "percentage" ? this.settings.baseWorkday / 2 : this.settings.halfDayHours;
       const halfDayReduction = this.settings.baseWorkday - halfDayHours;
-      return `Halv arbeidsdag (${halfDayHours}t) - reduserer ukem\xE5let med ${halfDayReduction}t`;
+      return t("info.halfDayDesc").replace("{hours}", halfDayHours.toString()).replace("{reduction}", halfDayReduction.toString());
     }
     switch (behavior.flextimeEffect) {
       case "withdraw":
-        return "Trekkes fra fleksitid";
+        return t("info.withdrawFromFlextime");
       case "accumulate":
-        return `Teller som fleksitid ved mer enn ${this.settings.baseWorkday}t`;
+        return t("info.countsAsFlextime").replace("{hours}", this.settings.baseWorkday.toString());
       case "none":
       default:
-        return "P\xE5virker ikke fleksitid";
+        return t("info.noFlextimeEffect");
     }
   }
   /**
@@ -5706,44 +5993,44 @@ var UIBuilder = class {
 			max-width: 300px;
 		`;
     let statusIcon = "\u{1F7E9}";
-    let statusText = "P\xE5 m\xE5l";
+    let statusText = t("status.onTarget");
     let statusColor = "#4caf50";
     if (data.status === "over") {
       statusIcon = "\u{1F7E8}";
-      statusText = "Over m\xE5l";
+      statusText = t("status.overTarget");
       statusColor = "#ff9800";
     } else if (data.status === "under") {
       statusIcon = "\u{1F7E5}";
-      statusText = "Under m\xE5l";
+      statusText = t("status.underTarget");
       statusColor = "#f44336";
     } else if (data.status === "partial") {
       statusIcon = "\u23F3";
-      statusText = "P\xE5g\xE5r";
+      statusText = t("status.inProgress");
       statusColor = "#9e9e9e";
     }
     const diff = data.totalHours - data.expectedHours;
     const diffText = diff >= 0 ? `+${diff.toFixed(1)}` : diff.toFixed(1);
     panel.innerHTML = `
 			<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-				<strong style="font-size: 1.1em;">Uke ${data.weekNumber}</strong>
+				<strong style="font-size: 1.1em;">${t("ui.week")} ${data.weekNumber}</strong>
 				<span style="color: ${statusColor}; font-weight: bold;">${statusIcon} ${statusText}</span>
 			</div>
 			<div style="display: flex; flex-direction: column; gap: 8px; font-size: 0.9em;">
 				<div style="display: flex; justify-content: space-between;">
-					<span>Timer logget:</span>
+					<span>${t("ui.hoursLogged")}:</span>
 					<strong>${data.totalHours.toFixed(1)}t</strong>
 				</div>
 				<div style="display: flex; justify-content: space-between;">
-					<span>Forventet:</span>
-					<span>${data.expectedHours.toFixed(1)}t (${data.workDaysPassed}/${data.workDaysInWeek} dager)</span>
+					<span>${t("ui.expected")}:</span>
+					<span>${data.expectedHours.toFixed(1)}t (${data.workDaysPassed}/${data.workDaysInWeek} ${t("ui.days")})</span>
 				</div>
 				<div style="display: flex; justify-content: space-between; border-top: 1px solid var(--background-modifier-border); padding-top: 8px;">
-					<span>Differanse:</span>
+					<span>${t("ui.difference")}:</span>
 					<strong style="color: ${statusColor};">${diffText}t</strong>
 				</div>
 				${data.totalHours > data.weeklyLimit ? `
 				<div style="color: #f44336; margin-top: 4px;">
-					\u26A0\uFE0F Over ukegrense (${data.weeklyLimit}t)
+					\u26A0\uFE0F ${t("ui.overWeekLimit")} (${data.weeklyLimit}t)
 				</div>
 				` : ""}
 			</div>
@@ -5817,7 +6104,7 @@ var UIBuilder = class {
     const hasWorkEntries = hasWorkEntriesInDaily || hasRunningTimerForDate;
     const workTimeItem = document.createElement("div");
     workTimeItem.className = "tf-menu-item";
-    workTimeItem.innerHTML = `<span>\u23F1\uFE0F</span><span>Logg arbeidstimer</span>`;
+    workTimeItem.innerHTML = `<span>\u23F1\uFE0F</span><span>${t("menu.logWork")}</span>`;
     workTimeItem.onclick = () => {
       menu.remove();
       this.showWorkTimeModal(dateObj);
@@ -5826,7 +6113,7 @@ var UIBuilder = class {
     if (hasWorkEntries) {
       const editItem = document.createElement("div");
       editItem.className = "tf-menu-item";
-      editItem.innerHTML = `<span>\u270F\uFE0F</span><span>Rediger arbeidstid</span>`;
+      editItem.innerHTML = `<span>\u270F\uFE0F</span><span>${t("menu.editWork")}</span>`;
       editItem.onclick = () => {
         menu.remove();
         this.showEditEntriesModal(dateObj);
@@ -5835,7 +6122,7 @@ var UIBuilder = class {
     }
     const specialDayItem = document.createElement("div");
     specialDayItem.className = "tf-menu-item";
-    specialDayItem.innerHTML = `<span>\u{1F4C5}</span><span>Registrer spesialdag</span>`;
+    specialDayItem.innerHTML = `<span>\u{1F4C5}</span><span>${t("menu.registerSpecialDay")}</span>`;
     specialDayItem.onclick = () => {
       menu.remove();
       this.showSpecialDayModal(dateObj);
@@ -5847,7 +6134,7 @@ var UIBuilder = class {
     this.settings.noteTypes.forEach((noteType) => {
       const item = document.createElement("div");
       item.className = "tf-menu-item";
-      item.innerHTML = `<span>${noteType.icon}</span><span>${noteType.label}</span>`;
+      item.innerHTML = `<span>${noteType.icon}</span><span>${translateNoteTypeName(noteType.id, noteType.label)}</span>`;
       item.onclick = async () => {
         await this.createNoteFromType(dateObj, noteType);
         menu.remove();
@@ -5875,7 +6162,7 @@ var UIBuilder = class {
       infoHTML += `<p><strong>${emoji} ${plannedInfo.description}${halfDayText}</strong></p>`;
     }
     if (runningTimersForDate.length > 0) {
-      infoHTML += "<p><strong>P\xE5g\xE5ende timer:</strong></p>";
+      infoHTML += `<p><strong>${t("timer.runningTimers")}:</strong></p>`;
       runningTimersForDate.forEach((timer) => {
         const startTime = new Date(timer.startTime);
         const startTimeStr = `${startTime.getHours().toString().padStart(2, "0")}:${startTime.getMinutes().toString().padStart(2, "0")}`;
@@ -5886,23 +6173,23 @@ var UIBuilder = class {
     }
     const completedEntries = allEntries.filter((e) => e.duration && e.duration > 0);
     if (completedEntries.length > 0) {
-      infoHTML += "<p><strong>Registreringer:</strong></p>";
+      infoHTML += `<p><strong>${t("ui.history")}:</strong></p>`;
       completedEntries.forEach((e) => {
         const emoji = Utils.getEmoji(e);
-        const duration = `${e.duration.toFixed(1)}t`;
-        infoHTML += `<p style="margin-left: 8px;">${emoji} ${e.name}: ${duration}</p>`;
+        const duration = `${e.duration.toFixed(1)}${this.settings.hourUnit}`;
+        infoHTML += `<p style="margin-left: 8px;">${emoji} ${translateSpecialDayName(e.name.toLowerCase(), e.name)}: ${duration}</p>`;
       });
       if (!isFutureDay) {
         const totalHours = allEntries.reduce((sum, e) => sum + (e.duration || 0), 0);
         const dayGoal = this.data.getDailyGoal(dateStr);
         const dailyDelta = dayGoal === 0 ? totalHours : totalHours - dayGoal;
         const runningBalance = this.data.getBalanceUpToDate(dateStr);
-        infoHTML += `<p style="margin-top: 8px;"><strong>M\xE5l:</strong> ${dayGoal.toFixed(1)}t</p>`;
-        infoHTML += `<p><strong>Dagssaldo:</strong> ${dailyDelta >= 0 ? "+" : ""}${dailyDelta.toFixed(1)}t</p>`;
-        infoHTML += `<p><strong>L\xF8pende saldo:</strong> ${runningBalance >= 0 ? "+" : ""}${Utils.formatHoursToHM(runningBalance, this.settings.hourUnit)}</p>`;
+        infoHTML += `<p style="margin-top: 8px;"><strong>${t("ui.goal")}:</strong> ${dayGoal.toFixed(1)}t</p>`;
+        infoHTML += `<p><strong>${t("ui.dailyBalance")}:</strong> ${dailyDelta >= 0 ? "+" : ""}${dailyDelta.toFixed(1)}t</p>`;
+        infoHTML += `<p><strong>${t("ui.runningBalance")}:</strong> ${runningBalance >= 0 ? "+" : ""}${Utils.formatHoursToHM(runningBalance, this.settings.hourUnit)}</p>`;
       }
     } else if (isPastDay && !isPlannedDay && runningTimersForDate.length === 0) {
-      infoHTML += '<p style="color: var(--text-muted);">Ingen registrering</p>';
+      infoHTML += `<p style="color: var(--text-muted);">${t("ui.noRegistration")}</p>`;
     }
     if (((_a = this.settings.complianceSettings) == null ? void 0 : _a.enableWarnings) && !isFutureDay && completedEntries.length > 0) {
       const restCheck = this.data.checkRestPeriodViolation(dateStr);
@@ -5910,7 +6197,7 @@ var UIBuilder = class {
         const minimumRest = (_c = (_b = this.settings.complianceSettings) == null ? void 0 : _b.minimumRestHours) != null ? _c : 11;
         infoHTML += `<div class="tf-rest-period-warning">
 					<span class="warning-icon">\u26A0\uFE0F</span>
-					<span>Hviletid: Kun ${restCheck.restHours.toFixed(1)} timer mellom arbeids\xF8kter (minimum ${minimumRest} timer)</span>
+					<span>${t("ui.restPeriod")}: ${restCheck.restHours.toFixed(1)}h (${t("ui.minimum")} ${minimumRest}h)</span>
 				</div>`;
       }
     }
@@ -5941,13 +6228,13 @@ var UIBuilder = class {
     modalContent.style.width = "400px";
     const title = document.createElement("div");
     title.className = "modal-title";
-    title.textContent = `Logg arbeidstimer for ${dateStr}`;
+    title.textContent = `${t("modals.logWorkTitle")} ${dateStr}`;
     modalContent.appendChild(title);
     const content = document.createElement("div");
     content.className = "modal-content";
     content.style.padding = "20px";
     const startLabel = document.createElement("div");
-    startLabel.textContent = "Starttid (HH:MM):";
+    startLabel.textContent = t("modals.startTimeFormat");
     startLabel.style.marginBottom = "5px";
     startLabel.style.fontWeight = "bold";
     content.appendChild(startLabel);
@@ -5961,7 +6248,7 @@ var UIBuilder = class {
     startInput.style.fontSize = "14px";
     content.appendChild(startInput);
     const endLabel = document.createElement("div");
-    endLabel.textContent = "Sluttid (HH:MM):";
+    endLabel.textContent = t("modals.endTimeFormat");
     endLabel.style.marginBottom = "5px";
     endLabel.style.fontWeight = "bold";
     content.appendChild(endLabel);
@@ -5979,7 +6266,7 @@ var UIBuilder = class {
     buttonDiv.style.gap = "10px";
     buttonDiv.style.justifyContent = "flex-end";
     const cancelBtn = document.createElement("button");
-    cancelBtn.textContent = "Avbryt";
+    cancelBtn.textContent = t("buttons.cancel");
     cancelBtn.onclick = () => modal.remove();
     buttonDiv.appendChild(cancelBtn);
     const addBtn = document.createElement("button");
@@ -6000,7 +6287,7 @@ var UIBuilder = class {
       const endDate = new Date(dateObj);
       endDate.setHours(endHour, endMin, 0, 0);
       if (endDate <= startDate) {
-        new import_obsidian4.Notice("\u274C Sluttid m\xE5 v\xE6re etter starttid.");
+        new import_obsidian4.Notice(`\u274C ${t("validation.endAfterStart")}`);
         return;
       }
       try {
@@ -6061,7 +6348,7 @@ var UIBuilder = class {
     modalContent.style.overflow = "auto";
     const title = document.createElement("div");
     title.className = "modal-title";
-    title.textContent = `Rediger arbeidstid for ${dateStr}`;
+    title.textContent = `${t("modals.editWorkTitle")} ${dateStr}`;
     modalContent.appendChild(title);
     const content = document.createElement("div");
     content.className = "modal-content";
@@ -6076,7 +6363,7 @@ var UIBuilder = class {
       const startDate = new Date(entry.startTime);
       const endDate = entry.endTime ? new Date(entry.endTime) : null;
       const startTimeStr = `${startDate.getHours().toString().padStart(2, "0")}:${startDate.getMinutes().toString().padStart(2, "0")}`;
-      const endTimeStr = endDate ? `${endDate.getHours().toString().padStart(2, "0")}:${endDate.getMinutes().toString().padStart(2, "0")}` : "P\xE5g\xE5ende";
+      const endTimeStr = endDate ? `${endDate.getHours().toString().padStart(2, "0")}:${endDate.getMinutes().toString().padStart(2, "0")}` : t("ui.ongoing");
       const duration = endDate ? ((endDate.getTime() - startDate.getTime()) / (1e3 * 60 * 60)).toFixed(1) : "N/A";
       const infoDiv = document.createElement("div");
       infoDiv.style.marginBottom = "10px";
@@ -6090,7 +6377,7 @@ var UIBuilder = class {
       editDiv.style.display = "none";
       editDiv.style.marginTop = "10px";
       const startLabel = document.createElement("div");
-      startLabel.textContent = "Starttid:";
+      startLabel.textContent = `${t("modals.startTime")}:`;
       startLabel.style.marginBottom = "5px";
       startLabel.style.fontWeight = "bold";
       editDiv.appendChild(startLabel);
@@ -6102,13 +6389,13 @@ var UIBuilder = class {
       startInput.style.padding = "6px";
       editDiv.appendChild(startInput);
       const endLabel = document.createElement("div");
-      endLabel.textContent = "Sluttid:";
+      endLabel.textContent = `${t("modals.endTime")}:`;
       endLabel.style.marginBottom = "5px";
       endLabel.style.fontWeight = "bold";
       editDiv.appendChild(endLabel);
       const endInput = document.createElement("input");
       endInput.type = "text";
-      endInput.value = endTimeStr !== "P\xE5g\xE5ende" ? endTimeStr : "";
+      endInput.value = endTimeStr !== t("ui.ongoing") ? endTimeStr : "";
       endInput.style.width = "100%";
       endInput.style.marginBottom = "10px";
       endInput.style.padding = "6px";
@@ -6119,12 +6406,12 @@ var UIBuilder = class {
       buttonDiv.style.gap = "8px";
       buttonDiv.style.marginTop = "10px";
       const editBtn = document.createElement("button");
-      editBtn.textContent = "\u270F\uFE0F Rediger";
+      editBtn.textContent = `\u270F\uFE0F ${t("buttons.edit")}`;
       editBtn.style.flex = "1";
       editBtn.onclick = () => {
         if (editDiv.style.display === "none") {
           editDiv.style.display = "block";
-          editBtn.textContent = "\u{1F4BE} Lagre";
+          editBtn.textContent = `\u{1F4BE} ${t("buttons.save")}`;
         } else {
           const newStartTime = startInput.value.trim();
           const newEndTime = endInput.value.trim();
@@ -6142,7 +6429,7 @@ var UIBuilder = class {
             newEndDate = new Date(dateObj);
             newEndDate.setHours(endHour, endMin, 0, 0);
             if (newEndDate <= newStartDate) {
-              new import_obsidian4.Notice("\u274C Sluttid m\xE5 v\xE6re etter starttid.");
+              new import_obsidian4.Notice(`\u274C ${t("validation.endAfterStart")}`);
               return;
             }
           }
@@ -6161,7 +6448,7 @@ var UIBuilder = class {
       };
       buttonDiv.appendChild(editBtn);
       const deleteBtn = document.createElement("button");
-      deleteBtn.textContent = "\u{1F5D1}\uFE0F Slett";
+      deleteBtn.textContent = `\u{1F5D1}\uFE0F ${t("buttons.delete")}`;
       deleteBtn.style.flex = "1";
       deleteBtn.onclick = () => {
         this.showDeleteConfirmation(entry, dateObj, () => {
@@ -6189,7 +6476,7 @@ var UIBuilder = class {
     closeDiv.style.display = "flex";
     closeDiv.style.justifyContent = "flex-end";
     const closeBtn = document.createElement("button");
-    closeBtn.textContent = "Lukk";
+    closeBtn.textContent = t("buttons.close");
     closeBtn.onclick = () => modal.remove();
     closeDiv.appendChild(closeBtn);
     content.appendChild(closeDiv);
@@ -6211,13 +6498,13 @@ var UIBuilder = class {
     modalContent.style.width = "400px";
     const title = document.createElement("div");
     title.className = "modal-title";
-    title.textContent = "Registrer spesialdag";
+    title.textContent = t("modals.registerSpecialDayTitle");
     modalContent.appendChild(title);
     const content = document.createElement("div");
     content.className = "modal-content";
     content.style.padding = "20px";
     const dateDisplay = document.createElement("div");
-    dateDisplay.textContent = `Dato: ${dateStr}`;
+    dateDisplay.textContent = `${t("ui.date")}: ${dateStr}`;
     dateDisplay.style.marginBottom = "15px";
     dateDisplay.style.fontSize = "16px";
     dateDisplay.style.fontWeight = "bold";
@@ -6229,7 +6516,7 @@ var UIBuilder = class {
     content.appendChild(typeLabel);
     const dayTypes = this.settings.specialDayBehaviors.map((behavior) => ({
       type: behavior.id,
-      label: `${behavior.icon} ${behavior.label}`
+      label: `${behavior.icon} ${translateSpecialDayName(behavior.id, behavior.label)}`
     }));
     const typeSelect = document.createElement("select");
     typeSelect.style.width = "100%";
@@ -6322,7 +6609,7 @@ var UIBuilder = class {
     buttonDiv.style.gap = "10px";
     buttonDiv.style.justifyContent = "flex-end";
     const cancelBtn = document.createElement("button");
-    cancelBtn.textContent = "Avbryt";
+    cancelBtn.textContent = t("buttons.cancel");
     cancelBtn.onclick = () => modal.remove();
     buttonDiv.appendChild(cancelBtn);
     const addBtn = document.createElement("button");
@@ -6344,7 +6631,6 @@ var UIBuilder = class {
     typeSelect.focus();
   }
   async addSpecialDay(dateObj, dayType, note = "", startTime, endTime) {
-    var _a, _b;
     try {
       const filePath = this.settings.holidaysFilePath;
       const file = this.app.vault.getAbstractFileByPath(filePath);
@@ -6379,8 +6665,8 @@ var UIBuilder = class {
       const needsNewline = !beforeClosing.endsWith("\n");
       content = beforeClosing + (needsNewline ? "\n" : "") + newEntry + "\n" + afterClosing;
       await this.app.vault.modify(file, content);
-      const label = ((_a = this.settings.specialDayBehaviors.find((b) => b.id === dayType)) == null ? void 0 : _a.label) || ((_b = this.settings.specialDayLabels) == null ? void 0 : _b[dayType]) || dayType;
-      new import_obsidian4.Notice(`\u2705 Lagt til ${dateStr} (${label})`);
+      const label = translateSpecialDayName(dayType);
+      new import_obsidian4.Notice(`\u2705 ${t("notifications.added")} ${dateStr} (${label})`);
       await this.data.loadHolidays();
       this.updateMonthCard();
     } catch (error) {
@@ -6473,7 +6759,7 @@ ${noteType.tags.join(" ")}`;
     const isWide = container.offsetWidth >= 450;
     const isListView = this.historyView === "list";
     editToggle.style.display = isWide && isListView ? "block" : "none";
-    editToggle.textContent = this.inlineEditMode ? "\u2713 Ferdig" : "\u270F\uFE0F Rediger";
+    editToggle.textContent = this.inlineEditMode ? `\u2713 ${t("buttons.done")}` : `\u270F\uFE0F ${t("buttons.edit")}`;
     editToggle.classList.toggle("active", this.inlineEditMode);
   }
   renderListView(container, years) {
@@ -6503,7 +6789,7 @@ ${noteType.tags.join(" ")}`;
     filterBar.className = "tf-history-filters";
     const alleChip = document.createElement("button");
     alleChip.className = `tf-filter-chip ${this.historyFilter.length === 0 ? "active" : ""}`;
-    alleChip.textContent = "Alle";
+    alleChip.textContent = t("ui.all");
     alleChip.onclick = () => {
       this.historyFilter = [];
       this.refreshHistoryView(container);
@@ -6513,7 +6799,7 @@ ${noteType.tags.join(" ")}`;
       const chip = document.createElement("button");
       const isActive = this.historyFilter.includes(behavior.id);
       chip.className = `tf-filter-chip ${isActive ? "active" : ""}`;
-      chip.textContent = `${behavior.icon} ${behavior.label}`;
+      chip.textContent = `${behavior.icon} ${translateSpecialDayName(behavior.id, behavior.label)}`;
       chip.onclick = () => {
         if (isActive) {
           this.historyFilter = this.historyFilter.filter((f) => f !== behavior.id);
@@ -6536,7 +6822,7 @@ ${noteType.tags.join(" ")}`;
         table.className = "tf-history-table-narrow";
         const thead = document.createElement("thead");
         const headerRow = document.createElement("tr");
-        ["Dato", "Type", "Timer", "Fleksitid", ""].forEach((h) => {
+        [t("ui.date"), t("ui.type"), t("ui.hours"), t("ui.flextime"), ""].forEach((h) => {
           const th = document.createElement("th");
           th.textContent = h;
           headerRow.appendChild(th);
@@ -6545,7 +6831,6 @@ ${noteType.tags.join(" ")}`;
         table.appendChild(thead);
         const tbody = document.createElement("tbody");
         monthEntries.forEach((e) => {
-          var _a, _b;
           const row = document.createElement("tr");
           const dateCell = document.createElement("td");
           const dateStr = Utils.toLocalDateStr(e.date);
@@ -6554,7 +6839,7 @@ ${noteType.tags.join(" ")}`;
           if (hasConflict) {
             const flagIcon = document.createElement("span");
             flagIcon.textContent = "\u26A0\uFE0F ";
-            flagIcon.title = `Arbeid registrert p\xE5 ${((_a = this.settings.specialDayBehaviors.find((b) => b.id === holidayInfo.type)) == null ? void 0 : _a.label) || holidayInfo.type}`;
+            flagIcon.title = t("info.workRegisteredOnSpecialDay").replace("{dayType}", translateSpecialDayName(holidayInfo.type));
             flagIcon.style.cursor = "help";
             dateCell.appendChild(flagIcon);
           }
@@ -6562,8 +6847,7 @@ ${noteType.tags.join(" ")}`;
           row.appendChild(dateCell);
           const typeCell = document.createElement("td");
           const entryNameLower = e.name.toLowerCase();
-          const customLabel = (_b = this.settings.specialDayBehaviors.find((b) => b.id === entryNameLower)) == null ? void 0 : _b.label;
-          typeCell.textContent = customLabel || e.name;
+          typeCell.textContent = translateSpecialDayName(entryNameLower, e.name);
           row.appendChild(typeCell);
           const hoursCell = document.createElement("td");
           hoursCell.textContent = Utils.formatHoursToHM(e.duration || 0, this.settings.hourUnit);
@@ -6576,7 +6860,7 @@ ${noteType.tags.join(" ")}`;
           editBtn.textContent = "\u270F\uFE0F";
           editBtn.style.padding = "4px 8px";
           editBtn.style.cursor = "pointer";
-          editBtn.title = "Rediger arbeidstid";
+          editBtn.title = t("menu.editWork");
           editBtn.onclick = () => {
             this.showEditEntriesModal(e.date);
           };
@@ -6600,7 +6884,7 @@ ${noteType.tags.join(" ")}`;
         table.className = "tf-history-table-wide";
         const thead = document.createElement("thead");
         const headerRow = document.createElement("tr");
-        const headers = this.inlineEditMode ? ["Dato", "Type", "Start", "Slutt", "Timer", "Fleksitid", ""] : ["Dato", "Type", "Start", "Slutt", "Timer", "Fleksitid"];
+        const headers = this.inlineEditMode ? [t("ui.date"), t("ui.type"), t("ui.start"), t("ui.end"), t("ui.hours"), t("ui.flextime"), ""] : [t("ui.date"), t("ui.type"), t("ui.start"), t("ui.end"), t("ui.hours"), t("ui.flextime")];
         headers.forEach((h) => {
           const th = document.createElement("th");
           th.textContent = h;
@@ -6626,7 +6910,6 @@ ${noteType.tags.join(" ")}`;
             return Utils.toLocalDateStr(entryDate) === dateStr;
           });
           dayEntries.forEach((e, idx) => {
-            var _a, _b;
             const row = document.createElement("tr");
             const matchingRaw = rawDayEntries.find(
               (raw) => raw.name.toLowerCase() === e.name.toLowerCase()
@@ -6637,7 +6920,7 @@ ${noteType.tags.join(" ")}`;
             if (hasConflict) {
               const flagIcon = document.createElement("span");
               flagIcon.textContent = "\u26A0\uFE0F ";
-              flagIcon.title = `Arbeid registrert p\xE5 ${((_a = this.settings.specialDayBehaviors.find((b) => b.id === holidayInfo.type)) == null ? void 0 : _a.label) || holidayInfo.type}`;
+              flagIcon.title = t("info.workRegisteredOnSpecialDay").replace("{dayType}", translateSpecialDayName(holidayInfo.type));
               flagIcon.style.cursor = "help";
               dateCell.appendChild(flagIcon);
             }
@@ -6649,23 +6932,22 @@ ${noteType.tags.join(" ")}`;
               this.settings.specialDayBehaviors.forEach((behavior) => {
                 const option = document.createElement("option");
                 option.value = behavior.id;
-                option.textContent = `${behavior.icon} ${behavior.label}`;
+                option.textContent = `${behavior.icon} ${translateSpecialDayName(behavior.id, behavior.label)}`;
                 if (behavior.id === e.name.toLowerCase()) {
                   option.selected = true;
                 }
                 select.appendChild(option);
               });
               select.onchange = async () => {
-                var _a2, _b2;
+                var _a, _b;
                 matchingRaw.name = select.value;
                 await this.timerManager.save();
-                await ((_b2 = (_a2 = this.plugin.timerManager).onTimerChange) == null ? void 0 : _b2.call(_a2));
+                await ((_b = (_a = this.plugin.timerManager).onTimerChange) == null ? void 0 : _b.call(_a));
               };
               typeCell.appendChild(select);
             } else {
               const entryNameLower = e.name.toLowerCase();
-              const customLabel = (_b = this.settings.specialDayBehaviors.find((b) => b.id === entryNameLower)) == null ? void 0 : _b.label;
-              typeCell.textContent = customLabel || e.name;
+              typeCell.textContent = translateSpecialDayName(entryNameLower, e.name);
             }
             row.appendChild(typeCell);
             const startCell = document.createElement("td");
@@ -6677,13 +6959,13 @@ ${noteType.tags.join(" ")}`;
                 input.type = "time";
                 input.value = startTimeStr;
                 input.onchange = async () => {
-                  var _a2, _b2;
+                  var _a, _b;
                   const [hours, minutes] = input.value.split(":").map(Number);
                   const newStart = new Date(matchingRaw.startTime);
                   newStart.setHours(hours, minutes, 0, 0);
                   matchingRaw.startTime = newStart.toISOString();
                   await this.timerManager.save();
-                  await ((_b2 = (_a2 = this.plugin.timerManager).onTimerChange) == null ? void 0 : _b2.call(_a2));
+                  await ((_b = (_a = this.plugin.timerManager).onTimerChange) == null ? void 0 : _b.call(_a));
                 };
                 startCell.appendChild(input);
               } else {
@@ -6702,20 +6984,20 @@ ${noteType.tags.join(" ")}`;
                 input.type = "time";
                 input.value = endTimeStr;
                 input.onchange = async () => {
-                  var _a2, _b2;
+                  var _a, _b;
                   const [hours, minutes] = input.value.split(":").map(Number);
                   const newEnd = new Date(matchingRaw.endTime);
                   newEnd.setHours(hours, minutes, 0, 0);
                   matchingRaw.endTime = newEnd.toISOString();
                   await this.timerManager.save();
-                  await ((_b2 = (_a2 = this.plugin.timerManager).onTimerChange) == null ? void 0 : _b2.call(_a2));
+                  await ((_b = (_a = this.plugin.timerManager).onTimerChange) == null ? void 0 : _b.call(_a));
                 };
                 endCell.appendChild(input);
               } else {
                 endCell.textContent = endTimeStr;
               }
             } else {
-              endCell.textContent = matchingRaw ? "P\xE5g\xE5ende" : "-";
+              endCell.textContent = matchingRaw ? t("ui.ongoing") : "-";
             }
             row.appendChild(endCell);
             const hoursCell = document.createElement("td");
@@ -6730,15 +7012,15 @@ ${noteType.tags.join(" ")}`;
                 const deleteBtn = document.createElement("button");
                 deleteBtn.className = "tf-history-delete-btn";
                 deleteBtn.textContent = "\u{1F5D1}\uFE0F";
-                deleteBtn.title = "Slett oppf\xF8ring";
+                deleteBtn.title = t("menu.deleteEntry");
                 deleteBtn.onclick = async () => {
-                  var _a2, _b2;
-                  if (confirm(`Slette oppf\xF8ring for ${dateStr}?`)) {
+                  var _a, _b;
+                  if (confirm(`${t("confirm.deleteEntryFor")} ${dateStr}?`)) {
                     const entryIndex = this.timerManager.data.entries.indexOf(matchingRaw);
                     if (entryIndex > -1) {
                       this.timerManager.data.entries.splice(entryIndex, 1);
                       await this.timerManager.save();
-                      await ((_b2 = (_a2 = this.plugin.timerManager).onTimerChange) == null ? void 0 : _b2.call(_a2));
+                      await ((_b = (_a = this.plugin.timerManager).onTimerChange) == null ? void 0 : _b.call(_a));
                     }
                   }
                 };
@@ -6800,12 +7082,12 @@ ${noteType.tags.join(" ")}`;
     this.settings.specialDayBehaviors.forEach((behavior) => {
       const option = document.createElement("option");
       option.value = behavior.id;
-      option.textContent = `${behavior.icon} ${behavior.label}`;
+      option.textContent = `${behavior.icon} ${translateSpecialDayName(behavior.id, behavior.label)}`;
       typeSelect.appendChild(option);
     });
     content.appendChild(typeSelect);
     const startLabel = document.createElement("div");
-    startLabel.textContent = "Starttid:";
+    startLabel.textContent = `${t("modals.startTime")}:`;
     startLabel.style.fontWeight = "bold";
     startLabel.style.marginBottom = "5px";
     content.appendChild(startLabel);
@@ -6817,7 +7099,7 @@ ${noteType.tags.join(" ")}`;
     startInput.style.padding = "8px";
     content.appendChild(startInput);
     const endLabel = document.createElement("div");
-    endLabel.textContent = "Sluttid:";
+    endLabel.textContent = `${t("modals.endTime")}:`;
     endLabel.style.fontWeight = "bold";
     endLabel.style.marginBottom = "5px";
     content.appendChild(endLabel);
@@ -6833,12 +7115,12 @@ ${noteType.tags.join(" ")}`;
     buttonContainer.style.gap = "10px";
     buttonContainer.style.justifyContent = "flex-end";
     const cancelBtn = document.createElement("button");
-    cancelBtn.textContent = "Avbryt";
+    cancelBtn.textContent = t("buttons.cancel");
     cancelBtn.onclick = () => modal.remove();
     buttonContainer.appendChild(cancelBtn);
     const saveBtn = document.createElement("button");
     saveBtn.className = "mod-cta";
-    saveBtn.textContent = "Lagre";
+    saveBtn.textContent = t("buttons.save");
     saveBtn.onclick = async () => {
       var _a, _b;
       const [startHours, startMinutes] = startInput.value.split(":").map(Number);
@@ -6848,7 +7130,7 @@ ${noteType.tags.join(" ")}`;
       const endDate = new Date(targetDate);
       endDate.setHours(endHours, endMinutes, 0, 0);
       if (endDate <= startDate) {
-        new import_obsidian4.Notice("Sluttid m\xE5 v\xE6re etter starttid");
+        new import_obsidian4.Notice(t("validation.endAfterStart"));
         return;
       }
       this.timerManager.data.entries.push({
@@ -6956,20 +7238,20 @@ ${noteType.tags.join(" ")}`;
     details.className = "tf-confirm-details";
     const startDate = new Date(entry.startTime);
     const endDate = entry.endTime ? new Date(entry.endTime) : null;
-    const duration = endDate ? ((endDate.getTime() - startDate.getTime()) / (1e3 * 60 * 60)).toFixed(2) : "P\xE5g\xE5ende";
+    const duration = endDate ? ((endDate.getTime() - startDate.getTime()) / (1e3 * 60 * 60)).toFixed(2) : t("ui.ongoing");
     details.innerHTML = `
-			<div><strong>Dato:</strong> ${Utils.toLocalDateStr(dateObj)}</div>
-			<div><strong>Type:</strong> ${entry.name}</div>
-			<div><strong>Start:</strong> ${startDate.toLocaleTimeString("nb-NO", { hour: "2-digit", minute: "2-digit" })}</div>
-			${endDate ? `<div><strong>Slutt:</strong> ${endDate.toLocaleTimeString("nb-NO", { hour: "2-digit", minute: "2-digit" })}</div>` : ""}
-			<div><strong>Varighet:</strong> ${typeof duration === "string" ? duration : duration + " timer"}</div>
+			<div><strong>${t("ui.date")}:</strong> ${Utils.toLocalDateStr(dateObj)}</div>
+			<div><strong>${t("ui.type")}:</strong> ${translateSpecialDayName(entry.name.toLowerCase(), entry.name)}</div>
+			<div><strong>${t("ui.start")}:</strong> ${formatTime(startDate)}</div>
+			${endDate ? `<div><strong>${t("ui.end")}:</strong> ${formatTime(endDate)}</div>` : ""}
+			<div><strong>${t("ui.duration")}:</strong> ${typeof duration === "string" ? duration : duration + " " + t("ui.hours").toLowerCase()}</div>
 		`;
     dialog.appendChild(details);
     const buttons = document.createElement("div");
     buttons.className = "tf-confirm-buttons";
     const cancelBtn = document.createElement("button");
     cancelBtn.className = "tf-confirm-cancel";
-    cancelBtn.textContent = "Avbryt";
+    cancelBtn.textContent = t("buttons.cancel");
     cancelBtn.onclick = () => overlay.remove();
     buttons.appendChild(cancelBtn);
     const deleteBtn = document.createElement("button");
@@ -7024,7 +7306,7 @@ var TimeFlowView = class extends import_obsidian5.ItemView {
     return VIEW_TYPE_TIMEFLOW;
   }
   getDisplayText() {
-    return "TimeFlow Dashboard";
+    return "timeflow Dashboard";
   }
   getIcon() {
     return "calendar-clock";
@@ -7406,6 +7688,7 @@ ${JSON.stringify(this.data, null, 2)}
 // src/main.ts
 var TimeFlowPlugin = class extends import_obsidian7.Plugin {
   async onload() {
+    var _a;
     console.log("Loading TimeFlow plugin");
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
     this.timerManager = new TimerManager(this.app, this.settings);
@@ -7420,6 +7703,7 @@ var TimeFlowPlugin = class extends import_obsidian7.Plugin {
       console.log("TimeFlow: Saving migrated settings");
       await this.saveSettings();
     }
+    setLanguage((_a = this.settings.language) != null ? _a : "nb");
     this.registerView(
       VIEW_TYPE_TIMEFLOW,
       (leaf) => new TimeFlowView(leaf, this)

@@ -2,9 +2,16 @@
 
 timeflow provides a comprehensive flextime tracking dashboard with **built-in timer functionality**, beautiful visualizations, and extensive customization options.
 
+> **Note:** timeflow was originally designed for Norwegian work culture (7.5h workdays, 37.5h weeks, specific leave types like "avspasering" and "egenmelding"). However, all settings are fully customizable - workday hours, work week structure, leave types, colors, and labels can all be adjusted to match your country's work culture and personal needs.
+
 ## Features
 
-**Most of the language in this plugin is in norwegian at the minute, but im thinking of adding english later.**
+### 🌐 Multi-Language Support
+- **Norwegian (Norsk)** - Default language
+- **English** - Full English translation
+- Switch languages instantly in Settings
+- Dates format automatically (DD.MM.YYYY for Norwegian, YYYY-MM-DD for English)
+- Special day names and note types translate automatically
 
 ### ⏱️ Built-in Timer System
 ![timeflow-day-week-month](https://github.com/gaut3/timeflow/blob/main/images/timeflow%20day-week-month.png?raw=true)
@@ -24,7 +31,6 @@ timeflow provides a comprehensive flextime tracking dashboard with **built-in ti
   - View running timers and day summaries in info panel
   - Week number column for easy reference
 - **Comprehensive Statistics** - View statistics for total, yearly, and monthly periods
-- **Contextual Messages** - Get motivational and informative messages based on your work patterns
 - **Multiple History Views** - List and heatmap visualizations of your work history
   - Filtering by day type in list view
   - Bulk editing in wide mode
@@ -132,7 +138,7 @@ timeflow provides a comprehensive flextime tracking dashboard with **built-in ti
 1. Download the latest release from GitHub
 2. Extract the files to `<vault>/.obsidian/plugins/timeflow/`
 3. Reload Obsidian
-4. Enable the TimeFlow plugin in Obsidian settings
+4. Enable the timeflow plugin in Obsidian settings
 
 #### Timer Data Storage
 
@@ -179,7 +185,7 @@ timeflow uses a simple folder structure to organize its files:
 
 ```
 Your Vault/
-└── timeflow/                     # TimeFlow plugin folder
+└── timeflow/                     # timeflow plugin folder
     ├── data.md                   # Timer data + settings (Timekeep-compatible)
     ├── holidays.md               # Holiday and special days definitions
     └── templates/                # Note templates (customizable)
@@ -197,6 +203,7 @@ Your Vault/
 Go to Settings → timeflow to configure:
 
 ### Display Settings
+- **Language** - Choose between Norwegian (Norsk) and English
 - **Hour Unit** - Display hours as "h" or "t" (timer)
 - **Week Numbers** - Show/hide ISO week numbers in calendar and week card
 - **Default View Location** - Open in sidebar or main window by default
@@ -289,7 +296,7 @@ Supported types:
 
 ## Importing Data
 
-TimeFlow supports importing time data from multiple formats:
+timeflow supports importing time data from multiple formats:
 
 ### Supported Formats
 
@@ -318,11 +325,11 @@ TimeFlow supports importing time data from multiple formats:
 1. Go to **Settings → timeflow → Data Management**
 2. Click **Import Data**
 3. Either:
-   - Click **"Velg fil..."** to upload a file (.json, .csv, .txt)
+   - Click **"Select file..."** to upload a file (.json, .csv, .txt)
    - Paste data directly into the text area
 4. The importer will auto-detect the format and show a preview
 5. Review the parsed entries and any warnings
-6. Click **"Importer"** to add the entries
+6. Click **"Import"** to add the entries
 
 ### Import Features
 - **Auto-detection** of format and delimiter

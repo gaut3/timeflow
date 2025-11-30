@@ -1,10 +1,10 @@
 import { App, TFile, Notice } from 'obsidian';
 import { DataManager } from './dataManager';
-import { MessageGenerator } from './messageGenerator';
 import { TimeFlowSettings, SpecialDayBehavior } from './settings';
 import { TimerManager } from './timerManager';
 import { Utils, getSpecialDayColors, getSpecialDayTextColors } from './utils';
 import type TimeFlowPlugin from './main';
+import { t, formatDate, formatTime, getDayNamesShort, getLocale, getMonthName, translateSpecialDayName, translateNoteTypeName } from './i18n';
 
 export class UIBuilder {
 	data: DataManager;
@@ -94,7 +94,7 @@ export class UIBuilder {
 		const style = document.createElement('style');
 		style.id = styleId;
 		style.textContent = `
-			/* TimeFlow Dashboard Styles */
+			/* timeflow Dashboard Styles */
 			.timeflow-dashboard {
 				font-family: var(--font-text);
 				padding: 20px;
@@ -1296,9 +1296,9 @@ export class UIBuilder {
 		menu.style.overflow = 'hidden';
 
 		const timerTypes = [
-			{ name: 'jobb', icon: '💼', label: 'Jobb' },
-			{ name: 'kurs', icon: '📚', label: this.settings.specialDayBehaviors.find(b => b.id === 'kurs')?.label || 'Kurs' },
-			{ name: 'studie', icon: '🎓', label: this.settings.specialDayBehaviors.find(b => b.id === 'studie')?.label || 'Studie' }
+			{ name: 'jobb', icon: '💼', label: translateSpecialDayName('jobb') },
+			{ name: 'kurs', icon: '📚', label: translateSpecialDayName('kurs') },
+			{ name: 'studie', icon: '🎓', label: translateSpecialDayName('studie') }
 		];
 
 		timerTypes.forEach(type => {
@@ -1414,7 +1414,7 @@ export class UIBuilder {
 		header.style.gap = "8px";
 
 		const title = document.createElement("h3");
-		title.textContent = "Kalender";
+		title.textContent = t('ui.calendar');
 		title.style.margin = "0";
 		title.style.flexShrink = "1";
 		title.style.minWidth = "0";
@@ -1433,7 +1433,7 @@ export class UIBuilder {
 		};
 
 		const todayBtn = document.createElement("button");
-		todayBtn.textContent = "I dag";
+		todayBtn.textContent = t('ui.today');
 		todayBtn.className = "tf-button";
 		todayBtn.onclick = () => {
 			this.currentMonthOffset = 0;
@@ -1488,7 +1488,7 @@ export class UIBuilder {
 		headerRow.style.gap = "10px";
 
 		const header = document.createElement("h3");
-		header.textContent = "Statistikk";
+		header.textContent = t('ui.statistics');
 		header.style.margin = "0";
 		headerRow.appendChild(header);
 
@@ -1498,7 +1498,7 @@ export class UIBuilder {
 		tabs.style.borderBottom = "none";
 
 		const timeframes = ["total", "year", "month"];
-		const labels = { total: "Totalt", year: "År", month: "Måned" };
+		const labels = { total: t('timeframes.total'), year: t('timeframes.year'), month: t('timeframes.month') };
 
 		timeframes.forEach(tf => {
 			const tab = document.createElement("button");
@@ -1555,7 +1555,7 @@ export class UIBuilder {
 
 		const header = document.createElement("div");
 		header.className = "tf-collapsible";
-		header.innerHTML = "<h3 style='margin:0'>Informasjon</h3>";
+		header.innerHTML = `<h3 style='margin:0'>${t('ui.information')}</h3>`;
 
 		const content = document.createElement("div");
 		content.className = "tf-collapsible-content";
@@ -1570,18 +1570,18 @@ export class UIBuilder {
 			}));
 
 		// Add system entry for days with no data
-		specialDayInfo.push({ key: "Ingen registrering", emoji: "⚪", desc: "Ingen data for den dagen" });
+		specialDayInfo.push({ key: t('ui.noRegistration'), emoji: "⚪", desc: t('ui.noDataForDay') });
 
 		content.innerHTML = `
 			<div class="tf-info-grid">
-				<!-- Left Column: Dagtyper og farger -->
+				<!-- Left Column: Day types and colors -->
 				<div class="tf-info-column">
 					<div class="tf-info-box">
-						<h4>Spesielle dagtyper</h4>
+						<h4>${t('info.specialDayTypes')}</h4>
 						<ul style="list-style: none; padding-left: 0; margin: 0;">
 							${specialDayInfo.map(item => {
 								const color = getSpecialDayColors(this.settings)[item.key] || "transparent";
-								const label = this.settings.specialDayBehaviors.find(b => b.id === item.key)?.label || this.settings.specialDayLabels?.[item.key as keyof typeof this.settings.specialDayLabels] || item.key;
+								const label = translateSpecialDayName(item.key);
 								return `<li style="display: flex; align-items: center; margin-bottom: 8px; font-size: 0.9em;">
 									<div style="width: 16px; height: 16px; background: ${color}; border-radius: 3px; border: 1px solid var(--background-modifier-border); margin-right: 8px; flex-shrink: 0;"></div>
 									<span>${item.emoji} <strong>${label}</strong>: ${item.desc}</span>
@@ -1591,75 +1591,75 @@ export class UIBuilder {
 					</div>
 
 					<div class="tf-info-box">
-						<h4>Arbeidsdager - fargegradient</h4>
+						<h4>${t('info.workDaysGradient')}</h4>
 						<p style="margin: 0 0 10px 0; font-size: 0.9em;">
-							Fargen viser fleksitid i forhold til dagens mål (${this.settings.baseWorkday}t):
+							${t('info.colorShowsFlextime')} (${this.settings.baseWorkday}h):
 						</p>
 						<div style="height: 16px; border-radius: 8px; background: linear-gradient(to right, ${this.flextimeColor(0)}, ${this.flextimeColor(1.5)}, ${this.flextimeColor(3)}); margin: 4px 0; border: 1px solid var(--background-modifier-border);"></div>
 						<div style="display: flex; justify-content: space-between; font-size: 0.8em; color: var(--text-muted); margin-bottom: 10px;">
-							<span>0t</span><span>+1,5t</span><span>+3t</span>
+							<span>0h</span><span>+1.5h</span><span>+3h</span>
 						</div>
 						<div style="height: 16px; border-radius: 8px; background: linear-gradient(to right, ${this.flextimeColor(-3)}, ${this.flextimeColor(-1.5)}, ${this.flextimeColor(0)}); margin: 4px 0; border: 1px solid var(--background-modifier-border);"></div>
 						<div style="display: flex; justify-content: space-between; font-size: 0.8em; color: var(--text-muted);">
-							<span>-3t</span><span>-1,5t</span><span>0t</span>
+							<span>-3h</span><span>-1.5h</span><span>0h</span>
 						</div>
 					</div>
 				</div>
 
-				<!-- Right Column: Kalender og saldo -->
+				<!-- Right Column: Calendar and balance -->
 				<div class="tf-info-column">
 					<div class="tf-info-box">
-						<h4>Kalenderkontekstmeny</h4>
+						<h4>${t('info.calendarContextMenu')}</h4>
 						<p style="margin: 0 0 8px 0; font-size: 0.9em;">
-							Trykk på en dag i kalenderen for:
+							${t('info.clickDayFor')}
 						</p>
 						<ul style="margin: 0 0 0 16px; font-size: 0.9em; padding-left: 0; list-style-position: inside;">
-							<li>Opprett daglig notat</li>
-							<li>Rediger fleksitid manuelt</li>
-							<li>Registrer spesielle dagtyper</li>
+							<li>${t('info.createDailyNote')}</li>
+							<li>${t('info.editFlextimeManually')}</li>
+							<li>${t('info.registerSpecialDays')}</li>
 						</ul>
 					</div>
 
 					<div class="tf-info-box">
-						<h4>Fleksitidsaldo - soner</h4>
+						<h4>${t('info.flextimeBalanceZones')}</h4>
 						<div style="display: flex; flex-direction: column; gap: 6px; font-size: 0.9em;">
 							<div style="display: flex; align-items: center; gap: 8px;">
 								<span style="display: inline-block; width: 16px; height: 16px; border-radius: 3px; background: ${this.settings.customColors?.balanceOk || '#4caf50'}; flex-shrink: 0;"></span>
-								<span><strong>Grønn:</strong> ${this.settings.balanceThresholds.warningLow}t til +${this.settings.balanceThresholds.warningHigh}t</span>
+								<span><strong>${t('info.green')}:</strong> ${this.settings.balanceThresholds.warningLow}h ${t('info.to')} +${this.settings.balanceThresholds.warningHigh}h</span>
 							</div>
 							<div style="display: flex; align-items: center; gap: 8px;">
 								<span style="display: inline-block; width: 16px; height: 16px; border-radius: 3px; background: ${this.settings.customColors?.balanceWarning || '#ff9800'}; flex-shrink: 0;"></span>
-								<span><strong>Gul:</strong> ${this.settings.balanceThresholds.criticalLow}t til ${this.settings.balanceThresholds.warningLow - 1}t / +${this.settings.balanceThresholds.warningHigh}t til +${this.settings.balanceThresholds.criticalHigh}t</span>
+								<span><strong>${t('info.yellow')}:</strong> ${this.settings.balanceThresholds.criticalLow}h ${t('info.to')} ${this.settings.balanceThresholds.warningLow - 1}h / +${this.settings.balanceThresholds.warningHigh}h ${t('info.to')} +${this.settings.balanceThresholds.criticalHigh}h</span>
 							</div>
 							<div style="display: flex; align-items: center; gap: 8px;">
 								<span style="display: inline-block; width: 16px; height: 16px; border-radius: 3px; background: ${this.settings.customColors?.balanceCritical || '#f44336'}; flex-shrink: 0;"></span>
-								<span><strong>Rød:</strong> Under ${this.settings.balanceThresholds.criticalLow}t / over +${this.settings.balanceThresholds.criticalHigh}t</span>
+								<span><strong>${t('info.red')}:</strong> &lt;${this.settings.balanceThresholds.criticalLow}h / &gt;+${this.settings.balanceThresholds.criticalHigh}h</span>
 							</div>
 						</div>
 					</div>
 
 					<div class="tf-info-box">
-						<h4>Ukenummer - kompliansfarger</h4>
+						<h4>${t('info.weekNumberCompliance')}</h4>
 						<div style="display: flex; flex-direction: column; gap: 6px; font-size: 0.9em;">
 							<div style="display: flex; align-items: center; gap: 8px;">
 								<span style="display: inline-block; width: 16px; height: 16px; border-radius: 3px; background: linear-gradient(135deg, #c8e6c9, #a5d6a7); flex-shrink: 0;"></span>
-								<span><strong>Grønn:</strong> Nådd mål (±0.5t)</span>
+								<span><strong>${t('info.green')}:</strong> ${t('info.reachedGoal')} (±0.5h)</span>
 							</div>
 							<div style="display: flex; align-items: center; gap: 8px;">
 								<span style="display: inline-block; width: 16px; height: 16px; border-radius: 3px; background: linear-gradient(135deg, #ffe0b2, #ffcc80); flex-shrink: 0;"></span>
-								<span><strong>Oransje:</strong> Over mål</span>
+								<span><strong>${t('info.orange')}:</strong> ${t('info.overGoal')}</span>
 							</div>
 							<div style="display: flex; align-items: center; gap: 8px;">
 								<span style="display: inline-block; width: 16px; height: 16px; border-radius: 3px; background: linear-gradient(135deg, #ffcdd2, #ef9a9a); flex-shrink: 0;"></span>
-								<span><strong>Rød:</strong> Under mål</span>
+								<span><strong>${t('info.red')}:</strong> ${t('info.underGoal')}</span>
 							</div>
 							<div style="display: flex; align-items: center; gap: 8px;">
 								<span style="display: inline-block; width: 16px; height: 16px; border-radius: 3px; background: linear-gradient(135deg, #e0e0e0, #bdbdbd); flex-shrink: 0;"></span>
-								<span><strong>Grå:</strong> Uke pågår</span>
+								<span><strong>${t('info.gray')}:</strong> ${t('info.weekInProgress')}</span>
 							</div>
 						</div>
 						<p style="margin: 8px 0 0 0; font-size: 0.8em; opacity: 0.8;">
-							<em>Trykk på ukenummer for detaljer.</em>
+							<em>${t('info.clickWeekForDetails')}</em>
 						</p>
 					</div>
 				</div>
@@ -1686,7 +1686,7 @@ export class UIBuilder {
 
 		// Left side: title
 		const title = document.createElement("h3");
-		title.textContent = "Historikk";
+		title.textContent = t('ui.history');
 		title.style.margin = "0";
 		title.style.flex = "1 1 auto";
 		header.appendChild(title);
@@ -1708,11 +1708,11 @@ export class UIBuilder {
 		// Edit toggle button (to the LEFT of tabs so tabs don't shift)
 		const editToggle = document.createElement("button");
 		editToggle.className = `tf-history-edit-btn ${this.inlineEditMode ? 'active' : ''}`;
-		editToggle.textContent = this.inlineEditMode ? "✓ Ferdig" : "✏️ Rediger";
+		editToggle.textContent = this.inlineEditMode ? `✓ ${t('buttons.done')}` : `✏️ ${t('buttons.edit')}`;
 		editToggle.onclick = (e) => {
 			e.stopPropagation(); // Don't trigger header collapse
 			this.inlineEditMode = !this.inlineEditMode;
-			editToggle.textContent = this.inlineEditMode ? "✓ Ferdig" : "✏️ Rediger";
+			editToggle.textContent = this.inlineEditMode ? `✓ ${t('buttons.done')}` : `✏️ ${t('buttons.edit')}`;
 			editToggle.classList.toggle('active', this.inlineEditMode);
 			this.refreshHistoryView(detailsElement);
 		};
@@ -1725,8 +1725,8 @@ export class UIBuilder {
 		tabs.style.borderBottom = "none";
 
 		const views = [
-			{ id: "list", label: "Liste" },
-			{ id: "heatmap", label: "Heatmap" }
+			{ id: "list", label: t('buttons.list') },
+			{ id: "heatmap", label: t('buttons.heatmap') }
 		];
 
 		views.forEach(view => {
@@ -1738,7 +1738,7 @@ export class UIBuilder {
 				this.historyView = view.id;
 				// Exit edit mode when switching views
 				this.inlineEditMode = false;
-				editToggle.textContent = "✏️ Rediger";
+				editToggle.textContent = `✏️ ${t('buttons.edit')}`;
 				editToggle.classList.remove('active');
 				// Update active state
 				tabs.querySelectorAll('.tf-tab').forEach(t => t.classList.remove('active'));
@@ -1827,11 +1827,11 @@ export class UIBuilder {
 		header.innerHTML = `
 			<span>${statusIcon}</span>
 			<div style="flex: 1;">
-				<div><strong>System Status</strong> ${hasIssues ? '<span style="font-size: 11px; opacity: 0.7;">(klikk for detaljer)</span>' : ''}</div>
+				<div><strong>${t('status.systemStatus')}</strong> ${hasIssues ? `<span style="font-size: 11px; opacity: 0.7;">(${t('status.clickForDetails')})</span>` : ''}</div>
 				<div style="font-size: 12px; color: var(--text-muted);">
-					${status.holiday?.message || 'Holiday data not loaded'} •
-					${status.activeTimers || 0} active timer(s) •
-					${status.validation?.issues?.stats?.totalEntries || 0} entries checked
+					${status.holiday?.message || t('status.holidayNotLoaded')} •
+					${status.activeTimers || 0} ${t('status.activeTimers')} •
+					${status.validation?.issues?.stats?.totalEntries || 0} ${t('status.entriesChecked')}
 				</div>
 			</div>
 			${hasIssues ? '<span class="tf-status-toggle" style="font-size: 10px; transition: transform 0.2s;">▶</span>' : ''}
@@ -1891,9 +1891,9 @@ export class UIBuilder {
 			font-weight: 500;
 		`;
 		viewToggle.innerHTML = isInSidebar
-			? `<span style="font-size: 14px;">⊞</span> Move to main area`
-			: `<span style="font-size: 14px;">◧</span> Move to sidebar`;
-		viewToggle.title = isInSidebar ? "Open in main content area" : "Open in right sidebar";
+			? `<span style="font-size: 14px;">⊞</span> ${t('buttons.moveToMain')}`
+			: `<span style="font-size: 14px;">◧</span> ${t('buttons.moveToSidebar')}`;
+		viewToggle.title = isInSidebar ? t('buttons.moveToMain') : t('buttons.moveToSidebar');
 
 		viewToggle.onmouseenter = () => {
 			viewToggle.style.background = "var(--background-modifier-hover)";
@@ -1934,7 +1934,7 @@ export class UIBuilder {
 
 		this.elements.badge.style.background = color;
 		this.elements.badge.style.color = "white";
-		this.elements.badge.textContent = `Fleksitidsaldo: ${sign}${formatted}`;
+		this.elements.badge.textContent = `${t('ui.flextimeBalance')}: ${sign}${formatted}`;
 	}
 
 	/**
@@ -1993,17 +1993,17 @@ export class UIBuilder {
 		// Build tooltip
 		const tooltipParts: string[] = [];
 		if (dailyStatus === 'exceeded') {
-			tooltipParts.push(`Dag: ${todayHours.toFixed(1)}t (maks ${dailyLimit}t)`);
+			tooltipParts.push(`${t('ui.today')}: ${todayHours.toFixed(1)}${this.settings.hourUnit} (max ${dailyLimit}${this.settings.hourUnit})`);
 		} else if (dailyStatus === 'approaching') {
-			tooltipParts.push(`Dag: ${todayHours.toFixed(1)}t (nærmer seg ${dailyLimit}t)`);
+			tooltipParts.push(`${t('ui.today')}: ${todayHours.toFixed(1)}${this.settings.hourUnit} (${t('status.approachingLimits')} ${dailyLimit}${this.settings.hourUnit})`);
 		}
 		if (weeklyStatus === 'exceeded') {
-			tooltipParts.push(`Uke: ${weekHours.toFixed(1)}t (maks ${weeklyLimit}t)`);
+			tooltipParts.push(`${t('ui.week')}: ${weekHours.toFixed(1)}${this.settings.hourUnit} (max ${weeklyLimit}${this.settings.hourUnit})`);
 		} else if (weeklyStatus === 'approaching') {
-			tooltipParts.push(`Uke: ${weekHours.toFixed(1)}t (nærmer seg ${weeklyLimit}t)`);
+			tooltipParts.push(`${t('ui.week')}: ${weekHours.toFixed(1)}${this.settings.hourUnit} (${t('status.approachingLimits')} ${weeklyLimit}${this.settings.hourUnit})`);
 		}
 		if (tooltipParts.length === 0 && status === 'ok') {
-			tooltipParts.push(`Dag: ${todayHours.toFixed(1)}t, Uke: ${weekHours.toFixed(1)}t - Innenfor grensene`);
+			tooltipParts.push(`${t('ui.today')}: ${todayHours.toFixed(1)}${this.settings.hourUnit}, ${t('ui.week')}: ${weekHours.toFixed(1)}${this.settings.hourUnit} - ${t('status.withinLimits')}`);
 		}
 
 		return { status, dailyStatus, weeklyStatus, tooltip: tooltipParts.join('\n') };
@@ -2076,31 +2076,31 @@ export class UIBuilder {
 		panel.className = 'tf-compliance-info-panel';
 
 		// Build content
-		let html = '<h4>⚖️ Arbeidstidsgrenser</h4>';
+		let html = `<h4>⚖️ ${t('compliance.title')}</h4>`;
 
 		// Daily hours
 		const dailyIcon = dailyStatus === 'ok' ? '🟩' : dailyStatus === 'approaching' ? '🟨' : '🟥';
-		html += `<p><strong>I dag:</strong> ${dailyIcon} ${todayHours.toFixed(1)}t / ${dailyLimit}t</p>`;
+		html += `<p><strong>${t('ui.today')}:</strong> ${dailyIcon} ${todayHours.toFixed(1)}t / ${dailyLimit}t</p>`;
 
 		// Weekly hours
 		const weeklyIcon = weeklyStatus === 'ok' ? '🟩' : weeklyStatus === 'approaching' ? '🟨' : '🟥';
-		html += `<p><strong>Denne uken:</strong> ${weeklyIcon} ${weekHours.toFixed(1)}t / ${weeklyLimit}t</p>`;
+		html += `<p><strong>${t('ui.thisWeek')}:</strong> ${weeklyIcon} ${weekHours.toFixed(1)}t / ${weeklyLimit}t</p>`;
 
 		// Rest period
 		if (restCheck.violated && restCheck.restHours !== null) {
-			html += `<p class="tf-rest-warning"><strong>Hviletid:</strong> 🟥 ${restCheck.restHours.toFixed(1)}t (minimum ${minimumRest}t)</p>`;
+			html += `<p class="tf-rest-warning"><strong>${t('ui.restPeriod')}:</strong> 🟥 ${restCheck.restHours.toFixed(1)}t (${t('ui.minimum')} ${minimumRest}t)</p>`;
 		} else if (restCheck.restHours !== null) {
-			html += `<p><strong>Hviletid:</strong> 🟩 ${restCheck.restHours.toFixed(1)}t (minimum ${minimumRest}t)</p>`;
+			html += `<p><strong>${t('ui.restPeriod')}:</strong> 🟩 ${restCheck.restHours.toFixed(1)}t (${t('ui.minimum')} ${minimumRest}t)</p>`;
 		}
 
 		// Add status explanation
 		html += '<hr style="margin: 10px 0; border: none; border-top: 1px solid var(--background-modifier-border);">';
 		if (dailyStatus === 'exceeded' || weeklyStatus === 'exceeded' || restCheck.violated) {
-			html += '<p style="font-size: 12px; color: var(--text-muted);">En eller flere grenser er overskredet.</p>';
+			html += `<p style="font-size: 12px; color: var(--text-muted);">${t('compliance.exceeds')} ${t('compliance.limit')}.</p>`;
 		} else if (dailyStatus === 'approaching' || weeklyStatus === 'approaching') {
-			html += '<p style="font-size: 12px; color: var(--text-muted);">Nærmer seg en eller flere grenser.</p>';
+			html += `<p style="font-size: 12px; color: var(--text-muted);">${t('status.approachingLimits')} ${t('compliance.limit')}.</p>`;
 		} else {
-			html += '<p style="font-size: 12px; color: var(--text-muted);">Alle grenser er OK.</p>';
+			html += `<p style="font-size: 12px; color: var(--text-muted);">${t('status.allLimitsOk')}</p>`;
 		}
 
 		panel.innerHTML = html;
@@ -2177,32 +2177,13 @@ export class UIBuilder {
 					${Utils.formatHoursToHM(todayHours, this.settings.hourUnit)}
 				</div>
 				<div style="font-size: 14px; opacity: 0.9; margin-top: 10px;">
-					Timer arbeidet
+					${t('ui.hoursWorked')}
 				</div>
 			`;
 			return;
 		}
 
 		const goal = this.data.getDailyGoal(todayKey);
-		const isWeekendDay = Utils.isWeekend(today, this.settings);
-		const context = this.data.getContextualData(today);
-		const { avgDaily } = this.data.getAverages();
-
-		const specials: string[] = [];
-		const holidayInfo = this.data.getHolidayInfo(todayKey);
-		if (holidayInfo) {
-			specials.push(holidayInfo.type);
-		}
-
-		const message = MessageGenerator.getDailyMessage(
-			todayHours,
-			goal,
-			specials,
-			isWeekendDay,
-			avgDaily,
-			context,
-			this.settings.consecutiveFlextimeWarningDays
-		);
 
 		const progress = goal > 0 ? Math.min((todayHours / goal) * 100, 100) : 0;
 
@@ -2223,24 +2204,17 @@ export class UIBuilder {
 		this.elements.dayCard.style.background = bgColor;
 		this.elements.dayCard.style.color = textColor;
 
-		const messageSection = this.settings.enableMotivationalMessages ? `
-			<div style="margin-top: 10px; font-size: 14px;">
-				${message}
-			</div>
-		` : '';
-
 		this.elements.dayCard.innerHTML = `
-			<h3 style="color: ${textColor};">I dag</h3>
+			<h3 style="color: ${textColor};">${t('ui.today')}</h3>
 			<div style="font-size: 32px; font-weight: bold; margin: 10px 0;">
 				${Utils.formatHoursToHM(todayHours, this.settings.hourUnit)}
 			</div>
 			<div style="font-size: 14px; opacity: 0.9; margin-bottom: 10px;">
-				Mål: ${Utils.formatHoursToHM(goal, this.settings.hourUnit)}
+				${t('ui.goal')}: ${Utils.formatHoursToHM(goal, this.settings.hourUnit)}
 			</div>
 			<div class="tf-progress-bar">
 				<div class="tf-progress-fill" style="width: ${progress}%; background: linear-gradient(90deg, ${this.settings.customColors?.progressBar || '#4caf50'}, ${this.darkenColor(this.settings.customColors?.progressBar || '#4caf50', 20)})"></div>
 			</div>
-			${messageSection}
 		`;
 	}
 
@@ -2253,7 +2227,7 @@ export class UIBuilder {
 
 		// Week number badge HTML (conditionally shown based on settings)
 		const weekBadgeHtml = this.settings.showWeekNumbers
-			? `<div class="tf-week-badge">Uke ${currentWeekNumber}</div>`
+			? `<div class="tf-week-badge">${t('ui.week')} ${currentWeekNumber}</div>`
 			: '';
 
 		// NEW: Simple tracking mode
@@ -2262,19 +2236,16 @@ export class UIBuilder {
 			this.elements.weekCard.style.color = "var(--text-normal)";
 			this.elements.weekCard.innerHTML = `
 				${weekBadgeHtml}
-				<h3 style="color: inherit;">Denne uken</h3>
+				<h3 style="color: inherit;">${t('ui.thisWeek')}</h3>
 				<div style="font-size: 32px; font-weight: bold; margin: 10px 0;">
 					${Utils.formatHoursToHM(weekHours, this.settings.hourUnit)}
 				</div>
 				<div style="font-size: 14px; opacity: 0.9; margin-top: 10px;">
-					Timer arbeidet
+					${t('ui.hoursWorked')}
 				</div>
 			`;
 			return;
 		}
-
-		const baseGoal = this.settings.baseWorkweek * this.settings.workPercent;
-		const context = this.data.getContextualData(today);
 
 		// Calculate adjusted goal based on special days this week
 		const dayOfWeek = today.getDay();
@@ -2283,8 +2254,6 @@ export class UIBuilder {
 		firstDayOfWeek.setDate(today.getDate() - daysFromMonday);
 
 		let adjustedGoal = 0;
-		let specials: string[] = [];
-		let weekendWorkHours = 0;
 
 		for (let i = 0; i < 7; i++) {
 			const d = new Date(firstDayOfWeek);
@@ -2292,36 +2261,7 @@ export class UIBuilder {
 			const dayKey = Utils.toLocalDateStr(d);
 			const dayGoal = this.data.getDailyGoal(dayKey);
 			adjustedGoal += dayGoal;
-
-			const holidayInfo = this.data.getHolidayInfo(dayKey);
-			if (holidayInfo) {
-				specials.push(holidayInfo.type);
-			}
-
-			if (Utils.isWeekend(d, this.settings)) {
-				const dayEntries = this.data.daily[dayKey] || [];
-				weekendWorkHours += dayEntries.reduce((sum, e) => sum + (e.duration || 0), 0);
-			}
 		}
-
-		// Only pass goal to message generator if weekly goals are enabled
-		const message = this.settings.enableWeeklyGoals
-			? MessageGenerator.getWeeklyMessage(
-				weekHours,
-				adjustedGoal,
-				specials,
-				today,
-				context,
-				weekendWorkHours
-			)
-			: MessageGenerator.getWeeklyMessage(
-				weekHours,
-				0, // Pass 0 as goal to get non-goal-based messages
-				specials,
-				today,
-				context,
-				weekendWorkHours
-			);
 
 		const progress = adjustedGoal > 0 ? Math.min((weekHours / adjustedGoal) * 100, 100) : 0;
 
@@ -2350,27 +2290,20 @@ export class UIBuilder {
 		// Conditionally show goal and progress bar based on settings
 		const goalSection = this.settings.enableWeeklyGoals ? `
 			<div style="font-size: 14px; opacity: 0.9; margin-bottom: 10px;">
-				Mål: ${Utils.formatHoursToHM(adjustedGoal, this.settings.hourUnit)}
+				${t('ui.goal')}: ${Utils.formatHoursToHM(adjustedGoal, this.settings.hourUnit)}
 			</div>
 			<div class="tf-progress-bar">
 				<div class="tf-progress-fill" style="width: ${progress}%; background: linear-gradient(90deg, ${this.settings.customColors?.progressBar || '#4caf50'}, ${this.darkenColor(this.settings.customColors?.progressBar || '#4caf50', 20)})"></div>
 			</div>
 		` : '';
 
-		const weekMessageSection = this.settings.enableMotivationalMessages ? `
-			<div style="margin-top: 10px; font-size: 14px;">
-				${message}
-			</div>
-		` : '';
-
 		this.elements.weekCard.innerHTML = `
 			${weekBadgeHtml}
-			<h3 style="color: ${textColor};">Denne uken</h3>
+			<h3 style="color: ${textColor};">${t('ui.thisWeek')}</h3>
 			<div style="font-size: 32px; font-weight: bold; margin: 10px 0;">
 				${Utils.formatHoursToHM(weekHours, this.settings.hourUnit)}
 			</div>
 			${goalSection}
-			${weekMessageSection}
 		`;
 	}
 
@@ -2487,7 +2420,7 @@ export class UIBuilder {
 				const label = document.createElement("div");
 				label.style.fontSize = "1.1em";
 				label.style.fontWeight = "bold";
-				label.textContent = "Totalt";
+				label.textContent = t('ui.total');
 				selectorContainer.appendChild(label);
 			}
 		}
@@ -2501,7 +2434,7 @@ export class UIBuilder {
 			if (Math.abs(diff) > 2) {
 				const arrow = diff > 0 ? "📈" : "📉";
 				const sign = diff > 0 ? "+" : "";
-				weekComparisonText = `<div style="font-size: 0.75em; margin-top: 4px;">vs forrige uke: ${sign}${diff.toFixed(1)}t ${arrow}</div>`;
+				weekComparisonText = `<div style="font-size: 0.75em; margin-top: 4px;">${t('ui.vsLastWeek')}: ${sign}${diff.toFixed(1)}t ${arrow}</div>`;
 			}
 		}
 
@@ -2510,91 +2443,90 @@ export class UIBuilder {
 		const timesaldoColor = this.getBalanceColor(balance);
 
 		// Ferie display
-		let ferieDisplay = `${stats.ferie.count} dager`;
+		let ferieDisplay = `${stats.ferie.count} ${t('ui.days')}`;
 		if (this.statsTimeframe === "year" && stats.ferie.max > 0) {
 			const feriePercent = ((stats.ferie.count / stats.ferie.max) * 100).toFixed(0);
-			ferieDisplay = `${stats.ferie.count}/${stats.ferie.max} dager (${feriePercent}%)`;
+			ferieDisplay = `${stats.ferie.count}/${stats.ferie.max} ${t('ui.days')} (${feriePercent}%)`;
 		}
 
 		// Egenmelding display with dynamic period label
 		const egenmeldingStats = this.data.getSpecialDayStats('egenmelding', this.selectedYear);
-		let egenmeldingDisplay = `${egenmeldingStats.count} dager`;
+		let egenmeldingDisplay = `${egenmeldingStats.count} ${t('ui.days')}`;
 		let egenmeldingPeriodLabel = '';
 		if (this.statsTimeframe === "year") {
 			if (egenmeldingStats.max && egenmeldingStats.max > 0) {
 				const egenmeldingPercent = ((egenmeldingStats.count / egenmeldingStats.max) * 100).toFixed(0);
-				egenmeldingDisplay = `${egenmeldingStats.count}/${egenmeldingStats.max} dager (${egenmeldingPercent}%)`;
+				egenmeldingDisplay = `${egenmeldingStats.count}/${egenmeldingStats.max} ${t('ui.days')} (${egenmeldingPercent}%)`;
 			}
 			egenmeldingPeriodLabel = `(${egenmeldingStats.periodLabel})`;
 		}
 
 		this.elements.statsCard.innerHTML = `
 			${this.settings.enableGoalTracking ? `<div class="tf-stat-item tf-stat-colored" style="background: ${timesaldoColor};">
-				<div class="tf-stat-label">Fleksitidsaldo</div>
+				<div class="tf-stat-label">${t('stats.flextimeBalance')}</div>
 				<div class="tf-stat-value">${sign}${balance.toFixed(1)}t</div>
-				<div style="font-size: 0.75em; margin-top: 4px;">Total saldo</div>
+				<div style="font-size: 0.75em; margin-top: 4px;">${t('stats.totalBalance')}</div>
 			</div>` : ''}
 			<div class="tf-stat-item">
-				<div class="tf-stat-label">⏱️ Timer</div>
+				<div class="tf-stat-label">⏱️ ${t('stats.hours')}</div>
 				<div class="tf-stat-value">${stats.totalHours.toFixed(1)}t</div>
 			</div>
 			<div class="tf-stat-item">
-				<div class="tf-stat-label">📊 Snitt/dag</div>
+				<div class="tf-stat-label">📊 ${t('stats.avgPerDay')}</div>
 				<div class="tf-stat-value">${avgDaily.toFixed(1)}t</div>
 			</div>
 			<div class="tf-stat-item">
-				<div class="tf-stat-label">📅 Snitt/uke</div>
+				<div class="tf-stat-label">📅 ${t('stats.avgPerWeek')}</div>
 				<div class="tf-stat-value">${avgWeekly.toFixed(1)}t</div>
 				${weekComparisonText}
 			</div>
 			${this.settings.enableGoalTracking && this.settings.enableWeeklyGoals ? `<div class="tf-stat-item">
-				<div class="tf-stat-label">💪 Arbeidsbruk</div>
+				<div class="tf-stat-label">💪 ${t('stats.workIntensity')}</div>
 				<div class="tf-stat-value">${workloadPct}%</div>
-				<div style="font-size: 0.75em; margin-top: 4px;">av normaluke</div>
+				<div style="font-size: 0.75em; margin-top: 4px;">${t('stats.ofNormalWeek')}</div>
 			</div>` : ''}
 			<div class="tf-stat-item">
-				<div class="tf-stat-label">💼 Jobb</div>
-				<div class="tf-stat-value">${stats.jobb.count} ${stats.jobb.count === 1 ? 'dag' : 'dager'}</div>
+				<div class="tf-stat-label">💼 ${t('stats.work')}</div>
+				<div class="tf-stat-value">${stats.jobb.count} ${t('ui.days')}</div>
 				<div style="font-size: 0.75em; margin-top: 4px;">${stats.jobb.hours.toFixed(1)}t</div>
 			</div>
 			${stats.weekendDays > 0 ? `<div class="tf-stat-item">
-				<div class="tf-stat-label">🌙 Helgedager jobbet</div>
-				<div class="tf-stat-value">${stats.weekendDays} ${stats.weekendDays === 1 ? 'dag' : 'dager'}</div>
-				<div style="font-size: 0.75em; margin-top: 4px;">${stats.weekendHours.toFixed(1)}t</div>
+				<div class="tf-stat-label">🌙 ${t('stats.weekendDaysWorked')}</div>
+				<div class="tf-stat-value">${stats.weekendDays} ${t('ui.days')}</div>
+				<div style="font-size: 0.75em; margin-top: 4px;">${stats.weekendHours.toFixed(1)}${this.settings.hourUnit}</div>
 			</div>` : ''}
 			<div class="tf-stat-item">
-				<div class="tf-stat-label">🛌 Avspasering</div>
-				<div class="tf-stat-value">${stats.avspasering.count} ${stats.avspasering.count === 1 ? 'dag' : 'dager'}</div>
-				<div style="font-size: 0.75em; margin-top: 4px;">${stats.avspasering.hours.toFixed(1)}t${stats.avspasering.planned > 0 ? `<br>📅 Planlagt: ${stats.avspasering.planned}` : ''}</div>
+				<div class="tf-stat-label">🛌 ${t('stats.flexTimeOff')}</div>
+				<div class="tf-stat-value">${stats.avspasering.count} ${t('ui.days')}</div>
+				<div style="font-size: 0.75em; margin-top: 4px;">${stats.avspasering.hours.toFixed(1)}${this.settings.hourUnit}</div>
 			</div>
 			<div class="tf-stat-item">
-				<div class="tf-stat-label">🏖️ Ferie</div>
+				<div class="tf-stat-label">🏖️ ${t('stats.vacation')}</div>
 				<div class="tf-stat-value" style="font-size: ${this.statsTimeframe === 'year' ? '0.9em' : '1.3em'};">${ferieDisplay}</div>
-				<div style="font-size: 0.75em; margin-top: 4px;">${stats.ferie.planned > 0 ? `📅 Planlagt: ${stats.ferie.planned}` : ''}</div>
+				<div style="font-size: 0.75em; margin-top: 4px;"></div>
 			</div>
 			<div class="tf-stat-item">
-				<div class="tf-stat-label">🏥 Velferdspermisjon</div>
-				<div class="tf-stat-value">${stats.velferdspermisjon.count} ${stats.velferdspermisjon.count === 1 ? 'dag' : 'dager'}</div>
-				<div style="font-size: 0.75em; margin-top: 4px;">${stats.velferdspermisjon.planned > 0 ? `📅 Planlagt: ${stats.velferdspermisjon.planned}` : ''}</div>
+				<div class="tf-stat-label">🏥 ${t('stats.welfareLeave')}</div>
+				<div class="tf-stat-value">${stats.velferdspermisjon.count} ${t('ui.days')}</div>
 			</div>
 			<div class="tf-stat-item">
-				<div class="tf-stat-label">🤒 Egenmelding</div>
+				<div class="tf-stat-label">🤒 ${t('stats.selfReportedSick')}</div>
 				<div class="tf-stat-value" style="font-size: ${this.statsTimeframe === 'year' ? '0.9em' : '1.3em'};">${egenmeldingDisplay}</div>
 				<div style="font-size: 0.75em; margin-top: 4px;">${egenmeldingPeriodLabel}</div>
 			</div>
 			<div class="tf-stat-item">
-				<div class="tf-stat-label">🏥 Sykemelding</div>
-				<div class="tf-stat-value">${stats.sykemelding.count} ${stats.sykemelding.count === 1 ? 'dag' : 'dager'}</div>
+				<div class="tf-stat-label">🏥 ${t('stats.doctorSick')}</div>
+				<div class="tf-stat-value">${stats.sykemelding.count} ${t('ui.days')}</div>
 			</div>
 			<div class="tf-stat-item">
-				<div class="tf-stat-label">📚 Studie</div>
-				<div class="tf-stat-value">${stats.studie.count} ${stats.studie.count === 1 ? 'dag' : 'dager'}</div>
-				<div style="font-size: 0.75em; margin-top: 4px;">${stats.studie.hours.toFixed(1)}t${stats.studie.planned > 0 ? `<br>📅 Planlagt: ${stats.studie.planned}` : ''}</div>
+				<div class="tf-stat-label">📚 ${t('stats.study')}</div>
+				<div class="tf-stat-value">${stats.studie.count} ${t('ui.days')}</div>
+				<div style="font-size: 0.75em; margin-top: 4px;">${stats.studie.hours.toFixed(1)}${this.settings.hourUnit}</div>
 			</div>
 			<div class="tf-stat-item">
-				<div class="tf-stat-label">📚 Kurs</div>
-				<div class="tf-stat-value">${stats.kurs.count} ${stats.kurs.count === 1 ? 'dag' : 'dager'}</div>
-				<div style="font-size: 0.75em; margin-top: 4px;">${stats.kurs.hours.toFixed(1)}t${stats.kurs.planned > 0 ? `<br>📅 Planlagt: ${stats.kurs.planned}` : ''}</div>
+				<div class="tf-stat-label">📚 ${t('stats.course')}</div>
+				<div class="tf-stat-value">${stats.kurs.count} ${t('ui.days')}</div>
+				<div style="font-size: 0.75em; margin-top: 4px;">${stats.kurs.hours.toFixed(1)}${this.settings.hourUnit}</div>
 			</div>
 		`;
 
@@ -2645,10 +2577,11 @@ export class UIBuilder {
 				const holiday = this.data.holidays[dateStr];
 				const behavior = this.settings.specialDayBehaviors.find(b => b.id === holiday.type);
 				if (behavior) {
+					const translatedLabel = translateSpecialDayName(behavior.id, behavior.label);
 					futureDays.push({
 						date: dateStr,
-						type: behavior.label,
-						label: holiday.description || behavior.label,
+						type: translatedLabel,
+						label: holiday.description || translatedLabel,
 						color: behavior.color
 					});
 				}
@@ -2668,10 +2601,10 @@ export class UIBuilder {
 		}
 
 		// Build list
-		let html = '<h4>Kommende planlagte dager</h4>';
+		let html = `<h4>${t('ui.upcomingPlannedDays')}</h4>`;
 		limitedDays.forEach(day => {
 			const date = new Date(day.date + 'T00:00:00');
-			const dateStr = date.toLocaleDateString('nb-NO', { day: 'numeric', month: 'short', year: 'numeric' });
+			const dateStr = formatDate(date, 'long');
 			html += `
 				<div class="tf-future-day-item">
 					<span class="tf-future-day-date">${dateStr}</span>
@@ -2686,7 +2619,7 @@ export class UIBuilder {
 	createMonthGrid(displayDate: Date): HTMLElement {
 		const year = displayDate.getFullYear();
 		const month = displayDate.getMonth();
-		const monthName = displayDate.toLocaleDateString('nb-NO', { month: 'long', year: 'numeric' });
+		const monthName = getMonthName(displayDate);
 		const showWeekNumbers = this.settings.showWeekNumbers ?? true;
 
 		const container = document.createElement("div");
@@ -2705,12 +2638,12 @@ export class UIBuilder {
 		if (showWeekNumbers) {
 			const weekHeader = document.createElement("div");
 			weekHeader.className = "tf-week-number-header";
-			weekHeader.textContent = "Uke";
+			weekHeader.textContent = t('ui.week');
 			grid.appendChild(weekHeader);
 		}
 
 		// Add day headers
-		const dayNames = ["Man", "Tir", "Ons", "Tor", "Fre", "Lør", "Søn"];
+		const dayNames = getDayNamesShort();
 		dayNames.forEach(name => {
 			const header = document.createElement("div");
 			header.textContent = name;
@@ -2952,25 +2885,25 @@ export class UIBuilder {
 	getFlextimeEffectDescription(behavior: SpecialDayBehavior): string {
 		// Special cases
 		if (behavior.id === 'helligdag') {
-			return 'Offentlig fridag - påvirker ikke fleksitid';
+			return t('info.publicHolidayDesc');
 		}
 		if (behavior.id === 'halfday') {
 			const halfDayHours = this.settings.halfDayMode === 'percentage'
 				? this.settings.baseWorkday / 2
 				: this.settings.halfDayHours;
 			const halfDayReduction = this.settings.baseWorkday - halfDayHours;
-			return `Halv arbeidsdag (${halfDayHours}t) - reduserer ukemålet med ${halfDayReduction}t`;
+			return t('info.halfDayDesc').replace('{hours}', halfDayHours.toString()).replace('{reduction}', halfDayReduction.toString());
 		}
 
 		// Based on flextimeEffect setting
 		switch (behavior.flextimeEffect) {
 			case 'withdraw':
-				return 'Trekkes fra fleksitid';
+				return t('info.withdrawFromFlextime');
 			case 'accumulate':
-				return `Teller som fleksitid ved mer enn ${this.settings.baseWorkday}t`;
+				return t('info.countsAsFlextime').replace('{hours}', this.settings.baseWorkday.toString());
 			case 'none':
 			default:
-				return 'Påvirker ikke fleksitid';
+				return t('info.noFlextimeEffect');
 		}
 	}
 
@@ -3168,19 +3101,19 @@ export class UIBuilder {
 
 		// Status icon and color
 		let statusIcon = '🟩';
-		let statusText = 'På mål';
+		let statusText = t('status.onTarget');
 		let statusColor = '#4caf50';
 		if (data.status === 'over') {
 			statusIcon = '🟨';
-			statusText = 'Over mål';
+			statusText = t('status.overTarget');
 			statusColor = '#ff9800';
 		} else if (data.status === 'under') {
 			statusIcon = '🟥';
-			statusText = 'Under mål';
+			statusText = t('status.underTarget');
 			statusColor = '#f44336';
 		} else if (data.status === 'partial') {
 			statusIcon = '⏳';
-			statusText = 'Pågår';
+			statusText = t('status.inProgress');
 			statusColor = '#9e9e9e';
 		}
 
@@ -3189,25 +3122,25 @@ export class UIBuilder {
 
 		panel.innerHTML = `
 			<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-				<strong style="font-size: 1.1em;">Uke ${data.weekNumber}</strong>
+				<strong style="font-size: 1.1em;">${t('ui.week')} ${data.weekNumber}</strong>
 				<span style="color: ${statusColor}; font-weight: bold;">${statusIcon} ${statusText}</span>
 			</div>
 			<div style="display: flex; flex-direction: column; gap: 8px; font-size: 0.9em;">
 				<div style="display: flex; justify-content: space-between;">
-					<span>Timer logget:</span>
+					<span>${t('ui.hoursLogged')}:</span>
 					<strong>${data.totalHours.toFixed(1)}t</strong>
 				</div>
 				<div style="display: flex; justify-content: space-between;">
-					<span>Forventet:</span>
-					<span>${data.expectedHours.toFixed(1)}t (${data.workDaysPassed}/${data.workDaysInWeek} dager)</span>
+					<span>${t('ui.expected')}:</span>
+					<span>${data.expectedHours.toFixed(1)}t (${data.workDaysPassed}/${data.workDaysInWeek} ${t('ui.days')})</span>
 				</div>
 				<div style="display: flex; justify-content: space-between; border-top: 1px solid var(--background-modifier-border); padding-top: 8px;">
-					<span>Differanse:</span>
+					<span>${t('ui.difference')}:</span>
 					<strong style="color: ${statusColor};">${diffText}t</strong>
 				</div>
 				${data.totalHours > data.weeklyLimit ? `
 				<div style="color: #f44336; margin-top: 4px;">
-					⚠️ Over ukegrense (${data.weeklyLimit}t)
+					⚠️ ${t('ui.overWeekLimit')} (${data.weeklyLimit}t)
 				</div>
 				` : ''}
 			</div>
@@ -3320,7 +3253,7 @@ export class UIBuilder {
 		// Add work time session option at the top
 		const workTimeItem = document.createElement('div');
 		workTimeItem.className = 'tf-menu-item';
-		workTimeItem.innerHTML = `<span>⏱️</span><span>Logg arbeidstimer</span>`;
+		workTimeItem.innerHTML = `<span>⏱️</span><span>${t('menu.logWork')}</span>`;
 		workTimeItem.onclick = () => {
 			menu.remove();
 			this.showWorkTimeModal(dateObj);
@@ -3331,7 +3264,7 @@ export class UIBuilder {
 		if (hasWorkEntries) {
 			const editItem = document.createElement('div');
 			editItem.className = 'tf-menu-item';
-			editItem.innerHTML = `<span>✏️</span><span>Rediger arbeidstid</span>`;
+			editItem.innerHTML = `<span>✏️</span><span>${t('menu.editWork')}</span>`;
 			editItem.onclick = () => {
 				menu.remove();
 				this.showEditEntriesModal(dateObj);
@@ -3342,7 +3275,7 @@ export class UIBuilder {
 		// Add special day registration right after edit (opens modal with type selection)
 		const specialDayItem = document.createElement('div');
 		specialDayItem.className = 'tf-menu-item';
-		specialDayItem.innerHTML = `<span>📅</span><span>Registrer spesialdag</span>`;
+		specialDayItem.innerHTML = `<span>📅</span><span>${t('menu.registerSpecialDay')}</span>`;
 		specialDayItem.onclick = () => {
 			menu.remove();
 			this.showSpecialDayModal(dateObj);
@@ -3358,7 +3291,7 @@ export class UIBuilder {
 		this.settings.noteTypes.forEach(noteType => {
 			const item = document.createElement('div');
 			item.className = 'tf-menu-item';
-			item.innerHTML = `<span>${noteType.icon}</span><span>${noteType.label}</span>`;
+			item.innerHTML = `<span>${noteType.icon}</span><span>${translateNoteTypeName(noteType.id, noteType.label)}</span>`;
 			item.onclick = async () => {
 				await this.createNoteFromType(dateObj, noteType);
 				menu.remove();
@@ -3399,7 +3332,7 @@ export class UIBuilder {
 
 		// Show running timers first
 		if (runningTimersForDate.length > 0) {
-			infoHTML += '<p><strong>Pågående timer:</strong></p>';
+			infoHTML += `<p><strong>${t('timer.runningTimers')}:</strong></p>`;
 			runningTimersForDate.forEach(timer => {
 				const startTime = new Date(timer.startTime!);
 				const startTimeStr = `${startTime.getHours().toString().padStart(2, '0')}:${startTime.getMinutes().toString().padStart(2, '0')}`;
@@ -3412,11 +3345,11 @@ export class UIBuilder {
 		// Show completed entries for this day (filter out running timers - those without duration)
 		const completedEntries = allEntries.filter(e => e.duration && e.duration > 0);
 		if (completedEntries.length > 0) {
-			infoHTML += '<p><strong>Registreringer:</strong></p>';
+			infoHTML += `<p><strong>${t('ui.history')}:</strong></p>`;
 			completedEntries.forEach(e => {
 				const emoji = Utils.getEmoji(e);
-				const duration = `${e.duration!.toFixed(1)}t`;
-				infoHTML += `<p style="margin-left: 8px;">${emoji} ${e.name}: ${duration}</p>`;
+				const duration = `${e.duration!.toFixed(1)}${this.settings.hourUnit}`;
+				infoHTML += `<p style="margin-left: 8px;">${emoji} ${translateSpecialDayName(e.name.toLowerCase(), e.name)}: ${duration}</p>`;
 			});
 
 			// Add balance information for past days
@@ -3426,12 +3359,12 @@ export class UIBuilder {
 				const dailyDelta = dayGoal === 0 ? totalHours : (totalHours - dayGoal);
 				const runningBalance = this.data.getBalanceUpToDate(dateStr);
 
-				infoHTML += `<p style="margin-top: 8px;"><strong>Mål:</strong> ${dayGoal.toFixed(1)}t</p>`;
-				infoHTML += `<p><strong>Dagssaldo:</strong> ${dailyDelta >= 0 ? '+' : ''}${dailyDelta.toFixed(1)}t</p>`;
-				infoHTML += `<p><strong>Løpende saldo:</strong> ${runningBalance >= 0 ? '+' : ''}${Utils.formatHoursToHM(runningBalance, this.settings.hourUnit)}</p>`;
+				infoHTML += `<p style="margin-top: 8px;"><strong>${t('ui.goal')}:</strong> ${dayGoal.toFixed(1)}t</p>`;
+				infoHTML += `<p><strong>${t('ui.dailyBalance')}:</strong> ${dailyDelta >= 0 ? '+' : ''}${dailyDelta.toFixed(1)}t</p>`;
+				infoHTML += `<p><strong>${t('ui.runningBalance')}:</strong> ${runningBalance >= 0 ? '+' : ''}${Utils.formatHoursToHM(runningBalance, this.settings.hourUnit)}</p>`;
 			}
 		} else if (isPastDay && !isPlannedDay && runningTimersForDate.length === 0) {
-			infoHTML += '<p style="color: var(--text-muted);">Ingen registrering</p>';
+			infoHTML += `<p style="color: var(--text-muted);">${t('ui.noRegistration')}</p>`;
 		}
 
 		// Check for rest period violation
@@ -3441,7 +3374,7 @@ export class UIBuilder {
 				const minimumRest = this.settings.complianceSettings?.minimumRestHours ?? 11;
 				infoHTML += `<div class="tf-rest-period-warning">
 					<span class="warning-icon">⚠️</span>
-					<span>Hviletid: Kun ${restCheck.restHours.toFixed(1)} timer mellom arbeidsøkter (minimum ${minimumRest} timer)</span>
+					<span>${t('ui.restPeriod')}: ${restCheck.restHours.toFixed(1)}h (${t('ui.minimum')} ${minimumRest}h)</span>
 				</div>`;
 			}
 		}
@@ -3484,7 +3417,7 @@ export class UIBuilder {
 		// Title
 		const title = document.createElement('div');
 		title.className = 'modal-title';
-		title.textContent = `Logg arbeidstimer for ${dateStr}`;
+		title.textContent = `${t('modals.logWorkTitle')} ${dateStr}`;
 		modalContent.appendChild(title);
 
 		// Content
@@ -3494,7 +3427,7 @@ export class UIBuilder {
 
 		// Start time
 		const startLabel = document.createElement('div');
-		startLabel.textContent = 'Starttid (HH:MM):';
+		startLabel.textContent = t('modals.startTimeFormat');
 		startLabel.style.marginBottom = '5px';
 		startLabel.style.fontWeight = 'bold';
 		content.appendChild(startLabel);
@@ -3511,7 +3444,7 @@ export class UIBuilder {
 
 		// End time
 		const endLabel = document.createElement('div');
-		endLabel.textContent = 'Sluttid (HH:MM):';
+		endLabel.textContent = t('modals.endTimeFormat');
 		endLabel.style.marginBottom = '5px';
 		endLabel.style.fontWeight = 'bold';
 		content.appendChild(endLabel);
@@ -3533,7 +3466,7 @@ export class UIBuilder {
 		buttonDiv.style.justifyContent = 'flex-end';
 
 		const cancelBtn = document.createElement('button');
-		cancelBtn.textContent = 'Avbryt';
+		cancelBtn.textContent = t('buttons.cancel');
 		cancelBtn.onclick = () => modal.remove();
 		buttonDiv.appendChild(cancelBtn);
 
@@ -3563,7 +3496,7 @@ export class UIBuilder {
 
 			// If end time is before start time, assume it's the next day
 			if (endDate <= startDate) {
-				new Notice('❌ Sluttid må være etter starttid.');
+				new Notice(`❌ ${t('validation.endAfterStart')}`);
 				return;
 			}
 
@@ -3644,7 +3577,7 @@ export class UIBuilder {
 		// Title
 		const title = document.createElement('div');
 		title.className = 'modal-title';
-		title.textContent = `Rediger arbeidstid for ${dateStr}`;
+		title.textContent = `${t('modals.editWorkTitle')} ${dateStr}`;
 		modalContent.appendChild(title);
 
 		// Content
@@ -3665,7 +3598,7 @@ export class UIBuilder {
 			const endDate = entry.endTime ? new Date(entry.endTime) : null;
 
 			const startTimeStr = `${startDate.getHours().toString().padStart(2, '0')}:${startDate.getMinutes().toString().padStart(2, '0')}`;
-			const endTimeStr = endDate ? `${endDate.getHours().toString().padStart(2, '0')}:${endDate.getMinutes().toString().padStart(2, '0')}` : 'Pågående';
+			const endTimeStr = endDate ? `${endDate.getHours().toString().padStart(2, '0')}:${endDate.getMinutes().toString().padStart(2, '0')}` : t('ui.ongoing');
 
 			const duration = endDate ? ((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60)).toFixed(1) : 'N/A';
 
@@ -3685,7 +3618,7 @@ export class UIBuilder {
 			editDiv.style.marginTop = '10px';
 
 			const startLabel = document.createElement('div');
-			startLabel.textContent = 'Starttid:';
+			startLabel.textContent = `${t('modals.startTime')}:`;
 			startLabel.style.marginBottom = '5px';
 			startLabel.style.fontWeight = 'bold';
 			editDiv.appendChild(startLabel);
@@ -3699,14 +3632,14 @@ export class UIBuilder {
 			editDiv.appendChild(startInput);
 
 			const endLabel = document.createElement('div');
-			endLabel.textContent = 'Sluttid:';
+			endLabel.textContent = `${t('modals.endTime')}:`;
 			endLabel.style.marginBottom = '5px';
 			endLabel.style.fontWeight = 'bold';
 			editDiv.appendChild(endLabel);
 
 			const endInput = document.createElement('input');
 			endInput.type = 'text';
-			endInput.value = endTimeStr !== 'Pågående' ? endTimeStr : '';
+			endInput.value = endTimeStr !== t('ui.ongoing') ? endTimeStr : '';
 			endInput.style.width = '100%';
 			endInput.style.marginBottom = '10px';
 			endInput.style.padding = '6px';
@@ -3721,12 +3654,12 @@ export class UIBuilder {
 			buttonDiv.style.marginTop = '10px';
 
 			const editBtn = document.createElement('button');
-			editBtn.textContent = '✏️ Rediger';
+			editBtn.textContent = `✏️ ${t('buttons.edit')}`;
 			editBtn.style.flex = '1';
 			editBtn.onclick = () => {
 				if (editDiv.style.display === 'none') {
 					editDiv.style.display = 'block';
-					editBtn.textContent = '💾 Lagre';
+					editBtn.textContent = `💾 ${t('buttons.save')}`;
 				} else {
 					// Save changes
 					const newStartTime = startInput.value.trim();
@@ -3749,7 +3682,7 @@ export class UIBuilder {
 						newEndDate.setHours(endHour, endMin, 0, 0);
 
 						if (newEndDate <= newStartDate) {
-							new Notice('❌ Sluttid må være etter starttid.');
+							new Notice(`❌ ${t('validation.endAfterStart')}`);
 							return;
 						}
 					}
@@ -3777,7 +3710,7 @@ export class UIBuilder {
 			buttonDiv.appendChild(editBtn);
 
 			const deleteBtn = document.createElement('button');
-			deleteBtn.textContent = '🗑️ Slett';
+			deleteBtn.textContent = `🗑️ ${t('buttons.delete')}`;
 			deleteBtn.style.flex = '1';
 			deleteBtn.onclick = () => {
 				// Show confirmation dialog
@@ -3816,7 +3749,7 @@ export class UIBuilder {
 		closeDiv.style.justifyContent = 'flex-end';
 
 		const closeBtn = document.createElement('button');
-		closeBtn.textContent = 'Lukk';
+		closeBtn.textContent = t('buttons.close');
 		closeBtn.onclick = () => modal.remove();
 		closeDiv.appendChild(closeBtn);
 
@@ -3847,7 +3780,7 @@ export class UIBuilder {
 		// Title
 		const title = document.createElement('div');
 		title.className = 'modal-title';
-		title.textContent = 'Registrer spesialdag';
+		title.textContent = t('modals.registerSpecialDayTitle');
 		modalContent.appendChild(title);
 
 		// Content
@@ -3857,7 +3790,7 @@ export class UIBuilder {
 
 		// Date display
 		const dateDisplay = document.createElement('div');
-		dateDisplay.textContent = `Dato: ${dateStr}`;
+		dateDisplay.textContent = `${t('ui.date')}: ${dateStr}`;
 		dateDisplay.style.marginBottom = '15px';
 		dateDisplay.style.fontSize = '16px';
 		dateDisplay.style.fontWeight = 'bold';
@@ -3873,7 +3806,7 @@ export class UIBuilder {
 		// Build day types from special day behaviors
 		const dayTypes = this.settings.specialDayBehaviors.map(behavior => ({
 			type: behavior.id,
-			label: `${behavior.icon} ${behavior.label}`
+			label: `${behavior.icon} ${translateSpecialDayName(behavior.id, behavior.label)}`
 		}));
 
 		const typeSelect = document.createElement('select');
@@ -3991,7 +3924,7 @@ export class UIBuilder {
 		buttonDiv.style.justifyContent = 'flex-end';
 
 		const cancelBtn = document.createElement('button');
-		cancelBtn.textContent = 'Avbryt';
+		cancelBtn.textContent = t('buttons.cancel');
 		cancelBtn.onclick = () => modal.remove();
 		buttonDiv.appendChild(cancelBtn);
 
@@ -4073,8 +4006,8 @@ export class UIBuilder {
 			await this.app.vault.modify(file as TFile, content);
 
 			// Get the label for the day type
-			const label = this.settings.specialDayBehaviors.find(b => b.id === dayType)?.label || this.settings.specialDayLabels?.[dayType as keyof typeof this.settings.specialDayLabels] || dayType;
-			new Notice(`✅ Lagt til ${dateStr} (${label})`);
+			const label = translateSpecialDayName(dayType);
+			new Notice(`✅ ${t('notifications.added')} ${dateStr} (${label})`);
 
 			// Reload holidays to pick up the new entry
 			await this.data.loadHolidays();
@@ -4207,7 +4140,7 @@ export class UIBuilder {
 		editToggle.style.display = (isWide && isListView) ? 'block' : 'none';
 
 		// Update button text based on current mode
-		editToggle.textContent = this.inlineEditMode ? "✓ Ferdig" : "✏️ Rediger";
+		editToggle.textContent = this.inlineEditMode ? `✓ ${t('buttons.done')}` : `✏️ ${t('buttons.edit')}`;
 		editToggle.classList.toggle('active', this.inlineEditMode);
 	}
 
@@ -4251,7 +4184,7 @@ export class UIBuilder {
 		// "Alle" chip (active when no filter applied)
 		const alleChip = document.createElement('button');
 		alleChip.className = `tf-filter-chip ${this.historyFilter.length === 0 ? 'active' : ''}`;
-		alleChip.textContent = 'Alle';
+		alleChip.textContent = t('ui.all');
 		alleChip.onclick = () => {
 			this.historyFilter = [];
 			this.refreshHistoryView(container);
@@ -4263,7 +4196,7 @@ export class UIBuilder {
 			const chip = document.createElement('button');
 			const isActive = this.historyFilter.includes(behavior.id);
 			chip.className = `tf-filter-chip ${isActive ? 'active' : ''}`;
-			chip.textContent = `${behavior.icon} ${behavior.label}`;
+			chip.textContent = `${behavior.icon} ${translateSpecialDayName(behavior.id, behavior.label)}`;
 			chip.onclick = () => {
 				if (isActive) {
 					// Remove from filter
@@ -4293,7 +4226,7 @@ export class UIBuilder {
 				// Create thead
 				const thead = document.createElement('thead');
 				const headerRow = document.createElement('tr');
-				['Dato', 'Type', 'Timer', 'Fleksitid', ''].forEach(h => {
+				[t('ui.date'), t('ui.type'), t('ui.hours'), t('ui.flextime'), ''].forEach(h => {
 					const th = document.createElement('th');
 					th.textContent = h;
 					headerRow.appendChild(th);
@@ -4317,7 +4250,7 @@ export class UIBuilder {
 					if (hasConflict) {
 						const flagIcon = document.createElement('span');
 						flagIcon.textContent = '⚠️ ';
-						flagIcon.title = `Arbeid registrert på ${this.settings.specialDayBehaviors.find(b => b.id === holidayInfo!.type)?.label || holidayInfo!.type}`;
+						flagIcon.title = t('info.workRegisteredOnSpecialDay').replace('{dayType}', translateSpecialDayName(holidayInfo!.type));
 						flagIcon.style.cursor = 'help';
 						dateCell.appendChild(flagIcon);
 					}
@@ -4327,8 +4260,7 @@ export class UIBuilder {
 					// Type cell
 					const typeCell = document.createElement('td');
 					const entryNameLower = e.name.toLowerCase();
-					const customLabel = this.settings.specialDayBehaviors.find(b => b.id === entryNameLower)?.label;
-					typeCell.textContent = customLabel || e.name;
+					typeCell.textContent = translateSpecialDayName(entryNameLower, e.name);
 					row.appendChild(typeCell);
 
 					// Hours cell
@@ -4347,7 +4279,7 @@ export class UIBuilder {
 					editBtn.textContent = '✏️';
 					editBtn.style.padding = '4px 8px';
 					editBtn.style.cursor = 'pointer';
-					editBtn.title = 'Rediger arbeidstid';
+					editBtn.title = t('menu.editWork');
 					editBtn.onclick = () => {
 						this.showEditEntriesModal(e.date);
 					};
@@ -4380,8 +4312,8 @@ export class UIBuilder {
 				const headerRow = document.createElement('tr');
 
 				const headers = this.inlineEditMode
-					? ['Dato', 'Type', 'Start', 'Slutt', 'Timer', 'Fleksitid', '']
-					: ['Dato', 'Type', 'Start', 'Slutt', 'Timer', 'Fleksitid'];
+					? [t('ui.date'), t('ui.type'), t('ui.start'), t('ui.end'), t('ui.hours'), t('ui.flextime'), '']
+					: [t('ui.date'), t('ui.type'), t('ui.start'), t('ui.end'), t('ui.hours'), t('ui.flextime')];
 
 				headers.forEach(h => {
 					const th = document.createElement('th');
@@ -4433,7 +4365,7 @@ export class UIBuilder {
 						if (hasConflict) {
 							const flagIcon = document.createElement('span');
 							flagIcon.textContent = '⚠️ ';
-							flagIcon.title = `Arbeid registrert på ${this.settings.specialDayBehaviors.find(b => b.id === holidayInfo!.type)?.label || holidayInfo!.type}`;
+							flagIcon.title = t('info.workRegisteredOnSpecialDay').replace('{dayType}', translateSpecialDayName(holidayInfo!.type));
 							flagIcon.style.cursor = 'help';
 							dateCell.appendChild(flagIcon);
 						}
@@ -4447,7 +4379,7 @@ export class UIBuilder {
 							this.settings.specialDayBehaviors.forEach(behavior => {
 								const option = document.createElement('option');
 								option.value = behavior.id;
-								option.textContent = `${behavior.icon} ${behavior.label}`;
+								option.textContent = `${behavior.icon} ${translateSpecialDayName(behavior.id, behavior.label)}`;
 								if (behavior.id === e.name.toLowerCase()) {
 									option.selected = true;
 								}
@@ -4462,8 +4394,7 @@ export class UIBuilder {
 							typeCell.appendChild(select);
 						} else {
 							const entryNameLower = e.name.toLowerCase();
-							const customLabel = this.settings.specialDayBehaviors.find(b => b.id === entryNameLower)?.label;
-							typeCell.textContent = customLabel || e.name;
+							typeCell.textContent = translateSpecialDayName(entryNameLower, e.name);
 						}
 						row.appendChild(typeCell);
 
@@ -4517,7 +4448,7 @@ export class UIBuilder {
 								endCell.textContent = endTimeStr;
 							}
 						} else {
-							endCell.textContent = matchingRaw ? 'Pågående' : '-';
+							endCell.textContent = matchingRaw ? t('ui.ongoing') : '-';
 						}
 						row.appendChild(endCell);
 
@@ -4538,9 +4469,9 @@ export class UIBuilder {
 								const deleteBtn = document.createElement('button');
 								deleteBtn.className = 'tf-history-delete-btn';
 								deleteBtn.textContent = '🗑️';
-								deleteBtn.title = 'Slett oppføring';
+								deleteBtn.title = t('menu.deleteEntry');
 								deleteBtn.onclick = async () => {
-									if (confirm(`Slette oppføring for ${dateStr}?`)) {
+									if (confirm(`${t('confirm.deleteEntryFor')} ${dateStr}?`)) {
 										const entryIndex = this.timerManager.data.entries.indexOf(matchingRaw);
 										if (entryIndex > -1) {
 											this.timerManager.data.entries.splice(entryIndex, 1);
@@ -4625,14 +4556,14 @@ export class UIBuilder {
 		this.settings.specialDayBehaviors.forEach(behavior => {
 			const option = document.createElement('option');
 			option.value = behavior.id;
-			option.textContent = `${behavior.icon} ${behavior.label}`;
+			option.textContent = `${behavior.icon} ${translateSpecialDayName(behavior.id, behavior.label)}`;
 			typeSelect.appendChild(option);
 		});
 		content.appendChild(typeSelect);
 
 		// Start time
 		const startLabel = document.createElement('div');
-		startLabel.textContent = 'Starttid:';
+		startLabel.textContent = `${t('modals.startTime')}:`;
 		startLabel.style.fontWeight = 'bold';
 		startLabel.style.marginBottom = '5px';
 		content.appendChild(startLabel);
@@ -4647,7 +4578,7 @@ export class UIBuilder {
 
 		// End time
 		const endLabel = document.createElement('div');
-		endLabel.textContent = 'Sluttid:';
+		endLabel.textContent = `${t('modals.endTime')}:`;
 		endLabel.style.fontWeight = 'bold';
 		endLabel.style.marginBottom = '5px';
 		content.appendChild(endLabel);
@@ -4667,13 +4598,13 @@ export class UIBuilder {
 		buttonContainer.style.justifyContent = 'flex-end';
 
 		const cancelBtn = document.createElement('button');
-		cancelBtn.textContent = 'Avbryt';
+		cancelBtn.textContent = t('buttons.cancel');
 		cancelBtn.onclick = () => modal.remove();
 		buttonContainer.appendChild(cancelBtn);
 
 		const saveBtn = document.createElement('button');
 		saveBtn.className = 'mod-cta';
-		saveBtn.textContent = 'Lagre';
+		saveBtn.textContent = t('buttons.save');
 		saveBtn.onclick = async () => {
 			const [startHours, startMinutes] = startInput.value.split(':').map(Number);
 			const [endHours, endMinutes] = endInput.value.split(':').map(Number);
@@ -4685,7 +4616,7 @@ export class UIBuilder {
 			endDate.setHours(endHours, endMinutes, 0, 0);
 
 			if (endDate <= startDate) {
-				new Notice('Sluttid må være etter starttid');
+				new Notice(t('validation.endAfterStart'));
 				return;
 			}
 
@@ -4831,14 +4762,14 @@ export class UIBuilder {
 		const endDate = entry.endTime ? new Date(entry.endTime) : null;
 		const duration = endDate
 			? ((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60)).toFixed(2)
-			: 'Pågående';
+			: t('ui.ongoing');
 
 		details.innerHTML = `
-			<div><strong>Dato:</strong> ${Utils.toLocalDateStr(dateObj)}</div>
-			<div><strong>Type:</strong> ${entry.name}</div>
-			<div><strong>Start:</strong> ${startDate.toLocaleTimeString('nb-NO', { hour: '2-digit', minute: '2-digit' })}</div>
-			${endDate ? `<div><strong>Slutt:</strong> ${endDate.toLocaleTimeString('nb-NO', { hour: '2-digit', minute: '2-digit' })}</div>` : ''}
-			<div><strong>Varighet:</strong> ${typeof duration === 'string' ? duration : duration + ' timer'}</div>
+			<div><strong>${t('ui.date')}:</strong> ${Utils.toLocalDateStr(dateObj)}</div>
+			<div><strong>${t('ui.type')}:</strong> ${translateSpecialDayName(entry.name.toLowerCase(), entry.name)}</div>
+			<div><strong>${t('ui.start')}:</strong> ${formatTime(startDate)}</div>
+			${endDate ? `<div><strong>${t('ui.end')}:</strong> ${formatTime(endDate)}</div>` : ''}
+			<div><strong>${t('ui.duration')}:</strong> ${typeof duration === 'string' ? duration : duration + ' ' + t('ui.hours').toLowerCase()}</div>
 		`;
 		dialog.appendChild(details);
 
@@ -4848,7 +4779,7 @@ export class UIBuilder {
 
 		const cancelBtn = document.createElement('button');
 		cancelBtn.className = 'tf-confirm-cancel';
-		cancelBtn.textContent = 'Avbryt';
+		cancelBtn.textContent = t('buttons.cancel');
 		cancelBtn.onclick = () => overlay.remove();
 		buttons.appendChild(cancelBtn);
 

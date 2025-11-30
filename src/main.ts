@@ -3,6 +3,7 @@ import { TimeFlowSettings, DEFAULT_SETTINGS, TimeFlowSettingTab, DEFAULT_SPECIAL
 import { TimeFlowView, VIEW_TYPE_TIMEFLOW } from './view';
 import { TimerManager } from './timerManager';
 import { ImportModal } from './importModal';
+import { setLanguage } from './i18n';
 
 export default class TimeFlowPlugin extends Plugin {
 	settings: TimeFlowSettings;
@@ -32,6 +33,9 @@ export default class TimeFlowPlugin extends Plugin {
 			console.log('TimeFlow: Saving migrated settings');
 			await this.saveSettings();
 		}
+
+		// Initialize language from settings
+		setLanguage(this.settings.language ?? 'nb');
 
 		// Register the TimeFlow view
 		this.registerView(

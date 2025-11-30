@@ -1,4 +1,4 @@
-// Utility functions for TimeFlow plugin
+// Utility functions for timeflow plugin
 import { TimeFlowSettings } from './settings';
 
 // Constant colors for holidays (not configurable)

@@ -1,7 +1,7 @@
 {
   "name": "obsidian-timeflow-plugin",
   "version": "1.0.0",
-  "description": "TimeFlow Fleksitid Dashboard for Obsidian",
+  "description": "timeflow Flextime Dashboard for Obsidian",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",
