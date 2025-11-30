@@ -1,5 +1,7 @@
 ![timeflow Dashboard](https://github.com/gaut3/timeflow/blob/main/images/timeflow.png?raw=true)
 
+![timeflow Wide Dashboard](https://github.com/gaut3/timeflow/blob/main/images/timeflow%20wide%20dashboard%20-%20english.png?raw=true)
+
 timeflow provides a comprehensive flextime tracking dashboard with **built-in timer functionality**, beautiful visualizations, and extensive customization options.
 
 > **Note:** timeflow was originally designed for Norwegian work culture (7.5h workdays, 37.5h weeks, specific leave types like "avspasering" and "egenmelding"). However, all settings are fully customizable - workday hours, work week structure, leave types, colors, and labels can all be adjusted to match your country's work culture and personal needs.
@@ -34,10 +36,10 @@ timeflow provides a comprehensive flextime tracking dashboard with **built-in ti
 - **Multiple History Views** - List and heatmap visualizations of your work history
   - Filtering by day type in list view
   - Bulk editing in wide mode
-![timeflow-history-info](https://github.com/gaut3/timeflow/blob/main/images/timeflow%20info-history.png?raw=true)
+![timeflow-history-info](https://github.com/gaut3/timeflow/blob/main/images/timeflow%20info%20history%20wide%20-%20english.png?raw=true)
 
 ### 🎯 Planning & Organization
-![timeflow-context](https://github.com/gaut3/timeflow/blob/main/images/timeflow%20context.png?raw=true)
+![timeflow-context](https://github.com/gaut3/timeflow/blob/main/images/timeflow%20context%20-%20english.png?raw=true)
 - **Holiday Planning** - Integrate planned holidays and special days from a markdown file
 - **Customizable Note Types** - Create and manage custom note templates with flexible configuration
   - Daily notes, meeting notes, project notes, weekly reviews, reflections
