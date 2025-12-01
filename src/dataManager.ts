@@ -234,6 +234,16 @@ export class DataManager {
 	}
 
 	calculateFlextime(): void {
+		// Skip flextime calculation in simple tracking mode - set all to 0
+		if (!this.settings.enableGoalTracking) {
+			for (let day in this.daily) {
+				this.daily[day].forEach((e) => {
+					e.flextime = 0;
+				});
+			}
+			return;
+		}
+
 		for (let day in this.daily) {
 			const dayGoal = this.getDailyGoal(day);
 			const holidayInfo = this.getHolidayInfo(day);
@@ -546,7 +556,21 @@ export class DataManager {
 			const expectedWorkdays = timeframe === "year"
 				? this.settings.workdaysPerYear
 				: this.settings.workdaysPerMonth;
-			const expectedHours = expectedWorkdays * this.workdayHours;
+
+			// Count special days with noHoursRequired in this period to adjust expected workdays
+			let noHoursRequiredDays = 0;
+			filteredDays.forEach((dayKey) => {
+				const holidayInfo = this.getHolidayInfo(dayKey);
+				if (holidayInfo) {
+					const behavior = this.getSpecialDayBehavior(holidayInfo.type);
+					if (behavior?.noHoursRequired) {
+						noHoursRequiredDays++;
+					}
+				}
+			});
+
+			const adjustedWorkdays = Math.max(0, expectedWorkdays - noHoursRequiredDays);
+			const expectedHours = adjustedWorkdays * this.workdayHours;
 			stats.workloadPercent = expectedHours > 0 ? (stats.totalHours / expectedHours) * 100 : 0;
 		}
 

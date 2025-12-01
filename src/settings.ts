@@ -35,6 +35,7 @@ export interface TimeFlowSettings {
 	consecutiveFlextimeWarningDays: number;
 	defaultExportWeeks: number;
 	heatmapColumns: number;
+	heatmapShowSpecialDayColors: boolean;
 	noteTypes: NoteType[];
 	specialDayBehaviors: SpecialDayBehavior[];
 	specialDayColors?: Record<string, string>; // DEPRECATED - kept for migration
@@ -229,6 +230,7 @@ export const DEFAULT_SETTINGS: TimeFlowSettings = {
 	consecutiveFlextimeWarningDays: 5,
 	defaultExportWeeks: 52,
 	heatmapColumns: 48,
+	heatmapShowSpecialDayColors: false,
 	noteTypes: [
 		{
 			id: "daily",
@@ -832,10 +834,10 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 						}
 					}));
 
-			// Only show weekly/monthly goals toggle if goal tracking is enabled
+			// Only show weekly goals toggle if goal tracking is enabled
 			new Setting(settingsContainer)
-				.setName('Enable weekly/monthly goals')
-				.setDesc('Disable if you don\'t have a specific amount of work each week/month. This will hide goal progress bars and weekly/monthly targets.')
+				.setName('Enable weekly goals')
+				.setDesc('Disable if you don\'t have a specific amount of work each week. This will hide goal progress bars and weekly targets.')
 				.addToggle(toggle => toggle
 					.setValue(this.plugin.settings.enableWeeklyGoals)
 					.onChange(async (value) => {
@@ -1297,6 +1299,17 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 						await this.refreshView();
 					}
+				}));
+
+		new Setting(settingsContainer)
+			.setName('Heatmap special day colors')
+			.setDesc('Show special day colors (ferie, egenmelding, etc.) instead of flextime gradient in heatmap')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.heatmapShowSpecialDayColors)
+				.onChange(async (value) => {
+					this.plugin.settings.heatmapShowSpecialDayColors = value;
+					await this.plugin.saveSettings();
+					await this.refreshView();
 				}));
 
 		new Setting(settingsContainer)

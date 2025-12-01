@@ -144,7 +144,7 @@ ${JSON.stringify(this.data, null, 2)}
 		await this.save();
 	}
 
-	async startTimer(name: string = 'Jobb'): Promise<Timer> {
+	async startTimer(name: string = 'jobb'): Promise<Timer> {
 		const timer: Timer = {
 			name,
 			startTime: Utils.toLocalISOString(new Date()),

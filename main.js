@@ -1523,6 +1523,7 @@ var DEFAULT_SETTINGS = {
   consecutiveFlextimeWarningDays: 5,
   defaultExportWeeks: 52,
   heatmapColumns: 48,
+  heatmapShowSpecialDayColors: false,
   noteTypes: [
     {
       id: "daily",
@@ -1905,7 +1906,7 @@ var TimeFlowSettingTab = class extends import_obsidian2.PluginSettingTab {
           await this.refreshView();
         }
       }));
-      new import_obsidian2.Setting(settingsContainer).setName("Enable weekly/monthly goals").setDesc("Disable if you don't have a specific amount of work each week/month. This will hide goal progress bars and weekly/monthly targets.").addToggle((toggle) => toggle.setValue(this.plugin.settings.enableWeeklyGoals).onChange(async (value) => {
+      new import_obsidian2.Setting(settingsContainer).setName("Enable weekly goals").setDesc("Disable if you don't have a specific amount of work each week. This will hide goal progress bars and weekly targets.").addToggle((toggle) => toggle.setValue(this.plugin.settings.enableWeeklyGoals).onChange(async (value) => {
         this.plugin.settings.enableWeeklyGoals = value;
         await this.plugin.saveSettings();
         this.display();
@@ -2202,6 +2203,11 @@ Note: Historical data in your holidays file using "${behavior.id}" will no longe
         await this.plugin.saveSettings();
         await this.refreshView();
       }
+    }));
+    new import_obsidian2.Setting(settingsContainer).setName("Heatmap special day colors").setDesc("Show special day colors (ferie, egenmelding, etc.) instead of flextime gradient in heatmap").addToggle((toggle) => toggle.setValue(this.plugin.settings.heatmapShowSpecialDayColors).onChange(async (value) => {
+      this.plugin.settings.heatmapShowSpecialDayColors = value;
+      await this.plugin.saveSettings();
+      await this.refreshView();
     }));
     new import_obsidian2.Setting(settingsContainer).setName("Update interval (ms)").setDesc("How often to update the dashboard data (in milliseconds)").addText((text) => text.setPlaceholder("30000").setValue(this.plugin.settings.updateInterval.toString()).onChange(async (value) => {
       const num = parseInt(value);
@@ -2732,6 +2738,14 @@ var DataManager = class {
     this.groupByMonths();
   }
   calculateFlextime() {
+    if (!this.settings.enableGoalTracking) {
+      for (let day in this.daily) {
+        this.daily[day].forEach((e) => {
+          e.flextime = 0;
+        });
+      }
+      return;
+    }
     for (let day in this.daily) {
       const dayGoal = this.getDailyGoal(day);
       const holidayInfo = this.getHolidayInfo(day);
@@ -2972,7 +2986,18 @@ var DataManager = class {
     stats.avgDailyHours = uniqueDays.size > 0 ? stats.totalHours / uniqueDays.size : 0;
     if (timeframe === "year" || timeframe === "month") {
       const expectedWorkdays = timeframe === "year" ? this.settings.workdaysPerYear : this.settings.workdaysPerMonth;
-      const expectedHours = expectedWorkdays * this.workdayHours;
+      let noHoursRequiredDays = 0;
+      filteredDays.forEach((dayKey) => {
+        const holidayInfo = this.getHolidayInfo(dayKey);
+        if (holidayInfo) {
+          const behavior = this.getSpecialDayBehavior(holidayInfo.type);
+          if (behavior == null ? void 0 : behavior.noHoursRequired) {
+            noHoursRequiredDays++;
+          }
+        }
+      });
+      const adjustedWorkdays = Math.max(0, expectedWorkdays - noHoursRequiredDays);
+      const expectedHours = adjustedWorkdays * this.workdayHours;
       stats.workloadPercent = expectedHours > 0 ? stats.totalHours / expectedHours * 100 : 0;
     }
     return stats;
@@ -3395,6 +3420,8 @@ var UIBuilder = class {
     this.historyFilter = [];
     // empty = all, or list of type IDs to filter by
     this.inlineEditMode = false;
+    // toggle for inline editing in wide view
+    this.isModalOpen = false;
     this.data = dataManager;
     this.systemStatus = systemStatus;
     this.settings = settings;
@@ -4022,11 +4049,12 @@ var UIBuilder = class {
 				aspect-ratio: 1;
 				border-radius: 4px;
 				cursor: pointer;
-				transition: transform 0.2s;
+				transition: opacity 0.2s, box-shadow 0.2s;
 			}
 
 			.tf-heatmap-cell:hover {
-				transform: scale(1.2);
+				opacity: 0.8;
+				box-shadow: inset 0 0 0 2px var(--text-accent);
 			}
 
 			/* Make heatmap cells larger on mobile */
@@ -6437,16 +6465,23 @@ var UIBuilder = class {
   }
   showWorkTimeModal(dateObj) {
     const dateStr = Utils.toLocalDateStr(dateObj);
+    this.isModalOpen = true;
     const modal = document.createElement("div");
     modal.className = "modal-container mod-dim";
     modal.style.zIndex = "1000";
     const modalBg = document.createElement("div");
     modalBg.className = "modal-bg";
-    modalBg.onclick = () => modal.remove();
+    modalBg.onclick = () => {
+      this.isModalOpen = false;
+      modal.remove();
+    };
     modal.appendChild(modalBg);
     const modalContent = document.createElement("div");
     modalContent.className = "modal";
     modalContent.style.width = "400px";
+    modalContent.addEventListener("keydown", (e) => e.stopPropagation());
+    modalContent.addEventListener("keyup", (e) => e.stopPropagation());
+    modalContent.addEventListener("keypress", (e) => e.stopPropagation());
     const title = document.createElement("div");
     title.className = "modal-title";
     title.textContent = `${t("modals.logWorkTitle")} ${dateStr}`;
@@ -6488,7 +6523,10 @@ var UIBuilder = class {
     buttonDiv.style.justifyContent = "flex-end";
     const cancelBtn = document.createElement("button");
     cancelBtn.textContent = t("buttons.cancel");
-    cancelBtn.onclick = () => modal.remove();
+    cancelBtn.onclick = () => {
+      this.isModalOpen = false;
+      modal.remove();
+    };
     buttonDiv.appendChild(cancelBtn);
     const addBtn = document.createElement("button");
     addBtn.textContent = "Legg til";
@@ -6529,6 +6567,7 @@ var UIBuilder = class {
           this.updateWeekCard();
           this.updateStatsCard();
           this.updateMonthCard();
+          this.isModalOpen = false;
           modal.remove();
         } catch (error) {
           console.error("Failed to add work time:", error);
@@ -6578,18 +6617,25 @@ var UIBuilder = class {
       new import_obsidian4.Notice("Ingen arbeidstidsoppf\xF8ringer funnet for denne datoen");
       return;
     }
+    this.isModalOpen = true;
     const modal = document.createElement("div");
     modal.className = "modal-container mod-dim";
     modal.style.zIndex = "1000";
     const modalBg = document.createElement("div");
     modalBg.className = "modal-bg";
-    modalBg.onclick = () => modal.remove();
+    modalBg.onclick = () => {
+      this.isModalOpen = false;
+      modal.remove();
+    };
     modal.appendChild(modalBg);
     const modalContent = document.createElement("div");
     modalContent.className = "modal";
     modalContent.style.width = "500px";
     modalContent.style.maxHeight = "80vh";
     modalContent.style.overflow = "auto";
+    modalContent.addEventListener("keydown", (e) => e.stopPropagation());
+    modalContent.addEventListener("keyup", (e) => e.stopPropagation());
+    modalContent.addEventListener("keypress", (e) => e.stopPropagation());
     const title = document.createElement("div");
     title.className = "modal-title";
     title.textContent = `${t("modals.editWorkTitle")} ${dateStr}`;
@@ -6609,13 +6655,17 @@ var UIBuilder = class {
       const endDate = entry.endTime ? new Date(entry.endTime) : null;
       const startTimeStr = `${startDate.getHours().toString().padStart(2, "0")}:${startDate.getMinutes().toString().padStart(2, "0")}`;
       const endTimeStr = endDate ? `${endDate.getHours().toString().padStart(2, "0")}:${endDate.getMinutes().toString().padStart(2, "0")}` : t("ui.ongoing");
+      const startDateStr = Utils.toLocalDateStr(startDate);
+      const endDateStr = endDate ? Utils.toLocalDateStr(endDate) : null;
+      const isMultiDay = endDate && startDateStr !== endDateStr;
       const duration = endDate ? ((endDate.getTime() - startDate.getTime()) / (1e3 * 60 * 60)).toFixed(1) : "N/A";
       const infoDiv = document.createElement("div");
       infoDiv.style.marginBottom = "10px";
       const entryLabel = item.parent ? `${item.parent.name} - ${entry.name}` : `Oppf\xF8ring ${index + 1}`;
       const titleDiv = infoDiv.createDiv({ text: entryLabel });
       titleDiv.style.cssText = "font-weight: bold; margin-bottom: 5px;";
-      infoDiv.createDiv({ text: `\u23F0 ${startTimeStr} - ${endTimeStr}` });
+      const timeDisplay = isMultiDay ? `\u23F0 ${startDateStr} ${startTimeStr} \u2192 ${endDateStr} ${endTimeStr}` : `\u23F0 ${startTimeStr} - ${endTimeStr}`;
+      infoDiv.createDiv({ text: timeDisplay });
       infoDiv.createDiv({ text: `\u23F1\uFE0F ${duration} timer` });
       entryDiv.appendChild(infoDiv);
       const editDiv = document.createElement("div");
@@ -6626,25 +6676,45 @@ var UIBuilder = class {
       startLabel.style.marginBottom = "5px";
       startLabel.style.fontWeight = "bold";
       editDiv.appendChild(startLabel);
-      const startInput = document.createElement("input");
-      startInput.type = "text";
-      startInput.value = startTimeStr;
-      startInput.style.width = "100%";
-      startInput.style.marginBottom = "10px";
-      startInput.style.padding = "6px";
-      editDiv.appendChild(startInput);
+      const startRow = document.createElement("div");
+      startRow.style.display = "flex";
+      startRow.style.gap = "8px";
+      startRow.style.marginBottom = "10px";
+      const startDateInput = document.createElement("input");
+      startDateInput.type = "date";
+      startDateInput.value = startDateStr;
+      startDateInput.style.flex = "1";
+      startDateInput.style.padding = "6px";
+      startRow.appendChild(startDateInput);
+      const startTimeInput = document.createElement("input");
+      startTimeInput.type = "time";
+      startTimeInput.value = startTimeStr;
+      startTimeInput.style.flex = "1";
+      startTimeInput.style.padding = "6px";
+      startRow.appendChild(startTimeInput);
+      editDiv.appendChild(startRow);
       const endLabel = document.createElement("div");
       endLabel.textContent = `${t("modals.endTime")}:`;
       endLabel.style.marginBottom = "5px";
       endLabel.style.fontWeight = "bold";
       editDiv.appendChild(endLabel);
-      const endInput = document.createElement("input");
-      endInput.type = "text";
-      endInput.value = endTimeStr !== t("ui.ongoing") ? endTimeStr : "";
-      endInput.style.width = "100%";
-      endInput.style.marginBottom = "10px";
-      endInput.style.padding = "6px";
-      editDiv.appendChild(endInput);
+      const endRow = document.createElement("div");
+      endRow.style.display = "flex";
+      endRow.style.gap = "8px";
+      endRow.style.marginBottom = "10px";
+      const endDateInput = document.createElement("input");
+      endDateInput.type = "date";
+      endDateInput.value = endDateStr || startDateStr;
+      endDateInput.style.flex = "1";
+      endDateInput.style.padding = "6px";
+      endRow.appendChild(endDateInput);
+      const endTimeInput = document.createElement("input");
+      endTimeInput.type = "time";
+      endTimeInput.value = endTimeStr !== t("ui.ongoing") ? endTimeStr : "";
+      endTimeInput.style.flex = "1";
+      endTimeInput.style.padding = "6px";
+      endRow.appendChild(endTimeInput);
+      editDiv.appendChild(endRow);
       entryDiv.appendChild(editDiv);
       const buttonDiv = document.createElement("div");
       buttonDiv.style.display = "flex";
@@ -6658,19 +6728,23 @@ var UIBuilder = class {
           editDiv.style.display = "block";
           editBtn.textContent = `\u{1F4BE} ${t("buttons.save")}`;
         } else {
-          const newStartTime = startInput.value.trim();
-          const newEndTime = endInput.value.trim();
-          const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
-          if (!timeRegex.test(newStartTime) || newEndTime && !timeRegex.test(newEndTime)) {
-            new import_obsidian4.Notice("\u274C Ugyldig tidsformat. Bruk HH:MM format.");
+          const newStartDateValue = startDateInput.value;
+          const newStartTimeValue = startTimeInput.value;
+          const newEndDateValue = endDateInput.value;
+          const newEndTimeValue = endTimeInput.value;
+          if (!newStartDateValue || !newStartTimeValue) {
+            new import_obsidian4.Notice("\u274C Starttid m\xE5 fylles ut");
             return;
           }
-          const [startHour, startMin] = newStartTime.split(":").map(Number);
-          const newStartDate = new Date(dateObj);
-          newStartDate.setHours(startHour, startMin, 0, 0);
+          const newStartDate = /* @__PURE__ */ new Date(`${newStartDateValue}T${newStartTimeValue}:00`);
+          if (isNaN(newStartDate.getTime())) {
+            new import_obsidian4.Notice("\u274C Ugyldig startdato/tid");
+            return;
+          }
           const saveUpdate = async (finalEndDate) => {
             if (finalEndDate) {
-              if (this.checkProhibitedOverlap(dateStr, entry.name, newStartDate, finalEndDate, entry)) {
+              const checkDateStr = Utils.toLocalDateStr(newStartDate);
+              if (this.checkProhibitedOverlap(checkDateStr, entry.name, newStartDate, finalEndDate, entry)) {
                 new import_obsidian4.Notice(`\u274C ${t("validation.overlappingEntry")}`);
                 return;
               }
@@ -6685,21 +6759,20 @@ var UIBuilder = class {
             this.updateWeekCard();
             this.updateStatsCard();
             this.updateMonthCard();
+            this.isModalOpen = false;
             modal.remove();
           };
-          if (newEndTime) {
-            const [endHour, endMin] = newEndTime.split(":").map(Number);
-            let newEndDate = new Date(dateObj);
-            newEndDate.setHours(endHour, endMin, 0, 0);
-            if (newEndDate <= newStartDate) {
-              this.showOvernightShiftConfirmation(() => {
-                const nextDayEndDate = new Date(newEndDate);
-                nextDayEndDate.setDate(nextDayEndDate.getDate() + 1);
-                saveUpdate(nextDayEndDate);
-              });
-            } else {
-              saveUpdate(newEndDate);
+          if (newEndTimeValue) {
+            const newEndDate = /* @__PURE__ */ new Date(`${newEndDateValue}T${newEndTimeValue}:00`);
+            if (isNaN(newEndDate.getTime())) {
+              new import_obsidian4.Notice("\u274C Ugyldig sluttdato/tid");
+              return;
             }
+            if (newEndDate <= newStartDate) {
+              new import_obsidian4.Notice("\u274C Sluttid m\xE5 v\xE6re etter starttid");
+              return;
+            }
+            saveUpdate(newEndDate);
           } else {
             saveUpdate(null);
           }
@@ -6739,6 +6812,7 @@ var UIBuilder = class {
             this.updateWeekCard();
             this.updateStatsCard();
             this.updateMonthCard();
+            this.isModalOpen = false;
             modal.remove();
           }
         });
@@ -6753,7 +6827,10 @@ var UIBuilder = class {
     closeDiv.style.justifyContent = "flex-end";
     const closeBtn = document.createElement("button");
     closeBtn.textContent = t("buttons.close");
-    closeBtn.onclick = () => modal.remove();
+    closeBtn.onclick = () => {
+      this.isModalOpen = false;
+      modal.remove();
+    };
     closeDiv.appendChild(closeBtn);
     content.appendChild(closeDiv);
     modalContent.appendChild(content);
@@ -6762,16 +6839,23 @@ var UIBuilder = class {
   }
   showSpecialDayModal(dateObj) {
     const dateStr = Utils.toLocalDateStr(dateObj);
+    this.isModalOpen = true;
     const modal = document.createElement("div");
     modal.className = "modal-container mod-dim";
     modal.style.zIndex = "1000";
     const modalBg = document.createElement("div");
     modalBg.className = "modal-bg";
-    modalBg.onclick = () => modal.remove();
+    modalBg.onclick = () => {
+      this.isModalOpen = false;
+      modal.remove();
+    };
     modal.appendChild(modalBg);
     const modalContent = document.createElement("div");
     modalContent.className = "modal";
     modalContent.style.width = "400px";
+    modalContent.addEventListener("keydown", (e) => e.stopPropagation());
+    modalContent.addEventListener("keyup", (e) => e.stopPropagation());
+    modalContent.addEventListener("keypress", (e) => e.stopPropagation());
     const title = document.createElement("div");
     title.className = "modal-title";
     title.textContent = t("modals.registerSpecialDayTitle");
@@ -6886,7 +6970,10 @@ var UIBuilder = class {
     buttonDiv.style.justifyContent = "flex-end";
     const cancelBtn = document.createElement("button");
     cancelBtn.textContent = t("buttons.cancel");
-    cancelBtn.onclick = () => modal.remove();
+    cancelBtn.onclick = () => {
+      this.isModalOpen = false;
+      modal.remove();
+    };
     buttonDiv.appendChild(cancelBtn);
     const addBtn = document.createElement("button");
     addBtn.textContent = "Legg til";
@@ -6897,6 +6984,7 @@ var UIBuilder = class {
       const startTime = dayType === "avspasering" ? fromTimeInput.value : void 0;
       const endTime = dayType === "avspasering" ? toTimeInput.value : void 0;
       await this.addSpecialDay(dateObj, dayType, note, startTime, endTime);
+      this.isModalOpen = false;
       modal.remove();
     };
     buttonDiv.appendChild(addBtn);
@@ -7412,14 +7500,41 @@ ${noteType.tags.join(" ")}`;
               (b) => b.id === e.name.toLowerCase()
             );
             const isWorkEntry = (entryBehavior == null ? void 0 : entryBehavior.isWorkType) || ["jobb", "kurs", "studie"].includes(e.name.toLowerCase());
-            const hasConflict = holidayInfo && ["ferie", "helligdag", "egenmelding", "sykemelding", "velferdspermisjon"].includes(holidayInfo.type) && isWorkEntry;
+            const hasSpecialDayConflict = holidayInfo && ["ferie", "helligdag", "egenmelding", "sykemelding", "velferdspermisjon"].includes(holidayInfo.type) && isWorkEntry;
+            let hasTimeOverlap = false;
+            let overlapDetails = "";
+            if ((matchingRaw == null ? void 0 : matchingRaw.startTime) && (matchingRaw == null ? void 0 : matchingRaw.endTime)) {
+              const thisStart = new Date(matchingRaw.startTime).getTime();
+              const thisEnd = new Date(matchingRaw.endTime).getTime();
+              for (const otherItem of rawDayEntries) {
+                if (otherItem.entry === matchingRaw)
+                  continue;
+                if (!otherItem.entry.startTime || !otherItem.entry.endTime)
+                  continue;
+                const otherStart = new Date(otherItem.entry.startTime).getTime();
+                const otherEnd = new Date(otherItem.entry.endTime).getTime();
+                if (thisStart < otherEnd && thisEnd > otherStart) {
+                  hasTimeOverlap = true;
+                  const otherStartTime = new Date(otherItem.entry.startTime);
+                  const otherEndTime = new Date(otherItem.entry.endTime);
+                  overlapDetails = `${otherItem.entry.name} (${otherStartTime.getHours().toString().padStart(2, "0")}:${otherStartTime.getMinutes().toString().padStart(2, "0")}-${otherEndTime.getHours().toString().padStart(2, "0")}:${otherEndTime.getMinutes().toString().padStart(2, "0")})`;
+                  break;
+                }
+              }
+            }
             if (e.isActive) {
               const activeIcon = document.createElement("span");
               activeIcon.textContent = "\u23F1\uFE0F ";
               activeIcon.title = t("ui.activeTimer");
               activeIcon.style.cursor = "help";
               dateCell.appendChild(activeIcon);
-            } else if (hasConflict) {
+            } else if (hasTimeOverlap) {
+              const overlapIcon = document.createElement("span");
+              overlapIcon.textContent = "\u{1F534} ";
+              overlapIcon.title = `Overlapper med: ${overlapDetails}`;
+              overlapIcon.style.cursor = "help";
+              dateCell.appendChild(overlapIcon);
+            } else if (hasSpecialDayConflict) {
               const flagIcon = document.createElement("span");
               flagIcon.textContent = "\u26A0\uFE0F ";
               flagIcon.title = t("info.workRegisteredOnSpecialDay").replace("{dayType}", translateSpecialDayName(holidayInfo.type));
@@ -7441,10 +7556,9 @@ ${noteType.tags.join(" ")}`;
                 select.appendChild(option);
               });
               select.onchange = async () => {
-                var _a, _b;
                 matchingRaw.name = select.value;
                 await this.timerManager.save();
-                await ((_b = (_a = this.plugin.timerManager).onTimerChange) == null ? void 0 : _b.call(_a));
+                this.softRefreshHistory();
               };
               typeCell.appendChild(select);
             } else {
@@ -7455,49 +7569,116 @@ ${noteType.tags.join(" ")}`;
             const startCell = document.createElement("td");
             if (matchingRaw == null ? void 0 : matchingRaw.startTime) {
               const startDate = new Date(matchingRaw.startTime);
+              const startDateStr = Utils.toLocalDateStr(startDate);
               const startTimeStr = `${startDate.getHours().toString().padStart(2, "0")}:${startDate.getMinutes().toString().padStart(2, "0")}`;
+              const endDateForCheck = matchingRaw.endTime ? new Date(matchingRaw.endTime) : null;
+              const isMultiDay = endDateForCheck && Utils.toLocalDateStr(startDate) !== Utils.toLocalDateStr(endDateForCheck);
               if (this.inlineEditMode) {
-                const input = document.createElement("input");
-                input.type = "time";
-                input.value = startTimeStr;
-                input.onchange = async () => {
-                  var _a, _b;
-                  const [hours, minutes] = input.value.split(":").map(Number);
+                const container2 = document.createElement("div");
+                container2.style.display = "flex";
+                container2.style.flexDirection = "column";
+                container2.style.gap = "4px";
+                if (isMultiDay) {
+                  const dateInput = document.createElement("input");
+                  dateInput.type = "date";
+                  dateInput.value = startDateStr;
+                  dateInput.style.fontSize = "12px";
+                  dateInput.onchange = async () => {
+                    const newStart = /* @__PURE__ */ new Date(`${dateInput.value}T${timeInput.value}:00`);
+                    matchingRaw.startTime = Utils.toLocalISOString(newStart);
+                    await this.timerManager.save();
+                    this.softRefreshHistory();
+                  };
+                  container2.appendChild(dateInput);
+                }
+                const timeInput = document.createElement("input");
+                timeInput.type = "time";
+                timeInput.value = startTimeStr;
+                timeInput.onchange = async () => {
+                  const [hours, minutes] = timeInput.value.split(":").map(Number);
                   const newStart = new Date(matchingRaw.startTime);
                   newStart.setHours(hours, minutes, 0, 0);
                   matchingRaw.startTime = Utils.toLocalISOString(newStart);
                   await this.timerManager.save();
-                  await ((_b = (_a = this.plugin.timerManager).onTimerChange) == null ? void 0 : _b.call(_a));
+                  this.softRefreshHistory();
                 };
-                startCell.appendChild(input);
+                container2.appendChild(timeInput);
+                startCell.appendChild(container2);
               } else {
-                startCell.textContent = startTimeStr;
+                startCell.textContent = isMultiDay ? `${startDateStr} ${startTimeStr}` : startTimeStr;
               }
             } else {
               startCell.textContent = "-";
             }
             row.appendChild(startCell);
             const endCell = document.createElement("td");
-            if (matchingRaw == null ? void 0 : matchingRaw.endTime) {
-              const endDate = new Date(matchingRaw.endTime);
+            const endDateParsed = (matchingRaw == null ? void 0 : matchingRaw.endTime) ? new Date(matchingRaw.endTime) : null;
+            const hasValidEndTime = endDateParsed && !isNaN(endDateParsed.getTime());
+            if (hasValidEndTime) {
+              const endDate = endDateParsed;
+              const endDateStr = Utils.toLocalDateStr(endDate);
               const endTimeStr = `${endDate.getHours().toString().padStart(2, "0")}:${endDate.getMinutes().toString().padStart(2, "0")}`;
+              const startDateForCheck = matchingRaw.startTime ? new Date(matchingRaw.startTime) : null;
+              const isMultiDay = startDateForCheck && Utils.toLocalDateStr(startDateForCheck) !== Utils.toLocalDateStr(endDate);
               if (this.inlineEditMode) {
-                const input = document.createElement("input");
-                input.type = "time";
-                input.value = endTimeStr;
-                input.onchange = async () => {
-                  var _a, _b;
-                  const [hours, minutes] = input.value.split(":").map(Number);
+                const container2 = document.createElement("div");
+                container2.style.display = "flex";
+                container2.style.flexDirection = "column";
+                container2.style.gap = "4px";
+                if (isMultiDay) {
+                  const dateInput = document.createElement("input");
+                  dateInput.type = "date";
+                  dateInput.value = endDateStr;
+                  dateInput.style.fontSize = "12px";
+                  dateInput.onchange = async () => {
+                    const newEnd = /* @__PURE__ */ new Date(`${dateInput.value}T${timeInput.value}:00`);
+                    matchingRaw.endTime = Utils.toLocalISOString(newEnd);
+                    await this.timerManager.save();
+                    this.softRefreshHistory();
+                  };
+                  container2.appendChild(dateInput);
+                }
+                const timeInput = document.createElement("input");
+                timeInput.type = "time";
+                timeInput.value = endTimeStr;
+                timeInput.onchange = async () => {
+                  const [hours, minutes] = timeInput.value.split(":").map(Number);
                   const newEnd = new Date(matchingRaw.endTime);
                   newEnd.setHours(hours, minutes, 0, 0);
                   matchingRaw.endTime = Utils.toLocalISOString(newEnd);
                   await this.timerManager.save();
-                  await ((_b = (_a = this.plugin.timerManager).onTimerChange) == null ? void 0 : _b.call(_a));
+                  this.softRefreshHistory();
                 };
-                endCell.appendChild(input);
+                container2.appendChild(timeInput);
+                endCell.appendChild(container2);
               } else {
-                endCell.textContent = endTimeStr;
+                endCell.textContent = isMultiDay ? `${endDateStr} ${endTimeStr}` : endTimeStr;
               }
+            } else if (this.inlineEditMode && matchingRaw) {
+              const startDate = matchingRaw.startTime ? new Date(matchingRaw.startTime) : /* @__PURE__ */ new Date();
+              const startDateStr = Utils.toLocalDateStr(startDate);
+              const container2 = document.createElement("div");
+              container2.style.display = "flex";
+              container2.style.flexDirection = "column";
+              container2.style.gap = "4px";
+              const timeInput = document.createElement("input");
+              timeInput.type = "time";
+              timeInput.placeholder = "HH:MM";
+              timeInput.onchange = async () => {
+                if (!timeInput.value)
+                  return;
+                const [hours, minutes] = timeInput.value.split(":").map(Number);
+                const newEnd = new Date(startDate);
+                newEnd.setHours(hours, minutes, 0, 0);
+                if (newEnd <= startDate) {
+                  newEnd.setDate(newEnd.getDate() + 1);
+                }
+                matchingRaw.endTime = Utils.toLocalISOString(newEnd);
+                await this.timerManager.save();
+                this.softRefreshHistory();
+              };
+              container2.appendChild(timeInput);
+              endCell.appendChild(container2);
             } else {
               endCell.textContent = matchingRaw ? t("ui.ongoing") : "-";
             }
@@ -7517,7 +7698,6 @@ ${noteType.tags.join(" ")}`;
                 deleteBtn.textContent = "\u{1F5D1}\uFE0F";
                 deleteBtn.title = t("menu.deleteEntry");
                 deleteBtn.onclick = async () => {
-                  var _a, _b;
                   if (confirm(`${t("confirm.deleteEntryFor")} ${dateStr}?`)) {
                     if (matchingItem.parent && matchingItem.subIndex !== void 0) {
                       if (matchingItem.parent.subEntries) {
@@ -7536,7 +7716,7 @@ ${noteType.tags.join(" ")}`;
                       }
                     }
                     await this.timerManager.save();
-                    await ((_b = (_a = this.plugin.timerManager).onTimerChange) == null ? void 0 : _b.call(_a));
+                    this.softRefreshHistory();
                   }
                 };
                 actionCell.appendChild(deleteBtn);
@@ -7568,16 +7748,23 @@ ${noteType.tags.join(" ")}`;
   }
   showAddEntryModal(targetDate) {
     const dateStr = Utils.toLocalDateStr(targetDate);
+    this.isModalOpen = true;
     const modal = document.createElement("div");
     modal.className = "modal-container mod-dim";
     modal.style.zIndex = "1000";
     const modalBg = document.createElement("div");
     modalBg.className = "modal-bg";
-    modalBg.onclick = () => modal.remove();
+    modalBg.onclick = () => {
+      this.isModalOpen = false;
+      modal.remove();
+    };
     modal.appendChild(modalBg);
     const modalContent = document.createElement("div");
     modalContent.className = "modal";
     modalContent.style.width = "400px";
+    modalContent.addEventListener("keydown", (e) => e.stopPropagation());
+    modalContent.addEventListener("keyup", (e) => e.stopPropagation());
+    modalContent.addEventListener("keypress", (e) => e.stopPropagation());
     const title = document.createElement("div");
     title.className = "modal-title";
     title.textContent = `Legg til oppf\xF8ring for ${dateStr}`;
@@ -7631,7 +7818,10 @@ ${noteType.tags.join(" ")}`;
     buttonContainer.style.justifyContent = "flex-end";
     const cancelBtn = document.createElement("button");
     cancelBtn.textContent = t("buttons.cancel");
-    cancelBtn.onclick = () => modal.remove();
+    cancelBtn.onclick = () => {
+      this.isModalOpen = false;
+      modal.remove();
+    };
     buttonContainer.appendChild(cancelBtn);
     const saveBtn = document.createElement("button");
     saveBtn.className = "mod-cta";
@@ -7655,6 +7845,7 @@ ${noteType.tags.join(" ")}`;
         subEntries: null
       });
       await this.timerManager.save();
+      this.isModalOpen = false;
       modal.remove();
       const duration = (endDate.getTime() - startDate.getTime()) / (1e3 * 60 * 60);
       new import_obsidian4.Notice(`\u2705 Lagt til ${duration.toFixed(1)} timer for ${dateStr}`);
@@ -7687,7 +7878,40 @@ ${noteType.tags.join(" ")}`;
       cell.className = "tf-heatmap-cell";
       cell.title = dateKey;
       const dayEntries = this.data.daily[dateKey];
-      if (dayEntries) {
+      const holidayInfo = this.data.getHolidayInfo(dateKey);
+      if (this.settings.heatmapShowSpecialDayColors) {
+        let specialDayBehavior = void 0;
+        if (holidayInfo) {
+          specialDayBehavior = this.settings.specialDayBehaviors.find((b) => b.id === holidayInfo.type);
+        }
+        if (!specialDayBehavior && dayEntries) {
+          for (const entry of dayEntries) {
+            const entryName = entry.name.toLowerCase();
+            if (entryName === "jobb")
+              continue;
+            const entryBehavior = this.settings.specialDayBehaviors.find(
+              (b) => b.id === entryName
+            );
+            if (entryBehavior) {
+              specialDayBehavior = entryBehavior;
+              break;
+            }
+          }
+        }
+        if (specialDayBehavior) {
+          cell.style.background = specialDayBehavior.color;
+          cell.title = `${dateKey} - ${specialDayBehavior.icon} ${specialDayBehavior.label}`;
+        } else if (dayEntries) {
+          if (!this.settings.enableGoalTracking) {
+            cell.style.background = "var(--background-secondary)";
+          } else {
+            const dayFlextime = dayEntries.reduce((sum, e) => sum + (e.flextime || 0), 0);
+            cell.style.background = this.flextimeColor(dayFlextime);
+          }
+        } else {
+          cell.style.background = "var(--background-modifier-border)";
+        }
+      } else if (dayEntries) {
         if (!this.settings.enableGoalTracking) {
           cell.style.background = "var(--background-secondary)";
         } else {
@@ -7734,8 +7958,28 @@ ${noteType.tags.join(" ")}`;
     this.intervals.push(dataInterval);
   }
   updateAll() {
+    if (this.isModalOpen)
+      return;
     this.updateBadge();
     this.updateTimerBadge();
+    this.updateDayCard();
+    this.updateWeekCard();
+    this.updateStatsCard();
+  }
+  /**
+   * Soft refresh for inline editing - updates data and history view
+   * without rebuilding the entire dashboard. Preserves edit mode state.
+   */
+  softRefreshHistory() {
+    this.data.rawEntries = this.timerManager.convertToTimeEntries();
+    this.data.processEntries();
+    const historyDetails = this.container.querySelector("details.tf-history-section");
+    if (historyDetails) {
+      const historyContainer = historyDetails.querySelector(".tf-history-content");
+      if (historyContainer) {
+        this.refreshHistoryView(historyContainer);
+      }
+    }
     this.updateDayCard();
     this.updateWeekCard();
     this.updateStatsCard();
@@ -8017,7 +8261,7 @@ ${JSON.stringify(this.data, null, 2)}
     this.data.settings = settings;
     await this.save();
   }
-  async startTimer(name = "Jobb") {
+  async startTimer(name = "jobb") {
     const timer = {
       name,
       startTime: Utils.toLocalISOString(/* @__PURE__ */ new Date()),

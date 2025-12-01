@@ -18,6 +18,7 @@ export class UIBuilder {
 	currentMonthOffset: number = 0;
 	historyFilter: string[] = []; // empty = all, or list of type IDs to filter by
 	inlineEditMode: boolean = false; // toggle for inline editing in wide view
+	isModalOpen: boolean = false; // prevents background refresh while modal is open
 	systemStatus: any;
 	settings: TimeFlowSettings;
 	app: App;
@@ -668,11 +669,12 @@ export class UIBuilder {
 				aspect-ratio: 1;
 				border-radius: 4px;
 				cursor: pointer;
-				transition: transform 0.2s;
+				transition: opacity 0.2s, box-shadow 0.2s;
 			}
 
 			.tf-heatmap-cell:hover {
-				transform: scale(1.2);
+				opacity: 0.8;
+				box-shadow: inset 0 0 0 2px var(--text-accent);
 			}
 
 			/* Make heatmap cells larger on mobile */
@@ -3662,6 +3664,7 @@ export class UIBuilder {
 
 	showWorkTimeModal(dateObj: Date): void {
 		const dateStr = Utils.toLocalDateStr(dateObj);
+		this.isModalOpen = true;
 
 		// Create modal
 		const modal = document.createElement('div');
@@ -3670,12 +3673,17 @@ export class UIBuilder {
 
 		const modalBg = document.createElement('div');
 		modalBg.className = 'modal-bg';
-		modalBg.onclick = () => modal.remove();
+		modalBg.onclick = () => { this.isModalOpen = false; modal.remove(); };
 		modal.appendChild(modalBg);
 
 		const modalContent = document.createElement('div');
 		modalContent.className = 'modal';
 		modalContent.style.width = '400px';
+
+		// Prevent Obsidian from capturing keyboard events in modal inputs
+		modalContent.addEventListener('keydown', (e) => e.stopPropagation());
+		modalContent.addEventListener('keyup', (e) => e.stopPropagation());
+		modalContent.addEventListener('keypress', (e) => e.stopPropagation());
 
 		// Title
 		const title = document.createElement('div');
@@ -3730,7 +3738,7 @@ export class UIBuilder {
 
 		const cancelBtn = document.createElement('button');
 		cancelBtn.textContent = t('buttons.cancel');
-		cancelBtn.onclick = () => modal.remove();
+		cancelBtn.onclick = () => { this.isModalOpen = false; modal.remove(); };
 		buttonDiv.appendChild(cancelBtn);
 
 		const addBtn = document.createElement('button');
@@ -3790,6 +3798,7 @@ export class UIBuilder {
 					this.updateStatsCard();
 					this.updateMonthCard();
 
+					this.isModalOpen = false;
 					modal.remove();
 				} catch (error) {
 					console.error('Failed to add work time:', error);
@@ -3852,6 +3861,8 @@ export class UIBuilder {
 			return;
 		}
 
+		this.isModalOpen = true;
+
 		// Create modal
 		const modal = document.createElement('div');
 		modal.className = 'modal-container mod-dim';
@@ -3859,7 +3870,7 @@ export class UIBuilder {
 
 		const modalBg = document.createElement('div');
 		modalBg.className = 'modal-bg';
-		modalBg.onclick = () => modal.remove();
+		modalBg.onclick = () => { this.isModalOpen = false; modal.remove(); };
 		modal.appendChild(modalBg);
 
 		const modalContent = document.createElement('div');
@@ -3867,6 +3878,11 @@ export class UIBuilder {
 		modalContent.style.width = '500px';
 		modalContent.style.maxHeight = '80vh';
 		modalContent.style.overflow = 'auto';
+
+		// Prevent Obsidian from capturing keyboard events in modal inputs
+		modalContent.addEventListener('keydown', (e) => e.stopPropagation());
+		modalContent.addEventListener('keyup', (e) => e.stopPropagation());
+		modalContent.addEventListener('keypress', (e) => e.stopPropagation());
 
 		// Title
 		const title = document.createElement('div');
@@ -3895,6 +3911,11 @@ export class UIBuilder {
 			const startTimeStr = `${startDate.getHours().toString().padStart(2, '0')}:${startDate.getMinutes().toString().padStart(2, '0')}`;
 			const endTimeStr = endDate ? `${endDate.getHours().toString().padStart(2, '0')}:${endDate.getMinutes().toString().padStart(2, '0')}` : t('ui.ongoing');
 
+			// Check if entry spans multiple days
+			const startDateStr = Utils.toLocalDateStr(startDate);
+			const endDateStr = endDate ? Utils.toLocalDateStr(endDate) : null;
+			const isMultiDay = endDate && startDateStr !== endDateStr;
+
 			const duration = endDate ? ((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60)).toFixed(1) : 'N/A';
 
 			// Entry info
@@ -3905,7 +3926,12 @@ export class UIBuilder {
 			const entryLabel = item.parent ? `${item.parent.name} - ${entry.name}` : `Oppføring ${index + 1}`;
 			const titleDiv = infoDiv.createDiv({ text: entryLabel });
 			titleDiv.style.cssText = 'font-weight: bold; margin-bottom: 5px;';
-			infoDiv.createDiv({ text: `⏰ ${startTimeStr} - ${endTimeStr}` });
+
+			// Show time with date indicator for multi-day entries
+			const timeDisplay = isMultiDay
+				? `⏰ ${startDateStr} ${startTimeStr} → ${endDateStr} ${endTimeStr}`
+				: `⏰ ${startTimeStr} - ${endTimeStr}`;
+			infoDiv.createDiv({ text: timeDisplay });
 			infoDiv.createDiv({ text: `⏱️ ${duration} timer` });
 
 			entryDiv.appendChild(infoDiv);
@@ -3915,33 +3941,61 @@ export class UIBuilder {
 			editDiv.style.display = 'none';
 			editDiv.style.marginTop = '10px';
 
+			// Start date + time row
 			const startLabel = document.createElement('div');
 			startLabel.textContent = `${t('modals.startTime')}:`;
 			startLabel.style.marginBottom = '5px';
 			startLabel.style.fontWeight = 'bold';
 			editDiv.appendChild(startLabel);
 
-			const startInput = document.createElement('input');
-			startInput.type = 'text';
-			startInput.value = startTimeStr;
-			startInput.style.width = '100%';
-			startInput.style.marginBottom = '10px';
-			startInput.style.padding = '6px';
-			editDiv.appendChild(startInput);
+			const startRow = document.createElement('div');
+			startRow.style.display = 'flex';
+			startRow.style.gap = '8px';
+			startRow.style.marginBottom = '10px';
 
+			const startDateInput = document.createElement('input');
+			startDateInput.type = 'date';
+			startDateInput.value = startDateStr;
+			startDateInput.style.flex = '1';
+			startDateInput.style.padding = '6px';
+			startRow.appendChild(startDateInput);
+
+			const startTimeInput = document.createElement('input');
+			startTimeInput.type = 'time';
+			startTimeInput.value = startTimeStr;
+			startTimeInput.style.flex = '1';
+			startTimeInput.style.padding = '6px';
+			startRow.appendChild(startTimeInput);
+
+			editDiv.appendChild(startRow);
+
+			// End date + time row
 			const endLabel = document.createElement('div');
 			endLabel.textContent = `${t('modals.endTime')}:`;
 			endLabel.style.marginBottom = '5px';
 			endLabel.style.fontWeight = 'bold';
 			editDiv.appendChild(endLabel);
 
-			const endInput = document.createElement('input');
-			endInput.type = 'text';
-			endInput.value = endTimeStr !== t('ui.ongoing') ? endTimeStr : '';
-			endInput.style.width = '100%';
-			endInput.style.marginBottom = '10px';
-			endInput.style.padding = '6px';
-			editDiv.appendChild(endInput);
+			const endRow = document.createElement('div');
+			endRow.style.display = 'flex';
+			endRow.style.gap = '8px';
+			endRow.style.marginBottom = '10px';
+
+			const endDateInput = document.createElement('input');
+			endDateInput.type = 'date';
+			endDateInput.value = endDateStr || startDateStr;
+			endDateInput.style.flex = '1';
+			endDateInput.style.padding = '6px';
+			endRow.appendChild(endDateInput);
+
+			const endTimeInput = document.createElement('input');
+			endTimeInput.type = 'time';
+			endTimeInput.value = endTimeStr !== t('ui.ongoing') ? endTimeStr : '';
+			endTimeInput.style.flex = '1';
+			endTimeInput.style.padding = '6px';
+			endRow.appendChild(endTimeInput);
+
+			editDiv.appendChild(endRow);
 
 			entryDiv.appendChild(editDiv);
 
@@ -3959,25 +4013,31 @@ export class UIBuilder {
 					editDiv.style.display = 'block';
 					editBtn.textContent = `💾 ${t('buttons.save')}`;
 				} else {
-					// Save changes
-					const newStartTime = startInput.value.trim();
-					const newEndTime = endInput.value.trim();
+					// Save changes - use date+time inputs
+					const newStartDateValue = startDateInput.value;
+					const newStartTimeValue = startTimeInput.value;
+					const newEndDateValue = endDateInput.value;
+					const newEndTimeValue = endTimeInput.value;
 
-					const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
-					if (!timeRegex.test(newStartTime) || (newEndTime && !timeRegex.test(newEndTime))) {
-						new Notice('❌ Ugyldig tidsformat. Bruk HH:MM format.');
+					// Validate inputs
+					if (!newStartDateValue || !newStartTimeValue) {
+						new Notice('❌ Starttid må fylles ut');
 						return;
 					}
 
-					const [startHour, startMin] = newStartTime.split(':').map(Number);
-					const newStartDate = new Date(dateObj);
-					newStartDate.setHours(startHour, startMin, 0, 0);
+					// Create new start date
+					const newStartDate = new Date(`${newStartDateValue}T${newStartTimeValue}:00`);
+					if (isNaN(newStartDate.getTime())) {
+						new Notice('❌ Ugyldig startdato/tid');
+						return;
+					}
 
 					// Helper to save the entry update
 					const saveUpdate = async (finalEndDate: Date | null) => {
 						if (finalEndDate) {
 							// Check for prohibited overlaps (exclude current entry being edited)
-							if (this.checkProhibitedOverlap(dateStr, entry.name, newStartDate, finalEndDate, entry)) {
+							const checkDateStr = Utils.toLocalDateStr(newStartDate);
+							if (this.checkProhibitedOverlap(checkDateStr, entry.name, newStartDate, finalEndDate, entry)) {
 								new Notice(`❌ ${t('validation.overlappingEntry')}`);
 								return;
 							}
@@ -4000,24 +4060,24 @@ export class UIBuilder {
 						this.updateStatsCard();
 						this.updateMonthCard();
 
+						this.isModalOpen = false;
 						modal.remove();
 					};
 
-					if (newEndTime) {
-						const [endHour, endMin] = newEndTime.split(':').map(Number);
-						let newEndDate = new Date(dateObj);
-						newEndDate.setHours(endHour, endMin, 0, 0);
+					if (newEndTimeValue) {
+						// Create end date from inputs
+						const newEndDate = new Date(`${newEndDateValue}T${newEndTimeValue}:00`);
+						if (isNaN(newEndDate.getTime())) {
+							new Notice('❌ Ugyldig sluttdato/tid');
+							return;
+						}
 
 						if (newEndDate <= newStartDate) {
-							// Ask if it's an overnight shift
-							this.showOvernightShiftConfirmation(() => {
-								const nextDayEndDate = new Date(newEndDate);
-								nextDayEndDate.setDate(nextDayEndDate.getDate() + 1);
-								saveUpdate(nextDayEndDate);
-							});
-						} else {
-							saveUpdate(newEndDate);
+							new Notice('❌ Sluttid må være etter starttid');
+							return;
 						}
+
+						saveUpdate(newEndDate);
 					} else {
 						// No end time (active timer)
 						saveUpdate(null);
@@ -4070,6 +4130,7 @@ export class UIBuilder {
 						this.updateStatsCard();
 						this.updateMonthCard();
 
+						this.isModalOpen = false;
 						modal.remove();
 					}
 				});
@@ -4088,7 +4149,7 @@ export class UIBuilder {
 
 		const closeBtn = document.createElement('button');
 		closeBtn.textContent = t('buttons.close');
-		closeBtn.onclick = () => modal.remove();
+		closeBtn.onclick = () => { this.isModalOpen = false; modal.remove(); };
 		closeDiv.appendChild(closeBtn);
 
 		content.appendChild(closeDiv);
@@ -4100,6 +4161,7 @@ export class UIBuilder {
 
 	showSpecialDayModal(dateObj: Date): void {
 		const dateStr = Utils.toLocalDateStr(dateObj);
+		this.isModalOpen = true;
 
 		// Create modal
 		const modal = document.createElement('div');
@@ -4108,12 +4170,17 @@ export class UIBuilder {
 
 		const modalBg = document.createElement('div');
 		modalBg.className = 'modal-bg';
-		modalBg.onclick = () => modal.remove();
+		modalBg.onclick = () => { this.isModalOpen = false; modal.remove(); };
 		modal.appendChild(modalBg);
 
 		const modalContent = document.createElement('div');
 		modalContent.className = 'modal';
 		modalContent.style.width = '400px';
+
+		// Prevent Obsidian from capturing keyboard events in modal inputs
+		modalContent.addEventListener('keydown', (e) => e.stopPropagation());
+		modalContent.addEventListener('keyup', (e) => e.stopPropagation());
+		modalContent.addEventListener('keypress', (e) => e.stopPropagation());
 
 		// Title
 		const title = document.createElement('div');
@@ -4265,7 +4332,7 @@ export class UIBuilder {
 
 		const cancelBtn = document.createElement('button');
 		cancelBtn.textContent = t('buttons.cancel');
-		cancelBtn.onclick = () => modal.remove();
+		cancelBtn.onclick = () => { this.isModalOpen = false; modal.remove(); };
 		buttonDiv.appendChild(cancelBtn);
 
 		const addBtn = document.createElement('button');
@@ -4277,6 +4344,7 @@ export class UIBuilder {
 			const startTime = dayType === 'avspasering' ? fromTimeInput.value : undefined;
 			const endTime = dayType === 'avspasering' ? toTimeInput.value : undefined;
 			await this.addSpecialDay(dateObj, dayType, note, startTime, endTime);
+			this.isModalOpen = false;
 			modal.remove();
 		};
 		buttonDiv.appendChild(addBtn);
@@ -4968,9 +5036,35 @@ export class UIBuilder {
 						);
 						const isWorkEntry = entryBehavior?.isWorkType ||
 							['jobb', 'kurs', 'studie'].includes(e.name.toLowerCase());
-						const hasConflict = holidayInfo &&
+						const hasSpecialDayConflict = holidayInfo &&
 							['ferie', 'helligdag', 'egenmelding', 'sykemelding', 'velferdspermisjon'].includes(holidayInfo.type) &&
 							isWorkEntry;
+
+						// Check for time overlap with other entries on same day
+						let hasTimeOverlap = false;
+						let overlapDetails = '';
+						if (matchingRaw?.startTime && matchingRaw?.endTime) {
+							const thisStart = new Date(matchingRaw.startTime).getTime();
+							const thisEnd = new Date(matchingRaw.endTime).getTime();
+
+							// Check against all other entries on this day
+							for (const otherItem of rawDayEntries) {
+								if (otherItem.entry === matchingRaw) continue; // Skip self
+								if (!otherItem.entry.startTime || !otherItem.entry.endTime) continue;
+
+								const otherStart = new Date(otherItem.entry.startTime).getTime();
+								const otherEnd = new Date(otherItem.entry.endTime).getTime();
+
+								// Check if ranges overlap
+								if (thisStart < otherEnd && thisEnd > otherStart) {
+									hasTimeOverlap = true;
+									const otherStartTime = new Date(otherItem.entry.startTime);
+									const otherEndTime = new Date(otherItem.entry.endTime);
+									overlapDetails = `${otherItem.entry.name} (${otherStartTime.getHours().toString().padStart(2, '0')}:${otherStartTime.getMinutes().toString().padStart(2, '0')}-${otherEndTime.getHours().toString().padStart(2, '0')}:${otherEndTime.getMinutes().toString().padStart(2, '0')})`;
+									break;
+								}
+							}
+						}
 
 						// Show active indicator
 						if (e.isActive) {
@@ -4979,7 +5073,13 @@ export class UIBuilder {
 							activeIcon.title = t('ui.activeTimer');
 							activeIcon.style.cursor = 'help';
 							dateCell.appendChild(activeIcon);
-						} else if (hasConflict) {
+						} else if (hasTimeOverlap) {
+							const overlapIcon = document.createElement('span');
+							overlapIcon.textContent = '🔴 ';
+							overlapIcon.title = `Overlapper med: ${overlapDetails}`;
+							overlapIcon.style.cursor = 'help';
+							dateCell.appendChild(overlapIcon);
+						} else if (hasSpecialDayConflict) {
 							const flagIcon = document.createElement('span');
 							flagIcon.textContent = '⚠️ ';
 							flagIcon.title = t('info.workRegisteredOnSpecialDay').replace('{dayType}', translateSpecialDayName(holidayInfo!.type));
@@ -5005,8 +5105,7 @@ export class UIBuilder {
 							select.onchange = async () => {
 								matchingRaw.name = select.value;
 								await this.timerManager.save();
-								// Refresh the view to show updated values
-								await this.plugin.timerManager.onTimerChange?.();
+								this.softRefreshHistory();
 							};
 							typeCell.appendChild(select);
 						} else {
@@ -5019,23 +5118,50 @@ export class UIBuilder {
 						const startCell = document.createElement('td');
 						if (matchingRaw?.startTime) {
 							const startDate = new Date(matchingRaw.startTime);
+							const startDateStr = Utils.toLocalDateStr(startDate);
 							const startTimeStr = `${startDate.getHours().toString().padStart(2, '0')}:${startDate.getMinutes().toString().padStart(2, '0')}`;
 
+							// Check if entry spans multiple days
+							const endDateForCheck = matchingRaw.endTime ? new Date(matchingRaw.endTime) : null;
+							const isMultiDay = endDateForCheck && Utils.toLocalDateStr(startDate) !== Utils.toLocalDateStr(endDateForCheck);
+
 							if (this.inlineEditMode) {
-								const input = document.createElement('input');
-								input.type = 'time';
-								input.value = startTimeStr;
-								input.onchange = async () => {
-									const [hours, minutes] = input.value.split(':').map(Number);
+								const container = document.createElement('div');
+								container.style.display = 'flex';
+								container.style.flexDirection = 'column';
+								container.style.gap = '4px';
+
+								// Show date input for multi-day entries
+								if (isMultiDay) {
+									const dateInput = document.createElement('input');
+									dateInput.type = 'date';
+									dateInput.value = startDateStr;
+									dateInput.style.fontSize = '12px';
+									dateInput.onchange = async () => {
+										const newStart = new Date(`${dateInput.value}T${timeInput.value}:00`);
+										matchingRaw.startTime = Utils.toLocalISOString(newStart);
+										await this.timerManager.save();
+										this.softRefreshHistory();
+									};
+									container.appendChild(dateInput);
+								}
+
+								const timeInput = document.createElement('input');
+								timeInput.type = 'time';
+								timeInput.value = startTimeStr;
+								timeInput.onchange = async () => {
+									const [hours, minutes] = timeInput.value.split(':').map(Number);
 									const newStart = new Date(matchingRaw.startTime!);
 									newStart.setHours(hours, minutes, 0, 0);
 									matchingRaw.startTime = Utils.toLocalISOString(newStart);
 									await this.timerManager.save();
-									await this.plugin.timerManager.onTimerChange?.();
+									this.softRefreshHistory();
 								};
-								startCell.appendChild(input);
+								container.appendChild(timeInput);
+								startCell.appendChild(container);
 							} else {
-								startCell.textContent = startTimeStr;
+								// Show date for multi-day entries in display mode
+								startCell.textContent = isMultiDay ? `${startDateStr} ${startTimeStr}` : startTimeStr;
 							}
 						} else {
 							startCell.textContent = '-';
@@ -5044,26 +5170,86 @@ export class UIBuilder {
 
 						// End time cell
 						const endCell = document.createElement('td');
-						if (matchingRaw?.endTime) {
-							const endDate = new Date(matchingRaw.endTime);
+						// Check if endTime exists AND is a valid date (not NaN)
+						const endDateParsed = matchingRaw?.endTime ? new Date(matchingRaw.endTime) : null;
+						const hasValidEndTime = endDateParsed && !isNaN(endDateParsed.getTime());
+
+						if (hasValidEndTime) {
+							const endDate = endDateParsed;
+							const endDateStr = Utils.toLocalDateStr(endDate);
 							const endTimeStr = `${endDate.getHours().toString().padStart(2, '0')}:${endDate.getMinutes().toString().padStart(2, '0')}`;
 
+							// Check if entry spans multiple days
+							const startDateForCheck = matchingRaw.startTime ? new Date(matchingRaw.startTime) : null;
+							const isMultiDay = startDateForCheck && Utils.toLocalDateStr(startDateForCheck) !== Utils.toLocalDateStr(endDate);
+
 							if (this.inlineEditMode) {
-								const input = document.createElement('input');
-								input.type = 'time';
-								input.value = endTimeStr;
-								input.onchange = async () => {
-									const [hours, minutes] = input.value.split(':').map(Number);
+								const container = document.createElement('div');
+								container.style.display = 'flex';
+								container.style.flexDirection = 'column';
+								container.style.gap = '4px';
+
+								// Show date input for multi-day entries
+								if (isMultiDay) {
+									const dateInput = document.createElement('input');
+									dateInput.type = 'date';
+									dateInput.value = endDateStr;
+									dateInput.style.fontSize = '12px';
+									dateInput.onchange = async () => {
+										const newEnd = new Date(`${dateInput.value}T${timeInput.value}:00`);
+										matchingRaw.endTime = Utils.toLocalISOString(newEnd);
+										await this.timerManager.save();
+										this.softRefreshHistory();
+									};
+									container.appendChild(dateInput);
+								}
+
+								const timeInput = document.createElement('input');
+								timeInput.type = 'time';
+								timeInput.value = endTimeStr;
+								timeInput.onchange = async () => {
+									const [hours, minutes] = timeInput.value.split(':').map(Number);
 									const newEnd = new Date(matchingRaw.endTime!);
 									newEnd.setHours(hours, minutes, 0, 0);
 									matchingRaw.endTime = Utils.toLocalISOString(newEnd);
 									await this.timerManager.save();
-									await this.plugin.timerManager.onTimerChange?.();
+									this.softRefreshHistory();
 								};
-								endCell.appendChild(input);
+								container.appendChild(timeInput);
+								endCell.appendChild(container);
 							} else {
-								endCell.textContent = endTimeStr;
+								// Show date for multi-day entries in display mode
+								endCell.textContent = isMultiDay ? `${endDateStr} ${endTimeStr}` : endTimeStr;
 							}
+						} else if (this.inlineEditMode && matchingRaw) {
+							// No end time yet (active entry) - allow setting one in edit mode
+							const startDate = matchingRaw.startTime ? new Date(matchingRaw.startTime) : new Date();
+							const startDateStr = Utils.toLocalDateStr(startDate);
+
+							const container = document.createElement('div');
+							container.style.display = 'flex';
+							container.style.flexDirection = 'column';
+							container.style.gap = '4px';
+
+							const timeInput = document.createElement('input');
+							timeInput.type = 'time';
+							timeInput.placeholder = 'HH:MM';
+							timeInput.onchange = async () => {
+								if (!timeInput.value) return;
+								const [hours, minutes] = timeInput.value.split(':').map(Number);
+								// Use the start date as the base for end time
+								const newEnd = new Date(startDate);
+								newEnd.setHours(hours, minutes, 0, 0);
+								// If end time is before start time, assume next day
+								if (newEnd <= startDate) {
+									newEnd.setDate(newEnd.getDate() + 1);
+								}
+								matchingRaw.endTime = Utils.toLocalISOString(newEnd);
+								await this.timerManager.save();
+								this.softRefreshHistory();
+							};
+							container.appendChild(timeInput);
+							endCell.appendChild(container);
 						} else {
 							endCell.textContent = matchingRaw ? t('ui.ongoing') : '-';
 						}
@@ -5110,7 +5296,7 @@ export class UIBuilder {
 											}
 										}
 										await this.timerManager.save();
-										await this.plugin.timerManager.onTimerChange?.();
+										this.softRefreshHistory();
 									}
 								};
 								actionCell.appendChild(deleteBtn);
@@ -5149,6 +5335,7 @@ export class UIBuilder {
 
 	showAddEntryModal(targetDate: Date): void {
 		const dateStr = Utils.toLocalDateStr(targetDate);
+		this.isModalOpen = true;
 
 		// Create modal
 		const modal = document.createElement('div');
@@ -5157,12 +5344,17 @@ export class UIBuilder {
 
 		const modalBg = document.createElement('div');
 		modalBg.className = 'modal-bg';
-		modalBg.onclick = () => modal.remove();
+		modalBg.onclick = () => { this.isModalOpen = false; modal.remove(); };
 		modal.appendChild(modalBg);
 
 		const modalContent = document.createElement('div');
 		modalContent.className = 'modal';
 		modalContent.style.width = '400px';
+
+		// Prevent Obsidian from capturing keyboard events in modal inputs
+		modalContent.addEventListener('keydown', (e) => e.stopPropagation());
+		modalContent.addEventListener('keyup', (e) => e.stopPropagation());
+		modalContent.addEventListener('keypress', (e) => e.stopPropagation());
 
 		// Title
 		const title = document.createElement('div');
@@ -5232,7 +5424,7 @@ export class UIBuilder {
 
 		const cancelBtn = document.createElement('button');
 		cancelBtn.textContent = t('buttons.cancel');
-		cancelBtn.onclick = () => modal.remove();
+		cancelBtn.onclick = () => { this.isModalOpen = false; modal.remove(); };
 		buttonContainer.appendChild(cancelBtn);
 
 		const saveBtn = document.createElement('button');
@@ -5262,6 +5454,7 @@ export class UIBuilder {
 			});
 
 			await this.timerManager.save();
+			this.isModalOpen = false;
 			modal.remove();
 
 			const duration = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60);
@@ -5303,7 +5496,50 @@ export class UIBuilder {
 			cell.title = dateKey;
 
 			const dayEntries = this.data.daily[dateKey];
-			if (dayEntries) {
+			const holidayInfo = this.data.getHolidayInfo(dateKey);
+
+			// Check for special day color first (if enabled)
+			if (this.settings.heatmapShowSpecialDayColors) {
+				let specialDayBehavior: typeof this.settings.specialDayBehaviors[0] | undefined = undefined;
+
+				// First check holiday file
+				if (holidayInfo) {
+					specialDayBehavior = this.settings.specialDayBehaviors.find(b => b.id === holidayInfo.type);
+				}
+
+				// Then check entries for special day types (studie, kurs, ferie entries, etc.)
+				// Exclude regular work entries (jobb) - only show special day colors
+				if (!specialDayBehavior && dayEntries) {
+					for (const entry of dayEntries) {
+						const entryName = entry.name.toLowerCase();
+						// Skip regular work entries
+						if (entryName === 'jobb') continue;
+
+						const entryBehavior = this.settings.specialDayBehaviors.find(
+							b => b.id === entryName
+						);
+						if (entryBehavior) {
+							specialDayBehavior = entryBehavior;
+							break;
+						}
+					}
+				}
+
+				if (specialDayBehavior) {
+					cell.style.background = specialDayBehavior.color;
+					cell.title = `${dateKey} - ${specialDayBehavior.icon} ${specialDayBehavior.label}`;
+				} else if (dayEntries) {
+					// Has entries but no special day - show flextime or neutral
+					if (!this.settings.enableGoalTracking) {
+						cell.style.background = 'var(--background-secondary)';
+					} else {
+						const dayFlextime = dayEntries.reduce((sum, e) => sum + (e.flextime || 0), 0);
+						cell.style.background = this.flextimeColor(dayFlextime);
+					}
+				} else {
+					cell.style.background = 'var(--background-modifier-border)';
+				}
+			} else if (dayEntries) {
 				// Simple tracking mode - use neutral color for worked days
 				if (!this.settings.enableGoalTracking) {
 					cell.style.background = 'var(--background-secondary)';
@@ -5363,8 +5599,35 @@ export class UIBuilder {
 	}
 
 	updateAll(): void {
+		// Skip refresh while modal is open to prevent input interference
+		if (this.isModalOpen) return;
+
 		this.updateBadge();
 		this.updateTimerBadge();
+		this.updateDayCard();
+		this.updateWeekCard();
+		this.updateStatsCard();
+	}
+
+	/**
+	 * Soft refresh for inline editing - updates data and history view
+	 * without rebuilding the entire dashboard. Preserves edit mode state.
+	 */
+	softRefreshHistory(): void {
+		// Reload data from timer manager
+		this.data.rawEntries = this.timerManager.convertToTimeEntries();
+		this.data.processEntries();
+
+		// Find and refresh the history container
+		const historyDetails = this.container.querySelector('details.tf-history-section');
+		if (historyDetails) {
+			const historyContainer = historyDetails.querySelector('.tf-history-content');
+			if (historyContainer) {
+				this.refreshHistoryView(historyContainer as HTMLElement);
+			}
+		}
+
+		// Also update cards to reflect changes
 		this.updateDayCard();
 		this.updateWeekCard();
 		this.updateStatsCard();
