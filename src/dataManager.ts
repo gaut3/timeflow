@@ -10,6 +10,7 @@ export interface TimeEntry {
 	flextime?: number;
 	date?: Date;
 	subEntries?: TimeEntry[];
+	isActive?: boolean; // True if this is an ongoing timer entry
 }
 
 export interface HolidayInfo {
@@ -186,19 +187,36 @@ export class DataManager {
 
 		this.rawEntries.forEach((e) => {
 			if (!e.startTime) return;
+			const start = Utils.parseDate(e.startTime);
+			if (!start) return;
+
+			const dayKey = Utils.toLocalDateStr(start);
+
+			// Check for active entries (no endTime or endTime is null/undefined)
 			if (!e.endTime) {
+				console.log('TimeFlow: Processing active entry:', e.name, 'on', dayKey);
+				// Active entry - track separately but also include in daily for history
 				this.activeEntries.push(e);
-				const start = Utils.parseDate(e.startTime);
-				if (start) {
-					const dayKey = Utils.toLocalDateStr(start);
-					if (!this.activeEntriesByDate[dayKey]) this.activeEntriesByDate[dayKey] = [];
-					this.activeEntriesByDate[dayKey].push(e);
+				if (!this.activeEntriesByDate[dayKey]) this.activeEntriesByDate[dayKey] = [];
+				this.activeEntriesByDate[dayKey].push(e);
+
+				// Calculate duration from start to now for display in history
+				const now = new Date();
+				let duration = Utils.hoursDiff(start, now);
+
+				// Deduct lunch break for work entries (jobb)
+				if (e.name.toLowerCase() === 'jobb' && this.settings.lunchBreakMinutes > 0) {
+					const lunchBreakHours = this.settings.lunchBreakMinutes / 60;
+					duration = Math.max(0, duration - lunchBreakHours);
 				}
+
+				if (!this.daily[dayKey]) this.daily[dayKey] = [];
+				this.daily[dayKey].push({ ...e, duration, date: start, isActive: true });
 				return;
 			}
-			const start = Utils.parseDate(e.startTime);
+
 			const end = Utils.parseDate(e.endTime);
-			if (!start || !end) return;
+			if (!end) return;
 
 			let duration = Utils.hoursDiff(start, end);
 
@@ -208,7 +226,6 @@ export class DataManager {
 				duration = Math.max(0, duration - lunchBreakHours);
 			}
 
-			const dayKey = Utils.toLocalDateStr(start);
 			if (!this.daily[dayKey]) this.daily[dayKey] = [];
 			this.daily[dayKey].push({ ...e, duration, date: start });
 		});

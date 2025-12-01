@@ -150,6 +150,7 @@ const translations: Record<Language, TranslationStrings> = {
 			weekGoal: 'Ukemål',
 			flextime: 'Fleksitid',
 			activeTimers: 'Aktive timer',
+			activeTimer: 'Aktiv timer (pågår)',
 			ongoing: 'Pågående',
 			total: 'Totalt',
 			year: 'År',
@@ -412,6 +413,7 @@ const translations: Record<Language, TranslationStrings> = {
 			weekGoal: 'Weekly Goal',
 			flextime: 'Flextime',
 			activeTimers: 'Active timers',
+			activeTimer: 'Active timer (in progress)',
 			ongoing: 'Ongoing',
 			total: 'Total',
 			year: 'Year',
@@ -676,6 +678,7 @@ interface TranslationStrings {
 		weekGoal: string;
 		flextime: string;
 		activeTimers: string;
+		activeTimer: string;
 		ongoing: string;
 		total: string;
 		year: string;

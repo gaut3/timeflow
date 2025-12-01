@@ -2946,14 +2946,20 @@ export class UIBuilder {
 			} : { r: 128, g: 128, b: 128 }; // Fallback gray
 		};
 
+		// Calculate dynamic scale based on compliance settings
+		// Scale = dailyHoursLimit - baseWorkday (e.g., 9 - 7.5 = 1.5 hours)
+		const dailyLimit = this.settings.complianceSettings?.dailyHoursLimit ?? 9;
+		const baseWorkday = this.settings.baseWorkday * this.settings.workPercent;
+		const scale = Math.max(dailyLimit - baseWorkday, 0.5); // Minimum 0.5 to avoid division issues
+
 		if (val < 0) {
 			// Negative hours: use negativeColor from jobb settings (default blue)
 			const baseColor = jobbBehavior?.negativeColor || '#64b5f6';
 			const rgb = hexToRgb(baseColor);
 
 			// Create gradient intensity based on how negative
-			// Using 1.5 hours for full saturation (more sensitive to small differences)
-			const t = Math.min(Math.abs(val) / 1.5, 1);
+			// Use the dynamic scale for full saturation
+			const t = Math.min(Math.abs(val) / scale, 1);
 			// Start very light, transition to full base color
 			// Higher factor (0.75) means more color variation is visible
 			const lightFactor = (1 - t) * 0.75;
@@ -2967,8 +2973,8 @@ export class UIBuilder {
 			const rgb = hexToRgb(baseColor);
 
 			// Create gradient intensity based on how positive
-			// Using 1.5 hours for full saturation (more sensitive to small differences)
-			const t = Math.min(val / 1.5, 1);
+			// Use the dynamic scale for full saturation
+			const t = Math.min(val / scale, 1);
 			// Start very light, transition to full base color
 			// Higher factor (0.75) means more color variation is visible
 			const lightFactor = (1 - t) * 0.75;
@@ -4114,11 +4120,13 @@ export class UIBuilder {
 		typeLabel.style.fontWeight = 'bold';
 		content.appendChild(typeLabel);
 
-		// Build day types from special day behaviors
-		const dayTypes = this.settings.specialDayBehaviors.map(behavior => ({
-			type: behavior.id,
-			label: `${behavior.icon} ${translateSpecialDayName(behavior.id, behavior.label)}`
-		}));
+		// Build day types from special day behaviors (exclude work types like 'jobb')
+		const dayTypes = this.settings.specialDayBehaviors
+			.filter(behavior => !behavior.isWorkType)
+			.map(behavior => ({
+				type: behavior.id,
+				label: `${behavior.icon} ${translateSpecialDayName(behavior.id, behavior.label)}`
+			}));
 
 		const typeSelect = document.createElement('select');
 		typeSelect.style.width = '100%';
@@ -4390,6 +4398,9 @@ export class UIBuilder {
 	refreshHistoryView(container: HTMLElement): void {
 		container.empty();
 
+		// Collect active entries separately for display at top
+		const activeEntries: any[] = [];
+
 		// Build years data structure from daily entries
 		const years: Record<string, Record<string, any[]>> = {};
 		Object.keys(this.data.daily).sort().reverse().forEach(dateKey => {
@@ -4408,7 +4419,12 @@ export class UIBuilder {
 						return; // Skip entry if not matching filter
 					}
 				}
-				years[year][month].push(entry);
+				// Separate active entries for top display (only in list view)
+				if (entry.isActive && this.historyView === 'list') {
+					activeEntries.push(entry);
+				} else {
+					years[year][month].push(entry);
+				}
 			});
 		});
 
@@ -4425,7 +4441,7 @@ export class UIBuilder {
 		});
 
 		if (this.historyView === 'list') {
-			this.renderListView(container, years);
+			this.renderListView(container, years, activeEntries);
 		} else if (this.historyView === 'weekly') {
 			this.renderWeeklyView(container, years);
 		} else if (this.historyView === 'heatmap') {
@@ -4455,9 +4471,14 @@ export class UIBuilder {
 		editToggle.classList.toggle('active', this.inlineEditMode);
 	}
 
-	renderListView(container: HTMLElement, years: Record<string, Record<string, any[]>>): void {
+	renderListView(container: HTMLElement, years: Record<string, Record<string, any[]>>, activeEntries: any[] = []): void {
 		// Add filter bar at the top
 		this.renderFilterBar(container);
+
+		// Render active entries section at the top if there are any
+		if (activeEntries.length > 0) {
+			this.renderActiveEntriesSection(container, activeEntries);
+		}
 
 		// Detect if we're in wide mode
 		const isWide = container.offsetWidth >= 450;
@@ -4479,6 +4500,9 @@ export class UIBuilder {
 				// Clear and re-render
 				container.empty();
 				this.renderFilterBar(container);
+				if (activeEntries.length > 0) {
+					this.renderActiveEntriesSection(container, activeEntries);
+				}
 				if (shouldBeWide) {
 					this.renderWideListView(container, years);
 				} else {
@@ -4524,6 +4548,212 @@ export class UIBuilder {
 		container.appendChild(filterBar);
 	}
 
+	renderActiveEntriesSection(container: HTMLElement, activeEntries: any[]): void {
+		const section = document.createElement('div');
+		section.className = 'tf-active-entries-section';
+		section.style.marginBottom = '16px';
+		section.style.padding = '12px';
+		section.style.backgroundColor = 'var(--background-secondary)';
+		section.style.borderRadius = '8px';
+		section.style.border = '2px solid var(--interactive-accent)';
+
+		const header = document.createElement('div');
+		header.style.display = 'flex';
+		header.style.alignItems = 'center';
+		header.style.gap = '8px';
+		header.style.marginBottom = '10px';
+		header.style.fontWeight = 'bold';
+		header.style.color = 'var(--text-normal)';
+		header.innerHTML = `⏱️ ${t('ui.activeTimers')} (${activeEntries.length})`;
+		section.appendChild(header);
+
+		// Detect if we're in wide mode
+		const isWide = container.offsetWidth >= 450;
+
+		// Create table for active entries
+		const table = document.createElement('table');
+		table.className = isWide ? 'tf-history-table-wide' : 'tf-history-table-narrow';
+		table.style.width = '100%';
+
+		// Get raw timer entries for matching (needed for inline editing)
+		const rawEntries = this.timerManager.data.entries;
+		const flatRawEntries: { entry: Timer; parent?: Timer; subIndex?: number }[] = [];
+		rawEntries.forEach(entry => {
+			if (entry.collapsed && entry.subEntries) {
+				entry.subEntries.forEach((sub, idx) => {
+					if (sub.startTime) {
+						flatRawEntries.push({ entry: sub, parent: entry, subIndex: idx });
+					}
+				});
+			} else if (entry.startTime) {
+				flatRawEntries.push({ entry });
+			}
+		});
+
+		// Table header - different columns for wide vs narrow
+		const thead = document.createElement('thead');
+		const headerRow = document.createElement('tr');
+		const headers = isWide
+			? (this.inlineEditMode
+				? [t('ui.date'), t('ui.type'), t('ui.start'), t('ui.hours'), t('ui.flextime'), '']
+				: [t('ui.date'), t('ui.type'), t('ui.start'), t('ui.hours'), t('ui.flextime')])
+			: [t('ui.date'), t('ui.type'), t('ui.hours'), ''];
+		headers.forEach(h => {
+			const th = document.createElement('th');
+			th.textContent = h;
+			headerRow.appendChild(th);
+		});
+		thead.appendChild(headerRow);
+		table.appendChild(thead);
+
+		// Table body
+		const tbody = document.createElement('tbody');
+		activeEntries.forEach(e => {
+			const row = document.createElement('tr');
+			row.style.fontStyle = 'italic';
+
+			const dateStr = Utils.toLocalDateStr(e.date);
+
+			// Find matching raw entry for this active entry
+			const matchingItem = flatRawEntries.find(item =>
+				item.entry.name.toLowerCase() === e.name.toLowerCase() &&
+				!item.entry.endTime &&
+				Utils.toLocalDateStr(new Date(item.entry.startTime!)) === dateStr
+			);
+			const matchingRaw = matchingItem?.entry;
+
+			// Date cell
+			const dateCell = document.createElement('td');
+			const activeIcon = document.createElement('span');
+			activeIcon.textContent = '⏱️ ';
+			activeIcon.title = t('ui.activeTimer');
+			activeIcon.style.cursor = 'help';
+			dateCell.appendChild(activeIcon);
+			dateCell.appendChild(document.createTextNode(dateStr));
+			row.appendChild(dateCell);
+
+			// Type cell - with inline editing in wide mode
+			const typeCell = document.createElement('td');
+			if (isWide && this.inlineEditMode && matchingRaw) {
+				const select = document.createElement('select');
+				this.settings.specialDayBehaviors.forEach(behavior => {
+					const option = document.createElement('option');
+					option.value = behavior.id;
+					option.textContent = `${behavior.icon} ${translateSpecialDayName(behavior.id, behavior.label)}`;
+					if (behavior.id === e.name.toLowerCase()) {
+						option.selected = true;
+					}
+					select.appendChild(option);
+				});
+				select.onchange = async () => {
+					matchingRaw.name = select.value;
+					await this.timerManager.save();
+					await this.plugin.timerManager.onTimerChange?.();
+				};
+				typeCell.appendChild(select);
+			} else {
+				typeCell.textContent = translateSpecialDayName(e.name.toLowerCase(), e.name);
+			}
+			row.appendChild(typeCell);
+
+			// Start time cell (only in wide mode)
+			if (isWide) {
+				const startCell = document.createElement('td');
+				if (matchingRaw?.startTime) {
+					const startDate = new Date(matchingRaw.startTime);
+					const startTimeStr = `${startDate.getHours().toString().padStart(2, '0')}:${startDate.getMinutes().toString().padStart(2, '0')}`;
+
+					if (this.inlineEditMode) {
+						const input = document.createElement('input');
+						input.type = 'time';
+						input.value = startTimeStr;
+						input.onchange = async () => {
+							const [hours, minutes] = input.value.split(':').map(Number);
+							const newStart = new Date(matchingRaw.startTime!);
+							newStart.setHours(hours, minutes, 0, 0);
+							matchingRaw.startTime = Utils.toLocalISOString(newStart);
+							await this.timerManager.save();
+							await this.plugin.timerManager.onTimerChange?.();
+						};
+						startCell.appendChild(input);
+					} else {
+						startCell.textContent = startTimeStr;
+					}
+				} else {
+					startCell.textContent = '-';
+				}
+				row.appendChild(startCell);
+			}
+
+			// Hours cell (running duration)
+			const hoursCell = document.createElement('td');
+			const hoursText = Utils.formatHoursToHM(e.duration || 0, this.settings.hourUnit);
+			hoursCell.textContent = `${hoursText}...`;
+			row.appendChild(hoursCell);
+
+			// Flextime cell (only in wide mode)
+			if (isWide) {
+				const flextimeCell = document.createElement('td');
+				flextimeCell.textContent = Utils.formatHoursToHM(e.flextime || 0, this.settings.hourUnit);
+				row.appendChild(flextimeCell);
+			}
+
+			// Action cell - edit button in narrow, delete in wide edit mode
+			if (isWide && this.inlineEditMode) {
+				const actionCell = document.createElement('td');
+				if (matchingItem) {
+					const deleteBtn = document.createElement('button');
+					deleteBtn.className = 'tf-history-delete-btn';
+					deleteBtn.textContent = '🗑️';
+					deleteBtn.title = t('menu.deleteEntry');
+					deleteBtn.onclick = async () => {
+						if (confirm(`${t('confirm.deleteEntryFor')} ${dateStr}?`)) {
+							if (matchingItem.parent && matchingItem.subIndex !== undefined) {
+								if (matchingItem.parent.subEntries) {
+									matchingItem.parent.subEntries.splice(matchingItem.subIndex, 1);
+									if (matchingItem.parent.subEntries.length === 0) {
+										const parentIndex = this.timerManager.data.entries.indexOf(matchingItem.parent);
+										if (parentIndex > -1) {
+											this.timerManager.data.entries.splice(parentIndex, 1);
+										}
+									}
+								}
+							} else {
+								const entryIndex = this.timerManager.data.entries.indexOf(matchingRaw!);
+								if (entryIndex > -1) {
+									this.timerManager.data.entries.splice(entryIndex, 1);
+								}
+							}
+							await this.timerManager.save();
+							await this.plugin.timerManager.onTimerChange?.();
+						}
+					};
+					actionCell.appendChild(deleteBtn);
+				}
+				row.appendChild(actionCell);
+			} else if (!isWide) {
+				// Narrow mode - show edit button
+				const actionCell = document.createElement('td');
+				const editBtn = document.createElement('button');
+				editBtn.textContent = '✏️';
+				editBtn.style.padding = '4px 8px';
+				editBtn.style.cursor = 'pointer';
+				editBtn.title = t('menu.editWork');
+				editBtn.onclick = () => {
+					this.showEditEntriesModal(e.date);
+				};
+				actionCell.appendChild(editBtn);
+				row.appendChild(actionCell);
+			}
+
+			tbody.appendChild(row);
+		});
+		table.appendChild(tbody);
+		section.appendChild(table);
+
+		container.appendChild(section);
+	}
+
 	renderNarrowListView(container: HTMLElement, years: Record<string, Record<string, any[]>>): void {
 		Object.keys(years).forEach(year => {
 			const yearDiv = document.createElement('div');
@@ -4551,15 +4781,34 @@ export class UIBuilder {
 				monthEntries.forEach((e: any) => {
 					const row = document.createElement('tr');
 
+					// Style active entries differently
+					if (e.isActive) {
+						row.style.fontStyle = 'italic';
+						row.style.opacity = '0.8';
+					}
+
 					// Date cell
 					const dateCell = document.createElement('td');
 					const dateStr = Utils.toLocalDateStr(e.date);
 					const holidayInfo = this.data.getHolidayInfo(dateStr);
+					// Only show warning on work entries (jobb, kurs, studie) on special days
+					const entryBehavior = this.settings.specialDayBehaviors.find(
+						b => b.id === e.name.toLowerCase()
+					);
+					const isWorkEntry = entryBehavior?.isWorkType ||
+						['jobb', 'kurs', 'studie'].includes(e.name.toLowerCase());
 					const hasConflict = holidayInfo &&
 						['ferie', 'helligdag', 'egenmelding', 'sykemelding', 'velferdspermisjon'].includes(holidayInfo.type) &&
-						e.name.toLowerCase() !== 'avspasering';
+						isWorkEntry;
 
-					if (hasConflict) {
+					// Show active indicator
+					if (e.isActive) {
+						const activeIcon = document.createElement('span');
+						activeIcon.textContent = '⏱️ ';
+						activeIcon.title = t('ui.activeTimer');
+						activeIcon.style.cursor = 'help';
+						dateCell.appendChild(activeIcon);
+					} else if (hasConflict) {
 						const flagIcon = document.createElement('span');
 						flagIcon.textContent = '⚠️ ';
 						flagIcon.title = t('info.workRegisteredOnSpecialDay').replace('{dayType}', translateSpecialDayName(holidayInfo!.type));
@@ -4577,7 +4826,8 @@ export class UIBuilder {
 
 					// Hours cell
 					const hoursCell = document.createElement('td');
-					hoursCell.textContent = Utils.formatHoursToHM(e.duration || 0, this.settings.hourUnit);
+					const hoursText = Utils.formatHoursToHM(e.duration || 0, this.settings.hourUnit);
+					hoursCell.textContent = e.isActive ? `${hoursText}...` : hoursText;
 					row.appendChild(hoursCell);
 
 					// Flextime cell
@@ -4675,6 +4925,12 @@ export class UIBuilder {
 					dayEntries.forEach((e: any, idx: number) => {
 						const row = document.createElement('tr');
 
+						// Style active entries differently
+						if (e.isActive) {
+							row.style.fontStyle = 'italic';
+							row.style.opacity = '0.8';
+						}
+
 						// Find matching raw entry for this processed entry
 						const matchingItem = rawDayEntries.find(item =>
 							item.entry.name.toLowerCase() === e.name.toLowerCase()
@@ -4684,11 +4940,24 @@ export class UIBuilder {
 						// Date cell
 						const dateCell = document.createElement('td');
 						const holidayInfo = this.data.getHolidayInfo(dateStr);
+						// Only show warning on work entries (jobb, kurs, studie) on special days
+						const entryBehavior = this.settings.specialDayBehaviors.find(
+							b => b.id === e.name.toLowerCase()
+						);
+						const isWorkEntry = entryBehavior?.isWorkType ||
+							['jobb', 'kurs', 'studie'].includes(e.name.toLowerCase());
 						const hasConflict = holidayInfo &&
 							['ferie', 'helligdag', 'egenmelding', 'sykemelding', 'velferdspermisjon'].includes(holidayInfo.type) &&
-							e.name.toLowerCase() !== 'avspasering';
+							isWorkEntry;
 
-						if (hasConflict) {
+						// Show active indicator
+						if (e.isActive) {
+							const activeIcon = document.createElement('span');
+							activeIcon.textContent = '⏱️ ';
+							activeIcon.title = t('ui.activeTimer');
+							activeIcon.style.cursor = 'help';
+							dateCell.appendChild(activeIcon);
+						} else if (hasConflict) {
 							const flagIcon = document.createElement('span');
 							flagIcon.textContent = '⚠️ ';
 							flagIcon.title = t('info.workRegisteredOnSpecialDay').replace('{dayType}', translateSpecialDayName(holidayInfo!.type));
@@ -4780,7 +5049,8 @@ export class UIBuilder {
 
 						// Hours cell (always read-only)
 						const hoursCell = document.createElement('td');
-						hoursCell.textContent = Utils.formatHoursToHM(e.duration || 0, this.settings.hourUnit);
+						const hoursText = Utils.formatHoursToHM(e.duration || 0, this.settings.hourUnit);
+						hoursCell.textContent = e.isActive ? `${hoursText}...` : hoursText;
 						row.appendChild(hoursCell);
 
 						// Flextime cell (always read-only)

@@ -240,6 +240,7 @@ var translations = {
       weekGoal: "Ukem\xE5l",
       flextime: "Fleksitid",
       activeTimers: "Aktive timer",
+      activeTimer: "Aktiv timer (p\xE5g\xE5r)",
       ongoing: "P\xE5g\xE5ende",
       total: "Totalt",
       year: "\xC5r",
@@ -502,6 +503,7 @@ var translations = {
       weekGoal: "Weekly Goal",
       flextime: "Flextime",
       activeTimers: "Active timers",
+      activeTimer: "Active timer (in progress)",
       ongoing: "Ongoing",
       total: "Total",
       year: "Year",
@@ -2687,27 +2689,35 @@ var DataManager = class {
     this.rawEntries.forEach((e) => {
       if (!e.startTime)
         return;
+      const start = Utils.parseDate(e.startTime);
+      if (!start)
+        return;
+      const dayKey = Utils.toLocalDateStr(start);
       if (!e.endTime) {
+        console.log("TimeFlow: Processing active entry:", e.name, "on", dayKey);
         this.activeEntries.push(e);
-        const start2 = Utils.parseDate(e.startTime);
-        if (start2) {
-          const dayKey2 = Utils.toLocalDateStr(start2);
-          if (!this.activeEntriesByDate[dayKey2])
-            this.activeEntriesByDate[dayKey2] = [];
-          this.activeEntriesByDate[dayKey2].push(e);
+        if (!this.activeEntriesByDate[dayKey])
+          this.activeEntriesByDate[dayKey] = [];
+        this.activeEntriesByDate[dayKey].push(e);
+        const now = /* @__PURE__ */ new Date();
+        let duration2 = Utils.hoursDiff(start, now);
+        if (e.name.toLowerCase() === "jobb" && this.settings.lunchBreakMinutes > 0) {
+          const lunchBreakHours = this.settings.lunchBreakMinutes / 60;
+          duration2 = Math.max(0, duration2 - lunchBreakHours);
         }
+        if (!this.daily[dayKey])
+          this.daily[dayKey] = [];
+        this.daily[dayKey].push({ ...e, duration: duration2, date: start, isActive: true });
         return;
       }
-      const start = Utils.parseDate(e.startTime);
       const end = Utils.parseDate(e.endTime);
-      if (!start || !end)
+      if (!end)
         return;
       let duration = Utils.hoursDiff(start, end);
       if (e.name.toLowerCase() === "jobb" && this.settings.lunchBreakMinutes > 0) {
         const lunchBreakHours = this.settings.lunchBreakMinutes / 60;
         duration = Math.max(0, duration - lunchBreakHours);
       }
-      const dayKey = Utils.toLocalDateStr(start);
       if (!this.daily[dayKey])
         this.daily[dayKey] = [];
       this.daily[dayKey].push({ ...e, duration, date: start });
@@ -5872,7 +5882,7 @@ var UIBuilder = class {
     return container;
   }
   flextimeColor(val) {
-    var _a;
+    var _a, _b, _c;
     const jobbBehavior = (_a = this.settings.specialDayBehaviors) == null ? void 0 : _a.find((b) => b.id === "jobb");
     const hexToRgb = (hex) => {
       const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -5882,10 +5892,13 @@ var UIBuilder = class {
         b: parseInt(result[3], 16)
       } : { r: 128, g: 128, b: 128 };
     };
+    const dailyLimit = (_c = (_b = this.settings.complianceSettings) == null ? void 0 : _b.dailyHoursLimit) != null ? _c : 9;
+    const baseWorkday = this.settings.baseWorkday * this.settings.workPercent;
+    const scale = Math.max(dailyLimit - baseWorkday, 0.5);
     if (val < 0) {
       const baseColor = (jobbBehavior == null ? void 0 : jobbBehavior.negativeColor) || "#64b5f6";
       const rgb = hexToRgb(baseColor);
-      const t2 = Math.min(Math.abs(val) / 1.5, 1);
+      const t2 = Math.min(Math.abs(val) / scale, 1);
       const lightFactor = (1 - t2) * 0.75;
       const r = Math.floor(rgb.r + (255 - rgb.r) * lightFactor);
       const g = Math.floor(rgb.g + (255 - rgb.g) * lightFactor);
@@ -5894,7 +5907,7 @@ var UIBuilder = class {
     } else {
       const baseColor = (jobbBehavior == null ? void 0 : jobbBehavior.color) || "#4caf50";
       const rgb = hexToRgb(baseColor);
-      const t2 = Math.min(val / 1.5, 1);
+      const t2 = Math.min(val / scale, 1);
       const lightFactor = (1 - t2) * 0.75;
       const r = Math.floor(rgb.r + (255 - rgb.r) * lightFactor);
       const g = Math.floor(rgb.g + (255 - rgb.g) * lightFactor);
@@ -6749,7 +6762,7 @@ var UIBuilder = class {
     typeLabel.style.marginBottom = "5px";
     typeLabel.style.fontWeight = "bold";
     content.appendChild(typeLabel);
-    const dayTypes = this.settings.specialDayBehaviors.map((behavior) => ({
+    const dayTypes = this.settings.specialDayBehaviors.filter((behavior) => !behavior.isWorkType).map((behavior) => ({
       type: behavior.id,
       label: `${behavior.icon} ${translateSpecialDayName(behavior.id, behavior.label)}`
     }));
@@ -6946,6 +6959,7 @@ ${noteType.tags.join(" ")}`;
   }
   refreshHistoryView(container) {
     container.empty();
+    const activeEntries = [];
     const years = {};
     Object.keys(this.data.daily).sort().reverse().forEach((dateKey) => {
       const year = dateKey.split("-")[0];
@@ -6962,7 +6976,11 @@ ${noteType.tags.join(" ")}`;
             return;
           }
         }
-        years[year][month].push(entry);
+        if (entry.isActive && this.historyView === "list") {
+          activeEntries.push(entry);
+        } else {
+          years[year][month].push(entry);
+        }
       });
     });
     Object.keys(years).forEach((year) => {
@@ -6976,7 +6994,7 @@ ${noteType.tags.join(" ")}`;
       }
     });
     if (this.historyView === "list") {
-      this.renderListView(container, years);
+      this.renderListView(container, years, activeEntries);
     } else if (this.historyView === "weekly") {
       this.renderWeeklyView(container, years);
     } else if (this.historyView === "heatmap") {
@@ -6997,8 +7015,11 @@ ${noteType.tags.join(" ")}`;
     editToggle.textContent = this.inlineEditMode ? `\u2713 ${t("buttons.done")}` : `\u270F\uFE0F ${t("buttons.edit")}`;
     editToggle.classList.toggle("active", this.inlineEditMode);
   }
-  renderListView(container, years) {
+  renderListView(container, years, activeEntries = []) {
     this.renderFilterBar(container);
+    if (activeEntries.length > 0) {
+      this.renderActiveEntriesSection(container, activeEntries);
+    }
     const isWide = container.offsetWidth >= 450;
     if (isWide) {
       this.renderWideListView(container, years);
@@ -7011,6 +7032,9 @@ ${noteType.tags.join(" ")}`;
       if (shouldBeWide !== isWide) {
         container.empty();
         this.renderFilterBar(container);
+        if (activeEntries.length > 0) {
+          this.renderActiveEntriesSection(container, activeEntries);
+        }
         if (shouldBeWide) {
           this.renderWideListView(container, years);
         } else {
@@ -7047,6 +7071,178 @@ ${noteType.tags.join(" ")}`;
     });
     container.appendChild(filterBar);
   }
+  renderActiveEntriesSection(container, activeEntries) {
+    const section = document.createElement("div");
+    section.className = "tf-active-entries-section";
+    section.style.marginBottom = "16px";
+    section.style.padding = "12px";
+    section.style.backgroundColor = "var(--background-secondary)";
+    section.style.borderRadius = "8px";
+    section.style.border = "2px solid var(--interactive-accent)";
+    const header = document.createElement("div");
+    header.style.display = "flex";
+    header.style.alignItems = "center";
+    header.style.gap = "8px";
+    header.style.marginBottom = "10px";
+    header.style.fontWeight = "bold";
+    header.style.color = "var(--text-normal)";
+    header.innerHTML = `\u23F1\uFE0F ${t("ui.activeTimers")} (${activeEntries.length})`;
+    section.appendChild(header);
+    const isWide = container.offsetWidth >= 450;
+    const table = document.createElement("table");
+    table.className = isWide ? "tf-history-table-wide" : "tf-history-table-narrow";
+    table.style.width = "100%";
+    const rawEntries = this.timerManager.data.entries;
+    const flatRawEntries = [];
+    rawEntries.forEach((entry) => {
+      if (entry.collapsed && entry.subEntries) {
+        entry.subEntries.forEach((sub, idx) => {
+          if (sub.startTime) {
+            flatRawEntries.push({ entry: sub, parent: entry, subIndex: idx });
+          }
+        });
+      } else if (entry.startTime) {
+        flatRawEntries.push({ entry });
+      }
+    });
+    const thead = document.createElement("thead");
+    const headerRow = document.createElement("tr");
+    const headers = isWide ? this.inlineEditMode ? [t("ui.date"), t("ui.type"), t("ui.start"), t("ui.hours"), t("ui.flextime"), ""] : [t("ui.date"), t("ui.type"), t("ui.start"), t("ui.hours"), t("ui.flextime")] : [t("ui.date"), t("ui.type"), t("ui.hours"), ""];
+    headers.forEach((h) => {
+      const th = document.createElement("th");
+      th.textContent = h;
+      headerRow.appendChild(th);
+    });
+    thead.appendChild(headerRow);
+    table.appendChild(thead);
+    const tbody = document.createElement("tbody");
+    activeEntries.forEach((e) => {
+      const row = document.createElement("tr");
+      row.style.fontStyle = "italic";
+      const dateStr = Utils.toLocalDateStr(e.date);
+      const matchingItem = flatRawEntries.find(
+        (item) => item.entry.name.toLowerCase() === e.name.toLowerCase() && !item.entry.endTime && Utils.toLocalDateStr(new Date(item.entry.startTime)) === dateStr
+      );
+      const matchingRaw = matchingItem == null ? void 0 : matchingItem.entry;
+      const dateCell = document.createElement("td");
+      const activeIcon = document.createElement("span");
+      activeIcon.textContent = "\u23F1\uFE0F ";
+      activeIcon.title = t("ui.activeTimer");
+      activeIcon.style.cursor = "help";
+      dateCell.appendChild(activeIcon);
+      dateCell.appendChild(document.createTextNode(dateStr));
+      row.appendChild(dateCell);
+      const typeCell = document.createElement("td");
+      if (isWide && this.inlineEditMode && matchingRaw) {
+        const select = document.createElement("select");
+        this.settings.specialDayBehaviors.forEach((behavior) => {
+          const option = document.createElement("option");
+          option.value = behavior.id;
+          option.textContent = `${behavior.icon} ${translateSpecialDayName(behavior.id, behavior.label)}`;
+          if (behavior.id === e.name.toLowerCase()) {
+            option.selected = true;
+          }
+          select.appendChild(option);
+        });
+        select.onchange = async () => {
+          var _a, _b;
+          matchingRaw.name = select.value;
+          await this.timerManager.save();
+          await ((_b = (_a = this.plugin.timerManager).onTimerChange) == null ? void 0 : _b.call(_a));
+        };
+        typeCell.appendChild(select);
+      } else {
+        typeCell.textContent = translateSpecialDayName(e.name.toLowerCase(), e.name);
+      }
+      row.appendChild(typeCell);
+      if (isWide) {
+        const startCell = document.createElement("td");
+        if (matchingRaw == null ? void 0 : matchingRaw.startTime) {
+          const startDate = new Date(matchingRaw.startTime);
+          const startTimeStr = `${startDate.getHours().toString().padStart(2, "0")}:${startDate.getMinutes().toString().padStart(2, "0")}`;
+          if (this.inlineEditMode) {
+            const input = document.createElement("input");
+            input.type = "time";
+            input.value = startTimeStr;
+            input.onchange = async () => {
+              var _a, _b;
+              const [hours, minutes] = input.value.split(":").map(Number);
+              const newStart = new Date(matchingRaw.startTime);
+              newStart.setHours(hours, minutes, 0, 0);
+              matchingRaw.startTime = Utils.toLocalISOString(newStart);
+              await this.timerManager.save();
+              await ((_b = (_a = this.plugin.timerManager).onTimerChange) == null ? void 0 : _b.call(_a));
+            };
+            startCell.appendChild(input);
+          } else {
+            startCell.textContent = startTimeStr;
+          }
+        } else {
+          startCell.textContent = "-";
+        }
+        row.appendChild(startCell);
+      }
+      const hoursCell = document.createElement("td");
+      const hoursText = Utils.formatHoursToHM(e.duration || 0, this.settings.hourUnit);
+      hoursCell.textContent = `${hoursText}...`;
+      row.appendChild(hoursCell);
+      if (isWide) {
+        const flextimeCell = document.createElement("td");
+        flextimeCell.textContent = Utils.formatHoursToHM(e.flextime || 0, this.settings.hourUnit);
+        row.appendChild(flextimeCell);
+      }
+      if (isWide && this.inlineEditMode) {
+        const actionCell = document.createElement("td");
+        if (matchingItem) {
+          const deleteBtn = document.createElement("button");
+          deleteBtn.className = "tf-history-delete-btn";
+          deleteBtn.textContent = "\u{1F5D1}\uFE0F";
+          deleteBtn.title = t("menu.deleteEntry");
+          deleteBtn.onclick = async () => {
+            var _a, _b;
+            if (confirm(`${t("confirm.deleteEntryFor")} ${dateStr}?`)) {
+              if (matchingItem.parent && matchingItem.subIndex !== void 0) {
+                if (matchingItem.parent.subEntries) {
+                  matchingItem.parent.subEntries.splice(matchingItem.subIndex, 1);
+                  if (matchingItem.parent.subEntries.length === 0) {
+                    const parentIndex = this.timerManager.data.entries.indexOf(matchingItem.parent);
+                    if (parentIndex > -1) {
+                      this.timerManager.data.entries.splice(parentIndex, 1);
+                    }
+                  }
+                }
+              } else {
+                const entryIndex = this.timerManager.data.entries.indexOf(matchingRaw);
+                if (entryIndex > -1) {
+                  this.timerManager.data.entries.splice(entryIndex, 1);
+                }
+              }
+              await this.timerManager.save();
+              await ((_b = (_a = this.plugin.timerManager).onTimerChange) == null ? void 0 : _b.call(_a));
+            }
+          };
+          actionCell.appendChild(deleteBtn);
+        }
+        row.appendChild(actionCell);
+      } else if (!isWide) {
+        const actionCell = document.createElement("td");
+        const editBtn = document.createElement("button");
+        editBtn.textContent = "\u270F\uFE0F";
+        editBtn.style.padding = "4px 8px";
+        editBtn.style.cursor = "pointer";
+        editBtn.title = t("menu.editWork");
+        editBtn.onclick = () => {
+          this.showEditEntriesModal(e.date);
+        };
+        actionCell.appendChild(editBtn);
+        row.appendChild(actionCell);
+      }
+      tbody.appendChild(row);
+    });
+    table.appendChild(tbody);
+    section.appendChild(table);
+    container.appendChild(section);
+  }
   renderNarrowListView(container, years) {
     Object.keys(years).forEach((year) => {
       const yearDiv = document.createElement("div");
@@ -7068,11 +7264,25 @@ ${noteType.tags.join(" ")}`;
         const tbody = document.createElement("tbody");
         monthEntries.forEach((e) => {
           const row = document.createElement("tr");
+          if (e.isActive) {
+            row.style.fontStyle = "italic";
+            row.style.opacity = "0.8";
+          }
           const dateCell = document.createElement("td");
           const dateStr = Utils.toLocalDateStr(e.date);
           const holidayInfo = this.data.getHolidayInfo(dateStr);
-          const hasConflict = holidayInfo && ["ferie", "helligdag", "egenmelding", "sykemelding", "velferdspermisjon"].includes(holidayInfo.type) && e.name.toLowerCase() !== "avspasering";
-          if (hasConflict) {
+          const entryBehavior = this.settings.specialDayBehaviors.find(
+            (b) => b.id === e.name.toLowerCase()
+          );
+          const isWorkEntry = (entryBehavior == null ? void 0 : entryBehavior.isWorkType) || ["jobb", "kurs", "studie"].includes(e.name.toLowerCase());
+          const hasConflict = holidayInfo && ["ferie", "helligdag", "egenmelding", "sykemelding", "velferdspermisjon"].includes(holidayInfo.type) && isWorkEntry;
+          if (e.isActive) {
+            const activeIcon = document.createElement("span");
+            activeIcon.textContent = "\u23F1\uFE0F ";
+            activeIcon.title = t("ui.activeTimer");
+            activeIcon.style.cursor = "help";
+            dateCell.appendChild(activeIcon);
+          } else if (hasConflict) {
             const flagIcon = document.createElement("span");
             flagIcon.textContent = "\u26A0\uFE0F ";
             flagIcon.title = t("info.workRegisteredOnSpecialDay").replace("{dayType}", translateSpecialDayName(holidayInfo.type));
@@ -7086,7 +7296,8 @@ ${noteType.tags.join(" ")}`;
           typeCell.textContent = translateSpecialDayName(entryNameLower, e.name);
           row.appendChild(typeCell);
           const hoursCell = document.createElement("td");
-          hoursCell.textContent = Utils.formatHoursToHM(e.duration || 0, this.settings.hourUnit);
+          const hoursText = Utils.formatHoursToHM(e.duration || 0, this.settings.hourUnit);
+          hoursCell.textContent = e.isActive ? `${hoursText}...` : hoursText;
           row.appendChild(hoursCell);
           const flextimeCell = document.createElement("td");
           flextimeCell.textContent = Utils.formatHoursToHM(e.flextime || 0, this.settings.hourUnit);
@@ -7158,14 +7369,28 @@ ${noteType.tags.join(" ")}`;
           });
           dayEntries.forEach((e, idx) => {
             const row = document.createElement("tr");
+            if (e.isActive) {
+              row.style.fontStyle = "italic";
+              row.style.opacity = "0.8";
+            }
             const matchingItem = rawDayEntries.find(
               (item) => item.entry.name.toLowerCase() === e.name.toLowerCase()
             ) || rawDayEntries[idx];
             const matchingRaw = matchingItem == null ? void 0 : matchingItem.entry;
             const dateCell = document.createElement("td");
             const holidayInfo = this.data.getHolidayInfo(dateStr);
-            const hasConflict = holidayInfo && ["ferie", "helligdag", "egenmelding", "sykemelding", "velferdspermisjon"].includes(holidayInfo.type) && e.name.toLowerCase() !== "avspasering";
-            if (hasConflict) {
+            const entryBehavior = this.settings.specialDayBehaviors.find(
+              (b) => b.id === e.name.toLowerCase()
+            );
+            const isWorkEntry = (entryBehavior == null ? void 0 : entryBehavior.isWorkType) || ["jobb", "kurs", "studie"].includes(e.name.toLowerCase());
+            const hasConflict = holidayInfo && ["ferie", "helligdag", "egenmelding", "sykemelding", "velferdspermisjon"].includes(holidayInfo.type) && isWorkEntry;
+            if (e.isActive) {
+              const activeIcon = document.createElement("span");
+              activeIcon.textContent = "\u23F1\uFE0F ";
+              activeIcon.title = t("ui.activeTimer");
+              activeIcon.style.cursor = "help";
+              dateCell.appendChild(activeIcon);
+            } else if (hasConflict) {
               const flagIcon = document.createElement("span");
               flagIcon.textContent = "\u26A0\uFE0F ";
               flagIcon.title = t("info.workRegisteredOnSpecialDay").replace("{dayType}", translateSpecialDayName(holidayInfo.type));
@@ -7249,7 +7474,8 @@ ${noteType.tags.join(" ")}`;
             }
             row.appendChild(endCell);
             const hoursCell = document.createElement("td");
-            hoursCell.textContent = Utils.formatHoursToHM(e.duration || 0, this.settings.hourUnit);
+            const hoursText = Utils.formatHoursToHM(e.duration || 0, this.settings.hourUnit);
+            hoursCell.textContent = e.isActive ? `${hoursText}...` : hoursText;
             row.appendChild(hoursCell);
             const flextimeCell = document.createElement("td");
             flextimeCell.textContent = Utils.formatHoursToHM(e.flextime || 0, this.settings.hourUnit);
