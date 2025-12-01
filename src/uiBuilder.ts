@@ -78,6 +78,36 @@ export class UIBuilder {
 		return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
 	}
 
+	/**
+	 * Validate time input and parse hours/minutes.
+	 * Returns null if invalid, otherwise returns { hours, minutes }.
+	 */
+	private parseTimeInput(value: string): { hours: number; minutes: number } | null {
+		if (!value || !value.includes(':')) return null;
+		const parts = value.split(':');
+		if (parts.length !== 2) return null;
+		const hours = parseInt(parts[0], 10);
+		const minutes = parseInt(parts[1], 10);
+		if (isNaN(hours) || isNaN(minutes)) return null;
+		if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null;
+		return { hours, minutes };
+	}
+
+	/**
+	 * Wrapper for timerManager.save() with error handling.
+	 * Shows a notice on failure and returns false.
+	 */
+	private async saveWithErrorHandling(): Promise<boolean> {
+		try {
+			await this.timerManager.save();
+			return true;
+		} catch (error) {
+			console.error('TimeFlow: Error saving data:', error);
+			new Notice(t('notifications.saveError'));
+			return false;
+		}
+	}
+
 	createContainer(): HTMLElement {
 		const container = document.createElement("div");
 		container.style.fontFamily = "sans-serif";
@@ -1228,7 +1258,10 @@ export class UIBuilder {
 			};
 			startBtn.onclick = async (e) => {
 				e.stopPropagation();
-				await this.timerManager.startTimer('jobb');
+				// Use first work type from settings, fallback to 'jobb'
+				const workType = this.settings.specialDayBehaviors.find(b => b.isWorkType);
+				const timerName = workType?.id || 'jobb';
+				await this.timerManager.startTimer(timerName);
 				this.updateTimerBadge();
 			};
 
@@ -1757,8 +1790,6 @@ export class UIBuilder {
 		// Create details element (for the actual content)
 		const detailsElement = document.createElement("div");
 		detailsElement.className = "tf-history-content";
-		detailsElement.style.maxHeight = "500px";
-		detailsElement.style.overflow = "auto";
 
 		// Edit toggle button (to the LEFT of tabs so tabs don't shift)
 		const editToggle = document.createElement("button");
@@ -2205,13 +2236,24 @@ export class UIBuilder {
 		const statusP = panel.createEl('p', { text: statusText });
 		statusP.style.cssText = 'font-size: 12px; color: var(--text-muted);';
 
-		// Position panel near the badge
+		// Position panel near the badge, ensuring it stays on screen
 		const badgeRect = this.elements.complianceBadge!.getBoundingClientRect();
 		panel.style.position = 'fixed';
-		panel.style.top = `${badgeRect.bottom + 8}px`;
-		panel.style.right = `${window.innerWidth - badgeRect.right}px`;
-
 		document.body.appendChild(panel);
+
+		// Calculate position after adding to DOM so we can measure panel size
+		const panelRect = panel.getBoundingClientRect();
+		const padding = 10;
+		let top = badgeRect.bottom + 8;
+		let right = window.innerWidth - badgeRect.right;
+		// Ensure panel stays within screen bounds
+		const leftEdge = window.innerWidth - right - panelRect.width;
+		if (leftEdge < padding) right = window.innerWidth - panelRect.width - padding;
+		if (right < padding) right = padding;
+		if (top + panelRect.height > window.innerHeight - padding) top = badgeRect.top - panelRect.height - 8;
+		if (top < padding) top = padding;
+		panel.style.top = `${top}px`;
+		panel.style.right = `${right}px`;
 
 		// Close when clicking outside
 		const closeHandler = (e: MouseEvent) => {
@@ -3783,7 +3825,7 @@ export class UIBuilder {
 						collapsed: false
 					});
 
-					await this.timerManager.save();
+					await this.saveWithErrorHandling();
 
 					const duration = (finalEndDate.getTime() - startDate.getTime()) / (1000 * 60 * 60);
 					new Notice(`✅ Lagt til ${duration.toFixed(1)} timer arbeidstid for ${dateStr}`);
@@ -3838,7 +3880,7 @@ export class UIBuilder {
 		const workEntries: { entry: Timer; parent?: Timer; subIndex?: number }[] = [];
 
 		allEntries.forEach(entry => {
-			if (entry.collapsed && entry.subEntries) {
+			if (entry.collapsed && Array.isArray(entry.subEntries)) {
 				// For collapsed entries, add each subEntry with reference to parent
 				entry.subEntries.forEach((sub, idx) => {
 					if (sub.startTime) {
@@ -4047,7 +4089,7 @@ export class UIBuilder {
 						entry.startTime = Utils.toLocalISOString(newStartDate);
 						entry.endTime = finalEndDate ? Utils.toLocalISOString(finalEndDate) : null;
 
-						await this.timerManager.save();
+						await this.saveWithErrorHandling();
 						new Notice('✅ Oppføring oppdatert');
 
 						// Reload data to reflect changes
@@ -4117,7 +4159,7 @@ export class UIBuilder {
 					}
 
 					if (deleted) {
-						await this.timerManager.save();
+						await this.saveWithErrorHandling();
 						new Notice('✅ Oppføring slettet');
 
 						// Reload data to reflect changes
@@ -4668,7 +4710,7 @@ export class UIBuilder {
 		const rawEntries = this.timerManager.data.entries;
 		const flatRawEntries: { entry: Timer; parent?: Timer; subIndex?: number }[] = [];
 		rawEntries.forEach(entry => {
-			if (entry.collapsed && entry.subEntries) {
+			if (entry.collapsed && Array.isArray(entry.subEntries)) {
 				entry.subEntries.forEach((sub, idx) => {
 					if (sub.startTime) {
 						flatRawEntries.push({ entry: sub, parent: entry, subIndex: idx });
@@ -4737,7 +4779,7 @@ export class UIBuilder {
 				});
 				select.onchange = async () => {
 					matchingRaw.name = select.value;
-					await this.timerManager.save();
+					await this.saveWithErrorHandling();
 					await this.plugin.timerManager.onTimerChange?.();
 				};
 				typeCell.appendChild(select);
@@ -4758,11 +4800,16 @@ export class UIBuilder {
 						input.type = 'time';
 						input.value = startTimeStr;
 						input.onchange = async () => {
-							const [hours, minutes] = input.value.split(':').map(Number);
+							const parsed = this.parseTimeInput(input.value);
+							if (!parsed) {
+								new Notice(t('validation.invalidTime'));
+								input.value = startTimeStr;
+								return;
+							}
 							const newStart = new Date(matchingRaw.startTime!);
-							newStart.setHours(hours, minutes, 0, 0);
+							newStart.setHours(parsed.hours, parsed.minutes, 0, 0);
 							matchingRaw.startTime = Utils.toLocalISOString(newStart);
-							await this.timerManager.save();
+							await this.saveWithErrorHandling();
 							await this.plugin.timerManager.onTimerChange?.();
 						};
 						startCell.appendChild(input);
@@ -4814,8 +4861,8 @@ export class UIBuilder {
 									this.timerManager.data.entries.splice(entryIndex, 1);
 								}
 							}
-							await this.timerManager.save();
-							await this.plugin.timerManager.onTimerChange?.();
+							await this.saveWithErrorHandling();
+							this.softRefreshHistory();
 						}
 					};
 					actionCell.appendChild(deleteBtn);
@@ -4845,13 +4892,47 @@ export class UIBuilder {
 	}
 
 	renderNarrowListView(container: HTMLElement, years: Record<string, Record<string, any[]>>): void {
-		Object.keys(years).forEach(year => {
-			const yearDiv = document.createElement('div');
-			const h4 = yearDiv.createEl('h4', { text: year });
-			h4.style.color = 'var(--text-normal)';
+		const currentYear = new Date().getFullYear().toString();
 
-			Object.keys(years[year]).forEach(month => {
+		// Sort years descending (newest first)
+		Object.keys(years).sort().reverse().forEach((year, index) => {
+			const yearSection = document.createElement('details');
+			yearSection.className = 'tf-history-year-section';
+			// Expand current year by default, or first year if current year has no entries
+			yearSection.open = (year === currentYear) || (index === 0 && !years[currentYear]);
+
+			const summary = document.createElement('summary');
+			summary.style.cursor = 'pointer';
+			summary.style.padding = '8px 0';
+			summary.style.fontWeight = 'bold';
+			summary.style.fontSize = '1.1em';
+			summary.style.color = 'var(--text-normal)';
+			summary.style.listStyle = 'none';
+			summary.innerHTML = `<span style="margin-right: 8px;">${yearSection.open ? '▼' : '▶'}</span>${year}`;
+			yearSection.appendChild(summary);
+
+			// Toggle arrow on open/close
+			yearSection.addEventListener('toggle', () => {
+				const arrow = summary.querySelector('span');
+				if (arrow) arrow.textContent = yearSection.open ? '▼ ' : '▶ ';
+			});
+
+			const yearDiv = document.createElement('div');
+			yearDiv.style.paddingLeft = '8px';
+
+			// Sort months descending (newest first)
+			Object.keys(years[year]).sort().reverse().forEach(month => {
 				const monthEntries = years[year][month];
+
+				// Add month name header
+				const monthHeader = document.createElement('h5');
+				monthHeader.textContent = getMonthName(new Date(parseInt(year), parseInt(month) - 1, 1));
+				monthHeader.style.color = 'var(--text-muted)';
+				monthHeader.style.marginTop = '12px';
+				monthHeader.style.marginBottom = '8px';
+				monthHeader.style.fontSize = '0.95em';
+				yearDiv.appendChild(monthHeader);
+
 				const table = document.createElement('table');
 				table.className = 'tf-history-table-narrow';
 
@@ -4945,18 +5026,53 @@ export class UIBuilder {
 				yearDiv.appendChild(table);
 			});
 
-			container.appendChild(yearDiv);
+			yearSection.appendChild(yearDiv);
+			container.appendChild(yearSection);
 		});
 	}
 
 	renderWideListView(container: HTMLElement, years: Record<string, Record<string, any[]>>): void {
-		Object.keys(years).forEach(year => {
-			const yearDiv = document.createElement('div');
-			const h4 = yearDiv.createEl('h4', { text: year });
-			h4.style.color = 'var(--text-normal)';
+		const currentYear = new Date().getFullYear().toString();
 
-			Object.keys(years[year]).forEach(month => {
+		// Sort years descending (newest first)
+		Object.keys(years).sort().reverse().forEach((year, index) => {
+			const yearSection = document.createElement('details');
+			yearSection.className = 'tf-history-year-section';
+			// Expand current year by default, or first year if current year has no entries
+			yearSection.open = (year === currentYear) || (index === 0 && !years[currentYear]);
+
+			const summary = document.createElement('summary');
+			summary.style.cursor = 'pointer';
+			summary.style.padding = '8px 0';
+			summary.style.fontWeight = 'bold';
+			summary.style.fontSize = '1.1em';
+			summary.style.color = 'var(--text-normal)';
+			summary.style.listStyle = 'none';
+			summary.innerHTML = `<span style="margin-right: 8px;">${yearSection.open ? '▼' : '▶'}</span>${year}`;
+			yearSection.appendChild(summary);
+
+			// Toggle arrow on open/close
+			yearSection.addEventListener('toggle', () => {
+				const arrow = summary.querySelector('span');
+				if (arrow) arrow.textContent = yearSection.open ? '▼ ' : '▶ ';
+			});
+
+			const yearDiv = document.createElement('div');
+			yearDiv.style.paddingLeft = '8px';
+
+			// Sort months descending (newest first)
+			Object.keys(years[year]).sort().reverse().forEach(month => {
 				const monthEntries = years[year][month];
+
+				// Add month name header
+				const monthHeader = document.createElement('h5');
+				monthHeader.textContent = getMonthName(new Date(parseInt(year), parseInt(month) - 1, 1));
+				monthHeader.style.color = 'var(--text-muted)';
+				monthHeader.style.marginTop = '12px';
+				monthHeader.style.marginBottom = '8px';
+				monthHeader.style.fontSize = '0.95em';
+				yearDiv.appendChild(monthHeader);
+
 				const table = document.createElement('table');
 				table.className = 'tf-history-table-wide';
 
@@ -4992,7 +5108,7 @@ export class UIBuilder {
 				const rawEntries = this.timerManager.data.entries;
 				const flatRawEntries: { entry: Timer; parent?: Timer; subIndex?: number }[] = [];
 				rawEntries.forEach(entry => {
-					if (entry.collapsed && entry.subEntries) {
+					if (entry.collapsed && Array.isArray(entry.subEntries)) {
 						entry.subEntries.forEach((sub, idx) => {
 							if (sub.startTime) {
 								flatRawEntries.push({ entry: sub, parent: entry, subIndex: idx });
@@ -5012,6 +5128,9 @@ export class UIBuilder {
 						return Utils.toLocalDateStr(entryDate) === dateStr;
 					});
 
+					// Track which raw entries have been matched to avoid duplicates
+					const usedRawEntries = new Set<any>();
+
 					dayEntries.forEach((e: any, idx: number) => {
 						const row = document.createElement('tr');
 
@@ -5021,11 +5140,19 @@ export class UIBuilder {
 							row.style.opacity = '0.8';
 						}
 
-						// Find matching raw entry for this processed entry
+						// Find matching raw entry for this processed entry (exclude already used ones)
+						// Match by name + startTime for better accuracy
 						const matchingItem = rawDayEntries.find(item =>
+							!usedRawEntries.has(item.entry) &&
+							item.entry.name.toLowerCase() === e.name.toLowerCase() &&
+							item.entry.startTime === e.startTime
+						) || rawDayEntries.find(item =>
+							!usedRawEntries.has(item.entry) &&
 							item.entry.name.toLowerCase() === e.name.toLowerCase()
-						) || rawDayEntries[idx];
+						);
+						// Don't fall back to index - only match if we find a real match
 						const matchingRaw = matchingItem?.entry;
+						if (matchingRaw) usedRawEntries.add(matchingRaw);
 
 						// Date cell
 						const dateCell = document.createElement('td');
@@ -5104,7 +5231,7 @@ export class UIBuilder {
 							});
 							select.onchange = async () => {
 								matchingRaw.name = select.value;
-								await this.timerManager.save();
+								await this.saveWithErrorHandling();
 								this.softRefreshHistory();
 							};
 							typeCell.appendChild(select);
@@ -5140,7 +5267,7 @@ export class UIBuilder {
 									dateInput.onchange = async () => {
 										const newStart = new Date(`${dateInput.value}T${timeInput.value}:00`);
 										matchingRaw.startTime = Utils.toLocalISOString(newStart);
-										await this.timerManager.save();
+										await this.saveWithErrorHandling();
 										this.softRefreshHistory();
 									};
 									container.appendChild(dateInput);
@@ -5150,11 +5277,16 @@ export class UIBuilder {
 								timeInput.type = 'time';
 								timeInput.value = startTimeStr;
 								timeInput.onchange = async () => {
-									const [hours, minutes] = timeInput.value.split(':').map(Number);
+									const parsed = this.parseTimeInput(timeInput.value);
+									if (!parsed) {
+										new Notice(t('validation.invalidTime'));
+										timeInput.value = startTimeStr; // Restore previous value
+										return;
+									}
 									const newStart = new Date(matchingRaw.startTime!);
-									newStart.setHours(hours, minutes, 0, 0);
+									newStart.setHours(parsed.hours, parsed.minutes, 0, 0);
 									matchingRaw.startTime = Utils.toLocalISOString(newStart);
-									await this.timerManager.save();
+									await this.saveWithErrorHandling();
 									this.softRefreshHistory();
 								};
 								container.appendChild(timeInput);
@@ -5174,7 +5306,7 @@ export class UIBuilder {
 						const endDateParsed = matchingRaw?.endTime ? new Date(matchingRaw.endTime) : null;
 						const hasValidEndTime = endDateParsed && !isNaN(endDateParsed.getTime());
 
-						if (hasValidEndTime) {
+						if (hasValidEndTime && matchingRaw) {
 							const endDate = endDateParsed;
 							const endDateStr = Utils.toLocalDateStr(endDate);
 							const endTimeStr = `${endDate.getHours().toString().padStart(2, '0')}:${endDate.getMinutes().toString().padStart(2, '0')}`;
@@ -5198,7 +5330,7 @@ export class UIBuilder {
 									dateInput.onchange = async () => {
 										const newEnd = new Date(`${dateInput.value}T${timeInput.value}:00`);
 										matchingRaw.endTime = Utils.toLocalISOString(newEnd);
-										await this.timerManager.save();
+										await this.saveWithErrorHandling();
 										this.softRefreshHistory();
 									};
 									container.appendChild(dateInput);
@@ -5208,11 +5340,16 @@ export class UIBuilder {
 								timeInput.type = 'time';
 								timeInput.value = endTimeStr;
 								timeInput.onchange = async () => {
-									const [hours, minutes] = timeInput.value.split(':').map(Number);
+									const parsed = this.parseTimeInput(timeInput.value);
+									if (!parsed) {
+										new Notice(t('validation.invalidTime'));
+										timeInput.value = endTimeStr; // Restore previous value
+										return;
+									}
 									const newEnd = new Date(matchingRaw.endTime!);
-									newEnd.setHours(hours, minutes, 0, 0);
+									newEnd.setHours(parsed.hours, parsed.minutes, 0, 0);
 									matchingRaw.endTime = Utils.toLocalISOString(newEnd);
-									await this.timerManager.save();
+									await this.saveWithErrorHandling();
 									this.softRefreshHistory();
 								};
 								container.appendChild(timeInput);
@@ -5236,16 +5373,22 @@ export class UIBuilder {
 							timeInput.placeholder = 'HH:MM';
 							timeInput.onchange = async () => {
 								if (!timeInput.value) return;
-								const [hours, minutes] = timeInput.value.split(':').map(Number);
+								const parsed = this.parseTimeInput(timeInput.value);
+								if (!parsed) {
+									new Notice(t('validation.invalidTime'));
+									timeInput.value = '';
+									return;
+								}
 								// Use the start date as the base for end time
 								const newEnd = new Date(startDate);
-								newEnd.setHours(hours, minutes, 0, 0);
+								newEnd.setHours(parsed.hours, parsed.minutes, 0, 0);
 								// If end time is before start time, assume next day
 								if (newEnd <= startDate) {
 									newEnd.setDate(newEnd.getDate() + 1);
+									new Notice(t('validation.endTimeNextDay'));
 								}
 								matchingRaw.endTime = Utils.toLocalISOString(newEnd);
-								await this.timerManager.save();
+								await this.saveWithErrorHandling();
 								this.softRefreshHistory();
 							};
 							container.appendChild(timeInput);
@@ -5295,7 +5438,7 @@ export class UIBuilder {
 												this.timerManager.data.entries.splice(entryIndex, 1);
 											}
 										}
-										await this.timerManager.save();
+										await this.saveWithErrorHandling();
 										this.softRefreshHistory();
 									}
 								};
@@ -5329,7 +5472,8 @@ export class UIBuilder {
 				yearDiv.appendChild(table);
 			});
 
-			container.appendChild(yearDiv);
+			yearSection.appendChild(yearDiv);
+			container.appendChild(yearSection);
 		});
 	}
 
@@ -5431,14 +5575,19 @@ export class UIBuilder {
 		saveBtn.className = 'mod-cta';
 		saveBtn.textContent = t('buttons.save');
 		saveBtn.onclick = async () => {
-			const [startHours, startMinutes] = startInput.value.split(':').map(Number);
-			const [endHours, endMinutes] = endInput.value.split(':').map(Number);
+			const parsedStart = this.parseTimeInput(startInput.value);
+			const parsedEnd = this.parseTimeInput(endInput.value);
+
+			if (!parsedStart || !parsedEnd) {
+				new Notice(t('validation.invalidTime'));
+				return;
+			}
 
 			const startDate = new Date(targetDate);
-			startDate.setHours(startHours, startMinutes, 0, 0);
+			startDate.setHours(parsedStart.hours, parsedStart.minutes, 0, 0);
 
 			const endDate = new Date(targetDate);
-			endDate.setHours(endHours, endMinutes, 0, 0);
+			endDate.setHours(parsedEnd.hours, parsedEnd.minutes, 0, 0);
 
 			if (endDate <= startDate) {
 				new Notice(t('validation.endAfterStart'));
@@ -5448,12 +5597,12 @@ export class UIBuilder {
 			// Add new entry
 			this.timerManager.data.entries.push({
 				name: typeSelect.value,
-				startTime: startDate.toISOString(),
-				endTime: endDate.toISOString(),
+				startTime: Utils.toLocalISOString(startDate),
+				endTime: Utils.toLocalISOString(endDate),
 				subEntries: null
 			});
 
-			await this.timerManager.save();
+			await this.saveWithErrorHandling();
 			this.isModalOpen = false;
 			modal.remove();
 
@@ -5618,13 +5767,23 @@ export class UIBuilder {
 		this.data.rawEntries = this.timerManager.convertToTimeEntries();
 		this.data.processEntries();
 
-		// Find and refresh the history container
-		const historyDetails = this.container.querySelector('details.tf-history-section');
-		if (historyDetails) {
-			const historyContainer = historyDetails.querySelector('.tf-history-content');
-			if (historyContainer) {
-				this.refreshHistoryView(historyContainer as HTMLElement);
+		// Find and refresh the active entries section
+		const activeSection = this.container.querySelector('.tf-active-entries-section');
+		if (activeSection) {
+			const parent = activeSection.parentElement;
+			if (parent) {
+				activeSection.remove();
+				// Re-render active entries if any exist
+				if (this.data.activeEntries.length > 0) {
+					this.renderActiveEntriesSection(parent, this.data.activeEntries);
+				}
 			}
+		}
+
+		// Find and refresh the history container
+		const historyContainer = this.container.querySelector('.tf-history-content');
+		if (historyContainer) {
+			this.refreshHistoryView(historyContainer as HTMLElement);
 		}
 
 		// Also update cards to reflect changes

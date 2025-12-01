@@ -55,6 +55,13 @@ export class TimerManager {
 				if (parsed) {
 					this.data = parsed;
 
+					// Normalize ISO string formats (migrate UTC 'Z' suffix to local format)
+					const needsSave = this.normalizeEntryTimestamps();
+					if (needsSave) {
+						await this.save();
+						console.log('TimeFlow: Migrated entry timestamps to local ISO format');
+					}
+
 					// Return settings from data file if they exist
 					if (parsed.settings) {
 						return parsed.settings as TimeFlowSettings;
@@ -205,6 +212,52 @@ ${JSON.stringify(this.data, null, 2)}
 			return true;
 		}
 		return false;
+	}
+
+	/**
+	 * Normalize entry timestamps from UTC 'Z' format to local ISO format.
+	 * Returns true if any entries were modified and need saving.
+	 */
+	normalizeEntryTimestamps(): boolean {
+		let modified = false;
+
+		const normalizeTimestamp = (timestamp: string | null | undefined): string | null => {
+			if (!timestamp) return null;
+			// Check if it ends with 'Z' (UTC format)
+			if (timestamp.endsWith('Z')) {
+				const date = new Date(timestamp);
+				if (!isNaN(date.getTime())) {
+					// Convert to local ISO string format (without 'Z')
+					const pad = (n: number) => n.toString().padStart(2, '0');
+					const localISO = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+					modified = true;
+					return localISO;
+				}
+			}
+			return timestamp;
+		};
+
+		const normalizeEntry = (entry: Timer) => {
+			if (entry.startTime) {
+				const normalized = normalizeTimestamp(entry.startTime);
+				if (normalized !== entry.startTime) {
+					entry.startTime = normalized;
+				}
+			}
+			if (entry.endTime) {
+				const normalized = normalizeTimestamp(entry.endTime);
+				if (normalized !== entry.endTime) {
+					entry.endTime = normalized;
+				}
+			}
+			// Also normalize subEntries if present
+			if (entry.subEntries && Array.isArray(entry.subEntries)) {
+				entry.subEntries.forEach(sub => normalizeEntry(sub));
+			}
+		};
+
+		this.data.entries.forEach(entry => normalizeEntry(entry));
+		return modified;
 	}
 
 	getActiveTimers(): Timer[] {

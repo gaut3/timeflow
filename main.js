@@ -333,14 +333,17 @@ var translations = {
     },
     validation: {
       endAfterStart: "Sluttid m\xE5 v\xE6re etter starttid",
+      invalidTime: "Ugyldig tid (bruk format HH:MM, 00-23:00-59)",
       invalidTimePeriod: "Ugyldig tidsperiode",
-      overlappingEntry: "Denne oppf\xF8ringen overlapper med en eksisterende oppf\xF8ring"
+      overlappingEntry: "Denne oppf\xF8ringen overlapper med en eksisterende oppf\xF8ring",
+      endTimeNextDay: "Sluttid satt til neste dag (f\xF8r starttid)"
     },
     notifications: {
       added: "Lagt til",
       updated: "Oppdatert",
       deleted: "Slettet",
-      exported: "Eksportert til CSV"
+      exported: "Eksportert til CSV",
+      saveError: "Feil ved lagring av data"
     },
     confirm: {
       deleteEntry: "Er du sikker p\xE5 at du vil slette denne oppf\xF8ringen?",
@@ -599,14 +602,17 @@ var translations = {
     },
     validation: {
       endAfterStart: "End time must be after start time",
+      invalidTime: "Invalid time (use format HH:MM, 00-23:00-59)",
       invalidTimePeriod: "Invalid time period",
-      overlappingEntry: "This entry overlaps with an existing entry"
+      overlappingEntry: "This entry overlaps with an existing entry",
+      endTimeNextDay: "End time set to next day (before start time)"
     },
     notifications: {
       added: "Added",
       updated: "Updated",
       deleted: "Deleted",
-      exported: "Exported to CSV"
+      exported: "Exported to CSV",
+      saveError: "Error saving data"
     },
     confirm: {
       deleteEntry: "Are you sure you want to delete this entry?",
@@ -3459,6 +3465,38 @@ var UIBuilder = class {
     const b = Math.max(0, parseInt(hex.substr(4, 2), 16) - percent);
     return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
   }
+  /**
+   * Validate time input and parse hours/minutes.
+   * Returns null if invalid, otherwise returns { hours, minutes }.
+   */
+  parseTimeInput(value) {
+    if (!value || !value.includes(":"))
+      return null;
+    const parts = value.split(":");
+    if (parts.length !== 2)
+      return null;
+    const hours = parseInt(parts[0], 10);
+    const minutes = parseInt(parts[1], 10);
+    if (isNaN(hours) || isNaN(minutes))
+      return null;
+    if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59)
+      return null;
+    return { hours, minutes };
+  }
+  /**
+   * Wrapper for timerManager.save() with error handling.
+   * Shows a notice on failure and returns false.
+   */
+  async saveWithErrorHandling() {
+    try {
+      await this.timerManager.save();
+      return true;
+    } catch (error) {
+      console.error("TimeFlow: Error saving data:", error);
+      new import_obsidian4.Notice(t("notifications.saveError"));
+      return false;
+    }
+  }
   createContainer() {
     const container = document.createElement("div");
     container.style.fontFamily = "sans-serif";
@@ -4591,7 +4629,9 @@ var UIBuilder = class {
       };
       startBtn.onclick = async (e) => {
         e.stopPropagation();
-        await this.timerManager.startTimer("jobb");
+        const workType = this.settings.specialDayBehaviors.find((b) => b.isWorkType);
+        const timerName = (workType == null ? void 0 : workType.id) || "jobb";
+        await this.timerManager.startTimer(timerName);
         this.updateTimerBadge();
       };
       const arrowBtn = document.createElement("div");
@@ -5002,8 +5042,6 @@ var UIBuilder = class {
     content.className = "tf-collapsible-content";
     const detailsElement = document.createElement("div");
     detailsElement.className = "tf-history-content";
-    detailsElement.style.maxHeight = "500px";
-    detailsElement.style.overflow = "auto";
     const editToggle = document.createElement("button");
     editToggle.className = `tf-history-edit-btn ${this.inlineEditMode ? "active" : ""}`;
     editToggle.textContent = this.inlineEditMode ? `\u2713 ${t("buttons.done")}` : `\u270F\uFE0F ${t("buttons.edit")}`;
@@ -5366,9 +5404,22 @@ var UIBuilder = class {
     statusP.style.cssText = "font-size: 12px; color: var(--text-muted);";
     const badgeRect = this.elements.complianceBadge.getBoundingClientRect();
     panel.style.position = "fixed";
-    panel.style.top = `${badgeRect.bottom + 8}px`;
-    panel.style.right = `${window.innerWidth - badgeRect.right}px`;
     document.body.appendChild(panel);
+    const panelRect = panel.getBoundingClientRect();
+    const padding = 10;
+    let top = badgeRect.bottom + 8;
+    let right = window.innerWidth - badgeRect.right;
+    const leftEdge = window.innerWidth - right - panelRect.width;
+    if (leftEdge < padding)
+      right = window.innerWidth - panelRect.width - padding;
+    if (right < padding)
+      right = padding;
+    if (top + panelRect.height > window.innerHeight - padding)
+      top = badgeRect.top - panelRect.height - 8;
+    if (top < padding)
+      top = padding;
+    panel.style.top = `${top}px`;
+    panel.style.right = `${right}px`;
     const closeHandler = (e) => {
       if (!panel.contains(e.target) && e.target !== this.elements.complianceBadge) {
         panel.remove();
@@ -6558,7 +6609,7 @@ var UIBuilder = class {
             subEntries: null,
             collapsed: false
           });
-          await this.timerManager.save();
+          await this.saveWithErrorHandling();
           const duration = (finalEndDate.getTime() - startDate.getTime()) / (1e3 * 60 * 60);
           new import_obsidian4.Notice(`\u2705 Lagt til ${duration.toFixed(1)} timer arbeidstid for ${dateStr}`);
           this.data.rawEntries = this.timerManager.convertToTimeEntries();
@@ -6597,7 +6648,7 @@ var UIBuilder = class {
     const allEntries = this.timerManager.data.entries;
     const workEntries = [];
     allEntries.forEach((entry) => {
-      if (entry.collapsed && entry.subEntries) {
+      if (entry.collapsed && Array.isArray(entry.subEntries)) {
         entry.subEntries.forEach((sub, idx) => {
           if (sub.startTime) {
             const entryDate = new Date(sub.startTime);
@@ -6751,7 +6802,7 @@ var UIBuilder = class {
             }
             entry.startTime = Utils.toLocalISOString(newStartDate);
             entry.endTime = finalEndDate ? Utils.toLocalISOString(finalEndDate) : null;
-            await this.timerManager.save();
+            await this.saveWithErrorHandling();
             new import_obsidian4.Notice("\u2705 Oppf\xF8ring oppdatert");
             this.data.rawEntries = this.timerManager.convertToTimeEntries();
             this.data.processEntries();
@@ -6804,7 +6855,7 @@ var UIBuilder = class {
             }
           }
           if (deleted) {
-            await this.timerManager.save();
+            await this.saveWithErrorHandling();
             new import_obsidian4.Notice("\u2705 Oppf\xF8ring slettet");
             this.data.rawEntries = this.timerManager.convertToTimeEntries();
             this.data.processEntries();
@@ -7211,7 +7262,7 @@ ${noteType.tags.join(" ")}`;
     const rawEntries = this.timerManager.data.entries;
     const flatRawEntries = [];
     rawEntries.forEach((entry) => {
-      if (entry.collapsed && entry.subEntries) {
+      if (entry.collapsed && Array.isArray(entry.subEntries)) {
         entry.subEntries.forEach((sub, idx) => {
           if (sub.startTime) {
             flatRawEntries.push({ entry: sub, parent: entry, subIndex: idx });
@@ -7264,7 +7315,7 @@ ${noteType.tags.join(" ")}`;
         select.onchange = async () => {
           var _a, _b;
           matchingRaw.name = select.value;
-          await this.timerManager.save();
+          await this.saveWithErrorHandling();
           await ((_b = (_a = this.plugin.timerManager).onTimerChange) == null ? void 0 : _b.call(_a));
         };
         typeCell.appendChild(select);
@@ -7283,11 +7334,16 @@ ${noteType.tags.join(" ")}`;
             input.value = startTimeStr;
             input.onchange = async () => {
               var _a, _b;
-              const [hours, minutes] = input.value.split(":").map(Number);
+              const parsed = this.parseTimeInput(input.value);
+              if (!parsed) {
+                new import_obsidian4.Notice(t("validation.invalidTime"));
+                input.value = startTimeStr;
+                return;
+              }
               const newStart = new Date(matchingRaw.startTime);
-              newStart.setHours(hours, minutes, 0, 0);
+              newStart.setHours(parsed.hours, parsed.minutes, 0, 0);
               matchingRaw.startTime = Utils.toLocalISOString(newStart);
-              await this.timerManager.save();
+              await this.saveWithErrorHandling();
               await ((_b = (_a = this.plugin.timerManager).onTimerChange) == null ? void 0 : _b.call(_a));
             };
             startCell.appendChild(input);
@@ -7316,7 +7372,6 @@ ${noteType.tags.join(" ")}`;
           deleteBtn.textContent = "\u{1F5D1}\uFE0F";
           deleteBtn.title = t("menu.deleteEntry");
           deleteBtn.onclick = async () => {
-            var _a, _b;
             if (confirm(`${t("confirm.deleteEntryFor")} ${dateStr}?`)) {
               if (matchingItem.parent && matchingItem.subIndex !== void 0) {
                 if (matchingItem.parent.subEntries) {
@@ -7334,8 +7389,8 @@ ${noteType.tags.join(" ")}`;
                   this.timerManager.data.entries.splice(entryIndex, 1);
                 }
               }
-              await this.timerManager.save();
-              await ((_b = (_a = this.plugin.timerManager).onTimerChange) == null ? void 0 : _b.call(_a));
+              await this.saveWithErrorHandling();
+              this.softRefreshHistory();
             }
           };
           actionCell.appendChild(deleteBtn);
@@ -7361,12 +7416,36 @@ ${noteType.tags.join(" ")}`;
     container.appendChild(section);
   }
   renderNarrowListView(container, years) {
-    Object.keys(years).forEach((year) => {
+    const currentYear = (/* @__PURE__ */ new Date()).getFullYear().toString();
+    Object.keys(years).sort().reverse().forEach((year, index) => {
+      const yearSection = document.createElement("details");
+      yearSection.className = "tf-history-year-section";
+      yearSection.open = year === currentYear || index === 0 && !years[currentYear];
+      const summary = document.createElement("summary");
+      summary.style.cursor = "pointer";
+      summary.style.padding = "8px 0";
+      summary.style.fontWeight = "bold";
+      summary.style.fontSize = "1.1em";
+      summary.style.color = "var(--text-normal)";
+      summary.style.listStyle = "none";
+      summary.innerHTML = `<span style="margin-right: 8px;">${yearSection.open ? "\u25BC" : "\u25B6"}</span>${year}`;
+      yearSection.appendChild(summary);
+      yearSection.addEventListener("toggle", () => {
+        const arrow = summary.querySelector("span");
+        if (arrow)
+          arrow.textContent = yearSection.open ? "\u25BC " : "\u25B6 ";
+      });
       const yearDiv = document.createElement("div");
-      const h4 = yearDiv.createEl("h4", { text: year });
-      h4.style.color = "var(--text-normal)";
-      Object.keys(years[year]).forEach((month) => {
+      yearDiv.style.paddingLeft = "8px";
+      Object.keys(years[year]).sort().reverse().forEach((month) => {
         const monthEntries = years[year][month];
+        const monthHeader = document.createElement("h5");
+        monthHeader.textContent = getMonthName(new Date(parseInt(year), parseInt(month) - 1, 1));
+        monthHeader.style.color = "var(--text-muted)";
+        monthHeader.style.marginTop = "12px";
+        monthHeader.style.marginBottom = "8px";
+        monthHeader.style.fontSize = "0.95em";
+        yearDiv.appendChild(monthHeader);
         const table = document.createElement("table");
         table.className = "tf-history-table-narrow";
         const thead = document.createElement("thead");
@@ -7435,16 +7514,41 @@ ${noteType.tags.join(" ")}`;
         table.appendChild(tbody);
         yearDiv.appendChild(table);
       });
-      container.appendChild(yearDiv);
+      yearSection.appendChild(yearDiv);
+      container.appendChild(yearSection);
     });
   }
   renderWideListView(container, years) {
-    Object.keys(years).forEach((year) => {
+    const currentYear = (/* @__PURE__ */ new Date()).getFullYear().toString();
+    Object.keys(years).sort().reverse().forEach((year, index) => {
+      const yearSection = document.createElement("details");
+      yearSection.className = "tf-history-year-section";
+      yearSection.open = year === currentYear || index === 0 && !years[currentYear];
+      const summary = document.createElement("summary");
+      summary.style.cursor = "pointer";
+      summary.style.padding = "8px 0";
+      summary.style.fontWeight = "bold";
+      summary.style.fontSize = "1.1em";
+      summary.style.color = "var(--text-normal)";
+      summary.style.listStyle = "none";
+      summary.innerHTML = `<span style="margin-right: 8px;">${yearSection.open ? "\u25BC" : "\u25B6"}</span>${year}`;
+      yearSection.appendChild(summary);
+      yearSection.addEventListener("toggle", () => {
+        const arrow = summary.querySelector("span");
+        if (arrow)
+          arrow.textContent = yearSection.open ? "\u25BC " : "\u25B6 ";
+      });
       const yearDiv = document.createElement("div");
-      const h4 = yearDiv.createEl("h4", { text: year });
-      h4.style.color = "var(--text-normal)";
-      Object.keys(years[year]).forEach((month) => {
+      yearDiv.style.paddingLeft = "8px";
+      Object.keys(years[year]).sort().reverse().forEach((month) => {
         const monthEntries = years[year][month];
+        const monthHeader = document.createElement("h5");
+        monthHeader.textContent = getMonthName(new Date(parseInt(year), parseInt(month) - 1, 1));
+        monthHeader.style.color = "var(--text-muted)";
+        monthHeader.style.marginTop = "12px";
+        monthHeader.style.marginBottom = "8px";
+        monthHeader.style.fontSize = "0.95em";
+        yearDiv.appendChild(monthHeader);
         const table = document.createElement("table");
         table.className = "tf-history-table-wide";
         const thead = document.createElement("thead");
@@ -7468,7 +7572,7 @@ ${noteType.tags.join(" ")}`;
         const rawEntries = this.timerManager.data.entries;
         const flatRawEntries = [];
         rawEntries.forEach((entry) => {
-          if (entry.collapsed && entry.subEntries) {
+          if (entry.collapsed && Array.isArray(entry.subEntries)) {
             entry.subEntries.forEach((sub, idx) => {
               if (sub.startTime) {
                 flatRawEntries.push({ entry: sub, parent: entry, subIndex: idx });
@@ -7484,6 +7588,7 @@ ${noteType.tags.join(" ")}`;
             const entryDate = new Date(item.entry.startTime);
             return Utils.toLocalDateStr(entryDate) === dateStr;
           });
+          const usedRawEntries = /* @__PURE__ */ new Set();
           dayEntries.forEach((e, idx) => {
             const row = document.createElement("tr");
             if (e.isActive) {
@@ -7491,9 +7596,13 @@ ${noteType.tags.join(" ")}`;
               row.style.opacity = "0.8";
             }
             const matchingItem = rawDayEntries.find(
-              (item) => item.entry.name.toLowerCase() === e.name.toLowerCase()
-            ) || rawDayEntries[idx];
+              (item) => !usedRawEntries.has(item.entry) && item.entry.name.toLowerCase() === e.name.toLowerCase() && item.entry.startTime === e.startTime
+            ) || rawDayEntries.find(
+              (item) => !usedRawEntries.has(item.entry) && item.entry.name.toLowerCase() === e.name.toLowerCase()
+            );
             const matchingRaw = matchingItem == null ? void 0 : matchingItem.entry;
+            if (matchingRaw)
+              usedRawEntries.add(matchingRaw);
             const dateCell = document.createElement("td");
             const holidayInfo = this.data.getHolidayInfo(dateStr);
             const entryBehavior = this.settings.specialDayBehaviors.find(
@@ -7557,7 +7666,7 @@ ${noteType.tags.join(" ")}`;
               });
               select.onchange = async () => {
                 matchingRaw.name = select.value;
-                await this.timerManager.save();
+                await this.saveWithErrorHandling();
                 this.softRefreshHistory();
               };
               typeCell.appendChild(select);
@@ -7586,7 +7695,7 @@ ${noteType.tags.join(" ")}`;
                   dateInput.onchange = async () => {
                     const newStart = /* @__PURE__ */ new Date(`${dateInput.value}T${timeInput.value}:00`);
                     matchingRaw.startTime = Utils.toLocalISOString(newStart);
-                    await this.timerManager.save();
+                    await this.saveWithErrorHandling();
                     this.softRefreshHistory();
                   };
                   container2.appendChild(dateInput);
@@ -7595,11 +7704,16 @@ ${noteType.tags.join(" ")}`;
                 timeInput.type = "time";
                 timeInput.value = startTimeStr;
                 timeInput.onchange = async () => {
-                  const [hours, minutes] = timeInput.value.split(":").map(Number);
+                  const parsed = this.parseTimeInput(timeInput.value);
+                  if (!parsed) {
+                    new import_obsidian4.Notice(t("validation.invalidTime"));
+                    timeInput.value = startTimeStr;
+                    return;
+                  }
                   const newStart = new Date(matchingRaw.startTime);
-                  newStart.setHours(hours, minutes, 0, 0);
+                  newStart.setHours(parsed.hours, parsed.minutes, 0, 0);
                   matchingRaw.startTime = Utils.toLocalISOString(newStart);
-                  await this.timerManager.save();
+                  await this.saveWithErrorHandling();
                   this.softRefreshHistory();
                 };
                 container2.appendChild(timeInput);
@@ -7614,7 +7728,7 @@ ${noteType.tags.join(" ")}`;
             const endCell = document.createElement("td");
             const endDateParsed = (matchingRaw == null ? void 0 : matchingRaw.endTime) ? new Date(matchingRaw.endTime) : null;
             const hasValidEndTime = endDateParsed && !isNaN(endDateParsed.getTime());
-            if (hasValidEndTime) {
+            if (hasValidEndTime && matchingRaw) {
               const endDate = endDateParsed;
               const endDateStr = Utils.toLocalDateStr(endDate);
               const endTimeStr = `${endDate.getHours().toString().padStart(2, "0")}:${endDate.getMinutes().toString().padStart(2, "0")}`;
@@ -7633,7 +7747,7 @@ ${noteType.tags.join(" ")}`;
                   dateInput.onchange = async () => {
                     const newEnd = /* @__PURE__ */ new Date(`${dateInput.value}T${timeInput.value}:00`);
                     matchingRaw.endTime = Utils.toLocalISOString(newEnd);
-                    await this.timerManager.save();
+                    await this.saveWithErrorHandling();
                     this.softRefreshHistory();
                   };
                   container2.appendChild(dateInput);
@@ -7642,11 +7756,16 @@ ${noteType.tags.join(" ")}`;
                 timeInput.type = "time";
                 timeInput.value = endTimeStr;
                 timeInput.onchange = async () => {
-                  const [hours, minutes] = timeInput.value.split(":").map(Number);
+                  const parsed = this.parseTimeInput(timeInput.value);
+                  if (!parsed) {
+                    new import_obsidian4.Notice(t("validation.invalidTime"));
+                    timeInput.value = endTimeStr;
+                    return;
+                  }
                   const newEnd = new Date(matchingRaw.endTime);
-                  newEnd.setHours(hours, minutes, 0, 0);
+                  newEnd.setHours(parsed.hours, parsed.minutes, 0, 0);
                   matchingRaw.endTime = Utils.toLocalISOString(newEnd);
-                  await this.timerManager.save();
+                  await this.saveWithErrorHandling();
                   this.softRefreshHistory();
                 };
                 container2.appendChild(timeInput);
@@ -7667,14 +7786,20 @@ ${noteType.tags.join(" ")}`;
               timeInput.onchange = async () => {
                 if (!timeInput.value)
                   return;
-                const [hours, minutes] = timeInput.value.split(":").map(Number);
+                const parsed = this.parseTimeInput(timeInput.value);
+                if (!parsed) {
+                  new import_obsidian4.Notice(t("validation.invalidTime"));
+                  timeInput.value = "";
+                  return;
+                }
                 const newEnd = new Date(startDate);
-                newEnd.setHours(hours, minutes, 0, 0);
+                newEnd.setHours(parsed.hours, parsed.minutes, 0, 0);
                 if (newEnd <= startDate) {
                   newEnd.setDate(newEnd.getDate() + 1);
+                  new import_obsidian4.Notice(t("validation.endTimeNextDay"));
                 }
                 matchingRaw.endTime = Utils.toLocalISOString(newEnd);
-                await this.timerManager.save();
+                await this.saveWithErrorHandling();
                 this.softRefreshHistory();
               };
               container2.appendChild(timeInput);
@@ -7715,7 +7840,7 @@ ${noteType.tags.join(" ")}`;
                         this.timerManager.data.entries.splice(entryIndex, 1);
                       }
                     }
-                    await this.timerManager.save();
+                    await this.saveWithErrorHandling();
                     this.softRefreshHistory();
                   }
                 };
@@ -7743,7 +7868,8 @@ ${noteType.tags.join(" ")}`;
         table.appendChild(tbody);
         yearDiv.appendChild(table);
       });
-      container.appendChild(yearDiv);
+      yearSection.appendChild(yearDiv);
+      container.appendChild(yearSection);
     });
   }
   showAddEntryModal(targetDate) {
@@ -7828,23 +7954,27 @@ ${noteType.tags.join(" ")}`;
     saveBtn.textContent = t("buttons.save");
     saveBtn.onclick = async () => {
       var _a, _b;
-      const [startHours, startMinutes] = startInput.value.split(":").map(Number);
-      const [endHours, endMinutes] = endInput.value.split(":").map(Number);
+      const parsedStart = this.parseTimeInput(startInput.value);
+      const parsedEnd = this.parseTimeInput(endInput.value);
+      if (!parsedStart || !parsedEnd) {
+        new import_obsidian4.Notice(t("validation.invalidTime"));
+        return;
+      }
       const startDate = new Date(targetDate);
-      startDate.setHours(startHours, startMinutes, 0, 0);
+      startDate.setHours(parsedStart.hours, parsedStart.minutes, 0, 0);
       const endDate = new Date(targetDate);
-      endDate.setHours(endHours, endMinutes, 0, 0);
+      endDate.setHours(parsedEnd.hours, parsedEnd.minutes, 0, 0);
       if (endDate <= startDate) {
         new import_obsidian4.Notice(t("validation.endAfterStart"));
         return;
       }
       this.timerManager.data.entries.push({
         name: typeSelect.value,
-        startTime: startDate.toISOString(),
-        endTime: endDate.toISOString(),
+        startTime: Utils.toLocalISOString(startDate),
+        endTime: Utils.toLocalISOString(endDate),
         subEntries: null
       });
-      await this.timerManager.save();
+      await this.saveWithErrorHandling();
       this.isModalOpen = false;
       modal.remove();
       const duration = (endDate.getTime() - startDate.getTime()) / (1e3 * 60 * 60);
@@ -7973,12 +8103,19 @@ ${noteType.tags.join(" ")}`;
   softRefreshHistory() {
     this.data.rawEntries = this.timerManager.convertToTimeEntries();
     this.data.processEntries();
-    const historyDetails = this.container.querySelector("details.tf-history-section");
-    if (historyDetails) {
-      const historyContainer = historyDetails.querySelector(".tf-history-content");
-      if (historyContainer) {
-        this.refreshHistoryView(historyContainer);
+    const activeSection = this.container.querySelector(".tf-active-entries-section");
+    if (activeSection) {
+      const parent = activeSection.parentElement;
+      if (parent) {
+        activeSection.remove();
+        if (this.data.activeEntries.length > 0) {
+          this.renderActiveEntriesSection(parent, this.data.activeEntries);
+        }
       }
+    }
+    const historyContainer = this.container.querySelector(".tf-history-content");
+    if (historyContainer) {
+      this.refreshHistoryView(historyContainer);
     }
     this.updateDayCard();
     this.updateWeekCard();
@@ -8183,6 +8320,11 @@ var TimerManager = class {
         const parsed = this.parseTimekeepData(content);
         if (parsed) {
           this.data = parsed;
+          const needsSave = this.normalizeEntryTimestamps();
+          if (needsSave) {
+            await this.save();
+            console.log("TimeFlow: Migrated entry timestamps to local ISO format");
+          }
           if (parsed.settings) {
             return parsed.settings;
           }
@@ -8310,6 +8452,46 @@ ${JSON.stringify(this.data, null, 2)}
       return true;
     }
     return false;
+  }
+  /**
+   * Normalize entry timestamps from UTC 'Z' format to local ISO format.
+   * Returns true if any entries were modified and need saving.
+   */
+  normalizeEntryTimestamps() {
+    let modified = false;
+    const normalizeTimestamp = (timestamp) => {
+      if (!timestamp)
+        return null;
+      if (timestamp.endsWith("Z")) {
+        const date = new Date(timestamp);
+        if (!isNaN(date.getTime())) {
+          const pad = (n) => n.toString().padStart(2, "0");
+          const localISO = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+          modified = true;
+          return localISO;
+        }
+      }
+      return timestamp;
+    };
+    const normalizeEntry = (entry) => {
+      if (entry.startTime) {
+        const normalized = normalizeTimestamp(entry.startTime);
+        if (normalized !== entry.startTime) {
+          entry.startTime = normalized;
+        }
+      }
+      if (entry.endTime) {
+        const normalized = normalizeTimestamp(entry.endTime);
+        if (normalized !== entry.endTime) {
+          entry.endTime = normalized;
+        }
+      }
+      if (entry.subEntries && Array.isArray(entry.subEntries)) {
+        entry.subEntries.forEach((sub) => normalizeEntry(sub));
+      }
+    };
+    this.data.entries.forEach((entry) => normalizeEntry(entry));
+    return modified;
   }
   getActiveTimers() {
     return this.data.entries.filter((e) => e.startTime && !e.endTime && !e.collapsed);

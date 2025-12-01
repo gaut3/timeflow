@@ -243,14 +243,17 @@ const translations: Record<Language, TranslationStrings> = {
 		},
 		validation: {
 			endAfterStart: 'Sluttid må være etter starttid',
+			invalidTime: 'Ugyldig tid (bruk format HH:MM, 00-23:00-59)',
 			invalidTimePeriod: 'Ugyldig tidsperiode',
 			overlappingEntry: 'Denne oppføringen overlapper med en eksisterende oppføring',
+			endTimeNextDay: 'Sluttid satt til neste dag (før starttid)',
 		},
 		notifications: {
 			added: 'Lagt til',
 			updated: 'Oppdatert',
 			deleted: 'Slettet',
 			exported: 'Eksportert til CSV',
+			saveError: 'Feil ved lagring av data',
 		},
 		confirm: {
 			deleteEntry: 'Er du sikker på at du vil slette denne oppføringen?',
@@ -509,14 +512,17 @@ const translations: Record<Language, TranslationStrings> = {
 		},
 		validation: {
 			endAfterStart: 'End time must be after start time',
+			invalidTime: 'Invalid time (use format HH:MM, 00-23:00-59)',
 			invalidTimePeriod: 'Invalid time period',
 			overlappingEntry: 'This entry overlaps with an existing entry',
+			endTimeNextDay: 'End time set to next day (before start time)',
 		},
 		notifications: {
 			added: 'Added',
 			updated: 'Updated',
 			deleted: 'Deleted',
 			exported: 'Exported to CSV',
+			saveError: 'Error saving data',
 		},
 		confirm: {
 			deleteEntry: 'Are you sure you want to delete this entry?',
@@ -777,14 +783,17 @@ interface TranslationStrings {
 	};
 	validation: {
 		endAfterStart: string;
+		invalidTime: string;
 		invalidTimePeriod: string;
 		overlappingEntry: string;
+		endTimeNextDay: string;
 	};
 	notifications: {
 		added: string;
 		updated: string;
 		deleted: string;
 		exported: string;
+		saveError: string;
 	};
 	confirm: {
 		deleteEntry: string;
