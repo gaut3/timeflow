@@ -350,6 +350,9 @@ const translations: Record<Language, TranslationStrings> = {
 			limit: 'grense',
 			approaching: 'nærmer seg',
 			exceeds: 'Overstiger',
+			ok: 'OK',
+			near: 'Nær',
+			over: 'Over',
 		},
 		timer: {
 			runningTimers: 'Pågående timer',
@@ -613,6 +616,9 @@ const translations: Record<Language, TranslationStrings> = {
 			limit: 'limit',
 			approaching: 'approaching',
 			exceeds: 'Exceeds',
+			ok: 'OK',
+			near: 'Near',
+			over: 'Over',
 		},
 		timer: {
 			runningTimers: 'Running timers',
@@ -878,6 +884,9 @@ interface TranslationStrings {
 		limit: string;
 		approaching: string;
 		exceeds: string;
+		ok: string;
+		near: string;
+		over: string;
 	};
 	timer: {
 		runningTimers: string;

@@ -439,7 +439,10 @@ var translations = {
       restPeriod: "Hviletid",
       limit: "grense",
       approaching: "n\xE6rmer seg",
-      exceeds: "Overstiger"
+      exceeds: "Overstiger",
+      ok: "OK",
+      near: "N\xE6r",
+      over: "Over"
     },
     timer: {
       runningTimers: "P\xE5g\xE5ende timer",
@@ -702,7 +705,10 @@ var translations = {
       restPeriod: "Rest period",
       limit: "limit",
       approaching: "approaching",
-      exceeds: "Exceeds"
+      exceeds: "Exceeds",
+      ok: "OK",
+      near: "Near",
+      over: "Over"
     },
     timer: {
       runningTimers: "Running timers",
@@ -2784,13 +2790,19 @@ var DataManager = class {
       const dayEntries = this.daily[day] || [];
       let dayWorked = 0;
       let avspaseringHours = 0;
+      let hasCompletedEntries = false;
       dayEntries.forEach((e) => {
+        if (e.isActive)
+          return;
+        hasCompletedEntries = true;
         if (e.name.toLowerCase() === "avspasering") {
           avspaseringHours += e.duration || 0;
         } else {
           dayWorked += e.duration || 0;
         }
       });
+      if (!hasCompletedEntries)
+        continue;
       if (dayGoal === 0) {
         balance += dayWorked;
       } else {
@@ -2819,6 +2831,8 @@ var DataManager = class {
       const dayKey = Utils.toLocalDateStr(d);
       const dayEntries = this.daily[dayKey] || [];
       dayEntries.forEach((entry) => {
+        if (entry.isActive)
+          return;
         const name = entry.name.toLowerCase();
         if (name !== "avspasering" && name !== "egenmelding" && name !== "velferdspermisjon" && name !== "ferie") {
           total += entry.duration || 0;
@@ -2830,7 +2844,7 @@ var DataManager = class {
   getTodayHours(today) {
     const todayKey = Utils.toLocalDateStr(today);
     const todayEntries = this.daily[todayKey] || [];
-    return todayEntries.reduce((sum, e) => sum + (e.duration || 0), 0) + this.getOngoing();
+    return todayEntries.filter((e) => !e.isActive).reduce((sum, e) => sum + (e.duration || 0), 0) + this.getOngoing();
   }
   getAverages() {
     if (this._cachedAverages) {
@@ -5079,8 +5093,12 @@ var UIBuilder = class {
       clickHint.style.cssText = "font-size: 11px; opacity: 0.7;";
     }
     const statusRow = headerContent.createDiv();
-    statusRow.style.cssText = "font-size: 12px; color: var(--text-muted);";
-    statusRow.textContent = `${((_c = status.holiday) == null ? void 0 : _c.message) || t("status.holidayNotLoaded")} \u2022 ${status.activeTimers || 0} ${t("status.activeTimers")} \u2022 ${((_f = (_e = (_d = status.validation) == null ? void 0 : _d.issues) == null ? void 0 : _e.stats) == null ? void 0 : _f.totalEntries) || 0} ${t("status.entriesChecked")}`;
+    statusRow.style.cssText = "font-size: 12px; color: var(--text-muted); display: flex; justify-content: space-between; align-items: center;";
+    const statusText = statusRow.createSpan();
+    statusText.textContent = `${((_c = status.holiday) == null ? void 0 : _c.message) || t("status.holidayNotLoaded")} \u2022 ${status.activeTimers || 0} ${t("status.activeTimers")} \u2022 ${((_f = (_e = (_d = status.validation) == null ? void 0 : _d.issues) == null ? void 0 : _e.stats) == null ? void 0 : _f.totalEntries) || 0} ${t("status.entriesChecked")}`;
+    const versionText = statusRow.createSpan();
+    versionText.style.cssText = "font-size: 11px; opacity: 0.6;";
+    versionText.textContent = `v${this.plugin.manifest.version}`;
     if (hasIssues) {
       const toggle = header.createSpan({ cls: "tf-status-toggle", text: "\u25B6" });
       toggle.style.cssText = "font-size: 10px; transition: transform 0.2s;";
@@ -5252,15 +5270,15 @@ var UIBuilder = class {
     if (status === "ok") {
       this.elements.complianceBadge.style.background = "rgba(76, 175, 80, 0.2)";
       this.elements.complianceBadge.style.border = "1px solid rgba(76, 175, 80, 0.4)";
-      this.elements.complianceBadge.textContent = "\u{1F7E9} OK";
+      this.elements.complianceBadge.textContent = `\u{1F7E9} ${t("compliance.ok")}`;
     } else if (status === "approaching") {
       this.elements.complianceBadge.style.background = "rgba(255, 152, 0, 0.2)";
       this.elements.complianceBadge.style.border = "1px solid rgba(255, 152, 0, 0.4)";
-      this.elements.complianceBadge.textContent = "\u{1F7E8} N\xE6r";
+      this.elements.complianceBadge.textContent = `\u{1F7E8} ${t("compliance.near")}`;
     } else {
       this.elements.complianceBadge.style.background = "rgba(244, 67, 54, 0.2)";
       this.elements.complianceBadge.style.border = "1px solid rgba(244, 67, 54, 0.4)";
-      this.elements.complianceBadge.textContent = "\u{1F7E5} Over";
+      this.elements.complianceBadge.textContent = `\u{1F7E5} ${t("compliance.over")}`;
     }
     this.elements.complianceBadge.onclick = (e) => {
       e.stopPropagation();
@@ -5984,15 +6002,20 @@ var UIBuilder = class {
       }
       const isWorkDay = this.settings.workDays.includes(day.getDay());
       if (isWorkDay) {
-        workDaysInWeek++;
-        if (day <= today) {
-          workDaysPassed++;
+        const holidayInfo = this.data.getHolidayInfo(dayKey);
+        const behavior = holidayInfo ? this.settings.specialDayBehaviors.find((b) => b.id === holidayInfo.type) : null;
+        const isNoHoursDay = (behavior == null ? void 0 : behavior.noHoursRequired) === true;
+        if (!isNoHoursDay) {
+          workDaysInWeek++;
+          if (day <= today) {
+            workDaysPassed++;
+          }
         }
       }
       const dayEntries = this.data.daily[dayKey] || [];
       dayEntries.forEach((entry) => {
         const name = entry.name.toLowerCase();
-        if (name !== "avspasering" && name !== "ferie") {
+        if (name !== "avspasering" && name !== "ferie" && name !== "egenmelding" && name !== "sykemelding" && name !== "velferdspermisjon") {
           totalHours += entry.duration || 0;
         }
       });
@@ -6034,15 +6057,20 @@ var UIBuilder = class {
         continue;
       const isWorkDay = this.settings.workDays.includes(day.getDay());
       if (isWorkDay) {
-        workDaysInWeek++;
-        if (day <= today) {
-          workDaysPassed++;
+        const holidayInfo = this.data.getHolidayInfo(dayKey);
+        const behavior = holidayInfo ? this.settings.specialDayBehaviors.find((b) => b.id === holidayInfo.type) : null;
+        const isNoHoursDay = (behavior == null ? void 0 : behavior.noHoursRequired) === true;
+        if (!isNoHoursDay) {
+          workDaysInWeek++;
+          if (day <= today) {
+            workDaysPassed++;
+          }
         }
       }
       const dayEntries = this.data.daily[dayKey] || [];
       dayEntries.forEach((entry) => {
         const name = entry.name.toLowerCase();
-        if (name !== "avspasering" && name !== "ferie") {
+        if (name !== "avspasering" && name !== "ferie" && name !== "egenmelding" && name !== "sykemelding" && name !== "velferdspermisjon") {
           totalHours += entry.duration || 0;
         }
       });
@@ -7119,6 +7147,7 @@ ${noteType.tags.join(" ")}`;
     activeEntries.forEach((e) => {
       const row = document.createElement("tr");
       row.style.fontStyle = "italic";
+      row.style.opacity = "0.8";
       const dateStr = Utils.toLocalDateStr(e.date);
       const matchingItem = flatRawEntries.find(
         (item) => item.entry.name.toLowerCase() === e.name.toLowerCase() && !item.entry.endTime && Utils.toLocalDateStr(new Date(item.entry.startTime)) === dateStr

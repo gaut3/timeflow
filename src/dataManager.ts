@@ -308,14 +308,21 @@ export class DataManager {
 
 			let dayWorked = 0;
 			let avspaseringHours = 0;
+			let hasCompletedEntries = false;
 
 			dayEntries.forEach(e => {
+				// Skip active entries - only count completed work in balance
+				if (e.isActive) return;
+				hasCompletedEntries = true;
 				if (e.name.toLowerCase() === 'avspasering') {
 					avspaseringHours += e.duration || 0;
 				} else {
 					dayWorked += e.duration || 0;
 				}
 			});
+
+			// Skip days that only have active entries (work in progress)
+			if (!hasCompletedEntries) continue;
 
 			if (dayGoal === 0) {
 				balance += dayWorked;
@@ -356,6 +363,8 @@ export class DataManager {
 			const dayEntries = this.daily[dayKey] || [];
 
 			dayEntries.forEach((entry) => {
+				// Skip active entries since getOngoing() calculates their duration separately
+				if (entry.isActive) return;
 				const name = entry.name.toLowerCase();
 				if (
 					name !== "avspasering" &&
@@ -374,8 +383,9 @@ export class DataManager {
 	getTodayHours(today: Date): number {
 		const todayKey = Utils.toLocalDateStr(today);
 		const todayEntries = this.daily[todayKey] || [];
+		// Exclude active entries since getOngoing() calculates their duration separately
 		return (
-			todayEntries.reduce((sum, e) => sum + (e.duration || 0), 0) + this.getOngoing()
+			todayEntries.filter(e => !e.isActive).reduce((sum, e) => sum + (e.duration || 0), 0) + this.getOngoing()
 		);
 	}
 

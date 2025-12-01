@@ -1906,8 +1906,14 @@ export class UIBuilder {
 		}
 
 		const statusRow = headerContent.createDiv();
-		statusRow.style.cssText = 'font-size: 12px; color: var(--text-muted);';
-		statusRow.textContent = `${status.holiday?.message || t('status.holidayNotLoaded')} • ${status.activeTimers || 0} ${t('status.activeTimers')} • ${status.validation?.issues?.stats?.totalEntries || 0} ${t('status.entriesChecked')}`;
+		statusRow.style.cssText = 'font-size: 12px; color: var(--text-muted); display: flex; justify-content: space-between; align-items: center;';
+
+		const statusText = statusRow.createSpan();
+		statusText.textContent = `${status.holiday?.message || t('status.holidayNotLoaded')} • ${status.activeTimers || 0} ${t('status.activeTimers')} • ${status.validation?.issues?.stats?.totalEntries || 0} ${t('status.entriesChecked')}`;
+
+		const versionText = statusRow.createSpan();
+		versionText.style.cssText = 'font-size: 11px; opacity: 0.6;';
+		versionText.textContent = `v${this.plugin.manifest.version}`;
 
 		if (hasIssues) {
 			const toggle = header.createSpan({ cls: 'tf-status-toggle', text: '▶' });
@@ -2109,15 +2115,15 @@ export class UIBuilder {
 		if (status === 'ok') {
 			this.elements.complianceBadge.style.background = 'rgba(76, 175, 80, 0.2)';
 			this.elements.complianceBadge.style.border = '1px solid rgba(76, 175, 80, 0.4)';
-			this.elements.complianceBadge.textContent = '🟩 OK';
+			this.elements.complianceBadge.textContent = `🟩 ${t('compliance.ok')}`;
 		} else if (status === 'approaching') {
 			this.elements.complianceBadge.style.background = 'rgba(255, 152, 0, 0.2)';
 			this.elements.complianceBadge.style.border = '1px solid rgba(255, 152, 0, 0.4)';
-			this.elements.complianceBadge.textContent = '🟨 Nær';
+			this.elements.complianceBadge.textContent = `🟨 ${t('compliance.near')}`;
 		} else {
 			this.elements.complianceBadge.style.background = 'rgba(244, 67, 54, 0.2)';
 			this.elements.complianceBadge.style.border = '1px solid rgba(244, 67, 54, 0.4)';
-			this.elements.complianceBadge.textContent = '🟥 Over';
+			this.elements.complianceBadge.textContent = `🟥 ${t('compliance.over')}`;
 		}
 
 		// Add click handler to show info panel
@@ -3077,9 +3083,16 @@ export class UIBuilder {
 			// Check if this is a work day
 			const isWorkDay = this.settings.workDays.includes(day.getDay());
 			if (isWorkDay) {
-				workDaysInWeek++;
-				if (day <= today) {
-					workDaysPassed++;
+				// Check if this day has a special day that doesn't require hours (ferie, etc.)
+				const holidayInfo = this.data.getHolidayInfo(dayKey);
+				const behavior = holidayInfo ? this.settings.specialDayBehaviors.find(b => b.id === holidayInfo.type) : null;
+				const isNoHoursDay = behavior?.noHoursRequired === true;
+
+				if (!isNoHoursDay) {
+					workDaysInWeek++;
+					if (day <= today) {
+						workDaysPassed++;
+					}
 				}
 			}
 
@@ -3088,7 +3101,7 @@ export class UIBuilder {
 			dayEntries.forEach(entry => {
 				const name = entry.name.toLowerCase();
 				// Count work hours (exclude special leave types that don't count as work)
-				if (name !== 'avspasering' && name !== 'ferie') {
+				if (name !== 'avspasering' && name !== 'ferie' && name !== 'egenmelding' && name !== 'sykemelding' && name !== 'velferdspermisjon') {
 					totalHours += entry.duration || 0;
 				}
 			});
@@ -3152,16 +3165,24 @@ export class UIBuilder {
 
 			const isWorkDay = this.settings.workDays.includes(day.getDay());
 			if (isWorkDay) {
-				workDaysInWeek++;
-				if (day <= today) {
-					workDaysPassed++;
+				// Check if this day has a special day that doesn't require hours (ferie, etc.)
+				const holidayInfo = this.data.getHolidayInfo(dayKey);
+				const behavior = holidayInfo ? this.settings.specialDayBehaviors.find(b => b.id === holidayInfo.type) : null;
+				const isNoHoursDay = behavior?.noHoursRequired === true;
+
+				if (!isNoHoursDay) {
+					workDaysInWeek++;
+					if (day <= today) {
+						workDaysPassed++;
+					}
 				}
 			}
 
 			const dayEntries = this.data.daily[dayKey] || [];
 			dayEntries.forEach(entry => {
 				const name = entry.name.toLowerCase();
-				if (name !== 'avspasering' && name !== 'ferie') {
+				// Count work hours (exclude special leave types that don't count as work)
+				if (name !== 'avspasering' && name !== 'ferie' && name !== 'egenmelding' && name !== 'sykemelding' && name !== 'velferdspermisjon') {
 					totalHours += entry.duration || 0;
 				}
 			});
@@ -4611,6 +4632,7 @@ export class UIBuilder {
 		activeEntries.forEach(e => {
 			const row = document.createElement('tr');
 			row.style.fontStyle = 'italic';
+			row.style.opacity = '0.8';
 
 			const dateStr = Utils.toLocalDateStr(e.date);
 
