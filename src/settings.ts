@@ -1259,8 +1259,8 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(settingsContainer)
-			.setName(t('settings.showWeekNumbers'))
-			.setDesc(t('settings.showWeekNumbersDesc'))
+			.setName('Show week numbers')
+			.setDesc('Show week numbers in calendar and week card (ISO 8601 week numbers)')
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.showWeekNumbers ?? true)
 				.onChange(async (value) => {

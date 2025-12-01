@@ -2952,11 +2952,14 @@ export class UIBuilder {
 			const rgb = hexToRgb(baseColor);
 
 			// Create gradient intensity based on how negative
-			const t = Math.min(Math.abs(val) / 3, 1);
-			// Start lighter, darken toward base color as deficit increases
-			const r = Math.floor(rgb.r + (255 - rgb.r) * (1 - t) * 0.4);
-			const g = Math.floor(rgb.g + (255 - rgb.g) * (1 - t) * 0.4);
-			const b = Math.floor(rgb.b + (255 - rgb.b) * (1 - t) * 0.4);
+			// Using 1.5 hours for full saturation (more sensitive to small differences)
+			const t = Math.min(Math.abs(val) / 1.5, 1);
+			// Start very light, transition to full base color
+			// Higher factor (0.75) means more color variation is visible
+			const lightFactor = (1 - t) * 0.75;
+			const r = Math.floor(rgb.r + (255 - rgb.r) * lightFactor);
+			const g = Math.floor(rgb.g + (255 - rgb.g) * lightFactor);
+			const b = Math.floor(rgb.b + (255 - rgb.b) * lightFactor);
 			return `rgb(${r},${g},${b})`;
 		} else {
 			// Positive hours: use color from jobb settings (default green)
@@ -2964,11 +2967,14 @@ export class UIBuilder {
 			const rgb = hexToRgb(baseColor);
 
 			// Create gradient intensity based on how positive
-			const t = Math.min(val / 3, 1);
-			// Start lighter, darken toward base color as surplus increases
-			const r = Math.floor(rgb.r + (255 - rgb.r) * (1 - t) * 0.4);
-			const g = Math.floor(rgb.g + (255 - rgb.g) * (1 - t) * 0.4);
-			const b = Math.floor(rgb.b + (255 - rgb.b) * (1 - t) * 0.4);
+			// Using 1.5 hours for full saturation (more sensitive to small differences)
+			const t = Math.min(val / 1.5, 1);
+			// Start very light, transition to full base color
+			// Higher factor (0.75) means more color variation is visible
+			const lightFactor = (1 - t) * 0.75;
+			const r = Math.floor(rgb.r + (255 - rgb.r) * lightFactor);
+			const g = Math.floor(rgb.g + (255 - rgb.g) * lightFactor);
+			const b = Math.floor(rgb.b + (255 - rgb.b) * lightFactor);
 			return `rgb(${r},${g},${b})`;
 		}
 	}

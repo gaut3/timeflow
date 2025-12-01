@@ -2171,7 +2171,7 @@ Note: Historical data in your holidays file using "${behavior.id}" will no longe
       await this.plugin.saveSettings();
       await this.refreshView();
     }));
-    new import_obsidian2.Setting(settingsContainer).setName(t("settings.showWeekNumbers")).setDesc(t("settings.showWeekNumbersDesc")).addToggle((toggle) => {
+    new import_obsidian2.Setting(settingsContainer).setName("Show week numbers").setDesc("Show week numbers in calendar and week card (ISO 8601 week numbers)").addToggle((toggle) => {
       var _a;
       return toggle.setValue((_a = this.plugin.settings.showWeekNumbers) != null ? _a : true).onChange(async (value) => {
         this.plugin.settings.showWeekNumbers = value;
@@ -5885,18 +5885,20 @@ var UIBuilder = class {
     if (val < 0) {
       const baseColor = (jobbBehavior == null ? void 0 : jobbBehavior.negativeColor) || "#64b5f6";
       const rgb = hexToRgb(baseColor);
-      const t2 = Math.min(Math.abs(val) / 3, 1);
-      const r = Math.floor(rgb.r + (255 - rgb.r) * (1 - t2) * 0.4);
-      const g = Math.floor(rgb.g + (255 - rgb.g) * (1 - t2) * 0.4);
-      const b = Math.floor(rgb.b + (255 - rgb.b) * (1 - t2) * 0.4);
+      const t2 = Math.min(Math.abs(val) / 1.5, 1);
+      const lightFactor = (1 - t2) * 0.75;
+      const r = Math.floor(rgb.r + (255 - rgb.r) * lightFactor);
+      const g = Math.floor(rgb.g + (255 - rgb.g) * lightFactor);
+      const b = Math.floor(rgb.b + (255 - rgb.b) * lightFactor);
       return `rgb(${r},${g},${b})`;
     } else {
       const baseColor = (jobbBehavior == null ? void 0 : jobbBehavior.color) || "#4caf50";
       const rgb = hexToRgb(baseColor);
-      const t2 = Math.min(val / 3, 1);
-      const r = Math.floor(rgb.r + (255 - rgb.r) * (1 - t2) * 0.4);
-      const g = Math.floor(rgb.g + (255 - rgb.g) * (1 - t2) * 0.4);
-      const b = Math.floor(rgb.b + (255 - rgb.b) * (1 - t2) * 0.4);
+      const t2 = Math.min(val / 1.5, 1);
+      const lightFactor = (1 - t2) * 0.75;
+      const r = Math.floor(rgb.r + (255 - rgb.r) * lightFactor);
+      const g = Math.floor(rgb.g + (255 - rgb.g) * lightFactor);
+      const b = Math.floor(rgb.b + (255 - rgb.b) * lightFactor);
       return `rgb(${r},${g},${b})`;
     }
   }
