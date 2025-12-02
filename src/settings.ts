@@ -82,6 +82,8 @@ export interface SpecialDayBehavior {
 	textColor?: string;            // Hex color for text (default: #000000)
 	negativeColor?: string;        // Hex color for negative flextime (work types only)
 	negativeTextColor?: string;    // Hex color for text on negative flextime background
+	simpleColor?: string;          // Hex color for work days when goal tracking is disabled
+	simpleTextColor?: string;      // Hex color for text when goal tracking is disabled
 	noHoursRequired: boolean;      // No work hours required this day?
 	flextimeEffect: 'none' | 'withdraw' | 'accumulate';
 	includeInStats: boolean;       // Count in yearly statistics?
@@ -99,6 +101,8 @@ export const DEFAULT_SPECIAL_DAY_BEHAVIORS: SpecialDayBehavior[] = [
 		textColor: '#ffffff',
 		negativeColor: '#64b5f6',   // Blue for negative flextime (under goal)
 		negativeTextColor: '#000000',
+		simpleColor: '#90caf9',     // Light blue for simple tracking mode
+		simpleTextColor: '#000000',
 		noHoursRequired: false,
 		flextimeEffect: 'accumulate',
 		includeInStats: true,
@@ -399,6 +403,8 @@ export class SpecialDayBehaviorModal extends Modal {
 			textColor: this.behavior?.textColor || '#000000',
 			negativeColor: this.behavior?.negativeColor || '#64b5f6',
 			negativeTextColor: this.behavior?.negativeTextColor || '#000000',
+			simpleColor: this.behavior?.simpleColor || '#90caf9',
+			simpleTextColor: this.behavior?.simpleTextColor || '#000000',
 			noHoursRequired: this.behavior?.noHoursRequired ?? true,
 			flextimeEffect: this.behavior?.flextimeEffect || 'none',
 			includeInStats: this.behavior?.includeInStats ?? true,
@@ -472,6 +478,27 @@ export class SpecialDayBehaviorModal extends Modal {
 				.addColorPicker(color => color
 					.setValue(formData.negativeTextColor)
 					.onChange(value => formData.negativeTextColor = value));
+
+			// Separator for simple tracking mode colors
+			contentEl.createEl('h4', { text: 'Simple tracking mode colors' });
+			contentEl.createDiv({
+				cls: 'setting-item-description',
+				text: 'These colors are used when goal tracking is disabled.'
+			}).style.marginBottom = '10px';
+
+			new Setting(contentEl)
+				.setName('Work day color')
+				.setDesc('Background color for work days in simple tracking mode')
+				.addColorPicker(color => color
+					.setValue(formData.simpleColor)
+					.onChange(value => formData.simpleColor = value));
+
+			new Setting(contentEl)
+				.setName('Work day text color')
+				.setDesc('Text color for work days in simple tracking mode')
+				.addColorPicker(color => color
+					.setValue(formData.simpleTextColor)
+					.onChange(value => formData.simpleTextColor = value));
 		} else {
 			// Regular color field for special days
 			new Setting(contentEl)
@@ -588,6 +615,8 @@ export class SpecialDayBehaviorModal extends Modal {
 				textColor: formData.textColor,
 				negativeColor: formData.isWorkType ? formData.negativeColor : undefined,
 				negativeTextColor: formData.isWorkType ? formData.negativeTextColor : undefined,
+				simpleColor: formData.isWorkType ? formData.simpleColor : undefined,
+				simpleTextColor: formData.isWorkType ? formData.simpleTextColor : undefined,
 				noHoursRequired: formData.isWorkType ? false : formData.noHoursRequired,
 				flextimeEffect: formData.isWorkType ? 'accumulate' : formData.flextimeEffect,
 				includeInStats: formData.isWorkType ? true : formData.includeInStats,

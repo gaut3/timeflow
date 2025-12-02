@@ -174,6 +174,7 @@ const translations: Record<Language, TranslationStrings> = {
 			runningBalance: 'Løpende saldo',
 			noRegistration: 'Ingen registrering',
 			noDataForDay: 'Ingen data for den dagen',
+			addNewEntry: '+ Legg til ny oppføring',
 			restPeriodWarning: 'Hviletid: Kun {hours} timer mellom arbeidsøkter (minimum {min} timer)',
 			restPeriod: 'Hviletid',
 			minimum: 'minimum',
@@ -219,6 +220,7 @@ const translations: Record<Language, TranslationStrings> = {
 			registerSpecialDay: 'Registrer spesialdag',
 			addEntry: 'Legg til oppføring',
 			deleteEntry: 'Slett oppføring',
+			selectOption: 'Velg et alternativ fra menyen til venstre',
 		},
 		timeframes: {
 			total: 'Totalt',
@@ -240,6 +242,7 @@ const translations: Record<Language, TranslationStrings> = {
 			from: 'Fra:',
 			to: 'Til:',
 			commentOptional: 'Kommentar (valgfritt):',
+			commentPlaceholder: 'F.eks. "Ferie i Spania"',
 		},
 		validation: {
 			endAfterStart: 'Sluttid må være etter starttid',
@@ -443,6 +446,7 @@ const translations: Record<Language, TranslationStrings> = {
 			runningBalance: 'Running balance',
 			noRegistration: 'No registration',
 			noDataForDay: 'No data for this day',
+			addNewEntry: '+ Add new entry',
 			restPeriodWarning: 'Rest period: Only {hours} hours between work sessions (minimum {min} hours)',
 			restPeriod: 'Rest period',
 			minimum: 'minimum',
@@ -488,6 +492,7 @@ const translations: Record<Language, TranslationStrings> = {
 			registerSpecialDay: 'Register special day',
 			addEntry: 'Add entry',
 			deleteEntry: 'Delete entry',
+			selectOption: 'Select an option from the menu on the left',
 		},
 		timeframes: {
 			total: 'Total',
@@ -509,6 +514,7 @@ const translations: Record<Language, TranslationStrings> = {
 			from: 'From:',
 			to: 'To:',
 			commentOptional: 'Comment (optional):',
+			commentPlaceholder: 'E.g. "Vacation in Spain"',
 		},
 		validation: {
 			endAfterStart: 'End time must be after start time',
@@ -714,6 +720,7 @@ interface TranslationStrings {
 		runningBalance: string;
 		noRegistration: string;
 		noDataForDay: string;
+		addNewEntry: string;
 		restPeriodWarning: string;
 		restPeriod: string;
 		minimum: string;
@@ -759,6 +766,7 @@ interface TranslationStrings {
 		registerSpecialDay: string;
 		addEntry: string;
 		deleteEntry: string;
+		selectOption: string;
 	};
 	timeframes: {
 		total: string;
@@ -780,6 +788,7 @@ interface TranslationStrings {
 		from: string;
 		to: string;
 		commentOptional: string;
+		commentPlaceholder: string;
 	};
 	validation: {
 		endAfterStart: string;

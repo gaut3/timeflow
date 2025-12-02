@@ -507,6 +507,12 @@ export class UIBuilder {
 				.tf-month-grid {
 					gap: clamp(2px, 2cqw, 8px);
 				}
+				.tf-week-badge {
+					font-size: 10px;
+					padding: 1px 6px;
+					top: 8px;
+					right: 8px;
+				}
 			}
 
 			/* Day cells - consistent text colors across all themes since backgrounds are always the same */
@@ -1185,12 +1191,6 @@ export class UIBuilder {
 		const section = document.createElement("div");
 		section.className = "tf-badge-section";
 
-		// NEW: Hide badge in simple tracking mode
-		if (!this.settings.enableGoalTracking) {
-			section.style.display = 'none';
-			return section;
-		}
-
 		const badge = document.createElement("div");
 		badge.className = "tf-badge";
 		this.elements.badge = badge;
@@ -1208,6 +1208,12 @@ export class UIBuilder {
 		const timerBadge = document.createElement("button");
 		timerBadge.className = "tf-timer-badge";
 		this.elements.timerBadge = timerBadge;
+
+		// Hide goal-related badges in simple tracking mode, but keep clock and timer
+		if (!this.settings.enableGoalTracking) {
+			badge.style.display = 'none';
+			complianceBadge.style.display = 'none';
+		}
 
 		section.appendChild(badge);
 		section.appendChild(clock);
@@ -1294,7 +1300,7 @@ export class UIBuilder {
 		} else {
 			// Stop button badge (active timer)
 			this.elements.timerBadge.empty();
-			this.elements.timerBadge.textContent = "Stopp";
+			this.elements.timerBadge.textContent = t('buttons.stop');
 			this.elements.timerBadge.style.background = "#f44336";
 			this.elements.timerBadge.style.color = "white";
 			this.elements.timerBadge.style.display = "inline-flex";
@@ -1646,47 +1652,49 @@ export class UIBuilder {
 			textSpan.appendText(': ' + item.desc);
 		});
 
-		// Work days gradient box
-		const gradientBox = leftColumn.createDiv({ cls: 'tf-info-box' });
-		gradientBox.createEl('h4', { text: t('info.workDaysGradient') });
-		const gradientP = gradientBox.createEl('p', { text: t('info.colorShowsFlextime') + ' (' + this.settings.baseWorkday + 'h):' });
-		gradientP.style.margin = '0 0 10px 0';
-		gradientP.style.fontSize = '0.9em';
+		// Work days gradient box (only shown when goal tracking enabled)
+		if (this.settings.enableGoalTracking) {
+			const gradientBox = leftColumn.createDiv({ cls: 'tf-info-box' });
+			gradientBox.createEl('h4', { text: t('info.workDaysGradient') });
+			const gradientP = gradientBox.createEl('p', { text: t('info.colorShowsFlextime') + ' (' + this.settings.baseWorkday + 'h):' });
+			gradientP.style.margin = '0 0 10px 0';
+			gradientP.style.fontSize = '0.9em';
 
-		// Positive gradient
-		const posGradient = gradientBox.createDiv();
-		posGradient.style.height = '16px';
-		posGradient.style.borderRadius = '8px';
-		posGradient.style.background = `linear-gradient(to right, ${this.flextimeColor(0)}, ${this.flextimeColor(1.5)}, ${this.flextimeColor(3)})`;
-		posGradient.style.margin = '4px 0';
-		posGradient.style.border = '1px solid var(--background-modifier-border)';
+			// Positive gradient
+			const posGradient = gradientBox.createDiv();
+			posGradient.style.height = '16px';
+			posGradient.style.borderRadius = '8px';
+			posGradient.style.background = `linear-gradient(to right, ${this.flextimeColor(0)}, ${this.flextimeColor(1.5)}, ${this.flextimeColor(3)})`;
+			posGradient.style.margin = '4px 0';
+			posGradient.style.border = '1px solid var(--background-modifier-border)';
 
-		const posLabels = gradientBox.createDiv();
-		posLabels.style.display = 'flex';
-		posLabels.style.justifyContent = 'space-between';
-		posLabels.style.fontSize = '0.8em';
-		posLabels.style.color = 'var(--text-muted)';
-		posLabels.style.marginBottom = '10px';
-		posLabels.createSpan({ text: '0h' });
-		posLabels.createSpan({ text: '+1.5h' });
-		posLabels.createSpan({ text: '+3h' });
+			const posLabels = gradientBox.createDiv();
+			posLabels.style.display = 'flex';
+			posLabels.style.justifyContent = 'space-between';
+			posLabels.style.fontSize = '0.8em';
+			posLabels.style.color = 'var(--text-muted)';
+			posLabels.style.marginBottom = '10px';
+			posLabels.createSpan({ text: '0h' });
+			posLabels.createSpan({ text: '+1.5h' });
+			posLabels.createSpan({ text: '+3h' });
 
-		// Negative gradient
-		const negGradient = gradientBox.createDiv();
-		negGradient.style.height = '16px';
-		negGradient.style.borderRadius = '8px';
-		negGradient.style.background = `linear-gradient(to right, ${this.flextimeColor(-3)}, ${this.flextimeColor(-1.5)}, ${this.flextimeColor(0)})`;
-		negGradient.style.margin = '4px 0';
-		negGradient.style.border = '1px solid var(--background-modifier-border)';
+			// Negative gradient
+			const negGradient = gradientBox.createDiv();
+			negGradient.style.height = '16px';
+			negGradient.style.borderRadius = '8px';
+			negGradient.style.background = `linear-gradient(to right, ${this.flextimeColor(-3)}, ${this.flextimeColor(-1.5)}, ${this.flextimeColor(0)})`;
+			negGradient.style.margin = '4px 0';
+			negGradient.style.border = '1px solid var(--background-modifier-border)';
 
-		const negLabels = gradientBox.createDiv();
-		negLabels.style.display = 'flex';
-		negLabels.style.justifyContent = 'space-between';
-		negLabels.style.fontSize = '0.8em';
-		negLabels.style.color = 'var(--text-muted)';
-		negLabels.createSpan({ text: '-3h' });
-		negLabels.createSpan({ text: '-1.5h' });
-		negLabels.createSpan({ text: '0h' });
+			const negLabels = gradientBox.createDiv();
+			negLabels.style.display = 'flex';
+			negLabels.style.justifyContent = 'space-between';
+			negLabels.style.fontSize = '0.8em';
+			negLabels.style.color = 'var(--text-muted)';
+			negLabels.createSpan({ text: '-3h' });
+			negLabels.createSpan({ text: '-1.5h' });
+			negLabels.createSpan({ text: '0h' });
+		}
 
 		// Right Column: Calendar and balance
 		const rightColumn = infoGrid.createDiv({ cls: 'tf-info-column' });
@@ -1724,35 +1732,37 @@ export class UIBuilder {
 			textSpan.appendText(' ' + desc);
 		};
 
-		// Flextime balance zones box
-		const balanceBox = rightColumn.createDiv({ cls: 'tf-info-box' });
-		balanceBox.createEl('h4', { text: t('info.flextimeBalanceZones') });
-		const balanceContainer = balanceBox.createDiv();
-		balanceContainer.style.display = 'flex';
-		balanceContainer.style.flexDirection = 'column';
-		balanceContainer.style.gap = '6px';
-		balanceContainer.style.fontSize = '0.9em';
-		createColorRow(balanceContainer, this.settings.customColors?.balanceOk || '#4caf50', t('info.green'), this.settings.balanceThresholds.warningLow + 'h ' + t('info.to') + ' +' + this.settings.balanceThresholds.warningHigh + 'h');
-		createColorRow(balanceContainer, this.settings.customColors?.balanceWarning || '#ff9800', t('info.yellow'), this.settings.balanceThresholds.criticalLow + 'h ' + t('info.to') + ' ' + (this.settings.balanceThresholds.warningLow - 1) + 'h / +' + this.settings.balanceThresholds.warningHigh + 'h ' + t('info.to') + ' +' + this.settings.balanceThresholds.criticalHigh + 'h');
-		createColorRow(balanceContainer, this.settings.customColors?.balanceCritical || '#f44336', t('info.red'), '<' + this.settings.balanceThresholds.criticalLow + 'h / >+' + this.settings.balanceThresholds.criticalHigh + 'h');
+		// Flextime balance zones box (only shown when goal tracking enabled)
+		if (this.settings.enableGoalTracking) {
+			const balanceBox = rightColumn.createDiv({ cls: 'tf-info-box' });
+			balanceBox.createEl('h4', { text: t('info.flextimeBalanceZones') });
+			const balanceContainer = balanceBox.createDiv();
+			balanceContainer.style.display = 'flex';
+			balanceContainer.style.flexDirection = 'column';
+			balanceContainer.style.gap = '6px';
+			balanceContainer.style.fontSize = '0.9em';
+			createColorRow(balanceContainer, this.settings.customColors?.balanceOk || '#4caf50', t('info.green'), this.settings.balanceThresholds.warningLow + 'h ' + t('info.to') + ' +' + this.settings.balanceThresholds.warningHigh + 'h');
+			createColorRow(balanceContainer, this.settings.customColors?.balanceWarning || '#ff9800', t('info.yellow'), this.settings.balanceThresholds.criticalLow + 'h ' + t('info.to') + ' ' + (this.settings.balanceThresholds.warningLow - 1) + 'h / +' + this.settings.balanceThresholds.warningHigh + 'h ' + t('info.to') + ' +' + this.settings.balanceThresholds.criticalHigh + 'h');
+			createColorRow(balanceContainer, this.settings.customColors?.balanceCritical || '#f44336', t('info.red'), '<' + this.settings.balanceThresholds.criticalLow + 'h / >+' + this.settings.balanceThresholds.criticalHigh + 'h');
 
-		// Week number compliance box
-		const weekBox = rightColumn.createDiv({ cls: 'tf-info-box' });
-		weekBox.createEl('h4', { text: t('info.weekNumberCompliance') });
-		const weekContainer = weekBox.createDiv();
-		weekContainer.style.display = 'flex';
-		weekContainer.style.flexDirection = 'column';
-		weekContainer.style.gap = '6px';
-		weekContainer.style.fontSize = '0.9em';
-		createColorRow(weekContainer, 'linear-gradient(135deg, #c8e6c9, #a5d6a7)', t('info.green'), t('info.reachedGoal') + ' (±0.5h)');
-		createColorRow(weekContainer, 'linear-gradient(135deg, #ffe0b2, #ffcc80)', t('info.orange'), t('info.overGoal'));
-		createColorRow(weekContainer, 'linear-gradient(135deg, #ffcdd2, #ef9a9a)', t('info.red'), t('info.underGoal'));
-		createColorRow(weekContainer, 'linear-gradient(135deg, #e0e0e0, #bdbdbd)', t('info.gray'), t('info.weekInProgress'));
-		const weekTip = weekBox.createEl('p');
-		weekTip.style.margin = '8px 0 0 0';
-		weekTip.style.fontSize = '0.8em';
-		weekTip.style.opacity = '0.8';
-		weekTip.createEl('em', { text: t('info.clickWeekForDetails') });
+			// Week number compliance box
+			const weekBox = rightColumn.createDiv({ cls: 'tf-info-box' });
+			weekBox.createEl('h4', { text: t('info.weekNumberCompliance') });
+			const weekContainer = weekBox.createDiv();
+			weekContainer.style.display = 'flex';
+			weekContainer.style.flexDirection = 'column';
+			weekContainer.style.gap = '6px';
+			weekContainer.style.fontSize = '0.9em';
+			createColorRow(weekContainer, 'linear-gradient(135deg, #c8e6c9, #a5d6a7)', t('info.green'), t('info.reachedGoal') + ' (±0.5h)');
+			createColorRow(weekContainer, 'linear-gradient(135deg, #ffe0b2, #ffcc80)', t('info.orange'), t('info.overGoal'));
+			createColorRow(weekContainer, 'linear-gradient(135deg, #ffcdd2, #ef9a9a)', t('info.red'), t('info.underGoal'));
+			createColorRow(weekContainer, 'linear-gradient(135deg, #e0e0e0, #bdbdbd)', t('info.gray'), t('info.weekInProgress'));
+			const weekTip = weekBox.createEl('p');
+			weekTip.style.margin = '8px 0 0 0';
+			weekTip.style.fontSize = '0.8em';
+			weekTip.style.opacity = '0.8';
+			weekTip.createEl('em', { text: t('info.clickWeekForDetails') });
+		}
 
 		header.onclick = () => {
 			content.classList.toggle('open');
@@ -2889,10 +2899,13 @@ export class UIBuilder {
 			const specialDayColors = getSpecialDayColors(this.settings);
 			const specialDayTextColors = getSpecialDayTextColors(this.settings);
 
-			// Check for special day entries in daily data
-			const specialEntry = dayEntries?.find(e =>
-				specialDayColors[e.name.toLowerCase()]
-			);
+			// Check for special day entries in daily data (exclude work types like 'jobb')
+			const specialEntry = dayEntries?.find(e => {
+				const entryName = e.name.toLowerCase();
+				const behavior = this.settings.specialDayBehaviors.find(b => b.id === entryName);
+				// Only count as special entry if it has a color AND is not a work type
+				return specialDayColors[entryName] && (!behavior || !behavior.isWorkType);
+			});
 
 			// Track if this day has any entries
 			const hasEntry = !!(holidayInfo || specialEntry || dayEntries);
@@ -2908,10 +2921,12 @@ export class UIBuilder {
 				cell.style.background = specialDayColors[entryKey];
 				cell.style.color = specialDayTextColors[entryKey] || "var(--text-normal)";
 			} else if (dayEntries) {
-				// Regular work day - show flextime color or neutral color in simple mode
+				// Regular work day - show flextime color or simple color
 				if (!this.settings.enableGoalTracking) {
-					// Simple tracking mode - use neutral color
-					cell.style.background = 'var(--background-secondary)';
+					// Simple tracking mode - use work type's simpleColor
+					const workType = this.settings.specialDayBehaviors.find(b => b.isWorkType);
+					cell.style.background = workType?.simpleColor || '#90caf9';
+					cell.style.color = workType?.simpleTextColor || '#000000';
 				} else {
 					// Goal-based mode - show flextime color gradient
 					const dayFlextime = dayEntries.reduce((sum, e) => sum + (e.flextime || 0), 0);
@@ -2955,6 +2970,7 @@ export class UIBuilder {
 			const hasActiveEntry = dayEntries?.some(e => !e.endTime);
 			if (hasActiveEntry) {
 				// Add pulsing indicator for active entry
+				// Use white with dark border for visibility on any background
 				const indicator = document.createElement("div");
 				indicator.style.position = "absolute";
 				indicator.style.top = "4px";
@@ -2962,9 +2978,10 @@ export class UIBuilder {
 				indicator.style.width = "8px";
 				indicator.style.height = "8px";
 				indicator.style.borderRadius = "50%";
-				indicator.style.background = "#4caf50";
+				indicator.style.background = "#ffffff";
+				indicator.style.border = "2px solid #333333";
 				indicator.style.animation = "pulse 2s infinite";
-				indicator.style.boxShadow = "0 0 4px rgba(76, 175, 80, 0.8)";
+				indicator.style.boxShadow = "0 0 4px rgba(0, 0, 0, 0.4)";
 				cell.appendChild(indicator);
 			}
 
@@ -3590,7 +3607,7 @@ export class UIBuilder {
 		}
 
 		// Add helpful tip
-		const tipP = menuInfo.createEl('p', { text: '💡 Velg et alternativ fra menyen til venstre' });
+		const tipP = menuInfo.createEl('p', { text: `💡 ${t('menu.selectOption')}` });
 		tipP.style.marginTop = '12px';
 		tipP.style.fontSize = '0.8em';
 		tipP.style.color = 'var(--text-muted)';
@@ -3784,7 +3801,7 @@ export class UIBuilder {
 		buttonDiv.appendChild(cancelBtn);
 
 		const addBtn = document.createElement('button');
-		addBtn.textContent = 'Legg til';
+		addBtn.textContent = t('buttons.add');
 		addBtn.className = 'mod-cta';
 		addBtn.onclick = () => {
 			const startTime = startInput.value.trim();
@@ -4245,7 +4262,7 @@ export class UIBuilder {
 
 		// Day type selection
 		const typeLabel = document.createElement('div');
-		typeLabel.textContent = 'Type dag:';
+		typeLabel.textContent = t('modals.dayType');
 		typeLabel.style.marginBottom = '5px';
 		typeLabel.style.fontWeight = 'bold';
 		content.appendChild(typeLabel);
@@ -4352,14 +4369,14 @@ export class UIBuilder {
 
 		// Note/comment field
 		const noteLabel = document.createElement('div');
-		noteLabel.textContent = 'Kommentar (valgfritt):';
+		noteLabel.textContent = t('modals.commentOptional');
 		noteLabel.style.marginBottom = '5px';
 		noteLabel.style.fontWeight = 'bold';
 		content.appendChild(noteLabel);
 
 		const noteInput = document.createElement('input');
 		noteInput.type = 'text';
-		noteInput.placeholder = 'F.eks. "Ferie i Spania"';
+		noteInput.placeholder = t('modals.commentPlaceholder');
 		noteInput.style.width = '100%';
 		noteInput.style.marginBottom = '20px';
 		noteInput.style.padding = '8px';
@@ -4378,7 +4395,7 @@ export class UIBuilder {
 		buttonDiv.appendChild(cancelBtn);
 
 		const addBtn = document.createElement('button');
-		addBtn.textContent = 'Legg til';
+		addBtn.textContent = t('buttons.add');
 		addBtn.className = 'mod-cta';
 		addBtn.onclick = async () => {
 			const dayType = typeSelect.value;
@@ -5457,7 +5474,7 @@ export class UIBuilder {
 					addRow.className = 'tf-history-add-row';
 					const addCell = document.createElement('td');
 					addCell.colSpan = 7;
-					addCell.textContent = '+ Legg til ny oppføring';
+					addCell.textContent = t('ui.addNewEntry');
 					addCell.onclick = () => {
 						// Get the most recent date from this month's entries or use today
 						const lastEntry = monthEntries[0];
@@ -5503,7 +5520,7 @@ export class UIBuilder {
 		// Title
 		const title = document.createElement('div');
 		title.className = 'modal-title';
-		title.textContent = `Legg til oppføring for ${dateStr}`;
+		title.textContent = `${t('modals.addEntryTitle')} ${dateStr}`;
 		modalContent.appendChild(title);
 
 		// Content
@@ -5513,7 +5530,7 @@ export class UIBuilder {
 
 		// Type selector
 		const typeLabel = document.createElement('div');
-		typeLabel.textContent = 'Type:';
+		typeLabel.textContent = t('ui.type') + ':';
 		typeLabel.style.fontWeight = 'bold';
 		typeLabel.style.marginBottom = '5px';
 		content.appendChild(typeLabel);
@@ -5678,9 +5695,12 @@ export class UIBuilder {
 					cell.style.background = specialDayBehavior.color;
 					cell.title = `${dateKey} - ${specialDayBehavior.icon} ${specialDayBehavior.label}`;
 				} else if (dayEntries) {
-					// Has entries but no special day - show flextime or neutral
+					// Has entries but no special day - show flextime or simple color
 					if (!this.settings.enableGoalTracking) {
-						cell.style.background = 'var(--background-secondary)';
+						// Simple tracking mode - use work type's simpleColor
+						const workType = this.settings.specialDayBehaviors.find(b => b.isWorkType);
+						cell.style.background = workType?.simpleColor || '#90caf9';
+						cell.style.color = workType?.simpleTextColor || '#000000';
 					} else {
 						const dayFlextime = dayEntries.reduce((sum, e) => sum + (e.flextime || 0), 0);
 						cell.style.background = this.flextimeColor(dayFlextime);
@@ -5689,9 +5709,12 @@ export class UIBuilder {
 					cell.style.background = 'var(--background-modifier-border)';
 				}
 			} else if (dayEntries) {
-				// Simple tracking mode - use neutral color for worked days
+				// Regular work day - show flextime color or simple color
 				if (!this.settings.enableGoalTracking) {
-					cell.style.background = 'var(--background-secondary)';
+					// Simple tracking mode - use work type's simpleColor
+					const workType = this.settings.specialDayBehaviors.find(b => b.isWorkType);
+					cell.style.background = workType?.simpleColor || '#90caf9';
+					cell.style.color = workType?.simpleTextColor || '#000000';
 				} else {
 					// Goal-based mode - show flextime color gradient
 					const dayFlextime = dayEntries.reduce((sum, e) => sum + (e.flextime || 0), 0);
