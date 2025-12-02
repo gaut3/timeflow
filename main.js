@@ -310,7 +310,7 @@ var translations = {
       registerSpecialDay: "Registrer spesialdag",
       addEntry: "Legg til oppf\xF8ring",
       deleteEntry: "Slett oppf\xF8ring",
-      selectOption: "Velg et alternativ fra menyen til venstre"
+      selectOption: "Velg et alternativ fra menyen"
     },
     timeframes: {
       total: "Totalt",
@@ -582,7 +582,7 @@ var translations = {
       registerSpecialDay: "Register special day",
       addEntry: "Add entry",
       deleteEntry: "Delete entry",
-      selectOption: "Select an option from the menu on the left"
+      selectOption: "Select an option from the menu"
     },
     timeframes: {
       total: "Total",
@@ -2681,7 +2681,7 @@ var DataManager = class {
     return this.holidays[dateStr] || null;
   }
   getSpecialDayBehavior(id) {
-    const behavior = this.settings.specialDayBehaviors.find((b) => b.id === id);
+    const behavior = this.settings.specialDayBehaviors.find((b) => b.id.toLowerCase() === id.toLowerCase());
     if (!behavior) {
       return {
         id,
@@ -2713,6 +2713,15 @@ var DataManager = class {
       if (holidayInfo.halfDay) {
         const halfDayHours = this.settings.halfDayMode === "percentage" ? this.settings.baseWorkday / 2 : this.settings.halfDayHours;
         return halfDayHours;
+      }
+    }
+    if (this.daily[dateStr]) {
+      const specialEntry = this.daily[dateStr].find((e) => {
+        const behavior = this.getSpecialDayBehavior(e.name);
+        return behavior && (behavior.noHoursRequired || behavior.countsAsWorkday);
+      });
+      if (specialEntry) {
+        return 0;
       }
     }
     return this.workdayHours;
@@ -2897,17 +2906,27 @@ var DataManager = class {
       const date = Utils.parseDate(dk);
       return date && !Utils.isWeekend(date, this.settings);
     });
-    const totalHoursWorked = weekdayKeys.reduce(
-      (sum, dk) => sum + this.daily[dk].reduce((s, e) => s + (e.duration || 0), 0),
+    const workDayKeys = weekdayKeys.filter((dk) => {
+      const entries = this.daily[dk];
+      return entries.some((e) => {
+        const behavior = this.getSpecialDayBehavior(e.name);
+        return (behavior == null ? void 0 : behavior.isWorkType) && (e.duration || 0) > 0;
+      });
+    });
+    const totalHoursWorked = workDayKeys.reduce(
+      (sum, dk) => sum + this.daily[dk].reduce((s, e) => {
+        const behavior = this.getSpecialDayBehavior(e.name);
+        return s + ((behavior == null ? void 0 : behavior.isWorkType) ? e.duration || 0 : 0);
+      }, 0),
       0
     );
-    const avgDaily = weekdayKeys.length > 0 ? totalHoursWorked / weekdayKeys.length : 0;
-    const weeksWorked = this.settings.workdaysPerWeek > 0 ? weekdayKeys.length / this.settings.workdaysPerWeek : 0;
+    const avgDaily = workDayKeys.length > 0 ? totalHoursWorked / workDayKeys.length : 0;
+    const weeksWorked = this.settings.workdaysPerWeek > 0 ? workDayKeys.length / this.settings.workdaysPerWeek : 0;
     const avgWeekly = weeksWorked > 0 ? totalHoursWorked / weeksWorked : 0;
     this._cachedAverages = {
       avgDaily,
       avgWeekly,
-      totalDaysWorked: weekdayKeys.length,
+      totalDaysWorked: workDayKeys.length,
       totalHoursWorked
     };
     return this._cachedAverages;
@@ -3916,10 +3935,10 @@ var UIBuilder = class {
 					gap: clamp(2px, 2cqw, 8px);
 				}
 				.tf-week-badge {
-					font-size: 10px;
-					padding: 1px 6px;
-					top: 8px;
-					right: 8px;
+					font-size: 9px;
+					padding: 1px 4px;
+					top: 4px;
+					right: 4px;
 				}
 			}
 
@@ -4106,6 +4125,7 @@ var UIBuilder = class {
 				display: grid;
 				gap: 2px;
 				margin-top: 15px;
+				padding-right: 1px;
 			}
 
 			.tf-heatmap-cell {
@@ -6418,14 +6438,21 @@ var UIBuilder = class {
         timerP.style.marginLeft = "8px";
       });
     }
-    const completedEntries = allEntries.filter((e) => e.duration && e.duration > 0);
+    const completedEntries = allEntries.filter((e) => {
+      if (e.duration && e.duration > 0)
+        return true;
+      const behavior = this.data.getSpecialDayBehavior(e.name);
+      return behavior && (behavior.noHoursRequired || behavior.countsAsWorkday);
+    });
     if (completedEntries.length > 0) {
       const historyP = menuInfo.createEl("p");
       historyP.createEl("strong", { text: t("ui.history") + ":" });
       completedEntries.forEach((e) => {
         const emoji = Utils.getEmoji(e);
-        const duration = `${e.duration.toFixed(1)}${this.settings.hourUnit}`;
-        const entryP = menuInfo.createEl("p", { text: emoji + " " + translateSpecialDayName(e.name.toLowerCase(), e.name) + ": " + duration });
+        const behavior = this.data.getSpecialDayBehavior(e.name);
+        const isSpecialDay = behavior && (behavior.noHoursRequired || behavior.countsAsWorkday);
+        const durationText = e.duration && e.duration > 0 ? `: ${e.duration.toFixed(1)}${this.settings.hourUnit}` : "";
+        const entryP = menuInfo.createEl("p", { text: emoji + " " + translateSpecialDayName(e.name.toLowerCase(), e.name) + durationText });
         entryP.style.marginLeft = "8px";
       });
       if (!isFutureDay) {
@@ -8408,10 +8435,10 @@ ${JSON.stringify(this.data)}
     return null;
   }
   async save() {
+    var _a;
     this.isSaving = true;
     this.lastSaveTime = Date.now();
     try {
-      const file = this.app.vault.getAbstractFileByPath(this.dataFile);
       const content = `# timeflow data
 
 This file contains your time tracking data in Timekeep-compatible format.
@@ -8420,15 +8447,29 @@ This file contains your time tracking data in Timekeep-compatible format.
 ${JSON.stringify(this.data, null, 2)}
 \`\`\`
 `;
-      if (file && file instanceof import_obsidian6.TFile) {
-        await this.app.vault.modify(file, content);
+      const fileExists = await this.app.vault.adapter.exists(this.dataFile);
+      if (fileExists) {
+        const file = this.app.vault.getAbstractFileByPath(this.dataFile);
+        if (file && file instanceof import_obsidian6.TFile) {
+          await this.app.vault.modify(file, content);
+        } else {
+          await this.app.vault.adapter.write(this.dataFile, content);
+        }
       } else {
         const folderPath = this.dataFile.substring(0, this.dataFile.lastIndexOf("/"));
         const folderExists = await this.app.vault.adapter.exists(folderPath);
         if (!folderExists) {
           await this.app.vault.createFolder(folderPath);
         }
-        await this.app.vault.create(this.dataFile, content);
+        try {
+          await this.app.vault.create(this.dataFile, content);
+        } catch (createError) {
+          if ((_a = createError == null ? void 0 : createError.message) == null ? void 0 : _a.includes("File already exists")) {
+            await this.app.vault.adapter.write(this.dataFile, content);
+          } else {
+            throw createError;
+          }
+        }
       }
     } catch (error) {
       console.error("TimeFlow: Error saving timer data:", error);
@@ -8493,7 +8534,9 @@ ${JSON.stringify(this.data, null, 2)}
     return false;
   }
   /**
-   * Normalize entry timestamps from UTC 'Z' format to local ISO format.
+   * Normalize entry timestamps:
+   * - Convert UTC 'Z' format to local ISO format
+   * - Convert midnight T00:00:00 to T08:00:00 to avoid timezone parsing issues
    * Returns true if any entries were modified and need saving.
    */
   normalizeEntryTimestamps() {
@@ -8509,6 +8552,10 @@ ${JSON.stringify(this.data, null, 2)}
           modified = true;
           return localISO;
         }
+      }
+      if (timestamp.endsWith("T00:00:00")) {
+        modified = true;
+        return timestamp.replace("T00:00:00", "T08:00:00");
       }
       return timestamp;
     };
@@ -8667,8 +8714,8 @@ ${JSON.stringify(this.data, null, 2)}
       });
       if (hasEntry)
         continue;
-      let startTime = `${dateStr}T00:00:00`;
-      let endTime = `${dateStr}T00:00:00`;
+      let startTime = `${dateStr}T08:00:00`;
+      let endTime = `${dateStr}T08:00:00`;
       if (info.type === "avspasering") {
         if (info.startTime && info.endTime) {
           startTime = `${dateStr}T${info.startTime}:00`;

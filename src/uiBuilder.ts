@@ -508,10 +508,10 @@ export class UIBuilder {
 					gap: clamp(2px, 2cqw, 8px);
 				}
 				.tf-week-badge {
-					font-size: 10px;
-					padding: 1px 6px;
-					top: 8px;
-					right: 8px;
+					font-size: 9px;
+					padding: 1px 4px;
+					top: 4px;
+					right: 4px;
 				}
 			}
 
@@ -698,6 +698,7 @@ export class UIBuilder {
 				display: grid;
 				gap: 2px;
 				margin-top: 15px;
+				padding-right: 1px;
 			}
 
 			.tf-heatmap-cell {
@@ -3559,14 +3560,25 @@ export class UIBuilder {
 		}
 
 		// Show completed entries for this day (filter out running timers - those without duration)
-		const completedEntries = allEntries.filter(e => e.duration && e.duration > 0);
+		// Also include special day entries with 0 duration (ferie, egenmelding, etc.)
+		const completedEntries = allEntries.filter(e => {
+			if (e.duration && e.duration > 0) return true;
+			// Include special days with 0 duration (ferie entries from data.md)
+			const behavior = this.data.getSpecialDayBehavior(e.name);
+			return behavior && (behavior.noHoursRequired || behavior.countsAsWorkday);
+		});
 		if (completedEntries.length > 0) {
 			const historyP = menuInfo.createEl('p');
 			historyP.createEl('strong', { text: t('ui.history') + ':' });
 			completedEntries.forEach(e => {
 				const emoji = Utils.getEmoji(e);
-				const duration = `${e.duration!.toFixed(1)}${this.settings.hourUnit}`;
-				const entryP = menuInfo.createEl('p', { text: emoji + ' ' + translateSpecialDayName(e.name.toLowerCase(), e.name) + ': ' + duration });
+				// Don't show "0.0t" for special days with no duration
+				const behavior = this.data.getSpecialDayBehavior(e.name);
+				const isSpecialDay = behavior && (behavior.noHoursRequired || behavior.countsAsWorkday);
+				const durationText = (e.duration && e.duration > 0)
+					? `: ${e.duration.toFixed(1)}${this.settings.hourUnit}`
+					: '';
+				const entryP = menuInfo.createEl('p', { text: emoji + ' ' + translateSpecialDayName(e.name.toLowerCase(), e.name) + durationText });
 				entryP.style.marginLeft = '8px';
 			});
 

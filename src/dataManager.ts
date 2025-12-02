@@ -124,7 +124,8 @@ export class DataManager {
 	}
 
 	getSpecialDayBehavior(id: string): SpecialDayBehavior | undefined {
-		const behavior = this.settings.specialDayBehaviors.find(b => b.id === id);
+		// Case-insensitive lookup to handle legacy data with different casing (e.g., "Jobb" vs "jobb")
+		const behavior = this.settings.specialDayBehaviors.find(b => b.id.toLowerCase() === id.toLowerCase());
 		if (!behavior) {
 			// Return a neutral fallback for orphaned/unknown types
 			// This ensures deleted types don't break historical data
@@ -170,6 +171,19 @@ export class DataManager {
 					? this.settings.baseWorkday / 2
 					: this.settings.halfDayHours;
 				return halfDayHours;
+			}
+		}
+
+		// Also check if there's a special day entry (ferie, egenmelding, etc.) for this date
+		// This handles legacy/imported data that exists only in data.md (not in holidays.md)
+		if (this.daily[dateStr]) {
+			const specialEntry = this.daily[dateStr].find(e => {
+				const behavior = this.getSpecialDayBehavior(e.name);
+				// Check noHoursRequired OR countsAsWorkday (legacy property for ferie, etc.)
+				return behavior && (behavior.noHoursRequired || behavior.countsAsWorkday);
+			});
+			if (specialEntry) {
+				return 0;
 			}
 		}
 
@@ -414,22 +428,37 @@ export class DataManager {
 			return date && !Utils.isWeekend(date, this.settings);
 		});
 
-		const totalHoursWorked = weekdayKeys.reduce(
-			(sum, dk) => sum + this.daily[dk].reduce((s, e) => s + (e.duration || 0), 0),
+		// Only count days with actual work (work types with duration > 0)
+		// Exclude vacation, sick days etc. from the workload calculation
+		const workDayKeys = weekdayKeys.filter(dk => {
+			const entries = this.daily[dk];
+			// Check if any entry is a work type with actual hours
+			return entries.some(e => {
+				const behavior = this.getSpecialDayBehavior(e.name);
+				return behavior?.isWorkType && (e.duration || 0) > 0;
+			});
+		});
+
+		const totalHoursWorked = workDayKeys.reduce(
+			(sum, dk) => sum + this.daily[dk].reduce((s, e) => {
+				// Only sum hours from work types
+				const behavior = this.getSpecialDayBehavior(e.name);
+				return s + (behavior?.isWorkType ? (e.duration || 0) : 0);
+			}, 0),
 			0
 		);
 		const avgDaily =
-			weekdayKeys.length > 0 ? totalHoursWorked / weekdayKeys.length : 0;
+			workDayKeys.length > 0 ? totalHoursWorked / workDayKeys.length : 0;
 		// Guard against division by zero if workdaysPerWeek is 0
 		const weeksWorked = this.settings.workdaysPerWeek > 0
-			? weekdayKeys.length / this.settings.workdaysPerWeek
+			? workDayKeys.length / this.settings.workdaysPerWeek
 			: 0;
 		const avgWeekly = weeksWorked > 0 ? totalHoursWorked / weeksWorked : 0;
 
 		this._cachedAverages = {
 			avgDaily,
 			avgWeekly,
-			totalDaysWorked: weekdayKeys.length,
+			totalDaysWorked: workDayKeys.length,
 			totalHoursWorked,
 		};
 

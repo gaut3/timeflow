@@ -84,7 +84,8 @@ export interface SpecialDayBehavior {
 	negativeTextColor?: string;    // Hex color for text on negative flextime background
 	simpleColor?: string;          // Hex color for work days when goal tracking is disabled
 	simpleTextColor?: string;      // Hex color for text when goal tracking is disabled
-	noHoursRequired: boolean;      // No work hours required this day?
+	noHoursRequired?: boolean;     // No work hours required this day?
+	countsAsWorkday?: boolean;     // Legacy: equivalent to noHoursRequired (for backwards compatibility)
 	flextimeEffect: 'none' | 'withdraw' | 'accumulate';
 	includeInStats: boolean;       // Count in yearly statistics?
 	maxDaysPerYear?: number;       // Optional limit

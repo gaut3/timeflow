@@ -220,7 +220,7 @@ const translations: Record<Language, TranslationStrings> = {
 			registerSpecialDay: 'Registrer spesialdag',
 			addEntry: 'Legg til oppføring',
 			deleteEntry: 'Slett oppføring',
-			selectOption: 'Velg et alternativ fra menyen til venstre',
+			selectOption: 'Velg et alternativ fra menyen',
 		},
 		timeframes: {
 			total: 'Totalt',
@@ -492,7 +492,7 @@ const translations: Record<Language, TranslationStrings> = {
 			registerSpecialDay: 'Register special day',
 			addEntry: 'Add entry',
 			deleteEntry: 'Delete entry',
-			selectOption: 'Select an option from the menu on the left',
+			selectOption: 'Select an option from the menu',
 		},
 		timeframes: {
 			total: 'Total',

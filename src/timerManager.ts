@@ -116,7 +116,6 @@ ${JSON.stringify(this.data)}
 		this.isSaving = true;
 		this.lastSaveTime = Date.now();
 		try {
-			const file = this.app.vault.getAbstractFileByPath(this.dataFile);
 			const content = `# timeflow data
 
 This file contains your time tracking data in Timekeep-compatible format.
@@ -126,16 +125,35 @@ ${JSON.stringify(this.data, null, 2)}
 \`\`\`
 `;
 
-			if (file && file instanceof TFile) {
-				await this.app.vault.modify(file, content);
+			// First check if file exists using adapter (more reliable than vault cache)
+			const fileExists = await this.app.vault.adapter.exists(this.dataFile);
+
+			if (fileExists) {
+				// File exists - get it and modify
+				const file = this.app.vault.getAbstractFileByPath(this.dataFile);
+				if (file && file instanceof TFile) {
+					await this.app.vault.modify(file, content);
+				} else {
+					// File exists on disk but not in vault cache - use adapter directly
+					await this.app.vault.adapter.write(this.dataFile, content);
+				}
 			} else {
-				// Ensure folder exists before creating file
+				// File doesn't exist - create it
 				const folderPath = this.dataFile.substring(0, this.dataFile.lastIndexOf('/'));
 				const folderExists = await this.app.vault.adapter.exists(folderPath);
 				if (!folderExists) {
 					await this.app.vault.createFolder(folderPath);
 				}
-				await this.app.vault.create(this.dataFile, content);
+				try {
+					await this.app.vault.create(this.dataFile, content);
+				} catch (createError: any) {
+					// If file was created between our check and create (race condition), just write to it
+					if (createError?.message?.includes('File already exists')) {
+						await this.app.vault.adapter.write(this.dataFile, content);
+					} else {
+						throw createError;
+					}
+				}
 			}
 		} catch (error) {
 			console.error('TimeFlow: Error saving timer data:', error);
@@ -215,7 +233,9 @@ ${JSON.stringify(this.data, null, 2)}
 	}
 
 	/**
-	 * Normalize entry timestamps from UTC 'Z' format to local ISO format.
+	 * Normalize entry timestamps:
+	 * - Convert UTC 'Z' format to local ISO format
+	 * - Convert midnight T00:00:00 to T08:00:00 to avoid timezone parsing issues
 	 * Returns true if any entries were modified and need saving.
 	 */
 	normalizeEntryTimestamps(): boolean {
@@ -223,6 +243,7 @@ ${JSON.stringify(this.data, null, 2)}
 
 		const normalizeTimestamp = (timestamp: string | null | undefined): string | null => {
 			if (!timestamp) return null;
+
 			// Check if it ends with 'Z' (UTC format)
 			if (timestamp.endsWith('Z')) {
 				const date = new Date(timestamp);
@@ -234,6 +255,14 @@ ${JSON.stringify(this.data, null, 2)}
 					return localISO;
 				}
 			}
+
+			// Convert midnight timestamps to 08:00 to avoid timezone issues
+			// This handles legacy special day entries that used T00:00:00
+			if (timestamp.endsWith('T00:00:00')) {
+				modified = true;
+				return timestamp.replace('T00:00:00', 'T08:00:00');
+			}
+
 			return timestamp;
 		};
 
@@ -431,8 +460,9 @@ ${JSON.stringify(this.data, null, 2)}
 			if (hasEntry) continue;
 
 			// Calculate times based on type
-			let startTime = `${dateStr}T00:00:00`;
-			let endTime = `${dateStr}T00:00:00`;
+			// Use T08:00:00 instead of T00:00:00 to avoid timezone parsing issues
+			let startTime = `${dateStr}T08:00:00`;
+			let endTime = `${dateStr}T08:00:00`;
 
 			if (info.type === 'avspasering') {
 				// Avspasering uses startTime/endTime from holidays.md (e.g., 14:00-16:00)
@@ -447,7 +477,7 @@ ${JSON.stringify(this.data, null, 2)}
 					endTime = `${dateStr}T${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:00`;
 				}
 			}
-			// ferie, velferdspermisjon, sykemelding, egenmelding: 00:00-00:00 (0 duration is fine)
+			// ferie, velferdspermisjon, sykemelding, egenmelding: 08:00-08:00 (0 duration is fine)
 
 			const entry: Timer = {
 				name: info.type,
