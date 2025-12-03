@@ -2844,6 +2844,10 @@ var DataManager = class {
         if (e.isActive)
           return;
         hasCompletedEntries = true;
+        const behavior = this.getSpecialDayBehavior(e.name);
+        if (behavior && (behavior.noHoursRequired || behavior.countsAsWorkday)) {
+          return;
+        }
         if (e.name.toLowerCase() === "avspasering") {
           avspaseringHours += e.duration || 0;
         } else {
@@ -3521,6 +3525,52 @@ var UIBuilder = class {
     if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59)
       return null;
     return { hours, minutes };
+  }
+  /**
+   * Create a text-based time input with validation (HH:MM format).
+   * Uses a regular text input instead of type="time" to avoid clock pickers on mobile.
+   */
+  createTimeInput(initialValue, onChange) {
+    const input = document.createElement("input");
+    input.type = "text";
+    input.value = initialValue;
+    input.placeholder = "HH:MM";
+    input.maxLength = 5;
+    input.pattern = "[0-2][0-9]:[0-5][0-9]";
+    input.inputMode = "numeric";
+    input.classList.add("tf-time-input");
+    let lastValidValue = initialValue;
+    input.oninput = () => {
+      let val = input.value.replace(/[^0-9]/g, "");
+      if (val.length >= 3) {
+        val = val.slice(0, 2) + ":" + val.slice(2, 4);
+      }
+      if (val.length > 5)
+        val = val.slice(0, 5);
+      input.value = val;
+    };
+    input.onblur = () => {
+      if (!input.value) {
+        input.value = lastValidValue;
+        return;
+      }
+      const parsed = this.parseTimeInput(input.value);
+      if (parsed) {
+        const formatted = `${parsed.hours.toString().padStart(2, "0")}:${parsed.minutes.toString().padStart(2, "0")}`;
+        input.value = formatted;
+        lastValidValue = formatted;
+        onChange(formatted);
+      } else {
+        new import_obsidian4.Notice(t("validation.invalidTime"));
+        input.value = lastValidValue;
+      }
+    };
+    input.onkeydown = (e) => {
+      if (e.key === "Enter") {
+        input.blur();
+      }
+    };
+    return input;
   }
   /**
    * Wrapper for timerManager.save() with error handling.
@@ -4453,7 +4503,8 @@ var UIBuilder = class {
 			.tf-history-table-narrow th:nth-child(5),
 			.tf-history-table-narrow td:nth-child(5) { width: 50px; } /* Handling */
 
-			.tf-history-table-wide input[type="time"] {
+			.tf-history-table-wide input[type="time"],
+			.tf-time-input {
 				padding: 4px 6px;
 				border: 1px solid var(--background-modifier-border);
 				border-radius: 4px;
@@ -4462,6 +4513,11 @@ var UIBuilder = class {
 				font-size: 0.9em;
 				width: 100%;
 				box-sizing: border-box;
+			}
+
+			.tf-time-input {
+				text-align: center;
+				font-family: var(--font-monospace);
 			}
 
 			.tf-history-table-wide select {
@@ -6799,9 +6855,8 @@ var UIBuilder = class {
       startDateInput.style.flex = "1";
       startDateInput.style.padding = "6px";
       startRow.appendChild(startDateInput);
-      const startTimeInput = document.createElement("input");
-      startTimeInput.type = "time";
-      startTimeInput.value = startTimeStr;
+      const startTimeInput = this.createTimeInput(startTimeStr, () => {
+      });
       startTimeInput.style.flex = "1";
       startTimeInput.style.padding = "6px";
       startRow.appendChild(startTimeInput);
@@ -6821,9 +6876,8 @@ var UIBuilder = class {
       endDateInput.style.flex = "1";
       endDateInput.style.padding = "6px";
       endRow.appendChild(endDateInput);
-      const endTimeInput = document.createElement("input");
-      endTimeInput.type = "time";
-      endTimeInput.value = endTimeStr !== t("ui.ongoing") ? endTimeStr : "";
+      const endTimeInput = this.createTimeInput(endTimeStr !== t("ui.ongoing") ? endTimeStr : "", () => {
+      });
       endTimeInput.style.flex = "1";
       endTimeInput.style.padding = "6px";
       endRow.appendChild(endTimeInput);
@@ -7018,22 +7072,21 @@ var UIBuilder = class {
     const fromLabel = document.createElement("span");
     fromLabel.textContent = "Fra:";
     timeInputRow.appendChild(fromLabel);
-    const fromTimeInput = document.createElement("input");
-    fromTimeInput.type = "time";
-    fromTimeInput.value = "08:00";
+    const workdayHours = this.settings.baseWorkday * this.settings.workPercent;
+    const defaultEndHour = 8 + workdayHours;
+    const endH = Math.floor(defaultEndHour);
+    const endM = Math.round((defaultEndHour - endH) * 60);
+    const defaultEndTime = `${endH.toString().padStart(2, "0")}:${endM.toString().padStart(2, "0")}`;
+    const fromTimeInput = this.createTimeInput("08:00", () => {
+    });
     fromTimeInput.style.padding = "8px";
     fromTimeInput.style.fontSize = "14px";
     timeInputRow.appendChild(fromTimeInput);
     const toLabel = document.createElement("span");
     toLabel.textContent = "Til:";
     timeInputRow.appendChild(toLabel);
-    const toTimeInput = document.createElement("input");
-    toTimeInput.type = "time";
-    const workdayHours = this.settings.baseWorkday * this.settings.workPercent;
-    const defaultEndHour = 8 + workdayHours;
-    const endH = Math.floor(defaultEndHour);
-    const endM = Math.round((defaultEndHour - endH) * 60);
-    toTimeInput.value = `${endH.toString().padStart(2, "0")}:${endM.toString().padStart(2, "0")}`;
+    const toTimeInput = this.createTimeInput(defaultEndTime, () => {
+    });
     toTimeInput.style.padding = "8px";
     toTimeInput.style.fontSize = "14px";
     timeInputRow.appendChild(toTimeInput);
@@ -7391,23 +7444,17 @@ ${noteType.tags.join(" ")}`;
           const startDate = new Date(matchingRaw.startTime);
           const startTimeStr = `${startDate.getHours().toString().padStart(2, "0")}:${startDate.getMinutes().toString().padStart(2, "0")}`;
           if (this.inlineEditMode) {
-            const input = document.createElement("input");
-            input.type = "time";
-            input.value = startTimeStr;
-            input.onchange = async () => {
+            const input = this.createTimeInput(startTimeStr, async (newValue) => {
               var _a, _b;
-              const parsed = this.parseTimeInput(input.value);
-              if (!parsed) {
-                new import_obsidian4.Notice(t("validation.invalidTime"));
-                input.value = startTimeStr;
+              const parsed = this.parseTimeInput(newValue);
+              if (!parsed)
                 return;
-              }
               const newStart = new Date(matchingRaw.startTime);
               newStart.setHours(parsed.hours, parsed.minutes, 0, 0);
               matchingRaw.startTime = Utils.toLocalISOString(newStart);
               await this.saveWithErrorHandling();
               await ((_b = (_a = this.plugin.timerManager).onTimerChange) == null ? void 0 : _b.call(_a));
-            };
+            });
             startCell.appendChild(input);
           } else {
             startCell.textContent = startTimeStr;
@@ -7762,22 +7809,16 @@ ${noteType.tags.join(" ")}`;
                   };
                   container2.appendChild(dateInput);
                 }
-                const timeInput = document.createElement("input");
-                timeInput.type = "time";
-                timeInput.value = startTimeStr;
-                timeInput.onchange = async () => {
-                  const parsed = this.parseTimeInput(timeInput.value);
-                  if (!parsed) {
-                    new import_obsidian4.Notice(t("validation.invalidTime"));
-                    timeInput.value = startTimeStr;
+                const timeInput = this.createTimeInput(startTimeStr, async (newValue) => {
+                  const parsed = this.parseTimeInput(newValue);
+                  if (!parsed)
                     return;
-                  }
                   const newStart = new Date(matchingRaw.startTime);
                   newStart.setHours(parsed.hours, parsed.minutes, 0, 0);
                   matchingRaw.startTime = Utils.toLocalISOString(newStart);
                   await this.saveWithErrorHandling();
                   this.softRefreshHistory();
-                };
+                });
                 container2.appendChild(timeInput);
                 startCell.appendChild(container2);
               } else {
@@ -7814,22 +7855,16 @@ ${noteType.tags.join(" ")}`;
                   };
                   container2.appendChild(dateInput);
                 }
-                const timeInput = document.createElement("input");
-                timeInput.type = "time";
-                timeInput.value = endTimeStr;
-                timeInput.onchange = async () => {
-                  const parsed = this.parseTimeInput(timeInput.value);
-                  if (!parsed) {
-                    new import_obsidian4.Notice(t("validation.invalidTime"));
-                    timeInput.value = endTimeStr;
+                const timeInput = this.createTimeInput(endTimeStr, async (newValue) => {
+                  const parsed = this.parseTimeInput(newValue);
+                  if (!parsed)
                     return;
-                  }
                   const newEnd = new Date(matchingRaw.endTime);
                   newEnd.setHours(parsed.hours, parsed.minutes, 0, 0);
                   matchingRaw.endTime = Utils.toLocalISOString(newEnd);
                   await this.saveWithErrorHandling();
                   this.softRefreshHistory();
-                };
+                });
                 container2.appendChild(timeInput);
                 endCell.appendChild(container2);
               } else {
@@ -7837,23 +7872,14 @@ ${noteType.tags.join(" ")}`;
               }
             } else if (this.inlineEditMode && matchingRaw) {
               const startDate = matchingRaw.startTime ? new Date(matchingRaw.startTime) : /* @__PURE__ */ new Date();
-              const startDateStr = Utils.toLocalDateStr(startDate);
               const container2 = document.createElement("div");
               container2.style.display = "flex";
               container2.style.flexDirection = "column";
               container2.style.gap = "4px";
-              const timeInput = document.createElement("input");
-              timeInput.type = "time";
-              timeInput.placeholder = "HH:MM";
-              timeInput.onchange = async () => {
-                if (!timeInput.value)
+              const timeInput = this.createTimeInput("", async (newValue) => {
+                const parsed = this.parseTimeInput(newValue);
+                if (!parsed)
                   return;
-                const parsed = this.parseTimeInput(timeInput.value);
-                if (!parsed) {
-                  new import_obsidian4.Notice(t("validation.invalidTime"));
-                  timeInput.value = "";
-                  return;
-                }
                 const newEnd = new Date(startDate);
                 newEnd.setHours(parsed.hours, parsed.minutes, 0, 0);
                 if (newEnd <= startDate) {
@@ -7863,7 +7889,7 @@ ${noteType.tags.join(" ")}`;
                 matchingRaw.endTime = Utils.toLocalISOString(newEnd);
                 await this.saveWithErrorHandling();
                 this.softRefreshHistory();
-              };
+              });
               container2.appendChild(timeInput);
               endCell.appendChild(container2);
             } else {
@@ -7981,9 +8007,8 @@ ${noteType.tags.join(" ")}`;
     startLabel.style.fontWeight = "bold";
     startLabel.style.marginBottom = "5px";
     content.appendChild(startLabel);
-    const startInput = document.createElement("input");
-    startInput.type = "time";
-    startInput.value = "08:00";
+    const startInput = this.createTimeInput("08:00", () => {
+    });
     startInput.style.width = "100%";
     startInput.style.marginBottom = "15px";
     startInput.style.padding = "8px";
@@ -7993,9 +8018,8 @@ ${noteType.tags.join(" ")}`;
     endLabel.style.fontWeight = "bold";
     endLabel.style.marginBottom = "5px";
     content.appendChild(endLabel);
-    const endInput = document.createElement("input");
-    endInput.type = "time";
-    endInput.value = "16:00";
+    const endInput = this.createTimeInput("16:00", () => {
+    });
     endInput.style.width = "100%";
     endInput.style.marginBottom = "20px";
     endInput.style.padding = "8px";

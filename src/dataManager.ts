@@ -338,6 +338,16 @@ export class DataManager {
 				// Skip active entries - only count completed work in balance
 				if (e.isActive) return;
 				hasCompletedEntries = true;
+
+				// Check if this entry type should count toward flextime
+				const behavior = this.getSpecialDayBehavior(e.name);
+
+				// Skip hours for noHoursRequired types (egenmelding, ferie, helligdag, etc.)
+				// These entries mark the day but their hours shouldn't affect flextime
+				if (behavior && (behavior.noHoursRequired || behavior.countsAsWorkday)) {
+					return;
+				}
+
 				if (e.name.toLowerCase() === 'avspasering') {
 					avspaseringHours += e.duration || 0;
 				} else {

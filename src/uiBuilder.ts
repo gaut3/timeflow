@@ -94,6 +94,62 @@ export class UIBuilder {
 	}
 
 	/**
+	 * Create a text-based time input with validation (HH:MM format).
+	 * Uses a regular text input instead of type="time" to avoid clock pickers on mobile.
+	 */
+	private createTimeInput(initialValue: string, onChange: (value: string) => void): HTMLInputElement {
+		const input = document.createElement('input');
+		input.type = 'text';
+		input.value = initialValue;
+		input.placeholder = 'HH:MM';
+		input.maxLength = 5;
+		input.pattern = '[0-2][0-9]:[0-5][0-9]';
+		input.inputMode = 'numeric'; // Show numeric keyboard on mobile
+		input.classList.add('tf-time-input');
+
+		let lastValidValue = initialValue;
+
+		// Auto-format as user types
+		input.oninput = () => {
+			let val = input.value.replace(/[^0-9]/g, ''); // Remove non-digits
+			if (val.length >= 3) {
+				val = val.slice(0, 2) + ':' + val.slice(2, 4);
+			}
+			if (val.length > 5) val = val.slice(0, 5);
+			input.value = val;
+		};
+
+		// Validate and call onChange on blur
+		input.onblur = () => {
+			// If empty, just restore last valid (might be empty for new entries)
+			if (!input.value) {
+				input.value = lastValidValue;
+				return;
+			}
+			const parsed = this.parseTimeInput(input.value);
+			if (parsed) {
+				// Format to ensure consistent HH:MM format
+				const formatted = `${parsed.hours.toString().padStart(2, '0')}:${parsed.minutes.toString().padStart(2, '0')}`;
+				input.value = formatted;
+				lastValidValue = formatted;
+				onChange(formatted);
+			} else {
+				new Notice(t('validation.invalidTime'));
+				input.value = lastValidValue; // Restore previous value
+			}
+		};
+
+		// Also validate on Enter key
+		input.onkeydown = (e) => {
+			if (e.key === 'Enter') {
+				input.blur();
+			}
+		};
+
+		return input;
+	}
+
+	/**
 	 * Wrapper for timerManager.save() with error handling.
 	 * Shows a notice on failure and returns false.
 	 */
@@ -1026,7 +1082,8 @@ export class UIBuilder {
 			.tf-history-table-narrow th:nth-child(5),
 			.tf-history-table-narrow td:nth-child(5) { width: 50px; } /* Handling */
 
-			.tf-history-table-wide input[type="time"] {
+			.tf-history-table-wide input[type="time"],
+			.tf-time-input {
 				padding: 4px 6px;
 				border: 1px solid var(--background-modifier-border);
 				border-radius: 4px;
@@ -1035,6 +1092,11 @@ export class UIBuilder {
 				font-size: 0.9em;
 				width: 100%;
 				box-sizing: border-box;
+			}
+
+			.tf-time-input {
+				text-align: center;
+				font-family: var(--font-monospace);
 			}
 
 			.tf-history-table-wide select {
@@ -4031,9 +4093,7 @@ export class UIBuilder {
 			startDateInput.style.padding = '6px';
 			startRow.appendChild(startDateInput);
 
-			const startTimeInput = document.createElement('input');
-			startTimeInput.type = 'time';
-			startTimeInput.value = startTimeStr;
+			const startTimeInput = this.createTimeInput(startTimeStr, () => {});
 			startTimeInput.style.flex = '1';
 			startTimeInput.style.padding = '6px';
 			startRow.appendChild(startTimeInput);
@@ -4059,9 +4119,7 @@ export class UIBuilder {
 			endDateInput.style.padding = '6px';
 			endRow.appendChild(endDateInput);
 
-			const endTimeInput = document.createElement('input');
-			endTimeInput.type = 'time';
-			endTimeInput.value = endTimeStr !== t('ui.ongoing') ? endTimeStr : '';
+			const endTimeInput = this.createTimeInput(endTimeStr !== t('ui.ongoing') ? endTimeStr : '', () => {});
 			endTimeInput.style.flex = '1';
 			endTimeInput.style.padding = '6px';
 			endRow.appendChild(endTimeInput);
@@ -4322,9 +4380,14 @@ export class UIBuilder {
 		fromLabel.textContent = 'Fra:';
 		timeInputRow.appendChild(fromLabel);
 
-		const fromTimeInput = document.createElement('input');
-		fromTimeInput.type = 'time';
-		fromTimeInput.value = '08:00';
+		// Default to end of workday
+		const workdayHours = this.settings.baseWorkday * this.settings.workPercent;
+		const defaultEndHour = 8 + workdayHours; // Assuming 08:00 start
+		const endH = Math.floor(defaultEndHour);
+		const endM = Math.round((defaultEndHour - endH) * 60);
+		const defaultEndTime = `${endH.toString().padStart(2, '0')}:${endM.toString().padStart(2, '0')}`;
+
+		const fromTimeInput = this.createTimeInput('08:00', () => {});
 		fromTimeInput.style.padding = '8px';
 		fromTimeInput.style.fontSize = '14px';
 		timeInputRow.appendChild(fromTimeInput);
@@ -4333,14 +4396,7 @@ export class UIBuilder {
 		toLabel.textContent = 'Til:';
 		timeInputRow.appendChild(toLabel);
 
-		const toTimeInput = document.createElement('input');
-		toTimeInput.type = 'time';
-		// Default to end of workday
-		const workdayHours = this.settings.baseWorkday * this.settings.workPercent;
-		const defaultEndHour = 8 + workdayHours; // Assuming 08:00 start
-		const endH = Math.floor(defaultEndHour);
-		const endM = Math.round((defaultEndHour - endH) * 60);
-		toTimeInput.value = `${endH.toString().padStart(2, '0')}:${endM.toString().padStart(2, '0')}`;
+		const toTimeInput = this.createTimeInput(defaultEndTime, () => {});
 		toTimeInput.style.padding = '8px';
 		toTimeInput.style.fontSize = '14px';
 		timeInputRow.appendChild(toTimeInput);
@@ -4825,22 +4881,15 @@ export class UIBuilder {
 					const startTimeStr = `${startDate.getHours().toString().padStart(2, '0')}:${startDate.getMinutes().toString().padStart(2, '0')}`;
 
 					if (this.inlineEditMode) {
-						const input = document.createElement('input');
-						input.type = 'time';
-						input.value = startTimeStr;
-						input.onchange = async () => {
-							const parsed = this.parseTimeInput(input.value);
-							if (!parsed) {
-								new Notice(t('validation.invalidTime'));
-								input.value = startTimeStr;
-								return;
-							}
+						const input = this.createTimeInput(startTimeStr, async (newValue) => {
+							const parsed = this.parseTimeInput(newValue);
+							if (!parsed) return;
 							const newStart = new Date(matchingRaw.startTime!);
 							newStart.setHours(parsed.hours, parsed.minutes, 0, 0);
 							matchingRaw.startTime = Utils.toLocalISOString(newStart);
 							await this.saveWithErrorHandling();
 							await this.plugin.timerManager.onTimerChange?.();
-						};
+						});
 						startCell.appendChild(input);
 					} else {
 						startCell.textContent = startTimeStr;
@@ -5302,22 +5351,15 @@ export class UIBuilder {
 									container.appendChild(dateInput);
 								}
 
-								const timeInput = document.createElement('input');
-								timeInput.type = 'time';
-								timeInput.value = startTimeStr;
-								timeInput.onchange = async () => {
-									const parsed = this.parseTimeInput(timeInput.value);
-									if (!parsed) {
-										new Notice(t('validation.invalidTime'));
-										timeInput.value = startTimeStr; // Restore previous value
-										return;
-									}
+								const timeInput = this.createTimeInput(startTimeStr, async (newValue) => {
+									const parsed = this.parseTimeInput(newValue);
+									if (!parsed) return;
 									const newStart = new Date(matchingRaw.startTime!);
 									newStart.setHours(parsed.hours, parsed.minutes, 0, 0);
 									matchingRaw.startTime = Utils.toLocalISOString(newStart);
 									await this.saveWithErrorHandling();
 									this.softRefreshHistory();
-								};
+								});
 								container.appendChild(timeInput);
 								startCell.appendChild(container);
 							} else {
@@ -5365,22 +5407,15 @@ export class UIBuilder {
 									container.appendChild(dateInput);
 								}
 
-								const timeInput = document.createElement('input');
-								timeInput.type = 'time';
-								timeInput.value = endTimeStr;
-								timeInput.onchange = async () => {
-									const parsed = this.parseTimeInput(timeInput.value);
-									if (!parsed) {
-										new Notice(t('validation.invalidTime'));
-										timeInput.value = endTimeStr; // Restore previous value
-										return;
-									}
+								const timeInput = this.createTimeInput(endTimeStr, async (newValue) => {
+									const parsed = this.parseTimeInput(newValue);
+									if (!parsed) return;
 									const newEnd = new Date(matchingRaw.endTime!);
 									newEnd.setHours(parsed.hours, parsed.minutes, 0, 0);
 									matchingRaw.endTime = Utils.toLocalISOString(newEnd);
 									await this.saveWithErrorHandling();
 									this.softRefreshHistory();
-								};
+								});
 								container.appendChild(timeInput);
 								endCell.appendChild(container);
 							} else {
@@ -5390,24 +5425,15 @@ export class UIBuilder {
 						} else if (this.inlineEditMode && matchingRaw) {
 							// No end time yet (active entry) - allow setting one in edit mode
 							const startDate = matchingRaw.startTime ? new Date(matchingRaw.startTime) : new Date();
-							const startDateStr = Utils.toLocalDateStr(startDate);
 
 							const container = document.createElement('div');
 							container.style.display = 'flex';
 							container.style.flexDirection = 'column';
 							container.style.gap = '4px';
 
-							const timeInput = document.createElement('input');
-							timeInput.type = 'time';
-							timeInput.placeholder = 'HH:MM';
-							timeInput.onchange = async () => {
-								if (!timeInput.value) return;
-								const parsed = this.parseTimeInput(timeInput.value);
-								if (!parsed) {
-									new Notice(t('validation.invalidTime'));
-									timeInput.value = '';
-									return;
-								}
+							const timeInput = this.createTimeInput('', async (newValue) => {
+								const parsed = this.parseTimeInput(newValue);
+								if (!parsed) return;
 								// Use the start date as the base for end time
 								const newEnd = new Date(startDate);
 								newEnd.setHours(parsed.hours, parsed.minutes, 0, 0);
@@ -5419,7 +5445,7 @@ export class UIBuilder {
 								matchingRaw.endTime = Utils.toLocalISOString(newEnd);
 								await this.saveWithErrorHandling();
 								this.softRefreshHistory();
-							};
+							});
 							container.appendChild(timeInput);
 							endCell.appendChild(container);
 						} else {
@@ -5566,9 +5592,7 @@ export class UIBuilder {
 		startLabel.style.marginBottom = '5px';
 		content.appendChild(startLabel);
 
-		const startInput = document.createElement('input');
-		startInput.type = 'time';
-		startInput.value = '08:00';
+		const startInput = this.createTimeInput('08:00', () => {});
 		startInput.style.width = '100%';
 		startInput.style.marginBottom = '15px';
 		startInput.style.padding = '8px';
@@ -5581,9 +5605,7 @@ export class UIBuilder {
 		endLabel.style.marginBottom = '5px';
 		content.appendChild(endLabel);
 
-		const endInput = document.createElement('input');
-		endInput.type = 'time';
-		endInput.value = '16:00';
+		const endInput = this.createTimeInput('16:00', () => {});
 		endInput.style.width = '100%';
 		endInput.style.marginBottom = '20px';
 		endInput.style.padding = '8px';
