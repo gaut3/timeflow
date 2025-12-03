@@ -1,10 +1,11 @@
 ![timeflow Dashboard](https://github.com/gaut3/timeflow/blob/main/images/timeflow.png?raw=true)
 
-![timeflow Wide Dashboard](https://github.com/gaut3/timeflow/blob/main/images/timeflow%20wide%20dashboard%20-%20english.png?raw=true)
-
 timeflow provides a comprehensive flextime tracking dashboard with **built-in timer functionality**, beautiful visualizations, and extensive customization options.
 
 > **Note:** timeflow was originally designed for Norwegian work culture (7.5h workdays, 37.5h weeks, specific leave types like "avspasering" and "egenmelding"). However, all settings are fully customizable - workday hours, work week structure, leave types, colors, and labels can all be adjusted to match your country's work culture and personal needs.
+
+
+![timeflow Wide Dashboard](https://github.com/gaut3/timeflow/blob/main/images/timeflow%20wide%20dashboard%20-%20english.png?raw=true)
 
 ## Features
 
@@ -24,7 +25,7 @@ timeflow provides a comprehensive flextime tracking dashboard with **built-in ti
 
 ### 📊 Tracking & Visualization
 ![timeflow-stats](https://github.com/gaut3/timeflow/blob/main/images/timeflow%20stats.png?raw=true)
-- **Real-time Flextime Balance Tracking** - See your current flextime balance with color-coded indicators
+- **Live Flextime Balance Tracking** - See your flextime balance with automatic updates and color-coded indicators
 - **Daily, Weekly, Monthly and Yearly Views** - Track your work hours with intuitive cards and responsive layout
 - **Week Numbers** - ISO 8601 week numbers displayed in calendar and week card (toggle in settings)
 - **Interactive Month Calendar** - Visual calendar with color-coded days for planned holidays and flextime
@@ -89,8 +90,9 @@ timeflow provides a comprehensive flextime tracking dashboard with **built-in ti
   - Jobb (Work) - configurable as a work type
   - Avspasering (Comp time)
   - Ferie (Vacation)
+  - Helligdag (Public holiday)
   - Velferdspermisjon (Welfare leave)
-  - Egenmelding (Self-reported sick leave)
+  - Egenmelding (Self-reported sick leave) - rolling 365-day limit tracking
   - Sykemelding (Doctor's note sick leave)
   - Kurs (Course/Training)
   - Studie (Study leave)
@@ -106,6 +108,9 @@ timeflow provides a comprehensive flextime tracking dashboard with **built-in ti
   - Track changes to your work schedule over time
   - Historical flextime calculations use the correct schedule for each period
   - Automatically created when you first change work settings
+- **Simple Tracking Mode** - Disable goal tracking for flexible schedules without fixed targets
+- **Compliance Warnings** - Optional warnings for Norwegian labor law compliance (daily/weekly hour limits, rest periods)
+- **Custom Colors** - Customize balance badge colors and progress bar colors
 
 #### Theme & Layout
 - **System Theme** - Automatically follows Obsidian's light/dark theme
@@ -170,17 +175,20 @@ This file contains your time tracking data in Timekeep-compatible format.
   "entries": [
     {
       "name": "Jobb",
-      "startTime": "2025-11-25T06:44:34.414Z",
-      "endTime": "2025-11-25T15:52:31.638Z",
+      "startTime": "2025-11-25T07:44:34",
+      "endTime": "2025-11-25T15:52:31",
       "subEntries": null
     }
-  ],
-  "settings": {
-    "workPercent": 1.0,
-    "baseWorkday": 7.5,
-    "baseWorkweek": 37.5,
-    ...
-  }
+  ]
+}
+\`\`\`
+
+\`\`\`timeflow-settings
+{
+  "workPercent": 1.0,
+  "baseWorkday": 7.5,
+  "baseWorkweek": 37.5,
+  ...
 }
 \`\`\`
 ```
@@ -208,77 +216,6 @@ Your Vault/
 ```
 
 **Note**: These paths are configurable in settings. You can adjust them to match your vault structure.
-
-## Configuration
-
-Go to Settings → timeflow to configure:
-
-### Display Settings
-- **Language** - Choose between Norwegian (Norsk) and English
-- **Hour Unit** - Display hours as "h" or "t" (timer)
-- **Week Numbers** - Show/hide ISO week numbers in calendar and week card
-- **Default View Location** - Open in sidebar or main window by default
-
-### Special Day Types
-Customize names and colors for:
-- Comp time (Avspasering)
-- Vacation (Ferie)
-- Welfare leave (Velferdspermisjon)
-- Self-reported sick leave (Egenmelding)
-- Doctor's note sick leave (Sykemelding)
-- Courses/Training (Kurs)
-- Study leave (Studie)
-
-### Work Configuration
-- **Base Workday Hours** - Standard daily hours (e.g., 7.5, 8, 6)
-- **Work Percentage** - Employment level (1.0 = 100%, 0.8 = 80%, etc.) - *only shown when weekly goals enabled*
-- **Base Workweek Hours** - Standard weekly hours (e.g., 37.5, 40, 30) - *only shown when weekly goals enabled*
-- **Lunch Break Duration** - Daily lunch break in minutes (automatically deducted)
-- **Work Days** - Select which days are part of your work week (clickable buttons for each day)
-- **Alternating Weeks** - Enable to configure different work days for alternating weeks
-- **Enable Weekly/Monthly Goals** - Toggle to show/hide weekly goals and progress bars
-
-### Leave Limits
-- **Max Sick Leave Days** - Annual self-reported sick days (typically 8 in Norway)
-  - Note: Only full sick days count towards this limit; partial sick days do not
-- **Max Vacation Days** - Annual vacation days (typically 25 in Norway)
-
-### Note Types
-Configure custom note types with:
-- Unique ID and display label
-- Custom icon (emoji)
-- Folder location
-- Template path
-- Auto-applied tags
-- Filename pattern with variables: `{YYYY}`, `{MM}`, `{DD}`, `{WEEK}`
-
-### File Paths
-- **Holidays File Path** - Location of holidays definition file
-- **Daily Notes Folder** - Where daily notes are created
-- **Daily Notes Template** - Template for daily notes
-
-### Advanced Configuration
-- **Balance Calculation**
-  - **Balance Start Date** - Set when to start counting flextime balance (default: Jan 1 of current year)
-  - **Work Schedule History** - Historical schedule periods are tracked automatically for accurate flextime calculations when your work settings change
-- **Half-Day Settings**
-  - **Half-Day Mode** - Choose "Fixed" or "Percentage" based calculation
-  - **Fixed Hours** - If using fixed mode, set the number of hours (default: 4)
-- **Balance Color Thresholds** - Customize when the balance badge shows different colors
-  - **Critical Low** - Hours below this show red (default: -15)
-  - **Warning Low** - Hours below this show yellow (default: 0)
-  - **Warning High** - Hours above this show yellow (default: 80)
-  - **Critical High** - Hours above this show red (default: 95)
-- **Data Validation Thresholds** - Adjust warning levels
-  - **Long-running Timer** - Hours before warning about timer (default: 12)
-  - **Very Long Session** - Hours before warning about session (default: 16)
-  - **Maximum Duration** - Hours before error on duration (default: 24)
-  - **High Weekly Total** - Hours before info on weekly total (default: 60)
-
-### Other Settings
-- **Update Interval** - How often to refresh the dashboard (default: 30 seconds)
-- **Heatmap Columns** - Number of columns in history heatmap
-- **Consecutive Flextime Warning** - Days before warning about streak
 
 ## Holiday File Format
 
@@ -309,125 +246,9 @@ Supported types:
 
 ## Importing Data
 
-timeflow supports importing time data from multiple formats:
+timeflow supports importing time data from **Timekeep JSON**, **CSV** (Norwegian DD.MM.YYYY or ISO dates), and **JSON arrays**.
 
-### Supported Formats
-
-1. **Timekeep JSON** - The native format from Timekeep plugin
-   ```json
-   {"entries": [{"name": "jobb", "startTime": "2024-01-15T09:00:00Z", "endTime": "2024-01-15T17:00:00Z"}]}
-   ```
-
-2. **CSV** - Spreadsheet format with automatic delimiter detection
-   ```csv
-   Dato;Start;Slutt;Aktivitet
-   15.01.2024;09:00;17:00;jobb
-   16.01.2024;08:30;16:30;jobb
-   ```
-   - Supports Norwegian date format (DD.MM.YYYY) and ISO format (YYYY-MM-DD)
-   - Auto-detects delimiter (semicolon, comma, or tab)
-   - Flexible column name matching (Dato/Date, Start/Starttid, Slutt/End, etc.)
-
-3. **JSON Array** - Simple array of objects
-   ```json
-   [{"date": "2024-01-15", "start": "09:00", "end": "17:00", "activity": "jobb"}]
-   ```
-
-### How to Import
-
-1. Go to **Settings → timeflow → Data Management**
-2. Click **Import Data**
-3. Either:
-   - Click **"Select file..."** to upload a file (.json, .csv, .txt)
-   - Paste data directly into the text area
-4. The importer will auto-detect the format and show a preview
-5. Review the parsed entries and any warnings
-6. Click **"Import"** to add the entries
-
-### Import Features
-- **Auto-detection** of format and delimiter
-- **Preview** of first 5 entries before importing
-- **Validation** with error and warning messages
-- **Duplicate detection** - skips entries that already exist
-- **Detailed feedback** showing added vs. skipped entries
-
-## Configuration Examples for Different Work Scenarios
-
-These examples show how to configure the plugin settings for common work situations. All values are set in Settings → timeflow.
-
-### Standard Norwegian Worker
-```
-Base Workday: 7.5 hours
-Base Workweek: 37.5 hours
-Work Percentage: 100%
-Lunch Break: 0 minutes (included in 7.5h)
-Work Days: Mon, Tue, Wed, Thu, Fri
-Enable Weekly Goals: ✅ Yes
-Max Egenmelding: 8 days
-Max Ferie: 25 days
-```
-
-### 8-Hour Day with Lunch Break
-```
-Base Workday: 8 hours
-Base Workweek: 40 hours
-Lunch Break: 30 minutes
-Work Days: Mon, Tue, Wed, Thu, Fri
-Result: 7.5 hours counted per day
-```
-
-### 4-Day Workweek
-```
-Base Workday: 7.5 hours
-Base Workweek: 30 hours
-Work Days: Mon, Tue, Wed, Thu (or any 4 days)
-```
-
-### Weekend Shift Worker
-```
-Base Workday: 7.5 hours
-Base Workweek: 37.5 hours
-Work Days: Mon, Tue, Wed, Thu, Fri, Sat, Sun
-Result: All 7 days count toward weekly goals
-```
-
-### Alternating Weekend Worker
-```
-Base Workday: 7.5 hours
-Base Workweek: 37.5 hours
-Enable Alternating Weeks: ✅ Yes
-Week 1 Work Days: Mon, Tue, Wed, Thu, Fri
-Week 2 Work Days: Mon, Tue, Wed, Thu, Fri, Sat, Sun
-Result: Work every other weekend
-```
-
-### Part-Time Worker
-```
-Work Percentage: 0.5 (50%)
-Base Workday: 7.5 hours
-Base Workweek: 18.75 hours (37.5 * 0.5)
-Work Days: Mon, Tue, Wed, Thu, Fri
-```
-
-### Flexible Freelancer (No Fixed Schedule)
-```
-Base Workday: 7.5 hours
-Enable Weekly Goals: ❌ No
-Work Days: Select all days or just work days
-Result: No weekly goals shown, just daily tracking and flextime balance
-```
-
-## How It Works
-
-1. **Data Source**: The plugin stores timer data in `timeflow/data.md`
-2. **Settings Sync**: Settings are embedded in the data file for cross-device sync
-3. **Processing**: Entries are processed into daily/weekly/monthly summaries
-4. **Holiday Integration**: Planned days are loaded from the holidays file
-5. **Balance Calculation**: Flextime balance is calculated by comparing worked hours to daily goals
-   - Lunch breaks are automatically deducted
-   - Weekend behavior respects user configuration
-6. **Real-time Updates**: Dashboard updates every 30 seconds with live clock updates every second
-7. **Visualizations**: Multiple views provide insights into your work patterns
+Go to **Settings → timeflow → Data Management → Import Data** to upload a file or paste data. The importer auto-detects the format and provides a preview with validation before importing. Duplicate entries are automatically detected and skipped.
 
 ## Flextime Calculation
 
