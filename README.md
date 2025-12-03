@@ -135,26 +135,19 @@ timeflow provides a comprehensive flextime tracking dashboard with **built-in ti
 
 ## Installation
 
-### From Source
-
-1. Clone or download this repository into your vault's `.obsidian/plugins/` folder
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Build the plugin:
-   ```bash
-   npm run build
-   ```
-4. Reload Obsidian
-5. Enable the timeflow plugin in Obsidian settings
-
 ### Manual Installation
+1. Download the latest release from the [Releases page](https://github.com/gaut3/timeflow/releases)
+2. Extract `main.js`, `manifest.json`, and `styles.css` to your vault's plugin folder:
+   `<your-vault>/.obsidian/plugins/timeflow/`
+3. Reload Obsidian (Ctrl/Cmd + R)
+4. Go to Settings → Community plugins → Enable "timeflow"
 
-1. Download the latest release from GitHub
-2. Extract the files to `<vault>/.obsidian/plugins/timeflow/`
-3. Reload Obsidian
-4. Enable the timeflow plugin in Obsidian settings
+### Using BRAT (Beta Reviewers Auto-update Tester)
+For automatic updates during beta testing:
+1. Install the [BRAT plugin](https://github.com/TfTHacker/obsidian42-brat) from Community plugins
+2. Open BRAT settings and click "Add Beta plugin"
+3. Enter: `https://github.com/gaut3/timeflow`
+4. BRAT will install and keep the plugin updated automatically
 
 #### Timer Data Storage
 
