@@ -502,16 +502,16 @@ export class UIBuilder {
 				font-weight: normal;
 			}
 
-			/* Reduce gap linearly on narrow containers (below 400px) */
-			@container dashboard (max-width: 400px) {
+			/* Reduce gap linearly on narrow containers (below 450px) */
+			@container dashboard (max-width: 450px) {
 				.tf-month-grid {
 					gap: clamp(2px, 2cqw, 8px);
 				}
 				.tf-week-badge {
-					font-size: 9px;
-					padding: 1px 4px;
-					top: 4px;
-					right: 4px;
+					font-size: 10px;
+					padding: 2px 8px;
+					top: 12px;
+					right: 12px;
 				}
 			}
 
@@ -3028,9 +3028,9 @@ export class UIBuilder {
 			// Create gradient intensity based on how negative
 			// Use the dynamic scale for full saturation
 			const t = Math.min(Math.abs(val) / scale, 1);
-			// Start very light, transition to full base color
-			// Higher factor (0.75) means more color variation is visible
-			const lightFactor = (1 - t) * 0.75;
+			// Start lighter, transition to full base color
+			// Lower factor = darker start, higher = brighter start
+			const lightFactor = (1 - t) * 0.4;
 			const r = Math.floor(rgb.r + (255 - rgb.r) * lightFactor);
 			const g = Math.floor(rgb.g + (255 - rgb.g) * lightFactor);
 			const b = Math.floor(rgb.b + (255 - rgb.b) * lightFactor);
@@ -3043,9 +3043,9 @@ export class UIBuilder {
 			// Create gradient intensity based on how positive
 			// Use the dynamic scale for full saturation
 			const t = Math.min(val / scale, 1);
-			// Start very light, transition to full base color
-			// Higher factor (0.75) means more color variation is visible
-			const lightFactor = (1 - t) * 0.75;
+			// Start lighter, transition to full base color
+			// Lower factor = darker start, higher = brighter start
+			const lightFactor = (1 - t) * 0.4;
 			const r = Math.floor(rgb.r + (255 - rgb.r) * lightFactor);
 			const g = Math.floor(rgb.g + (255 - rgb.g) * lightFactor);
 			const b = Math.floor(rgb.b + (255 - rgb.b) * lightFactor);

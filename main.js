@@ -2689,9 +2689,9 @@ var DataManager = class {
         icon: "\u2753",
         color: "#cccccc",
         textColor: "#000000",
-        noHoursRequired: true,
-        flextimeEffect: "none",
-        includeInStats: false
+        noHoursRequired: false,
+        flextimeEffect: "accumulate",
+        includeInStats: true
       };
     }
     return behavior;
@@ -3929,16 +3929,16 @@ var UIBuilder = class {
 				font-weight: normal;
 			}
 
-			/* Reduce gap linearly on narrow containers (below 400px) */
-			@container dashboard (max-width: 400px) {
+			/* Reduce gap linearly on narrow containers (below 450px) */
+			@container dashboard (max-width: 450px) {
 				.tf-month-grid {
 					gap: clamp(2px, 2cqw, 8px);
 				}
 				.tf-week-badge {
-					font-size: 9px;
-					padding: 1px 4px;
-					top: 4px;
-					right: 4px;
+					font-size: 10px;
+					padding: 2px 8px;
+					top: 12px;
+					right: 12px;
 				}
 			}
 
@@ -6051,7 +6051,7 @@ var UIBuilder = class {
       const baseColor = (jobbBehavior == null ? void 0 : jobbBehavior.negativeColor) || "#64b5f6";
       const rgb = hexToRgb(baseColor);
       const t2 = Math.min(Math.abs(val) / scale, 1);
-      const lightFactor = (1 - t2) * 0.75;
+      const lightFactor = (1 - t2) * 0.4;
       const r = Math.floor(rgb.r + (255 - rgb.r) * lightFactor);
       const g = Math.floor(rgb.g + (255 - rgb.g) * lightFactor);
       const b = Math.floor(rgb.b + (255 - rgb.b) * lightFactor);
@@ -6060,7 +6060,7 @@ var UIBuilder = class {
       const baseColor = (jobbBehavior == null ? void 0 : jobbBehavior.color) || "#4caf50";
       const rgb = hexToRgb(baseColor);
       const t2 = Math.min(val / scale, 1);
-      const lightFactor = (1 - t2) * 0.75;
+      const lightFactor = (1 - t2) * 0.4;
       const r = Math.floor(rgb.r + (255 - rgb.r) * lightFactor);
       const g = Math.floor(rgb.g + (255 - rgb.g) * lightFactor);
       const b = Math.floor(rgb.b + (255 - rgb.b) * lightFactor);

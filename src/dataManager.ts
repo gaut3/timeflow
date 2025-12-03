@@ -127,17 +127,17 @@ export class DataManager {
 		// Case-insensitive lookup to handle legacy data with different casing (e.g., "Jobb" vs "jobb")
 		const behavior = this.settings.specialDayBehaviors.find(b => b.id.toLowerCase() === id.toLowerCase());
 		if (!behavior) {
-			// Return a neutral fallback for orphaned/unknown types
-			// This ensures deleted types don't break historical data
+			// Return a work-like fallback for unknown types (e.g., "Block 1" from Timekeep imports)
+			// This treats unknown entries as regular work - hours count toward daily goal
 			return {
 				id: id,
 				label: id,
 				icon: '❓',
 				color: '#cccccc',
 				textColor: '#000000',
-				noHoursRequired: true,
-				flextimeEffect: 'none',
-				includeInStats: false
+				noHoursRequired: false,
+				flextimeEffect: 'accumulate',
+				includeInStats: true
 			};
 		}
 		return behavior;
