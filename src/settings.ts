@@ -72,6 +72,8 @@ export interface TimeFlowSettings {
 	};
 	// Migration flags
 	hasTimestampMigration?: boolean; // True if UTC timestamps have been converted to local
+	// Work schedule history - periods with different work configurations
+	workScheduleHistory?: WorkSchedulePeriod[];
 }
 
 export interface SpecialDayBehavior {
@@ -86,7 +88,7 @@ export interface SpecialDayBehavior {
 	simpleTextColor?: string;      // Hex color for text when goal tracking is disabled
 	noHoursRequired?: boolean;     // No work hours required this day?
 	countsAsWorkday?: boolean;     // Legacy: equivalent to noHoursRequired (for backwards compatibility)
-	flextimeEffect: 'none' | 'withdraw' | 'accumulate';
+	flextimeEffect: 'none' | 'withdraw' | 'accumulate' | 'reduce_goal';
 	includeInStats: boolean;       // Count in yearly statistics?
 	maxDaysPerYear?: number;       // Optional limit
 	countingPeriod?: 'calendar' | 'rolling365'; // How to count max days: calendar year or rolling 365 days
@@ -136,8 +138,8 @@ export const DEFAULT_SPECIAL_DAY_BEHAVIORS: SpecialDayBehavior[] = [
 		icon: '🤒',
 		color: '#c8e6c9',
 		textColor: '#000000',
-		noHoursRequired: true,
-		flextimeEffect: 'none',
+		noHoursRequired: false,  // Can have hours (partial sick day)
+		flextimeEffect: 'reduce_goal',  // Hours reduce daily goal
 		includeInStats: true,
 		maxDaysPerYear: 24,
 		countingPeriod: 'rolling365'
@@ -148,8 +150,8 @@ export const DEFAULT_SPECIAL_DAY_BEHAVIORS: SpecialDayBehavior[] = [
 		icon: '🏥',
 		color: '#c8e6c9',
 		textColor: '#000000',
-		noHoursRequired: true,
-		flextimeEffect: 'none',
+		noHoursRequired: false,  // Can have hours (partial sick day)
+		flextimeEffect: 'reduce_goal',  // Hours reduce daily goal
 		includeInStats: true
 	},
 	{
@@ -158,8 +160,8 @@ export const DEFAULT_SPECIAL_DAY_BEHAVIORS: SpecialDayBehavior[] = [
 		icon: '🏥',
 		color: '#e1bee7',
 		textColor: '#000000',
-		noHoursRequired: true,
-		flextimeEffect: 'none',
+		noHoursRequired: false,  // Can have hours (partial day)
+		flextimeEffect: 'reduce_goal',  // Hours reduce daily goal
 		includeInStats: true
 	},
 	{
@@ -202,6 +204,15 @@ export interface NoteType {
 	template: string;
 	tags: string[];
 	filenamePattern: string;
+}
+
+export interface WorkSchedulePeriod {
+	effectiveFrom: string;  // ISO date "YYYY-MM-DD"
+	workPercent: number;
+	baseWorkday: number;
+	baseWorkweek: number;
+	workDays: number[];     // 0=Sunday, 1=Monday, ..., 6=Saturday
+	halfDayHours: number;
 }
 
 export const DEFAULT_SETTINGS: TimeFlowSettings = {
@@ -536,8 +547,9 @@ export class SpecialDayBehaviorModal extends Modal {
 					.addOption('none', 'No effect (counts as full workday)')
 					.addOption('withdraw', 'Withdraw (uses flextime balance)')
 					.addOption('accumulate', 'Accumulate (excess hours add to flextime)')
+					.addOption('reduce_goal', 'Reduce goal (hours reduce daily goal, for sick days)')
 					.setValue(formData.flextimeEffect)
-					.onChange(value => formData.flextimeEffect = value as 'none' | 'withdraw' | 'accumulate'));
+					.onChange(value => formData.flextimeEffect = value as 'none' | 'withdraw' | 'accumulate' | 'reduce_goal'));
 
 			// Include in stats toggle
 			new Setting(contentEl)
@@ -637,6 +649,352 @@ export class SpecialDayBehaviorModal extends Modal {
 	}
 }
 
+export class WorkSchedulePeriodModal extends Modal {
+	period: WorkSchedulePeriod | null;
+	index: number;
+	plugin: TimeFlowPlugin;
+	onSave: (period: WorkSchedulePeriod, index: number) => void;
+
+	constructor(
+		app: App,
+		plugin: TimeFlowPlugin,
+		period: WorkSchedulePeriod | null,
+		index: number,
+		onSave: (period: WorkSchedulePeriod, index: number) => void
+	) {
+		super(app);
+		this.plugin = plugin;
+		this.period = period;
+		this.index = index;
+		this.onSave = onSave;
+	}
+
+	onOpen() {
+		const { contentEl } = this;
+		contentEl.empty();
+
+		contentEl.createEl('h2', { text: this.period ? 'Edit Work Schedule Period' : 'Add Work Schedule Period' });
+
+		// Info box
+		const infoBox = contentEl.createDiv({ cls: 'setting-item-description' });
+		infoBox.style.padding = '10px';
+		infoBox.style.marginBottom = '15px';
+		infoBox.style.background = 'var(--background-secondary)';
+		infoBox.style.borderRadius = '5px';
+		infoBox.style.fontSize = '0.9em';
+		infoBox.createSpan({ text: 'Define a work schedule period. Historical time entries will use the schedule that was active on their date.' });
+
+		// Store form values
+		const formData = {
+			effectiveFrom: this.period?.effectiveFrom || Utils.toLocalDateStr(new Date()),
+			workPercent: this.period?.workPercent ?? this.plugin.settings.workPercent,
+			baseWorkday: this.period?.baseWorkday ?? this.plugin.settings.baseWorkday,
+			baseWorkweek: this.period?.baseWorkweek ?? this.plugin.settings.baseWorkweek,
+			workDays: this.period?.workDays ? [...this.period.workDays] : [...this.plugin.settings.workDays],
+			halfDayHours: this.period?.halfDayHours ?? this.plugin.settings.halfDayHours
+		};
+
+		// We need to define updateImpactPreview before using it in onChange handlers
+		// So we'll create a placeholder that gets assigned later
+		let updateImpactPreview: () => void = () => {};
+
+		// Effective from date
+		new Setting(contentEl)
+			.setName('Effective from')
+			.setDesc('Date when this schedule becomes active (YYYY-MM-DD)')
+			.addText(text => text
+				.setPlaceholder('YYYY-MM-DD')
+				.setValue(formData.effectiveFrom)
+				.onChange(value => {
+					formData.effectiveFrom = value;
+					updateImpactPreview();
+				}));
+
+		// Work percentage
+		new Setting(contentEl)
+			.setName('Work percentage')
+			.setDesc('Employment percentage (0-1, e.g., 0.8 = 80%)')
+			.addText(text => text
+				.setPlaceholder('1.0')
+				.setValue(formData.workPercent.toString())
+				.onChange(value => {
+					const num = parseFloat(value);
+					if (!isNaN(num)) {
+						formData.workPercent = num;
+						updateImpactPreview();
+					}
+				}));
+
+		// Base workday hours
+		new Setting(contentEl)
+			.setName('Base workday hours')
+			.setDesc('Standard hours for a full workday')
+			.addText(text => text
+				.setPlaceholder('7.5')
+				.setValue(formData.baseWorkday.toString())
+				.onChange(value => {
+					const num = parseFloat(value);
+					if (!isNaN(num)) {
+						formData.baseWorkday = num;
+						updateImpactPreview();
+					}
+				}));
+
+		// Base workweek hours
+		new Setting(contentEl)
+			.setName('Base workweek hours')
+			.setDesc('Standard hours for a full workweek')
+			.addText(text => text
+				.setPlaceholder('37.5')
+				.setValue(formData.baseWorkweek.toString())
+				.onChange(value => {
+					const num = parseFloat(value);
+					if (!isNaN(num)) formData.baseWorkweek = num;
+				}));
+
+		// Half-day hours
+		new Setting(contentEl)
+			.setName('Half-day hours')
+			.setDesc('Hours counted for a half workday')
+			.addText(text => text
+				.setPlaceholder('4')
+				.setValue(formData.halfDayHours.toString())
+				.onChange(value => {
+					const num = parseFloat(value);
+					if (!isNaN(num)) formData.halfDayHours = num;
+				}));
+
+		// Work days selector
+		new Setting(contentEl)
+			.setName('Work days')
+			.setDesc('Select which days are part of this work week');
+
+		const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+		const workDaysContainer = contentEl.createDiv();
+		workDaysContainer.style.display = 'flex';
+		workDaysContainer.style.flexWrap = 'wrap';
+		workDaysContainer.style.gap = '8px';
+		workDaysContainer.style.marginBottom = '15px';
+
+		dayNames.forEach((dayName, dayIndex) => {
+			const dayButton = workDaysContainer.createEl('button');
+			dayButton.textContent = dayName;
+			dayButton.style.padding = '8px 12px';
+			dayButton.style.border = '1px solid var(--background-modifier-border)';
+			dayButton.style.borderRadius = '4px';
+			dayButton.style.cursor = 'pointer';
+			dayButton.style.background = formData.workDays.includes(dayIndex)
+				? 'var(--interactive-accent)'
+				: 'var(--background-secondary)';
+			dayButton.style.color = formData.workDays.includes(dayIndex)
+				? 'var(--text-on-accent)'
+				: 'var(--text-normal)';
+
+			dayButton.onclick = () => {
+				const index = formData.workDays.indexOf(dayIndex);
+				if (index > -1) {
+					formData.workDays.splice(index, 1);
+				} else {
+					formData.workDays.push(dayIndex);
+					formData.workDays.sort((a, b) => a - b);
+				}
+				// Update button style
+				dayButton.style.background = formData.workDays.includes(dayIndex)
+					? 'var(--interactive-accent)'
+					: 'var(--background-secondary)';
+				dayButton.style.color = formData.workDays.includes(dayIndex)
+					? 'var(--text-on-accent)'
+					: 'var(--text-normal)';
+				// Update impact preview
+				updateImpactPreview();
+			};
+		});
+
+		// Impact preview box
+		const impactPreview = contentEl.createDiv();
+		impactPreview.style.marginTop = '15px';
+		impactPreview.style.marginBottom = '15px';
+		impactPreview.style.padding = '12px';
+		impactPreview.style.background = 'var(--background-secondary)';
+		impactPreview.style.borderRadius = '5px';
+		impactPreview.style.border = '1px solid var(--background-modifier-border)';
+
+		// Assign the actual implementation
+		updateImpactPreview = () => {
+			impactPreview.empty();
+
+			// Validate date first
+			if (!/^\d{4}-\d{2}-\d{2}$/.test(formData.effectiveFrom)) {
+				impactPreview.createEl('div', {
+					text: 'Enter a valid date to see impact preview',
+					cls: 'setting-item-description'
+				});
+				return;
+			}
+
+			const periodDate = formData.effectiveFrom;
+			const history = this.plugin.settings.workScheduleHistory || [];
+			const timerManager = (this.plugin as any).timerManager;
+
+			if (!timerManager || !timerManager.data || !timerManager.data.entries) {
+				impactPreview.createEl('div', { text: 'Loading data...' });
+				return;
+			}
+
+			// Count days with data that would be affected by this period
+			const entries = timerManager.data.entries;
+			let affectedDays = new Set<string>();
+			const today = Utils.toLocalDateStr(new Date());
+
+			// Find the next period's start date (to know when this period ends)
+			const sortedHistory = [...history].sort((a, b) => a.effectiveFrom.localeCompare(b.effectiveFrom));
+			let nextPeriodDate: string | null = null;
+			for (const p of sortedHistory) {
+				if (p.effectiveFrom > periodDate && (this.index === -1 || p.effectiveFrom !== this.period?.effectiveFrom)) {
+					nextPeriodDate = p.effectiveFrom;
+					break;
+				}
+			}
+
+			// Count entries in this period's date range
+			entries.forEach((entry: any) => {
+				if (!entry.startTime) return;
+				const entryDate = Utils.toLocalDateStr(new Date(entry.startTime));
+				if (entryDate >= periodDate && (!nextPeriodDate || entryDate < nextPeriodDate)) {
+					affectedDays.add(entryDate);
+				}
+			});
+
+			// Calculate estimated impact on balance
+			const currentDailyGoal = this.plugin.settings.baseWorkday * this.plugin.settings.workPercent;
+			const newDailyGoal = formData.baseWorkday * formData.workPercent;
+			const goalDifference = newDailyGoal - currentDailyGoal;
+
+			// Count how many of the affected days are workdays in old vs new schedule
+			let oldWorkdays = 0;
+			let newWorkdays = 0;
+			const currentWorkDays = this.plugin.settings.workDays;
+
+			affectedDays.forEach(dateStr => {
+				const date = new Date(dateStr);
+				const dayOfWeek = date.getDay();
+				if (currentWorkDays.includes(dayOfWeek)) oldWorkdays++;
+				if (formData.workDays.includes(dayOfWeek)) newWorkdays++;
+			});
+
+			// Build preview
+			const title = impactPreview.createEl('div');
+			title.style.fontWeight = 'bold';
+			title.style.marginBottom = '8px';
+			title.textContent = `Impact Preview`;
+
+			const affectedText = impactPreview.createEl('div');
+			affectedText.style.marginBottom = '4px';
+			affectedText.textContent = `• Affects ${affectedDays.size} days with existing data`;
+
+			if (affectedDays.size > 0) {
+				const workdayChange = impactPreview.createEl('div');
+				workdayChange.style.marginBottom = '4px';
+				if (oldWorkdays !== newWorkdays) {
+					workdayChange.textContent = `• Workdays in period: ${oldWorkdays} → ${newWorkdays}`;
+				} else {
+					workdayChange.textContent = `• Workdays in period: ${newWorkdays}`;
+				}
+
+				if (Math.abs(goalDifference) > 0.1) {
+					const goalChange = impactPreview.createEl('div');
+					goalChange.style.marginBottom = '4px';
+					const sign = goalDifference > 0 ? '+' : '';
+					goalChange.textContent = `• Daily goal: ${currentDailyGoal.toFixed(1)}h → ${newDailyGoal.toFixed(1)}h (${sign}${goalDifference.toFixed(1)}h)`;
+				}
+
+				// Change in required hours (positive = more hours required, negative = fewer)
+				const requiredHoursChange = (newWorkdays - oldWorkdays) * newDailyGoal + oldWorkdays * goalDifference;
+				if (Math.abs(requiredHoursChange) > 0.5) {
+					const changeEl = impactPreview.createEl('div');
+					changeEl.style.marginBottom = '4px';
+					const sign = requiredHoursChange > 0 ? '+' : '';
+					changeEl.textContent = `• Required hours change: ${sign}${requiredHoursChange.toFixed(1)}h`;
+
+					// Flextime balance impact (inverse of required hours change)
+					const balanceImpact = -requiredHoursChange;
+					const balanceEl = impactPreview.createEl('div');
+					balanceEl.style.color = balanceImpact > 0 ? 'var(--text-success)' : 'var(--text-error)';
+					const balanceSign = balanceImpact > 0 ? '+' : '';
+					balanceEl.textContent = `• Flextime balance impact: ${balanceSign}${balanceImpact.toFixed(1)}h`;
+				}
+			}
+
+			if (periodDate > today) {
+				const futureNote = impactPreview.createEl('div');
+				futureNote.style.marginTop = '8px';
+				futureNote.style.fontStyle = 'italic';
+				futureNote.style.color = 'var(--text-muted)';
+				futureNote.textContent = 'This is a future period - will apply from ' + periodDate;
+			}
+		};
+
+		// Initial preview
+		updateImpactPreview();
+
+		// Buttons
+		const buttonDiv = contentEl.createDiv();
+		buttonDiv.style.display = 'flex';
+		buttonDiv.style.gap = '10px';
+		buttonDiv.style.justifyContent = 'flex-end';
+		buttonDiv.style.marginTop = '20px';
+
+		const cancelBtn = buttonDiv.createEl('button', { text: 'Cancel' });
+		cancelBtn.onclick = () => this.close();
+
+		const saveBtn = buttonDiv.createEl('button', { text: 'Save', cls: 'mod-cta' });
+		saveBtn.onclick = () => {
+			// Validate date format
+			if (!/^\d{4}-\d{2}-\d{2}$/.test(formData.effectiveFrom)) {
+				new Notice('Invalid date format. Use YYYY-MM-DD');
+				return;
+			}
+
+			// Validate work days
+			if (formData.workDays.length === 0) {
+				new Notice('At least one work day is required');
+				return;
+			}
+
+			// Validate numeric values
+			if (formData.workPercent <= 0 || formData.workPercent > 2) {
+				new Notice('Work percentage must be between 0 and 2');
+				return;
+			}
+			if (formData.baseWorkday <= 0 || formData.baseWorkday > 24) {
+				new Notice('Base workday must be between 0 and 24 hours');
+				return;
+			}
+			if (formData.halfDayHours <= 0 || formData.halfDayHours > formData.baseWorkday) {
+				new Notice('Half-day hours must be between 0 and base workday');
+				return;
+			}
+
+			const period: WorkSchedulePeriod = {
+				effectiveFrom: formData.effectiveFrom,
+				workPercent: formData.workPercent,
+				baseWorkday: formData.baseWorkday,
+				baseWorkweek: formData.baseWorkweek,
+				workDays: formData.workDays,
+				halfDayHours: formData.halfDayHours
+			};
+
+			this.onSave(period, this.index);
+			this.close();
+		};
+	}
+
+	onClose() {
+		const { contentEl } = this;
+		contentEl.empty();
+	}
+}
+
 export class TimeFlowSettingTab extends PluginSettingTab {
 	plugin: TimeFlowPlugin;
 
@@ -652,6 +1010,48 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 			if (view && typeof view.refresh === 'function') {
 				await view.refresh();
 			}
+		}
+	}
+
+	/**
+	 * Sync current work settings to the most recent (active) schedule period.
+	 * This ensures that when a user changes settings in the main Work Configuration,
+	 * those changes are reflected in the currently active period.
+	 */
+	private syncCurrentSettingsToActivePeriod(): void {
+		const history = this.plugin.settings.workScheduleHistory;
+		if (!history || history.length === 0) return;
+
+		// Find the most recent period (the one currently active)
+		const todayStr = Utils.toLocalDateStr(new Date());
+		const sortedHistory = [...history].sort((a, b) => a.effectiveFrom.localeCompare(b.effectiveFrom));
+
+		// Find the period that applies today
+		let activeIndex = -1;
+		for (let i = 0; i < sortedHistory.length; i++) {
+			if (sortedHistory[i].effectiveFrom <= todayStr) {
+				activeIndex = i;
+			} else {
+				break;
+			}
+		}
+
+		// If no period applies (all are in the future), update the earliest one
+		if (activeIndex === -1) {
+			activeIndex = 0;
+		}
+
+		// Find the original index in the unsorted array
+		const activePeriod = sortedHistory[activeIndex];
+		const originalIndex = history.findIndex(p => p.effectiveFrom === activePeriod.effectiveFrom);
+
+		if (originalIndex !== -1) {
+			// Sync current settings to this period
+			history[originalIndex].workPercent = this.plugin.settings.workPercent;
+			history[originalIndex].baseWorkday = this.plugin.settings.baseWorkday;
+			history[originalIndex].baseWorkweek = this.plugin.settings.baseWorkweek;
+			history[originalIndex].workDays = [...this.plugin.settings.workDays];
+			history[originalIndex].halfDayHours = this.plugin.settings.halfDayHours;
 		}
 	}
 
@@ -859,6 +1259,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 						const num = parseFloat(value);
 						if (!isNaN(num) && num > 0) {
 							this.plugin.settings.baseWorkday = num;
+							this.syncCurrentSettingsToActivePeriod();
 							await this.plugin.saveSettings();
 							await this.refreshView();
 						}
@@ -888,6 +1289,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 							const num = parseFloat(value);
 							if (!isNaN(num) && num > 0 && num <= 1) {
 								this.plugin.settings.workPercent = num;
+								this.syncCurrentSettingsToActivePeriod();
 								await this.plugin.saveSettings();
 								await this.refreshView();
 							}
@@ -903,6 +1305,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 							const num = parseFloat(value);
 							if (!isNaN(num) && num > 0) {
 								this.plugin.settings.baseWorkweek = num;
+								this.syncCurrentSettingsToActivePeriod();
 								await this.plugin.saveSettings();
 								await this.refreshView();
 							}
@@ -963,8 +1366,17 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 					}
 
 					this.plugin.settings.workDays = currentWorkDays;
+					this.syncCurrentSettingsToActivePeriod();
 					await this.plugin.saveSettings();
-					this.display(); // Refresh to update button states
+
+					// Update button style directly instead of refreshing entire page
+					const isSelected = currentWorkDays.includes(dayIndex);
+					dayButton.style.background = isSelected
+						? 'var(--interactive-accent)'
+						: 'var(--background-secondary)';
+					dayButton.style.color = isSelected
+						? 'var(--text-on-accent)'
+						: 'var(--text-normal)';
 				};
 			});
 
@@ -1020,11 +1432,160 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 
 						this.plugin.settings.alternatingWeekWorkDays = currentAltWorkDays;
 						await this.plugin.saveSettings();
-						this.display(); // Refresh to update button states
+
+						// Update button style directly instead of refreshing entire page
+						const isSelected = currentAltWorkDays.includes(dayIndex);
+						dayButton.style.background = isSelected
+							? 'var(--interactive-accent)'
+							: 'var(--background-secondary)';
+						dayButton.style.color = isSelected
+							? 'var(--text-on-accent)'
+							: 'var(--text-normal)';
 					};
 				});
 			}
 		} // End of enableGoalTracking conditional
+
+		// Work Schedule History subsection (collapsible)
+		const scheduleHistorySection = this.createCollapsibleSubsection(
+			settingsContainer,
+			'Work Schedule History',
+			false
+		);
+
+		const scheduleHistoryInfo = scheduleHistorySection.content.createDiv();
+		scheduleHistoryInfo.style.marginBottom = '15px';
+		scheduleHistoryInfo.style.padding = '10px';
+		scheduleHistoryInfo.style.background = 'var(--background-secondary)';
+		scheduleHistoryInfo.style.borderRadius = '5px';
+		scheduleHistoryInfo.style.fontSize = '0.9em';
+		scheduleHistoryInfo.createEl('strong', { text: 'Track changes to your work schedule' });
+		scheduleHistoryInfo.createEl('br');
+		scheduleHistoryInfo.appendText('If you change roles or work hours, add a new period to preserve accurate historical calculations. ');
+		scheduleHistoryInfo.appendText('Each period defines the schedule that was active from its effective date.');
+
+		// Get schedule history, sorted by date (most recent first)
+		const scheduleHistory = [...(this.plugin.settings.workScheduleHistory || [])];
+		scheduleHistory.sort((a, b) => b.effectiveFrom.localeCompare(a.effectiveFrom));
+
+		// Display current settings as the active period
+		const currentSettingsInfo = scheduleHistorySection.content.createDiv();
+		currentSettingsInfo.style.marginBottom = '10px';
+		currentSettingsInfo.style.padding = '10px';
+		currentSettingsInfo.style.background = 'var(--background-modifier-success-rgb, rgba(76, 175, 80, 0.2))';
+		currentSettingsInfo.style.borderRadius = '5px';
+		currentSettingsInfo.style.border = '1px solid var(--text-success)';
+
+		const currentLabel = currentSettingsInfo.createEl('div');
+		currentLabel.style.fontWeight = 'bold';
+		currentLabel.style.marginBottom = '5px';
+		currentLabel.textContent = 'Current Settings (Active)';
+
+		const currentDetails = currentSettingsInfo.createEl('div');
+		currentDetails.style.fontSize = '0.9em';
+		const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+		const currentWorkDaysStr = this.plugin.settings.workDays.map(d => dayNames[d]).join(', ');
+		currentDetails.textContent = `${(this.plugin.settings.workPercent * 100).toFixed(0)}% · ${this.plugin.settings.baseWorkday}h/day · ${this.plugin.settings.baseWorkweek}h/week · ${currentWorkDaysStr}`;
+
+		// List historical periods
+		if (scheduleHistory.length > 0) {
+			scheduleHistory.forEach((period, arrayIndex) => {
+				// Find the actual index in the settings array
+				const originalIndex = this.plugin.settings.workScheduleHistory!.findIndex(
+					p => p.effectiveFrom === period.effectiveFrom
+				);
+
+				const periodDiv = scheduleHistorySection.content.createDiv();
+				periodDiv.style.marginBottom = '10px';
+				periodDiv.style.padding = '10px';
+				periodDiv.style.background = 'var(--background-secondary)';
+				periodDiv.style.borderRadius = '5px';
+				periodDiv.style.display = 'flex';
+				periodDiv.style.justifyContent = 'space-between';
+				periodDiv.style.alignItems = 'center';
+
+				const infoDiv = periodDiv.createDiv();
+				const dateLabel = infoDiv.createEl('div');
+				dateLabel.style.fontWeight = 'bold';
+				dateLabel.textContent = `From ${period.effectiveFrom}`;
+
+				const details = infoDiv.createEl('div');
+				details.style.fontSize = '0.9em';
+				details.style.color = 'var(--text-muted)';
+				const workDaysStr = period.workDays.map(d => dayNames[d]).join(', ');
+				details.textContent = `${(period.workPercent * 100).toFixed(0)}% · ${period.baseWorkday}h/day · ${period.baseWorkweek}h/week · ${workDaysStr}`;
+
+				const buttonsDiv = periodDiv.createDiv();
+				buttonsDiv.style.display = 'flex';
+				buttonsDiv.style.gap = '5px';
+
+				const editBtn = buttonsDiv.createEl('button', { text: 'Edit' });
+				editBtn.onclick = () => {
+					new WorkSchedulePeriodModal(
+						this.app,
+						this.plugin,
+						period,
+						originalIndex,
+						async (updatedPeriod, idx) => {
+							this.plugin.settings.workScheduleHistory![idx] = updatedPeriod;
+							// Re-sort the array by date
+							this.plugin.settings.workScheduleHistory!.sort((a, b) => a.effectiveFrom.localeCompare(b.effectiveFrom));
+							await this.plugin.saveSettings();
+							await this.refreshView();
+							this.display();
+						}
+					).open();
+				};
+
+				// Only show delete button if there's more than one period
+				if (scheduleHistory.length > 1) {
+					const deleteBtn = buttonsDiv.createEl('button', { text: 'Delete' });
+					deleteBtn.style.color = 'var(--text-error)';
+					deleteBtn.onclick = async () => {
+						const confirmation = confirm(`Delete schedule period from ${period.effectiveFrom}?`);
+						if (confirmation) {
+							this.plugin.settings.workScheduleHistory!.splice(originalIndex, 1);
+							await this.plugin.saveSettings();
+							await this.refreshView();
+							this.display();
+						}
+					};
+				}
+			});
+		} else {
+			const noPeriods = scheduleHistorySection.content.createDiv();
+			noPeriods.style.color = 'var(--text-muted)';
+			noPeriods.style.fontStyle = 'italic';
+			noPeriods.style.marginBottom = '10px';
+			noPeriods.textContent = 'No historical periods defined. Add a period when your schedule changes.';
+		}
+
+		// Add new period button
+		new Setting(scheduleHistorySection.content)
+			.setName('Add historical period')
+			.setDesc('Add a period for when your work schedule was different')
+			.addButton(btn => btn
+				.setButtonText('+ Add Period')
+				.setCta()
+				.onClick(() => {
+					new WorkSchedulePeriodModal(
+						this.app,
+						this.plugin,
+						null,
+						-1,
+						async (newPeriod) => {
+							if (!this.plugin.settings.workScheduleHistory) {
+								this.plugin.settings.workScheduleHistory = [];
+							}
+							this.plugin.settings.workScheduleHistory.push(newPeriod);
+							// Sort by effective date
+							this.plugin.settings.workScheduleHistory.sort((a, b) => a.effectiveFrom.localeCompare(b.effectiveFrom));
+							await this.plugin.saveSettings();
+							await this.refreshView();
+							this.display();
+						}
+					).open();
+				}));
 
 		// Compliance warnings subsection
 		const complianceSection = this.createCollapsibleSubsection(
@@ -1519,6 +2080,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 						const num = parseFloat(value);
 						if (!isNaN(num) && num > 0 && num < this.plugin.settings.baseWorkday) {
 							this.plugin.settings.halfDayHours = num;
+							this.syncCurrentSettingsToActivePeriod();
 							await this.plugin.saveSettings();
 							await this.refreshView();
 						}

@@ -1,5 +1,5 @@
 import { App, TFile } from 'obsidian';
-import { TimeFlowSettings, SpecialDayBehavior } from './settings';
+import { TimeFlowSettings, SpecialDayBehavior, WorkSchedulePeriod } from './settings';
 import { Utils } from './utils';
 
 export interface TimeEntry {
@@ -143,14 +143,79 @@ export class DataManager {
 		return behavior;
 	}
 
+	/**
+	 * Get the work schedule that was active on a specific date.
+	 *
+	 * Logic:
+	 * - Periods are sorted by effectiveFrom date
+	 * - Find the most recent period that started on or before the given date
+	 * - If the date is before ALL periods, use the earliest period (not current settings)
+	 *   This ensures historical consistency even before the first recorded period
+	 * - Future periods work correctly: they won't apply until their effective date
+	 */
+	getScheduleForDate(dateStr: string): { workPercent: number; baseWorkday: number; baseWorkweek: number; workDays: number[]; halfDayHours: number } {
+		const history = this.settings.workScheduleHistory;
+
+		// If no history, use current settings
+		if (!history || history.length === 0) {
+			return {
+				workPercent: this.settings.workPercent,
+				baseWorkday: this.settings.baseWorkday,
+				baseWorkweek: this.settings.baseWorkweek,
+				workDays: this.settings.workDays,
+				halfDayHours: this.settings.halfDayHours
+			};
+		}
+
+		// Sort history by effectiveFrom date (ascending)
+		const sortedHistory = [...history].sort((a, b) => a.effectiveFrom.localeCompare(b.effectiveFrom));
+
+		// Find the most recent period that started on or before the given date
+		let activePeriod: WorkSchedulePeriod | null = null;
+		for (const period of sortedHistory) {
+			if (period.effectiveFrom <= dateStr) {
+				activePeriod = period;
+			} else {
+				break; // All subsequent periods are in the future relative to dateStr
+			}
+		}
+
+		// If a period applies, use it
+		if (activePeriod) {
+			return {
+				workPercent: activePeriod.workPercent,
+				baseWorkday: activePeriod.baseWorkday,
+				baseWorkweek: activePeriod.baseWorkweek,
+				workDays: activePeriod.workDays,
+				halfDayHours: activePeriod.halfDayHours
+			};
+		}
+
+		// Date is before all periods - use the earliest period for consistency
+		// (This handles dates before balanceStartDate consistently)
+		const earliestPeriod = sortedHistory[0];
+		return {
+			workPercent: earliestPeriod.workPercent,
+			baseWorkday: earliestPeriod.baseWorkday,
+			baseWorkweek: earliestPeriod.baseWorkweek,
+			workDays: earliestPeriod.workDays,
+			halfDayHours: earliestPeriod.halfDayHours
+		};
+	}
+
 	getDailyGoal(dateStr: string): number {
 		// NEW: Simple tracking mode - no goals
 		if (!this.settings.enableGoalTracking) {
 			return 0;
 		}
 
+		// Get the schedule that was active on this date
+		const schedule = this.getScheduleForDate(dateStr);
+
 		const date = new Date(dateStr);
-		const isWeekend = Utils.isWeekend(date, this.settings);
+		// Check if this date is a weekend based on the schedule's work days
+		const dayOfWeek = date.getDay();
+		const isWeekend = !schedule.workDays.includes(dayOfWeek);
 
 		if (isWeekend) return 0;
 
@@ -166,10 +231,10 @@ export class DataManager {
 			// For days that require hours (like kurs, studie),
 			// apply regular workday goal or half-day goal
 			if (holidayInfo.halfDay) {
-				// Calculate half-day hours based on settings
+				// Calculate half-day hours based on schedule settings
 				const halfDayHours = this.settings.halfDayMode === 'percentage'
-					? this.settings.baseWorkday / 2
-					: this.settings.halfDayHours;
+					? schedule.baseWorkday / 2
+					: schedule.halfDayHours;
 				return halfDayHours;
 			}
 		}
@@ -187,7 +252,8 @@ export class DataManager {
 			}
 		}
 
-		return this.workdayHours;
+		// Calculate workday hours using the schedule's settings
+		return schedule.baseWorkday * schedule.workPercent;
 	}
 
 	processEntries(): void {
@@ -261,36 +327,70 @@ export class DataManager {
 		for (let day in this.daily) {
 			const dayGoal = this.getDailyGoal(day);
 			const holidayInfo = this.getHolidayInfo(day);
+			const dayEntries = this.daily[day];
 
-			this.daily[day].forEach((e) => {
+			// Calculate goal reduction from reduce_goal entries (sick days, etc.)
+			let goalReduction = 0;
+			dayEntries.forEach(e => {
+				const behavior = this.getSpecialDayBehavior(e.name);
+				if (behavior?.flextimeEffect === 'reduce_goal') {
+					goalReduction += e.duration || 0;
+				}
+			});
+			const effectiveGoal = Math.max(0, dayGoal - goalReduction);
+
+			// Calculate total work hours for the day (for proper flextime distribution)
+			let totalWorkHours = 0;
+			dayEntries.forEach(e => {
+				const behavior = this.getSpecialDayBehavior(e.name);
+				if (!behavior || behavior.isWorkType || behavior.flextimeEffect === 'accumulate') {
+					totalWorkHours += e.duration || 0;
+				}
+			});
+
+			dayEntries.forEach((e) => {
 				let flextime = 0;
-				const name = e.name.toLowerCase();
+				const behavior = this.getSpecialDayBehavior(e.name);
+
+				// Handle reduce_goal entries (sick days, velferdspermisjon)
+				// These entries have no direct flextime effect - they just reduce the goal
+				if (behavior?.flextimeEffect === 'reduce_goal') {
+					e.flextime = 0;
+					return;
+				}
 
 				// Check if this is a special day with behavior rules
 				if (holidayInfo) {
-					const behavior = this.getSpecialDayBehavior(holidayInfo.type);
-					if (behavior) {
-						if (behavior.flextimeEffect === 'withdraw') {
+					const holidayBehavior = this.getSpecialDayBehavior(holidayInfo.type);
+					if (holidayBehavior) {
+						if (holidayBehavior.flextimeEffect === 'withdraw') {
 							// Withdraws from flextime (e.g., avspasering)
 							flextime -= e.duration || 0;
-						} else if (behavior.flextimeEffect === 'accumulate') {
+						} else if (holidayBehavior.flextimeEffect === 'accumulate') {
 							// Excess hours count as flextime (e.g., kurs, studie)
-							if (dayGoal > 0 && (e.duration || 0) > dayGoal) {
-								flextime += (e.duration || 0) - dayGoal;
+							if (effectiveGoal > 0 && (e.duration || 0) > effectiveGoal) {
+								flextime += (e.duration || 0) - effectiveGoal;
+							} else if (effectiveGoal === 0) {
+								flextime += e.duration || 0;
 							}
-						} else if (behavior.noHoursRequired && dayGoal === 0) {
+						} else if (holidayBehavior.noHoursRequired && effectiveGoal === 0) {
 							// 'none' effect on no-hours-required day: work counts as bonus (like weekends)
 							flextime += e.duration || 0;
 						}
 						// 'none' effect on regular goal day means no special flextime handling
 					}
-				} else if (dayGoal === 0) {
-					// Weekend or no goal: all hours count as flextime bonus
+				} else if (effectiveGoal === 0) {
+					// Weekend, no goal, or fully covered by sick time: all hours count as flextime bonus
 					flextime += e.duration || 0;
+				} else if (behavior?.flextimeEffect === 'withdraw') {
+					// Avspasering withdraws from balance
+					flextime -= e.duration || 0;
 				} else {
-					// Regular workday: hours beyond goal count as flextime
-					if ((e.duration || 0) > dayGoal) {
-						flextime += (e.duration || 0) - dayGoal;
+					// Regular workday with effective goal: hours beyond goal count as flextime
+					// Distribute flextime proportionally if multiple work entries
+					if (totalWorkHours > effectiveGoal) {
+						const proportion = (e.duration || 0) / totalWorkHours;
+						flextime += (totalWorkHours - effectiveGoal) * proportion;
 					}
 				}
 
@@ -332,6 +432,7 @@ export class DataManager {
 
 			let dayWorked = 0;
 			let avspaseringHours = 0;
+			let goalReduction = 0;  // Hours that reduce daily goal (sick days, etc.)
 			let hasCompletedEntries = false;
 
 			dayEntries.forEach(e => {
@@ -342,15 +443,19 @@ export class DataManager {
 				// Check if this entry type should count toward flextime
 				const behavior = this.getSpecialDayBehavior(e.name);
 
-				// Skip hours for noHoursRequired types (egenmelding, ferie, helligdag, etc.)
-				// These entries mark the day but their hours shouldn't affect flextime
-				if (behavior && (behavior.noHoursRequired || behavior.countsAsWorkday)) {
-					return;
-				}
-
-				if (e.name.toLowerCase() === 'avspasering') {
+				// Handle different flextime effects
+				if (behavior?.flextimeEffect === 'reduce_goal') {
+					// Sick days, velferdspermisjon, etc. - reduce daily goal by their duration
+					goalReduction += e.duration || 0;
+				} else if (behavior?.flextimeEffect === 'withdraw') {
+					// Avspasering - subtract from balance
 					avspaseringHours += e.duration || 0;
+				} else if (behavior && (behavior.noHoursRequired || behavior.countsAsWorkday)) {
+					// Skip hours for noHoursRequired types (ferie, helligdag, etc.)
+					// These entries mark the day but their hours shouldn't affect flextime
+					return;
 				} else {
+					// Regular work hours (jobb, kurs, studie, etc.)
 					dayWorked += e.duration || 0;
 				}
 			});
@@ -358,10 +463,13 @@ export class DataManager {
 			// Skip days that only have active entries (work in progress)
 			if (!hasCompletedEntries) continue;
 
-			if (dayGoal === 0) {
+			// Calculate effective goal after reductions (but not below 0)
+			const effectiveGoal = Math.max(0, dayGoal - goalReduction);
+
+			if (effectiveGoal === 0) {
 				balance += dayWorked;
 			} else {
-				balance += (dayWorked - dayGoal);
+				balance += (dayWorked - effectiveGoal);
 			}
 
 			balance -= avspaseringHours;
@@ -1040,6 +1148,10 @@ export class DataManager {
 		const countingPeriod = behavior?.countingPeriod || 'calendar';
 		const useRolling = isCurrentYear && countingPeriod === 'rolling365';
 
+		// For reduce_goal types (egenmelding, sykemelding, etc.), only count full days from holidays.md
+		// Partial sick days in data.md should NOT count towards the limit
+		const isReduceGoalType = behavior?.flextimeEffect === 'reduce_goal';
+
 		let count = 0;
 		const daysSeen = new Set<string>();
 
@@ -1049,19 +1161,22 @@ export class DataManager {
 			cutoffDate.setDate(cutoffDate.getDate() - 365);
 			const cutoffStr = Utils.toLocalDateStr(cutoffDate);
 
-			Object.keys(this.daily).forEach(dateStr => {
-				if (dateStr >= cutoffStr && dateStr <= Utils.toLocalDateStr(today)) {
-					const entries = this.daily[dateStr];
-					entries.forEach(entry => {
-						if (entry.name.toLowerCase() === typeId && !daysSeen.has(dateStr)) {
-							daysSeen.add(dateStr);
-							count++;
-						}
-					});
-				}
-			});
+			// Only count from data.md entries if NOT a reduce_goal type
+			if (!isReduceGoalType) {
+				Object.keys(this.daily).forEach(dateStr => {
+					if (dateStr >= cutoffStr && dateStr <= Utils.toLocalDateStr(today)) {
+						const entries = this.daily[dateStr];
+						entries.forEach(entry => {
+							if (entry.name.toLowerCase() === typeId && !daysSeen.has(dateStr)) {
+								daysSeen.add(dateStr);
+								count++;
+							}
+						});
+					}
+				});
+			}
 
-			// Also count from holidays file
+			// Count from holidays file (full days)
 			Object.keys(this.holidays).forEach(dateStr => {
 				if (dateStr >= cutoffStr && dateStr <= Utils.toLocalDateStr(today)) {
 					const holidayInfo = this.holidays[dateStr];
@@ -1073,20 +1188,23 @@ export class DataManager {
 			});
 		} else {
 			// Count days in the calendar year
-			Object.keys(this.daily).forEach(dateStr => {
-				const date = new Date(dateStr);
-				if (date.getFullYear() === targetYear) {
-					const entries = this.daily[dateStr];
-					entries.forEach(entry => {
-						if (entry.name.toLowerCase() === typeId && !daysSeen.has(dateStr)) {
-							daysSeen.add(dateStr);
-							count++;
-						}
-					});
-				}
-			});
+			// Only count from data.md entries if NOT a reduce_goal type
+			if (!isReduceGoalType) {
+				Object.keys(this.daily).forEach(dateStr => {
+					const date = new Date(dateStr);
+					if (date.getFullYear() === targetYear) {
+						const entries = this.daily[dateStr];
+						entries.forEach(entry => {
+							if (entry.name.toLowerCase() === typeId && !daysSeen.has(dateStr)) {
+								daysSeen.add(dateStr);
+								count++;
+							}
+						});
+					}
+				});
+			}
 
-			// Also count from holidays file
+			// Count from holidays file (full days)
 			Object.keys(this.holidays).forEach(dateStr => {
 				const date = new Date(dateStr);
 				if (date.getFullYear() === targetYear) {

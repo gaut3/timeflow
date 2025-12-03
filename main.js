@@ -251,6 +251,7 @@ var translations = {
       start: "Start",
       end: "Slutt",
       duration: "Varighet",
+      fullDay: "Hel dag",
       comment: "Kommentar",
       optional: "valgfritt",
       days: "dager",
@@ -332,14 +333,16 @@ var translations = {
       from: "Fra:",
       to: "Til:",
       commentOptional: "Kommentar (valgfritt):",
-      commentPlaceholder: 'F.eks. "Ferie i Spania"'
+      commentPlaceholder: 'F.eks. "Ferie i Spania"',
+      durationHint: "Antall timer (f.eks. 3.5 for resten av dagen etter sykdom)"
     },
     validation: {
       endAfterStart: "Sluttid m\xE5 v\xE6re etter starttid",
       invalidTime: "Ugyldig tid (bruk format HH:MM, 00-23:00-59)",
       invalidTimePeriod: "Ugyldig tidsperiode",
       overlappingEntry: "Denne oppf\xF8ringen overlapper med en eksisterende oppf\xF8ring",
-      endTimeNextDay: "Sluttid satt til neste dag (f\xF8r starttid)"
+      endTimeNextDay: "Sluttid satt til neste dag (f\xF8r starttid)",
+      invalidDuration: "Ugyldig varighet"
     },
     notifications: {
       added: "Lagt til",
@@ -523,6 +526,7 @@ var translations = {
       start: "Start",
       end: "End",
       duration: "Duration",
+      fullDay: "Full day",
       comment: "Comment",
       optional: "optional",
       days: "days",
@@ -604,14 +608,16 @@ var translations = {
       from: "From:",
       to: "To:",
       commentOptional: "Comment (optional):",
-      commentPlaceholder: 'E.g. "Vacation in Spain"'
+      commentPlaceholder: 'E.g. "Vacation in Spain"',
+      durationHint: "Number of hours (e.g. 3.5 for rest of day after leaving sick)"
     },
     validation: {
       endAfterStart: "End time must be after start time",
       invalidTime: "Invalid time (use format HH:MM, 00-23:00-59)",
       invalidTimePeriod: "Invalid time period",
       overlappingEntry: "This entry overlaps with an existing entry",
-      endTimeNextDay: "End time set to next day (before start time)"
+      endTimeNextDay: "End time set to next day (before start time)",
+      invalidDuration: "Invalid duration"
     },
     notifications: {
       added: "Added",
@@ -1445,8 +1451,10 @@ var DEFAULT_SPECIAL_DAY_BEHAVIORS = [
     icon: "\u{1F912}",
     color: "#c8e6c9",
     textColor: "#000000",
-    noHoursRequired: true,
-    flextimeEffect: "none",
+    noHoursRequired: false,
+    // Can have hours (partial sick day)
+    flextimeEffect: "reduce_goal",
+    // Hours reduce daily goal
     includeInStats: true,
     maxDaysPerYear: 24,
     countingPeriod: "rolling365"
@@ -1457,8 +1465,10 @@ var DEFAULT_SPECIAL_DAY_BEHAVIORS = [
     icon: "\u{1F3E5}",
     color: "#c8e6c9",
     textColor: "#000000",
-    noHoursRequired: true,
-    flextimeEffect: "none",
+    noHoursRequired: false,
+    // Can have hours (partial sick day)
+    flextimeEffect: "reduce_goal",
+    // Hours reduce daily goal
     includeInStats: true
   },
   {
@@ -1467,8 +1477,10 @@ var DEFAULT_SPECIAL_DAY_BEHAVIORS = [
     icon: "\u{1F3E5}",
     color: "#e1bee7",
     textColor: "#000000",
-    noHoursRequired: true,
-    flextimeEffect: "none",
+    noHoursRequired: false,
+    // Can have hours (partial day)
+    flextimeEffect: "reduce_goal",
+    // Hours reduce daily goal
     includeInStats: true
   },
   {
@@ -1723,7 +1735,7 @@ var SpecialDayBehaviorModal = class extends import_obsidian2.Modal {
     }
     if (!isWorkType) {
       new import_obsidian2.Setting(contentEl).setName("No hours required").setDesc("If enabled, you don't need to log any work hours this day (e.g., vacation, sick leave). If disabled, regular workday goal applies.").addToggle((toggle) => toggle.setValue(formData.noHoursRequired).onChange((value) => formData.noHoursRequired = value));
-      new import_obsidian2.Setting(contentEl).setName("Flextime effect").setDesc("How this day type affects your flextime balance").addDropdown((dropdown) => dropdown.addOption("none", "No effect (counts as full workday)").addOption("withdraw", "Withdraw (uses flextime balance)").addOption("accumulate", "Accumulate (excess hours add to flextime)").setValue(formData.flextimeEffect).onChange((value) => formData.flextimeEffect = value));
+      new import_obsidian2.Setting(contentEl).setName("Flextime effect").setDesc("How this day type affects your flextime balance").addDropdown((dropdown) => dropdown.addOption("none", "No effect (counts as full workday)").addOption("withdraw", "Withdraw (uses flextime balance)").addOption("accumulate", "Accumulate (excess hours add to flextime)").addOption("reduce_goal", "Reduce goal (hours reduce daily goal, for sick days)").setValue(formData.flextimeEffect).onChange((value) => formData.flextimeEffect = value));
       new import_obsidian2.Setting(contentEl).setName("Include in statistics").setDesc("Show this day type in yearly statistics").addToggle((toggle) => toggle.setValue(formData.includeInStats).onChange((value) => formData.includeInStats = value));
       new import_obsidian2.Setting(contentEl).setName("Max days per year (optional)").setDesc("Yearly limit for this day type (e.g., 25 for vacation). Leave empty for no limit.").addText((text) => {
         var _a2;
@@ -1791,6 +1803,239 @@ var SpecialDayBehaviorModal = class extends import_obsidian2.Modal {
     contentEl.empty();
   }
 };
+var WorkSchedulePeriodModal = class extends import_obsidian2.Modal {
+  constructor(app, plugin, period, index, onSave) {
+    super(app);
+    this.plugin = plugin;
+    this.period = period;
+    this.index = index;
+    this.onSave = onSave;
+  }
+  onOpen() {
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j;
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.createEl("h2", { text: this.period ? "Edit Work Schedule Period" : "Add Work Schedule Period" });
+    const infoBox = contentEl.createDiv({ cls: "setting-item-description" });
+    infoBox.style.padding = "10px";
+    infoBox.style.marginBottom = "15px";
+    infoBox.style.background = "var(--background-secondary)";
+    infoBox.style.borderRadius = "5px";
+    infoBox.style.fontSize = "0.9em";
+    infoBox.createSpan({ text: "Define a work schedule period. Historical time entries will use the schedule that was active on their date." });
+    const formData = {
+      effectiveFrom: ((_a = this.period) == null ? void 0 : _a.effectiveFrom) || Utils.toLocalDateStr(/* @__PURE__ */ new Date()),
+      workPercent: (_c = (_b = this.period) == null ? void 0 : _b.workPercent) != null ? _c : this.plugin.settings.workPercent,
+      baseWorkday: (_e = (_d = this.period) == null ? void 0 : _d.baseWorkday) != null ? _e : this.plugin.settings.baseWorkday,
+      baseWorkweek: (_g = (_f = this.period) == null ? void 0 : _f.baseWorkweek) != null ? _g : this.plugin.settings.baseWorkweek,
+      workDays: ((_h = this.period) == null ? void 0 : _h.workDays) ? [...this.period.workDays] : [...this.plugin.settings.workDays],
+      halfDayHours: (_j = (_i = this.period) == null ? void 0 : _i.halfDayHours) != null ? _j : this.plugin.settings.halfDayHours
+    };
+    let updateImpactPreview = () => {
+    };
+    new import_obsidian2.Setting(contentEl).setName("Effective from").setDesc("Date when this schedule becomes active (YYYY-MM-DD)").addText((text) => text.setPlaceholder("YYYY-MM-DD").setValue(formData.effectiveFrom).onChange((value) => {
+      formData.effectiveFrom = value;
+      updateImpactPreview();
+    }));
+    new import_obsidian2.Setting(contentEl).setName("Work percentage").setDesc("Employment percentage (0-1, e.g., 0.8 = 80%)").addText((text) => text.setPlaceholder("1.0").setValue(formData.workPercent.toString()).onChange((value) => {
+      const num = parseFloat(value);
+      if (!isNaN(num)) {
+        formData.workPercent = num;
+        updateImpactPreview();
+      }
+    }));
+    new import_obsidian2.Setting(contentEl).setName("Base workday hours").setDesc("Standard hours for a full workday").addText((text) => text.setPlaceholder("7.5").setValue(formData.baseWorkday.toString()).onChange((value) => {
+      const num = parseFloat(value);
+      if (!isNaN(num)) {
+        formData.baseWorkday = num;
+        updateImpactPreview();
+      }
+    }));
+    new import_obsidian2.Setting(contentEl).setName("Base workweek hours").setDesc("Standard hours for a full workweek").addText((text) => text.setPlaceholder("37.5").setValue(formData.baseWorkweek.toString()).onChange((value) => {
+      const num = parseFloat(value);
+      if (!isNaN(num))
+        formData.baseWorkweek = num;
+    }));
+    new import_obsidian2.Setting(contentEl).setName("Half-day hours").setDesc("Hours counted for a half workday").addText((text) => text.setPlaceholder("4").setValue(formData.halfDayHours.toString()).onChange((value) => {
+      const num = parseFloat(value);
+      if (!isNaN(num))
+        formData.halfDayHours = num;
+    }));
+    new import_obsidian2.Setting(contentEl).setName("Work days").setDesc("Select which days are part of this work week");
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const workDaysContainer = contentEl.createDiv();
+    workDaysContainer.style.display = "flex";
+    workDaysContainer.style.flexWrap = "wrap";
+    workDaysContainer.style.gap = "8px";
+    workDaysContainer.style.marginBottom = "15px";
+    dayNames.forEach((dayName, dayIndex) => {
+      const dayButton = workDaysContainer.createEl("button");
+      dayButton.textContent = dayName;
+      dayButton.style.padding = "8px 12px";
+      dayButton.style.border = "1px solid var(--background-modifier-border)";
+      dayButton.style.borderRadius = "4px";
+      dayButton.style.cursor = "pointer";
+      dayButton.style.background = formData.workDays.includes(dayIndex) ? "var(--interactive-accent)" : "var(--background-secondary)";
+      dayButton.style.color = formData.workDays.includes(dayIndex) ? "var(--text-on-accent)" : "var(--text-normal)";
+      dayButton.onclick = () => {
+        const index = formData.workDays.indexOf(dayIndex);
+        if (index > -1) {
+          formData.workDays.splice(index, 1);
+        } else {
+          formData.workDays.push(dayIndex);
+          formData.workDays.sort((a, b) => a - b);
+        }
+        dayButton.style.background = formData.workDays.includes(dayIndex) ? "var(--interactive-accent)" : "var(--background-secondary)";
+        dayButton.style.color = formData.workDays.includes(dayIndex) ? "var(--text-on-accent)" : "var(--text-normal)";
+        updateImpactPreview();
+      };
+    });
+    const impactPreview = contentEl.createDiv();
+    impactPreview.style.marginTop = "15px";
+    impactPreview.style.marginBottom = "15px";
+    impactPreview.style.padding = "12px";
+    impactPreview.style.background = "var(--background-secondary)";
+    impactPreview.style.borderRadius = "5px";
+    impactPreview.style.border = "1px solid var(--background-modifier-border)";
+    updateImpactPreview = () => {
+      var _a2;
+      impactPreview.empty();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(formData.effectiveFrom)) {
+        impactPreview.createEl("div", {
+          text: "Enter a valid date to see impact preview",
+          cls: "setting-item-description"
+        });
+        return;
+      }
+      const periodDate = formData.effectiveFrom;
+      const history = this.plugin.settings.workScheduleHistory || [];
+      const timerManager = this.plugin.timerManager;
+      if (!timerManager || !timerManager.data || !timerManager.data.entries) {
+        impactPreview.createEl("div", { text: "Loading data..." });
+        return;
+      }
+      const entries = timerManager.data.entries;
+      let affectedDays = /* @__PURE__ */ new Set();
+      const today = Utils.toLocalDateStr(/* @__PURE__ */ new Date());
+      const sortedHistory = [...history].sort((a, b) => a.effectiveFrom.localeCompare(b.effectiveFrom));
+      let nextPeriodDate = null;
+      for (const p of sortedHistory) {
+        if (p.effectiveFrom > periodDate && (this.index === -1 || p.effectiveFrom !== ((_a2 = this.period) == null ? void 0 : _a2.effectiveFrom))) {
+          nextPeriodDate = p.effectiveFrom;
+          break;
+        }
+      }
+      entries.forEach((entry) => {
+        if (!entry.startTime)
+          return;
+        const entryDate = Utils.toLocalDateStr(new Date(entry.startTime));
+        if (entryDate >= periodDate && (!nextPeriodDate || entryDate < nextPeriodDate)) {
+          affectedDays.add(entryDate);
+        }
+      });
+      const currentDailyGoal = this.plugin.settings.baseWorkday * this.plugin.settings.workPercent;
+      const newDailyGoal = formData.baseWorkday * formData.workPercent;
+      const goalDifference = newDailyGoal - currentDailyGoal;
+      let oldWorkdays = 0;
+      let newWorkdays = 0;
+      const currentWorkDays = this.plugin.settings.workDays;
+      affectedDays.forEach((dateStr) => {
+        const date = new Date(dateStr);
+        const dayOfWeek = date.getDay();
+        if (currentWorkDays.includes(dayOfWeek))
+          oldWorkdays++;
+        if (formData.workDays.includes(dayOfWeek))
+          newWorkdays++;
+      });
+      const title = impactPreview.createEl("div");
+      title.style.fontWeight = "bold";
+      title.style.marginBottom = "8px";
+      title.textContent = `Impact Preview`;
+      const affectedText = impactPreview.createEl("div");
+      affectedText.style.marginBottom = "4px";
+      affectedText.textContent = `\u2022 Affects ${affectedDays.size} days with existing data`;
+      if (affectedDays.size > 0) {
+        const workdayChange = impactPreview.createEl("div");
+        workdayChange.style.marginBottom = "4px";
+        if (oldWorkdays !== newWorkdays) {
+          workdayChange.textContent = `\u2022 Workdays in period: ${oldWorkdays} \u2192 ${newWorkdays}`;
+        } else {
+          workdayChange.textContent = `\u2022 Workdays in period: ${newWorkdays}`;
+        }
+        if (Math.abs(goalDifference) > 0.1) {
+          const goalChange = impactPreview.createEl("div");
+          goalChange.style.marginBottom = "4px";
+          const sign = goalDifference > 0 ? "+" : "";
+          goalChange.textContent = `\u2022 Daily goal: ${currentDailyGoal.toFixed(1)}h \u2192 ${newDailyGoal.toFixed(1)}h (${sign}${goalDifference.toFixed(1)}h)`;
+        }
+        const requiredHoursChange = (newWorkdays - oldWorkdays) * newDailyGoal + oldWorkdays * goalDifference;
+        if (Math.abs(requiredHoursChange) > 0.5) {
+          const changeEl = impactPreview.createEl("div");
+          changeEl.style.marginBottom = "4px";
+          const sign = requiredHoursChange > 0 ? "+" : "";
+          changeEl.textContent = `\u2022 Required hours change: ${sign}${requiredHoursChange.toFixed(1)}h`;
+          const balanceImpact = -requiredHoursChange;
+          const balanceEl = impactPreview.createEl("div");
+          balanceEl.style.color = balanceImpact > 0 ? "var(--text-success)" : "var(--text-error)";
+          const balanceSign = balanceImpact > 0 ? "+" : "";
+          balanceEl.textContent = `\u2022 Flextime balance impact: ${balanceSign}${balanceImpact.toFixed(1)}h`;
+        }
+      }
+      if (periodDate > today) {
+        const futureNote = impactPreview.createEl("div");
+        futureNote.style.marginTop = "8px";
+        futureNote.style.fontStyle = "italic";
+        futureNote.style.color = "var(--text-muted)";
+        futureNote.textContent = "This is a future period - will apply from " + periodDate;
+      }
+    };
+    updateImpactPreview();
+    const buttonDiv = contentEl.createDiv();
+    buttonDiv.style.display = "flex";
+    buttonDiv.style.gap = "10px";
+    buttonDiv.style.justifyContent = "flex-end";
+    buttonDiv.style.marginTop = "20px";
+    const cancelBtn = buttonDiv.createEl("button", { text: "Cancel" });
+    cancelBtn.onclick = () => this.close();
+    const saveBtn = buttonDiv.createEl("button", { text: "Save", cls: "mod-cta" });
+    saveBtn.onclick = () => {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(formData.effectiveFrom)) {
+        new import_obsidian2.Notice("Invalid date format. Use YYYY-MM-DD");
+        return;
+      }
+      if (formData.workDays.length === 0) {
+        new import_obsidian2.Notice("At least one work day is required");
+        return;
+      }
+      if (formData.workPercent <= 0 || formData.workPercent > 2) {
+        new import_obsidian2.Notice("Work percentage must be between 0 and 2");
+        return;
+      }
+      if (formData.baseWorkday <= 0 || formData.baseWorkday > 24) {
+        new import_obsidian2.Notice("Base workday must be between 0 and 24 hours");
+        return;
+      }
+      if (formData.halfDayHours <= 0 || formData.halfDayHours > formData.baseWorkday) {
+        new import_obsidian2.Notice("Half-day hours must be between 0 and base workday");
+        return;
+      }
+      const period = {
+        effectiveFrom: formData.effectiveFrom,
+        workPercent: formData.workPercent,
+        baseWorkday: formData.baseWorkday,
+        baseWorkweek: formData.baseWorkweek,
+        workDays: formData.workDays,
+        halfDayHours: formData.halfDayHours
+      };
+      this.onSave(period, this.index);
+      this.close();
+    };
+  }
+  onClose() {
+    const { contentEl } = this;
+    contentEl.empty();
+  }
+};
 var TimeFlowSettingTab = class extends import_obsidian2.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
@@ -1803,6 +2048,38 @@ var TimeFlowSettingTab = class extends import_obsidian2.PluginSettingTab {
       if (view && typeof view.refresh === "function") {
         await view.refresh();
       }
+    }
+  }
+  /**
+   * Sync current work settings to the most recent (active) schedule period.
+   * This ensures that when a user changes settings in the main Work Configuration,
+   * those changes are reflected in the currently active period.
+   */
+  syncCurrentSettingsToActivePeriod() {
+    const history = this.plugin.settings.workScheduleHistory;
+    if (!history || history.length === 0)
+      return;
+    const todayStr = Utils.toLocalDateStr(/* @__PURE__ */ new Date());
+    const sortedHistory = [...history].sort((a, b) => a.effectiveFrom.localeCompare(b.effectiveFrom));
+    let activeIndex = -1;
+    for (let i = 0; i < sortedHistory.length; i++) {
+      if (sortedHistory[i].effectiveFrom <= todayStr) {
+        activeIndex = i;
+      } else {
+        break;
+      }
+    }
+    if (activeIndex === -1) {
+      activeIndex = 0;
+    }
+    const activePeriod = sortedHistory[activeIndex];
+    const originalIndex = history.findIndex((p) => p.effectiveFrom === activePeriod.effectiveFrom);
+    if (originalIndex !== -1) {
+      history[originalIndex].workPercent = this.plugin.settings.workPercent;
+      history[originalIndex].baseWorkday = this.plugin.settings.baseWorkday;
+      history[originalIndex].baseWorkweek = this.plugin.settings.baseWorkweek;
+      history[originalIndex].workDays = [...this.plugin.settings.workDays];
+      history[originalIndex].halfDayHours = this.plugin.settings.halfDayHours;
     }
   }
   addResetButton(setting, settingKey, defaultValue, refreshCallback) {
@@ -1928,6 +2205,7 @@ var TimeFlowSettingTab = class extends import_obsidian2.PluginSettingTab {
         const num = parseFloat(value);
         if (!isNaN(num) && num > 0) {
           this.plugin.settings.baseWorkday = num;
+          this.syncCurrentSettingsToActivePeriod();
           await this.plugin.saveSettings();
           await this.refreshView();
         }
@@ -1942,6 +2220,7 @@ var TimeFlowSettingTab = class extends import_obsidian2.PluginSettingTab {
           const num = parseFloat(value);
           if (!isNaN(num) && num > 0 && num <= 1) {
             this.plugin.settings.workPercent = num;
+            this.syncCurrentSettingsToActivePeriod();
             await this.plugin.saveSettings();
             await this.refreshView();
           }
@@ -1950,6 +2229,7 @@ var TimeFlowSettingTab = class extends import_obsidian2.PluginSettingTab {
           const num = parseFloat(value);
           if (!isNaN(num) && num > 0) {
             this.plugin.settings.baseWorkweek = num;
+            this.syncCurrentSettingsToActivePeriod();
             await this.plugin.saveSettings();
             await this.refreshView();
           }
@@ -1963,14 +2243,14 @@ var TimeFlowSettingTab = class extends import_obsidian2.PluginSettingTab {
           await this.refreshView();
         }
       }));
-      const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+      const dayNames2 = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
       const workDaysSetting = new import_obsidian2.Setting(settingsContainer).setName("Work days").setDesc("Select which days are part of your work week");
       const workDaysContainer = settingsContainer.createDiv();
       workDaysContainer.style.display = "flex";
       workDaysContainer.style.flexWrap = "wrap";
       workDaysContainer.style.gap = "8px";
       workDaysContainer.style.marginBottom = "15px";
-      dayNames.forEach((dayName, dayIndex) => {
+      dayNames2.forEach((dayName, dayIndex) => {
         const dayButton = workDaysContainer.createEl("button");
         dayButton.textContent = dayName.substring(0, 3);
         dayButton.className = "tf-day-button";
@@ -1990,8 +2270,11 @@ var TimeFlowSettingTab = class extends import_obsidian2.PluginSettingTab {
             currentWorkDays.sort((a, b) => a - b);
           }
           this.plugin.settings.workDays = currentWorkDays;
+          this.syncCurrentSettingsToActivePeriod();
           await this.plugin.saveSettings();
-          this.display();
+          const isSelected = currentWorkDays.includes(dayIndex);
+          dayButton.style.background = isSelected ? "var(--interactive-accent)" : "var(--background-secondary)";
+          dayButton.style.color = isSelected ? "var(--text-on-accent)" : "var(--text-normal)";
         };
       });
       new import_obsidian2.Setting(settingsContainer).setName("Enable alternating weeks").setDesc("Enable if you have different work days in alternating weeks (e.g., every other weekend)").addToggle((toggle) => toggle.setValue(this.plugin.settings.enableAlternatingWeeks).onChange(async (value) => {
@@ -2006,7 +2289,7 @@ var TimeFlowSettingTab = class extends import_obsidian2.PluginSettingTab {
         altWorkDaysContainer.style.flexWrap = "wrap";
         altWorkDaysContainer.style.gap = "8px";
         altWorkDaysContainer.style.marginBottom = "15px";
-        dayNames.forEach((dayName, dayIndex) => {
+        dayNames2.forEach((dayName, dayIndex) => {
           const dayButton = altWorkDaysContainer.createEl("button");
           dayButton.textContent = dayName.substring(0, 3);
           dayButton.className = "tf-day-button";
@@ -2027,11 +2310,125 @@ var TimeFlowSettingTab = class extends import_obsidian2.PluginSettingTab {
             }
             this.plugin.settings.alternatingWeekWorkDays = currentAltWorkDays;
             await this.plugin.saveSettings();
-            this.display();
+            const isSelected = currentAltWorkDays.includes(dayIndex);
+            dayButton.style.background = isSelected ? "var(--interactive-accent)" : "var(--background-secondary)";
+            dayButton.style.color = isSelected ? "var(--text-on-accent)" : "var(--text-normal)";
           };
         });
       }
     }
+    const scheduleHistorySection = this.createCollapsibleSubsection(
+      settingsContainer,
+      "Work Schedule History",
+      false
+    );
+    const scheduleHistoryInfo = scheduleHistorySection.content.createDiv();
+    scheduleHistoryInfo.style.marginBottom = "15px";
+    scheduleHistoryInfo.style.padding = "10px";
+    scheduleHistoryInfo.style.background = "var(--background-secondary)";
+    scheduleHistoryInfo.style.borderRadius = "5px";
+    scheduleHistoryInfo.style.fontSize = "0.9em";
+    scheduleHistoryInfo.createEl("strong", { text: "Track changes to your work schedule" });
+    scheduleHistoryInfo.createEl("br");
+    scheduleHistoryInfo.appendText("If you change roles or work hours, add a new period to preserve accurate historical calculations. ");
+    scheduleHistoryInfo.appendText("Each period defines the schedule that was active from its effective date.");
+    const scheduleHistory = [...this.plugin.settings.workScheduleHistory || []];
+    scheduleHistory.sort((a, b) => b.effectiveFrom.localeCompare(a.effectiveFrom));
+    const currentSettingsInfo = scheduleHistorySection.content.createDiv();
+    currentSettingsInfo.style.marginBottom = "10px";
+    currentSettingsInfo.style.padding = "10px";
+    currentSettingsInfo.style.background = "var(--background-modifier-success-rgb, rgba(76, 175, 80, 0.2))";
+    currentSettingsInfo.style.borderRadius = "5px";
+    currentSettingsInfo.style.border = "1px solid var(--text-success)";
+    const currentLabel = currentSettingsInfo.createEl("div");
+    currentLabel.style.fontWeight = "bold";
+    currentLabel.style.marginBottom = "5px";
+    currentLabel.textContent = "Current Settings (Active)";
+    const currentDetails = currentSettingsInfo.createEl("div");
+    currentDetails.style.fontSize = "0.9em";
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const currentWorkDaysStr = this.plugin.settings.workDays.map((d) => dayNames[d]).join(", ");
+    currentDetails.textContent = `${(this.plugin.settings.workPercent * 100).toFixed(0)}% \xB7 ${this.plugin.settings.baseWorkday}h/day \xB7 ${this.plugin.settings.baseWorkweek}h/week \xB7 ${currentWorkDaysStr}`;
+    if (scheduleHistory.length > 0) {
+      scheduleHistory.forEach((period, arrayIndex) => {
+        const originalIndex = this.plugin.settings.workScheduleHistory.findIndex(
+          (p) => p.effectiveFrom === period.effectiveFrom
+        );
+        const periodDiv = scheduleHistorySection.content.createDiv();
+        periodDiv.style.marginBottom = "10px";
+        periodDiv.style.padding = "10px";
+        periodDiv.style.background = "var(--background-secondary)";
+        periodDiv.style.borderRadius = "5px";
+        periodDiv.style.display = "flex";
+        periodDiv.style.justifyContent = "space-between";
+        periodDiv.style.alignItems = "center";
+        const infoDiv = periodDiv.createDiv();
+        const dateLabel = infoDiv.createEl("div");
+        dateLabel.style.fontWeight = "bold";
+        dateLabel.textContent = `From ${period.effectiveFrom}`;
+        const details = infoDiv.createEl("div");
+        details.style.fontSize = "0.9em";
+        details.style.color = "var(--text-muted)";
+        const workDaysStr = period.workDays.map((d) => dayNames[d]).join(", ");
+        details.textContent = `${(period.workPercent * 100).toFixed(0)}% \xB7 ${period.baseWorkday}h/day \xB7 ${period.baseWorkweek}h/week \xB7 ${workDaysStr}`;
+        const buttonsDiv = periodDiv.createDiv();
+        buttonsDiv.style.display = "flex";
+        buttonsDiv.style.gap = "5px";
+        const editBtn = buttonsDiv.createEl("button", { text: "Edit" });
+        editBtn.onclick = () => {
+          new WorkSchedulePeriodModal(
+            this.app,
+            this.plugin,
+            period,
+            originalIndex,
+            async (updatedPeriod, idx) => {
+              this.plugin.settings.workScheduleHistory[idx] = updatedPeriod;
+              this.plugin.settings.workScheduleHistory.sort((a, b) => a.effectiveFrom.localeCompare(b.effectiveFrom));
+              await this.plugin.saveSettings();
+              await this.refreshView();
+              this.display();
+            }
+          ).open();
+        };
+        if (scheduleHistory.length > 1) {
+          const deleteBtn = buttonsDiv.createEl("button", { text: "Delete" });
+          deleteBtn.style.color = "var(--text-error)";
+          deleteBtn.onclick = async () => {
+            const confirmation = confirm(`Delete schedule period from ${period.effectiveFrom}?`);
+            if (confirmation) {
+              this.plugin.settings.workScheduleHistory.splice(originalIndex, 1);
+              await this.plugin.saveSettings();
+              await this.refreshView();
+              this.display();
+            }
+          };
+        }
+      });
+    } else {
+      const noPeriods = scheduleHistorySection.content.createDiv();
+      noPeriods.style.color = "var(--text-muted)";
+      noPeriods.style.fontStyle = "italic";
+      noPeriods.style.marginBottom = "10px";
+      noPeriods.textContent = "No historical periods defined. Add a period when your schedule changes.";
+    }
+    new import_obsidian2.Setting(scheduleHistorySection.content).setName("Add historical period").setDesc("Add a period for when your work schedule was different").addButton((btn) => btn.setButtonText("+ Add Period").setCta().onClick(() => {
+      new WorkSchedulePeriodModal(
+        this.app,
+        this.plugin,
+        null,
+        -1,
+        async (newPeriod) => {
+          if (!this.plugin.settings.workScheduleHistory) {
+            this.plugin.settings.workScheduleHistory = [];
+          }
+          this.plugin.settings.workScheduleHistory.push(newPeriod);
+          this.plugin.settings.workScheduleHistory.sort((a, b) => a.effectiveFrom.localeCompare(b.effectiveFrom));
+          await this.plugin.saveSettings();
+          await this.refreshView();
+          this.display();
+        }
+      ).open();
+    }));
     const complianceSection = this.createCollapsibleSubsection(
       settingsContainer,
       "Work Time Limits",
@@ -2308,6 +2705,7 @@ Note: Historical data in your holidays file using "${behavior.id}" will no longe
         const num = parseFloat(value);
         if (!isNaN(num) && num > 0 && num < this.plugin.settings.baseWorkday) {
           this.plugin.settings.halfDayHours = num;
+          this.syncCurrentSettingsToActivePeriod();
           await this.plugin.saveSettings();
           await this.refreshView();
         }
@@ -2696,12 +3094,62 @@ var DataManager = class {
     }
     return behavior;
   }
+  /**
+   * Get the work schedule that was active on a specific date.
+   *
+   * Logic:
+   * - Periods are sorted by effectiveFrom date
+   * - Find the most recent period that started on or before the given date
+   * - If the date is before ALL periods, use the earliest period (not current settings)
+   *   This ensures historical consistency even before the first recorded period
+   * - Future periods work correctly: they won't apply until their effective date
+   */
+  getScheduleForDate(dateStr) {
+    const history = this.settings.workScheduleHistory;
+    if (!history || history.length === 0) {
+      return {
+        workPercent: this.settings.workPercent,
+        baseWorkday: this.settings.baseWorkday,
+        baseWorkweek: this.settings.baseWorkweek,
+        workDays: this.settings.workDays,
+        halfDayHours: this.settings.halfDayHours
+      };
+    }
+    const sortedHistory = [...history].sort((a, b) => a.effectiveFrom.localeCompare(b.effectiveFrom));
+    let activePeriod = null;
+    for (const period of sortedHistory) {
+      if (period.effectiveFrom <= dateStr) {
+        activePeriod = period;
+      } else {
+        break;
+      }
+    }
+    if (activePeriod) {
+      return {
+        workPercent: activePeriod.workPercent,
+        baseWorkday: activePeriod.baseWorkday,
+        baseWorkweek: activePeriod.baseWorkweek,
+        workDays: activePeriod.workDays,
+        halfDayHours: activePeriod.halfDayHours
+      };
+    }
+    const earliestPeriod = sortedHistory[0];
+    return {
+      workPercent: earliestPeriod.workPercent,
+      baseWorkday: earliestPeriod.baseWorkday,
+      baseWorkweek: earliestPeriod.baseWorkweek,
+      workDays: earliestPeriod.workDays,
+      halfDayHours: earliestPeriod.halfDayHours
+    };
+  }
   getDailyGoal(dateStr) {
     if (!this.settings.enableGoalTracking) {
       return 0;
     }
+    const schedule = this.getScheduleForDate(dateStr);
     const date = new Date(dateStr);
-    const isWeekend = Utils.isWeekend(date, this.settings);
+    const dayOfWeek = date.getDay();
+    const isWeekend = !schedule.workDays.includes(dayOfWeek);
     if (isWeekend)
       return 0;
     const holidayInfo = this.getHolidayInfo(dateStr);
@@ -2711,7 +3159,7 @@ var DataManager = class {
         return 0;
       }
       if (holidayInfo.halfDay) {
-        const halfDayHours = this.settings.halfDayMode === "percentage" ? this.settings.baseWorkday / 2 : this.settings.halfDayHours;
+        const halfDayHours = this.settings.halfDayMode === "percentage" ? schedule.baseWorkday / 2 : schedule.halfDayHours;
         return halfDayHours;
       }
     }
@@ -2724,7 +3172,7 @@ var DataManager = class {
         return 0;
       }
     }
-    return this.workdayHours;
+    return schedule.baseWorkday * schedule.workPercent;
   }
   processEntries() {
     this.daily = {};
@@ -2784,27 +3232,52 @@ var DataManager = class {
     for (let day in this.daily) {
       const dayGoal = this.getDailyGoal(day);
       const holidayInfo = this.getHolidayInfo(day);
-      this.daily[day].forEach((e) => {
+      const dayEntries = this.daily[day];
+      let goalReduction = 0;
+      dayEntries.forEach((e) => {
+        const behavior = this.getSpecialDayBehavior(e.name);
+        if ((behavior == null ? void 0 : behavior.flextimeEffect) === "reduce_goal") {
+          goalReduction += e.duration || 0;
+        }
+      });
+      const effectiveGoal = Math.max(0, dayGoal - goalReduction);
+      let totalWorkHours = 0;
+      dayEntries.forEach((e) => {
+        const behavior = this.getSpecialDayBehavior(e.name);
+        if (!behavior || behavior.isWorkType || behavior.flextimeEffect === "accumulate") {
+          totalWorkHours += e.duration || 0;
+        }
+      });
+      dayEntries.forEach((e) => {
         let flextime = 0;
-        const name = e.name.toLowerCase();
+        const behavior = this.getSpecialDayBehavior(e.name);
+        if ((behavior == null ? void 0 : behavior.flextimeEffect) === "reduce_goal") {
+          e.flextime = 0;
+          return;
+        }
         if (holidayInfo) {
-          const behavior = this.getSpecialDayBehavior(holidayInfo.type);
-          if (behavior) {
-            if (behavior.flextimeEffect === "withdraw") {
+          const holidayBehavior = this.getSpecialDayBehavior(holidayInfo.type);
+          if (holidayBehavior) {
+            if (holidayBehavior.flextimeEffect === "withdraw") {
               flextime -= e.duration || 0;
-            } else if (behavior.flextimeEffect === "accumulate") {
-              if (dayGoal > 0 && (e.duration || 0) > dayGoal) {
-                flextime += (e.duration || 0) - dayGoal;
+            } else if (holidayBehavior.flextimeEffect === "accumulate") {
+              if (effectiveGoal > 0 && (e.duration || 0) > effectiveGoal) {
+                flextime += (e.duration || 0) - effectiveGoal;
+              } else if (effectiveGoal === 0) {
+                flextime += e.duration || 0;
               }
-            } else if (behavior.noHoursRequired && dayGoal === 0) {
+            } else if (holidayBehavior.noHoursRequired && effectiveGoal === 0) {
               flextime += e.duration || 0;
             }
           }
-        } else if (dayGoal === 0) {
+        } else if (effectiveGoal === 0) {
           flextime += e.duration || 0;
+        } else if ((behavior == null ? void 0 : behavior.flextimeEffect) === "withdraw") {
+          flextime -= e.duration || 0;
         } else {
-          if ((e.duration || 0) > dayGoal) {
-            flextime += (e.duration || 0) - dayGoal;
+          if (totalWorkHours > effectiveGoal) {
+            const proportion = (e.duration || 0) / totalWorkHours;
+            flextime += (totalWorkHours - effectiveGoal) * proportion;
           }
         }
         e.flextime = flextime;
@@ -2839,27 +3312,30 @@ var DataManager = class {
       const dayEntries = this.daily[day] || [];
       let dayWorked = 0;
       let avspaseringHours = 0;
+      let goalReduction = 0;
       let hasCompletedEntries = false;
       dayEntries.forEach((e) => {
         if (e.isActive)
           return;
         hasCompletedEntries = true;
         const behavior = this.getSpecialDayBehavior(e.name);
-        if (behavior && (behavior.noHoursRequired || behavior.countsAsWorkday)) {
-          return;
-        }
-        if (e.name.toLowerCase() === "avspasering") {
+        if ((behavior == null ? void 0 : behavior.flextimeEffect) === "reduce_goal") {
+          goalReduction += e.duration || 0;
+        } else if ((behavior == null ? void 0 : behavior.flextimeEffect) === "withdraw") {
           avspaseringHours += e.duration || 0;
+        } else if (behavior && (behavior.noHoursRequired || behavior.countsAsWorkday)) {
+          return;
         } else {
           dayWorked += e.duration || 0;
         }
       });
       if (!hasCompletedEntries)
         continue;
-      if (dayGoal === 0) {
+      const effectiveGoal = Math.max(0, dayGoal - goalReduction);
+      if (effectiveGoal === 0) {
         balance += dayWorked;
       } else {
-        balance += dayWorked - dayGoal;
+        balance += dayWorked - effectiveGoal;
       }
       balance -= avspaseringHours;
     }
@@ -3399,23 +3875,26 @@ var DataManager = class {
     const isCurrentYear = targetYear === currentYear;
     const countingPeriod = (behavior == null ? void 0 : behavior.countingPeriod) || "calendar";
     const useRolling = isCurrentYear && countingPeriod === "rolling365";
+    const isReduceGoalType = (behavior == null ? void 0 : behavior.flextimeEffect) === "reduce_goal";
     let count = 0;
     const daysSeen = /* @__PURE__ */ new Set();
     if (useRolling) {
       const cutoffDate = new Date(today);
       cutoffDate.setDate(cutoffDate.getDate() - 365);
       const cutoffStr = Utils.toLocalDateStr(cutoffDate);
-      Object.keys(this.daily).forEach((dateStr) => {
-        if (dateStr >= cutoffStr && dateStr <= Utils.toLocalDateStr(today)) {
-          const entries = this.daily[dateStr];
-          entries.forEach((entry) => {
-            if (entry.name.toLowerCase() === typeId && !daysSeen.has(dateStr)) {
-              daysSeen.add(dateStr);
-              count++;
-            }
-          });
-        }
-      });
+      if (!isReduceGoalType) {
+        Object.keys(this.daily).forEach((dateStr) => {
+          if (dateStr >= cutoffStr && dateStr <= Utils.toLocalDateStr(today)) {
+            const entries = this.daily[dateStr];
+            entries.forEach((entry) => {
+              if (entry.name.toLowerCase() === typeId && !daysSeen.has(dateStr)) {
+                daysSeen.add(dateStr);
+                count++;
+              }
+            });
+          }
+        });
+      }
       Object.keys(this.holidays).forEach((dateStr) => {
         if (dateStr >= cutoffStr && dateStr <= Utils.toLocalDateStr(today)) {
           const holidayInfo = this.holidays[dateStr];
@@ -3426,18 +3905,20 @@ var DataManager = class {
         }
       });
     } else {
-      Object.keys(this.daily).forEach((dateStr) => {
-        const date = new Date(dateStr);
-        if (date.getFullYear() === targetYear) {
-          const entries = this.daily[dateStr];
-          entries.forEach((entry) => {
-            if (entry.name.toLowerCase() === typeId && !daysSeen.has(dateStr)) {
-              daysSeen.add(dateStr);
-              count++;
-            }
-          });
-        }
-      });
+      if (!isReduceGoalType) {
+        Object.keys(this.daily).forEach((dateStr) => {
+          const date = new Date(dateStr);
+          if (date.getFullYear() === targetYear) {
+            const entries = this.daily[dateStr];
+            entries.forEach((entry) => {
+              if (entry.name.toLowerCase() === typeId && !daysSeen.has(dateStr)) {
+                daysSeen.add(dateStr);
+                count++;
+              }
+            });
+          }
+        });
+      }
       Object.keys(this.holidays).forEach((dateStr) => {
         const date = new Date(dateStr);
         if (date.getFullYear() === targetYear) {
@@ -6292,11 +6773,17 @@ var UIBuilder = class {
    */
   showWeekCompliancePanel(cellRect, mondayOfWeek) {
     const existingPanel = document.querySelector(".tf-week-compliance-panel");
-    if (existingPanel)
+    if (existingPanel) {
+      const existingWeek = existingPanel.dataset.weekMonday;
       existingPanel.remove();
+      if (existingWeek === Utils.toLocalDateStr(mondayOfWeek)) {
+        return;
+      }
+    }
     const data = this.getWeekComplianceData(mondayOfWeek);
     const panel = document.createElement("div");
     panel.className = "tf-week-compliance-panel";
+    panel.dataset.weekMonday = Utils.toLocalDateStr(mondayOfWeek);
     panel.style.cssText = `
 			position: fixed;
 			background: var(--background-primary);
@@ -7057,6 +7544,10 @@ var UIBuilder = class {
       typeSelect.appendChild(option);
     });
     content.appendChild(typeSelect);
+    const isReduceGoalType = (typeId) => {
+      const behavior = this.settings.specialDayBehaviors.find((b) => b.id === typeId);
+      return (behavior == null ? void 0 : behavior.flextimeEffect) === "reduce_goal";
+    };
     const timeContainer = document.createElement("div");
     timeContainer.style.marginBottom = "15px";
     timeContainer.style.display = "none";
@@ -7114,9 +7605,129 @@ var UIBuilder = class {
     toTimeInput.addEventListener("change", updateDuration);
     timeContainer.appendChild(durationDisplay);
     content.appendChild(timeContainer);
-    typeSelect.addEventListener("change", () => {
-      timeContainer.style.display = typeSelect.value === "avspasering" ? "block" : "none";
+    const sickTimeContainer = document.createElement("div");
+    sickTimeContainer.style.marginBottom = "15px";
+    sickTimeContainer.style.display = "none";
+    const sickTimeLabel = document.createElement("div");
+    sickTimeLabel.textContent = t("modals.timePeriod") || "Tidsperiode:";
+    sickTimeLabel.style.marginBottom = "5px";
+    sickTimeLabel.style.fontWeight = "bold";
+    sickTimeContainer.appendChild(sickTimeLabel);
+    const sickTimeInputRow = document.createElement("div");
+    sickTimeInputRow.style.display = "flex";
+    sickTimeInputRow.style.gap = "10px";
+    sickTimeInputRow.style.alignItems = "center";
+    const sickFromLabel = document.createElement("span");
+    sickFromLabel.textContent = t("modals.from") || "Fra:";
+    sickTimeInputRow.appendChild(sickFromLabel);
+    const sickDateStr = Utils.toLocalDateStr(dateObj);
+    let autoSickFromTime = "14:00";
+    let autoSickToTime = defaultEndTime;
+    const workEntries = this.timerManager.data.entries.filter((entry) => {
+      var _a;
+      if (!entry.endTime)
+        return false;
+      const entryDate = Utils.toLocalDateStr(new Date(entry.startTime || ""));
+      const behavior = (_a = this.settings.specialDayBehaviors) == null ? void 0 : _a.find((b) => b.id === entry.name.toLowerCase());
+      const isWorkType = (behavior == null ? void 0 : behavior.isWorkType) || entry.name.toLowerCase() === "jobb";
+      return entryDate === sickDateStr && isWorkType;
     });
+    if (workEntries.length > 0) {
+      let totalWorkedHours = 0;
+      let earliestStartTime = /* @__PURE__ */ new Date();
+      let latestEndTime = /* @__PURE__ */ new Date(0);
+      for (const entry of workEntries) {
+        const startDate = new Date(entry.startTime);
+        const endDate = new Date(entry.endTime);
+        totalWorkedHours += (endDate.getTime() - startDate.getTime()) / (1e3 * 60 * 60);
+        if (startDate < earliestStartTime) {
+          earliestStartTime = startDate;
+        }
+        if (endDate > latestEndTime) {
+          latestEndTime = endDate;
+        }
+      }
+      const endH2 = latestEndTime.getHours();
+      const endM2 = latestEndTime.getMinutes();
+      autoSickFromTime = `${endH2.toString().padStart(2, "0")}:${endM2.toString().padStart(2, "0")}`;
+      const dailyGoal = this.settings.baseWorkday * this.settings.workPercent;
+      const remainingHours = Math.max(0, dailyGoal - totalWorkedHours);
+      if (remainingHours > 0) {
+        const sickEndDate = new Date(latestEndTime.getTime() + remainingHours * 60 * 60 * 1e3);
+        const sickEndH = sickEndDate.getHours();
+        const sickEndM = sickEndDate.getMinutes();
+        autoSickToTime = `${sickEndH.toString().padStart(2, "0")}:${sickEndM.toString().padStart(2, "0")}`;
+      }
+    }
+    const sickFromTimeInput = this.createTimeInput(autoSickFromTime, () => {
+    });
+    sickFromTimeInput.style.padding = "8px";
+    sickFromTimeInput.style.fontSize = "14px";
+    sickTimeInputRow.appendChild(sickFromTimeInput);
+    const sickToLabel = document.createElement("span");
+    sickToLabel.textContent = t("modals.to") || "Til:";
+    sickTimeInputRow.appendChild(sickToLabel);
+    const sickToTimeInput = this.createTimeInput(autoSickToTime, () => {
+    });
+    sickToTimeInput.style.padding = "8px";
+    sickToTimeInput.style.fontSize = "14px";
+    sickTimeInputRow.appendChild(sickToTimeInput);
+    sickTimeContainer.appendChild(sickTimeInputRow);
+    const sickDurationDisplay = document.createElement("div");
+    sickDurationDisplay.style.fontSize = "12px";
+    sickDurationDisplay.style.color = "var(--text-muted)";
+    sickDurationDisplay.style.marginTop = "8px";
+    const updateSickDuration = () => {
+      const from = sickFromTimeInput.value;
+      const to = sickToTimeInput.value;
+      if (from && to) {
+        const [fH, fM] = from.split(":").map(Number);
+        const [tH, tM] = to.split(":").map(Number);
+        const hours = tH + tM / 60 - (fH + fM / 60);
+        if (hours > 0) {
+          sickDurationDisplay.textContent = `${t("ui.duration") || "Varighet"}: ${hours.toFixed(1)} ${this.settings.hourUnit || "t"}`;
+        } else if (hours === 0) {
+          sickDurationDisplay.textContent = t("modals.fullDayHint") || "La st\xE5 tom for hel dag";
+        } else {
+          sickDurationDisplay.textContent = t("validation.invalidTimePeriod") || "Ugyldig tidsperiode";
+        }
+      }
+    };
+    updateSickDuration();
+    sickFromTimeInput.addEventListener("change", updateSickDuration);
+    sickToTimeInput.addEventListener("change", updateSickDuration);
+    sickTimeContainer.appendChild(sickDurationDisplay);
+    const fullDayRow = document.createElement("div");
+    fullDayRow.style.marginTop = "10px";
+    fullDayRow.style.display = "flex";
+    fullDayRow.style.alignItems = "center";
+    fullDayRow.style.gap = "8px";
+    const fullDayCheckbox = document.createElement("input");
+    fullDayCheckbox.type = "checkbox";
+    fullDayCheckbox.id = "fullDayCheckbox";
+    fullDayCheckbox.checked = workEntries.length === 0;
+    fullDayRow.appendChild(fullDayCheckbox);
+    const fullDayLabel = document.createElement("label");
+    fullDayLabel.htmlFor = "fullDayCheckbox";
+    fullDayLabel.textContent = t("ui.fullDay") || "Hel dag";
+    fullDayLabel.style.cursor = "pointer";
+    fullDayRow.appendChild(fullDayLabel);
+    sickTimeContainer.appendChild(fullDayRow);
+    const updateSickTimeInputs = () => {
+      const isFullDay = fullDayCheckbox.checked;
+      sickTimeInputRow.style.display = isFullDay ? "none" : "flex";
+      sickDurationDisplay.style.display = isFullDay ? "none" : "block";
+    };
+    fullDayCheckbox.addEventListener("change", updateSickTimeInputs);
+    updateSickTimeInputs();
+    content.appendChild(sickTimeContainer);
+    const updateFieldVisibility = () => {
+      const selectedType = typeSelect.value;
+      timeContainer.style.display = selectedType === "avspasering" ? "block" : "none";
+      sickTimeContainer.style.display = isReduceGoalType(selectedType) ? "block" : "none";
+    };
+    typeSelect.addEventListener("change", updateFieldVisibility);
+    updateFieldVisibility();
     const noteLabel = document.createElement("div");
     noteLabel.textContent = t("modals.commentOptional");
     noteLabel.style.marginBottom = "5px";
@@ -7145,11 +7756,43 @@ var UIBuilder = class {
     addBtn.textContent = t("buttons.add");
     addBtn.className = "mod-cta";
     addBtn.onclick = async () => {
+      var _a, _b;
       const dayType = typeSelect.value;
       const note = noteInput.value.trim();
       const startTime = dayType === "avspasering" ? fromTimeInput.value : void 0;
       const endTime = dayType === "avspasering" ? toTimeInput.value : void 0;
-      await this.addSpecialDay(dateObj, dayType, note, startTime, endTime);
+      if (isReduceGoalType(dayType)) {
+        const isFullDay = fullDayCheckbox.checked;
+        if (!isFullDay) {
+          const from = sickFromTimeInput.value;
+          const to = sickToTimeInput.value;
+          const [fH, fM] = from.split(":").map(Number);
+          const [tH, tM] = to.split(":").map(Number);
+          const sickHours = tH + tM / 60 - (fH + fM / 60);
+          if (sickHours > 0) {
+            const entryStartDate = new Date(dateObj);
+            entryStartDate.setHours(fH, fM, 0, 0);
+            const entryEndDate = new Date(dateObj);
+            entryEndDate.setHours(tH, tM, 0, 0);
+            this.timerManager.data.entries.push({
+              name: dayType,
+              startTime: Utils.toLocalISOString(entryStartDate),
+              endTime: Utils.toLocalISOString(entryEndDate),
+              subEntries: null
+            });
+            await this.saveWithErrorHandling();
+            new import_obsidian4.Notice(`\u2705 ${translateSpecialDayName(dayType)}: ${sickHours.toFixed(1)}${this.settings.hourUnit || "t"} for ${Utils.toLocalDateStr(dateObj)}`);
+            await ((_b = (_a = this.plugin.timerManager).onTimerChange) == null ? void 0 : _b.call(_a));
+          } else {
+            new import_obsidian4.Notice(`\u274C ${t("validation.invalidTimePeriod") || "Ugyldig tidsperiode"}`);
+            return;
+          }
+        } else {
+          await this.addSpecialDay(dateObj, dayType, note);
+        }
+      } else {
+        await this.addSpecialDay(dateObj, dayType, note, startTime, endTime);
+      }
       this.isModalOpen = false;
       modal.remove();
     };
@@ -8024,6 +8667,44 @@ ${noteType.tags.join(" ")}`;
     endInput.style.marginBottom = "20px";
     endInput.style.padding = "8px";
     content.appendChild(endInput);
+    const durationContainer = document.createElement("div");
+    durationContainer.style.display = "none";
+    durationContainer.style.marginBottom = "20px";
+    const durationLabel = document.createElement("div");
+    durationLabel.textContent = t("ui.duration") + ":";
+    durationLabel.style.fontWeight = "bold";
+    durationLabel.style.marginBottom = "5px";
+    durationContainer.appendChild(durationLabel);
+    const durationInput = document.createElement("input");
+    durationInput.type = "number";
+    durationInput.step = "0.5";
+    durationInput.min = "0.5";
+    durationInput.max = "24";
+    durationInput.value = "3.5";
+    durationInput.style.width = "100%";
+    durationInput.style.padding = "8px";
+    durationContainer.appendChild(durationInput);
+    const durationHint = document.createElement("div");
+    durationHint.style.fontSize = "12px";
+    durationHint.style.color = "var(--text-muted)";
+    durationHint.style.marginTop = "5px";
+    durationHint.textContent = t("modals.durationHint") || "Antall timer (f.eks. 3.5 for resten av dagen etter sykdom)";
+    durationContainer.appendChild(durationHint);
+    content.appendChild(durationContainer);
+    const isReduceGoalType = (typeId) => {
+      const behavior = this.settings.specialDayBehaviors.find((b) => b.id === typeId);
+      return (behavior == null ? void 0 : behavior.flextimeEffect) === "reduce_goal";
+    };
+    const updateInputVisibility = () => {
+      const showDuration = isReduceGoalType(typeSelect.value);
+      startLabel.style.display = showDuration ? "none" : "block";
+      startInput.style.display = showDuration ? "none" : "block";
+      endLabel.style.display = showDuration ? "none" : "block";
+      endInput.style.display = showDuration ? "none" : "block";
+      durationContainer.style.display = showDuration ? "block" : "none";
+    };
+    typeSelect.onchange = updateInputVisibility;
+    updateInputVisibility();
     const buttonContainer = document.createElement("div");
     buttonContainer.style.display = "flex";
     buttonContainer.style.gap = "10px";
@@ -8040,19 +8721,32 @@ ${noteType.tags.join(" ")}`;
     saveBtn.textContent = t("buttons.save");
     saveBtn.onclick = async () => {
       var _a, _b;
-      const parsedStart = this.parseTimeInput(startInput.value);
-      const parsedEnd = this.parseTimeInput(endInput.value);
-      if (!parsedStart || !parsedEnd) {
-        new import_obsidian4.Notice(t("validation.invalidTime"));
-        return;
-      }
-      const startDate = new Date(targetDate);
-      startDate.setHours(parsedStart.hours, parsedStart.minutes, 0, 0);
-      const endDate = new Date(targetDate);
-      endDate.setHours(parsedEnd.hours, parsedEnd.minutes, 0, 0);
-      if (endDate <= startDate) {
-        new import_obsidian4.Notice(t("validation.endAfterStart"));
-        return;
+      let startDate;
+      let endDate;
+      if (isReduceGoalType(typeSelect.value)) {
+        const duration2 = parseFloat(durationInput.value);
+        if (isNaN(duration2) || duration2 <= 0) {
+          new import_obsidian4.Notice(t("validation.invalidDuration") || "Ugyldig varighet");
+          return;
+        }
+        startDate = new Date(targetDate);
+        startDate.setHours(12, 0, 0, 0);
+        endDate = new Date(startDate.getTime() + duration2 * 60 * 60 * 1e3);
+      } else {
+        const parsedStart = this.parseTimeInput(startInput.value);
+        const parsedEnd = this.parseTimeInput(endInput.value);
+        if (!parsedStart || !parsedEnd) {
+          new import_obsidian4.Notice(t("validation.invalidTime"));
+          return;
+        }
+        startDate = new Date(targetDate);
+        startDate.setHours(parsedStart.hours, parsedStart.minutes, 0, 0);
+        endDate = new Date(targetDate);
+        endDate.setHours(parsedEnd.hours, parsedEnd.minutes, 0, 0);
+        if (endDate <= startDate) {
+          new import_obsidian4.Notice(t("validation.endAfterStart"));
+          return;
+        }
       }
       this.timerManager.data.entries.push({
         name: typeSelect.value,
@@ -8432,13 +9126,20 @@ var TimerManager = class {
     return null;
   }
   async createDataFile() {
+    const entriesOnly = { entries: this.data.entries };
+    const timekeepBlock = `\`\`\`timekeep
+${JSON.stringify(entriesOnly, null, 2)}
+\`\`\``;
+    const settingsBlock = this.data.settings ? `
+
+\`\`\`timeflow-settings
+${JSON.stringify(this.data.settings, null, 2)}
+\`\`\`` : "";
     const content = `# timeflow data
 
 This file contains your time tracking data in Timekeep-compatible format.
 
-\`\`\`timekeep
-${JSON.stringify(this.data)}
-\`\`\`
+${timekeepBlock}${settingsBlock}
 `;
     const folderPath = this.dataFile.substring(0, this.dataFile.lastIndexOf("/"));
     const folderExists = await this.app.vault.adapter.exists(folderPath);
@@ -8449,10 +9150,21 @@ ${JSON.stringify(this.data)}
   }
   parseTimekeepData(content) {
     try {
-      const match = content.match(/```timekeep\s*\n([\s\S]*?)\n```/);
-      if (match && match[1]) {
-        return JSON.parse(match[1]);
+      const timekeepMatch = content.match(/```timekeep\s*\n([\s\S]*?)\n```/);
+      if (!timekeepMatch || !timekeepMatch[1]) {
+        return null;
       }
+      const timekeepData = JSON.parse(timekeepMatch[1]);
+      const result = {
+        entries: timekeepData.entries || []
+      };
+      const settingsMatch = content.match(/```timeflow-settings\s*\n([\s\S]*?)\n```/);
+      if (settingsMatch && settingsMatch[1]) {
+        result.settings = JSON.parse(settingsMatch[1]);
+      } else if (timekeepData.settings) {
+        result.settings = timekeepData.settings;
+      }
+      return result;
     } catch (error) {
       console.error("Error parsing timekeep data:", error);
     }
@@ -8463,13 +9175,20 @@ ${JSON.stringify(this.data)}
     this.isSaving = true;
     this.lastSaveTime = Date.now();
     try {
+      const entriesOnly = { entries: this.data.entries };
+      const timekeepBlock = `\`\`\`timekeep
+${JSON.stringify(entriesOnly, null, 2)}
+\`\`\``;
+      const settingsBlock = this.data.settings ? `
+
+\`\`\`timeflow-settings
+${JSON.stringify(this.data.settings, null, 2)}
+\`\`\`` : "";
       const content = `# timeflow data
 
 This file contains your time tracking data in Timekeep-compatible format.
 
-\`\`\`timekeep
-${JSON.stringify(this.data, null, 2)}
-\`\`\`
+${timekeepBlock}${settingsBlock}
 `;
       const fileExists = await this.app.vault.adapter.exists(this.dataFile);
       if (fileExists) {
@@ -8778,7 +9497,7 @@ var TimeFlowPlugin = class extends import_obsidian7.Plugin {
       this.settings = Object.assign({}, DEFAULT_SETTINGS, this.settings, syncedSettings);
       this.timerManager.settings = this.settings;
     }
-    const needsSave = this.migrateWorkDaysSettings() || this.migrateSpecialDayBehaviors();
+    const needsSave = this.migrateWorkDaysSettings() || this.migrateSpecialDayBehaviors() || this.migrateWorkScheduleHistory();
     const timestampMigrated = await this.migrateTimestamps();
     if (needsSave || timestampMigrated) {
       await this.saveSettings();
@@ -8879,6 +9598,16 @@ var TimeFlowPlugin = class extends import_obsidian7.Plugin {
           changed = true;
         }
       });
+      const reduceGoalTypes = ["egenmelding", "sykemelding", "velferdspermisjon"];
+      reduceGoalTypes.forEach((typeId) => {
+        const behavior = this.settings.specialDayBehaviors.find((b) => b.id === typeId);
+        if (behavior && behavior.flextimeEffect !== "reduce_goal") {
+          behavior.flextimeEffect = "reduce_goal";
+          behavior.noHoursRequired = false;
+          changed = true;
+          console.log(`TimeFlow: Migrated ${typeId} to use reduce_goal flextimeEffect`);
+        }
+      });
     }
     return changed;
   }
@@ -8940,10 +9669,33 @@ var TimeFlowPlugin = class extends import_obsidian7.Plugin {
     return changed;
   }
   /**
+   * Migrate to work schedule history by creating an initial period from current settings.
+   * This preserves the current schedule for historical calculations when the user
+   * first adds a new period with different settings.
+   */
+  migrateWorkScheduleHistory() {
+    if (this.settings.workScheduleHistory && this.settings.workScheduleHistory.length > 0) {
+      return false;
+    }
+    const initialPeriod = {
+      effectiveFrom: this.settings.balanceStartDate || "2025-01-01",
+      workPercent: this.settings.workPercent,
+      baseWorkday: this.settings.baseWorkday,
+      baseWorkweek: this.settings.baseWorkweek,
+      workDays: [...this.settings.workDays],
+      halfDayHours: this.settings.halfDayHours
+    };
+    this.settings.workScheduleHistory = [initialPeriod];
+    console.log("TimeFlow: Created initial work schedule period from current settings");
+    return true;
+  }
+  /**
    * Validate and clamp settings to sensible bounds to prevent division by zero
-   * and other edge cases.
+   * and other edge cases. Shows notices when auto-corrections are made.
    */
   validateSettings() {
+    var _a, _b;
+    const corrections = [];
     this.settings.workPercent = Math.max(0.01, Math.min(2, this.settings.workPercent));
     this.settings.baseWorkday = Math.max(0.5, Math.min(24, this.settings.baseWorkday));
     this.settings.baseWorkweek = Math.max(1, Math.min(168, this.settings.baseWorkweek));
@@ -8951,12 +9703,26 @@ var TimeFlowPlugin = class extends import_obsidian7.Plugin {
     this.settings.workdaysPerMonth = Math.max(1, Math.min(31, this.settings.workdaysPerMonth));
     this.settings.workdaysPerYear = Math.max(1, Math.min(366, this.settings.workdaysPerYear));
     this.settings.lunchBreakMinutes = Math.max(0, Math.min(120, this.settings.lunchBreakMinutes));
-    this.settings.halfDayHours = Math.max(0.5, Math.min(12, this.settings.halfDayHours));
     this.settings.maxEgenmeldingDays = Math.max(0, Math.min(365, this.settings.maxEgenmeldingDays));
     this.settings.maxFerieDays = Math.max(0, Math.min(365, this.settings.maxFerieDays));
     this.settings.heatmapColumns = Math.max(12, Math.min(96, this.settings.heatmapColumns));
-    if (this.settings.halfDayHours >= this.settings.baseWorkday) {
+    const oldHalfDay = this.settings.halfDayHours;
+    this.settings.halfDayHours = Math.max(0.5, Math.min(this.settings.baseWorkday, this.settings.halfDayHours));
+    if (oldHalfDay > this.settings.baseWorkday) {
       this.settings.halfDayHours = this.settings.baseWorkday / 2;
+      corrections.push(`Half-day hours capped to ${this.settings.halfDayHours}h (cannot exceed base workday)`);
+    }
+    if (this.settings.workPercent < 0) {
+      this.settings.workPercent = 0;
+      corrections.push("Work percent cannot be negative, set to 0");
+    } else if (this.settings.workPercent > 1) {
+      this.settings.workPercent = Math.min(2, this.settings.workPercent);
+    }
+    const expectedWorkweek = this.settings.baseWorkday * (((_a = this.settings.workDays) == null ? void 0 : _a.length) || 5);
+    if (Math.abs(this.settings.baseWorkweek - expectedWorkweek) > 0.5) {
+      const oldWorkweek = this.settings.baseWorkweek;
+      this.settings.baseWorkweek = expectedWorkweek;
+      corrections.push(`Base workweek adjusted from ${oldWorkweek}h to ${expectedWorkweek}h (${this.settings.baseWorkday}h \xD7 ${((_b = this.settings.workDays) == null ? void 0 : _b.length) || 5} days)`);
     }
     const t2 = this.settings.balanceThresholds;
     if (t2.criticalLow >= t2.warningLow)
@@ -8967,6 +9733,11 @@ var TimeFlowPlugin = class extends import_obsidian7.Plugin {
       t2.criticalHigh = t2.warningHigh + 1;
     if (!this.settings.workDays || this.settings.workDays.length === 0) {
       this.settings.workDays = [1, 2, 3, 4, 5];
+      corrections.push("Work days reset to Monday-Friday (at least one day required)");
+    }
+    if (corrections.length > 0) {
+      new import_obsidian7.Notice(`Settings auto-corrected:
+${corrections.join("\n")}`, 5e3);
     }
   }
   async saveSettings() {

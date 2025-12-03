@@ -45,6 +45,11 @@ timeflow provides a comprehensive flextime tracking dashboard with **built-in ti
   - Daily notes, meeting notes, project notes, weekly reviews, reflections
   - Custom folders, templates, tags, and filename patterns
   - Add/edit/delete note types through settings
+- **Smart Sick Day Registration** (v1.2.0)
+  - Clock-based time inputs (From/To) for precise sick time tracking
+  - Auto-fill calculates remaining time based on existing work entries and daily goal
+  - "Full day" checkbox for quick full-day sick leave registration
+  - Only full sick days count towards annual limits
 - **Calendar Context Menu** - Click any date to:
   - Add work time entries
   - Edit existing entries (with running timer support)
@@ -97,6 +102,10 @@ timeflow provides a comprehensive flextime tracking dashboard with **built-in ti
   - Half-day hours - Fixed value or percentage-based (e.g., 50% of workday)
   - Balance color thresholds - Customize when balance shows green/yellow/red
   - Data validation thresholds - Adjust warning levels for long sessions, weekly totals, etc.
+- **Work Schedule History** (v1.2.0)
+  - Track changes to your work schedule over time
+  - Historical flextime calculations use the correct schedule for each period
+  - Automatically created when you first change work settings
 
 #### Theme & Layout
 - **System Theme** - Automatically follows Obsidian's light/dark theme
@@ -231,6 +240,7 @@ Customize names and colors for:
 
 ### Leave Limits
 - **Max Sick Leave Days** - Annual self-reported sick days (typically 8 in Norway)
+  - Note: Only full sick days count towards this limit; partial sick days do not
 - **Max Vacation Days** - Annual vacation days (typically 25 in Norway)
 
 ### Note Types
@@ -250,6 +260,7 @@ Configure custom note types with:
 ### Advanced Configuration
 - **Balance Calculation**
   - **Balance Start Date** - Set when to start counting flextime balance (default: Jan 1 of current year)
+  - **Work Schedule History** - Historical schedule periods are tracked automatically for accurate flextime calculations when your work settings change
 - **Half-Day Settings**
   - **Half-Day Mode** - Choose "Fixed" or "Percentage" based calculation
   - **Fixed Hours** - If using fixed mode, set the number of hours (default: 4)
@@ -290,9 +301,9 @@ Supported types:
 - `helligdag` - Public holiday (counts as full workday, no flextime change)
 - `ferie` - Vacation (counts as full workday, no flextime change)
 - `avspasering` - Comp time (withdraws from flextime based on duration)
-- `egenmelding` - Self-reported sick leave (counts as full workday, no flextime change)
-- `sykemelding` - Doctor's note sick leave (counts as full workday, no flextime change)
-- `velferdspermisjon` - Welfare leave (counts as full workday, no flextime change)
+- `egenmelding` - Self-reported sick leave (reduces daily goal by sick hours)
+- `sykemelding` - Doctor's note sick leave (reduces daily goal by sick hours)
+- `velferdspermisjon` - Welfare leave (reduces daily goal by sick hours)
 - `kurs` - Course/Training (regular workday applies)
 - `studie` - Study leave (regular workday applies)
 
@@ -429,6 +440,18 @@ Result: No weekly goals shown, just daily tracking and flextime balance
 - **Half Days**: Goal is 4 hours instead of full workday
 - **Avspasering (Comp Time)**: Withdraws from flextime balance
 - **Courses/Training**: Regular workday goal applies
+
+### Sick Day Handling (v1.2.0)
+
+Sick leave types (egenmelding, sykemelding, velferdspermisjon) use intelligent goal reduction:
+
+- **Goal Reduction**: Instead of counting against flextime, sick time reduces your daily goal
+- **Partial Sick Days**: If you work 5 hours and take 2.5 hours sick leave, your goal becomes 5 hours
+- **Full Sick Days**: A full day of sick leave means 0 hours goal for that day
+- **Smart Counting**: Partial sick days (from data.md) do NOT count towards your annual sick leave limit - only full days registered in holidays.md count
+- **Auto-Fill**: When registering partial sick time, the end time auto-fills based on your work entries and remaining daily goal
+
+This ensures your flextime balance isn't unfairly affected when you're sick, while still accurately tracking your sick leave usage.
 
 ## Color Coding
 

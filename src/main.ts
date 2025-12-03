@@ -1,4 +1,4 @@
-import { Plugin, WorkspaceLeaf, ItemView } from 'obsidian';
+import { Plugin, WorkspaceLeaf, Notice } from 'obsidian';
 import { TimeFlowSettings, DEFAULT_SETTINGS, TimeFlowSettingTab, DEFAULT_SPECIAL_DAY_BEHAVIORS } from './settings';
 import { TimeFlowView, VIEW_TYPE_TIMEFLOW } from './view';
 import { TimerManager, Timer } from './timerManager';
@@ -26,7 +26,7 @@ export default class TimeFlowPlugin extends Plugin {
 		}
 
 		// Now run migrations AFTER merging synced settings
-		const needsSave = this.migrateWorkDaysSettings() || this.migrateSpecialDayBehaviors();
+		const needsSave = this.migrateWorkDaysSettings() || this.migrateSpecialDayBehaviors() || this.migrateWorkScheduleHistory();
 		const timestampMigrated = await this.migrateTimestamps();
 		if (needsSave || timestampMigrated) {
 			await this.saveSettings();
@@ -159,6 +159,18 @@ export default class TimeFlowPlugin extends Plugin {
 					changed = true;
 				}
 			});
+
+			// Migrate sick day types to use reduce_goal flextimeEffect
+			const reduceGoalTypes = ['egenmelding', 'sykemelding', 'velferdspermisjon'];
+			reduceGoalTypes.forEach(typeId => {
+				const behavior = this.settings.specialDayBehaviors.find(b => b.id === typeId);
+				if (behavior && behavior.flextimeEffect !== 'reduce_goal') {
+					behavior.flextimeEffect = 'reduce_goal';
+					behavior.noHoursRequired = false; // Allow duration input
+					changed = true;
+					console.log(`TimeFlow: Migrated ${typeId} to use reduce_goal flextimeEffect`);
+				}
+			});
 		}
 		return changed;
 	}
@@ -243,10 +255,38 @@ export default class TimeFlowPlugin extends Plugin {
 	}
 
 	/**
+	 * Migrate to work schedule history by creating an initial period from current settings.
+	 * This preserves the current schedule for historical calculations when the user
+	 * first adds a new period with different settings.
+	 */
+	migrateWorkScheduleHistory(): boolean {
+		// Only migrate if no history exists and we have a balance start date
+		if (this.settings.workScheduleHistory && this.settings.workScheduleHistory.length > 0) {
+			return false; // Already has history
+		}
+
+		// Create initial period from current settings using balanceStartDate
+		const initialPeriod = {
+			effectiveFrom: this.settings.balanceStartDate || '2025-01-01',
+			workPercent: this.settings.workPercent,
+			baseWorkday: this.settings.baseWorkday,
+			baseWorkweek: this.settings.baseWorkweek,
+			workDays: [...this.settings.workDays],
+			halfDayHours: this.settings.halfDayHours
+		};
+
+		this.settings.workScheduleHistory = [initialPeriod];
+		console.log('TimeFlow: Created initial work schedule period from current settings');
+		return true;
+	}
+
+	/**
 	 * Validate and clamp settings to sensible bounds to prevent division by zero
-	 * and other edge cases.
+	 * and other edge cases. Shows notices when auto-corrections are made.
 	 */
 	validateSettings(): void {
+		const corrections: string[] = [];
+
 		// Ensure numeric values are within bounds
 		this.settings.workPercent = Math.max(0.01, Math.min(2, this.settings.workPercent));
 		this.settings.baseWorkday = Math.max(0.5, Math.min(24, this.settings.baseWorkday));
@@ -255,14 +295,34 @@ export default class TimeFlowPlugin extends Plugin {
 		this.settings.workdaysPerMonth = Math.max(1, Math.min(31, this.settings.workdaysPerMonth));
 		this.settings.workdaysPerYear = Math.max(1, Math.min(366, this.settings.workdaysPerYear));
 		this.settings.lunchBreakMinutes = Math.max(0, Math.min(120, this.settings.lunchBreakMinutes));
-		this.settings.halfDayHours = Math.max(0.5, Math.min(12, this.settings.halfDayHours));
 		this.settings.maxEgenmeldingDays = Math.max(0, Math.min(365, this.settings.maxEgenmeldingDays));
 		this.settings.maxFerieDays = Math.max(0, Math.min(365, this.settings.maxFerieDays));
 		this.settings.heatmapColumns = Math.max(12, Math.min(96, this.settings.heatmapColumns));
 
 		// Cross-validation: halfDayHours cannot exceed baseWorkday
-		if (this.settings.halfDayHours >= this.settings.baseWorkday) {
+		const oldHalfDay = this.settings.halfDayHours;
+		this.settings.halfDayHours = Math.max(0.5, Math.min(this.settings.baseWorkday, this.settings.halfDayHours));
+		if (oldHalfDay > this.settings.baseWorkday) {
 			this.settings.halfDayHours = this.settings.baseWorkday / 2;
+			corrections.push(`Half-day hours capped to ${this.settings.halfDayHours}h (cannot exceed base workday)`);
+		}
+
+		// Cross-validation: workPercent clamped to 0-1 range (or 0-2 for overtime)
+		if (this.settings.workPercent < 0) {
+			this.settings.workPercent = 0;
+			corrections.push('Work percent cannot be negative, set to 0');
+		} else if (this.settings.workPercent > 1) {
+			// Allow up to 2 for overtime, but warn
+			this.settings.workPercent = Math.min(2, this.settings.workPercent);
+		}
+
+		// Cross-validation: baseWorkweek should be consistent with baseWorkday * workDays.length
+		const expectedWorkweek = this.settings.baseWorkday * (this.settings.workDays?.length || 5);
+		if (Math.abs(this.settings.baseWorkweek - expectedWorkweek) > 0.5) {
+			// Only auto-correct if significantly off - allow minor differences for flexibility
+			const oldWorkweek = this.settings.baseWorkweek;
+			this.settings.baseWorkweek = expectedWorkweek;
+			corrections.push(`Base workweek adjusted from ${oldWorkweek}h to ${expectedWorkweek}h (${this.settings.baseWorkday}h × ${this.settings.workDays?.length || 5} days)`);
 		}
 
 		// Cross-validation: ensure threshold ordering (criticalLow < warningLow < warningHigh < criticalHigh)
@@ -274,6 +334,12 @@ export default class TimeFlowPlugin extends Plugin {
 		// Ensure arrays have at least one element
 		if (!this.settings.workDays || this.settings.workDays.length === 0) {
 			this.settings.workDays = [1, 2, 3, 4, 5]; // Default to Monday-Friday
+			corrections.push('Work days reset to Monday-Friday (at least one day required)');
+		}
+
+		// Show notice if any corrections were made
+		if (corrections.length > 0) {
+			new Notice(`Settings auto-corrected:\n${corrections.join('\n')}`, 5000);
 		}
 	}
 

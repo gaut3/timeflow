@@ -161,6 +161,7 @@ const translations: Record<Language, TranslationStrings> = {
 			start: 'Start',
 			end: 'Slutt',
 			duration: 'Varighet',
+			fullDay: 'Hel dag',
 			comment: 'Kommentar',
 			optional: 'valgfritt',
 			days: 'dager',
@@ -243,6 +244,7 @@ const translations: Record<Language, TranslationStrings> = {
 			to: 'Til:',
 			commentOptional: 'Kommentar (valgfritt):',
 			commentPlaceholder: 'F.eks. "Ferie i Spania"',
+			durationHint: 'Antall timer (f.eks. 3.5 for resten av dagen etter sykdom)',
 		},
 		validation: {
 			endAfterStart: 'Sluttid må være etter starttid',
@@ -250,6 +252,7 @@ const translations: Record<Language, TranslationStrings> = {
 			invalidTimePeriod: 'Ugyldig tidsperiode',
 			overlappingEntry: 'Denne oppføringen overlapper med en eksisterende oppføring',
 			endTimeNextDay: 'Sluttid satt til neste dag (før starttid)',
+			invalidDuration: 'Ugyldig varighet',
 		},
 		notifications: {
 			added: 'Lagt til',
@@ -433,6 +436,7 @@ const translations: Record<Language, TranslationStrings> = {
 			start: 'Start',
 			end: 'End',
 			duration: 'Duration',
+			fullDay: 'Full day',
 			comment: 'Comment',
 			optional: 'optional',
 			days: 'days',
@@ -515,6 +519,7 @@ const translations: Record<Language, TranslationStrings> = {
 			to: 'To:',
 			commentOptional: 'Comment (optional):',
 			commentPlaceholder: 'E.g. "Vacation in Spain"',
+			durationHint: 'Number of hours (e.g. 3.5 for rest of day after leaving sick)',
 		},
 		validation: {
 			endAfterStart: 'End time must be after start time',
@@ -522,6 +527,7 @@ const translations: Record<Language, TranslationStrings> = {
 			invalidTimePeriod: 'Invalid time period',
 			overlappingEntry: 'This entry overlaps with an existing entry',
 			endTimeNextDay: 'End time set to next day (before start time)',
+			invalidDuration: 'Invalid duration',
 		},
 		notifications: {
 			added: 'Added',
@@ -707,6 +713,7 @@ interface TranslationStrings {
 		start: string;
 		end: string;
 		duration: string;
+		fullDay: string;
 		comment: string;
 		optional: string;
 		days: string;
@@ -789,6 +796,7 @@ interface TranslationStrings {
 		to: string;
 		commentOptional: string;
 		commentPlaceholder: string;
+		durationHint: string;
 	};
 	validation: {
 		endAfterStart: string;
@@ -796,6 +804,7 @@ interface TranslationStrings {
 		invalidTimePeriod: string;
 		overlappingEntry: string;
 		endTimeNextDay: string;
+		invalidDuration: string;
 	};
 	notifications: {
 		added: string;

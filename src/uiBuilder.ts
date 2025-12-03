@@ -3341,14 +3341,22 @@ export class UIBuilder {
 	 * Show week compliance info panel when clicking on a week number
 	 */
 	showWeekCompliancePanel(cellRect: DOMRect, mondayOfWeek: Date): void {
-		// Remove existing panel
-		const existingPanel = document.querySelector('.tf-week-compliance-panel');
-		if (existingPanel) existingPanel.remove();
+		// Remove existing panel - toggle behavior if clicking the same week
+		const existingPanel = document.querySelector('.tf-week-compliance-panel') as HTMLElement | null;
+		if (existingPanel) {
+			const existingWeek = existingPanel.dataset.weekMonday;
+			existingPanel.remove();
+			// If clicking the same week, just close (toggle off)
+			if (existingWeek === Utils.toLocalDateStr(mondayOfWeek)) {
+				return;
+			}
+		}
 
 		const data = this.getWeekComplianceData(mondayOfWeek);
 
 		const panel = document.createElement('div');
 		panel.className = 'tf-week-compliance-panel';
+		panel.dataset.weekMonday = Utils.toLocalDateStr(mondayOfWeek); // Store for toggle detection
 		panel.style.cssText = `
 			position: fixed;
 			background: var(--background-primary);
@@ -4359,7 +4367,13 @@ export class UIBuilder {
 		});
 		content.appendChild(typeSelect);
 
-		// Time range fields (only visible for avspasering)
+		// Helper to check if type uses reduce_goal (sick day types)
+		const isReduceGoalType = (typeId: string): boolean => {
+			const behavior = this.settings.specialDayBehaviors.find(b => b.id === typeId);
+			return behavior?.flextimeEffect === 'reduce_goal';
+		};
+
+		// Time range fields (for avspasering)
 		const timeContainer = document.createElement('div');
 		timeContainer.style.marginBottom = '15px';
 		timeContainer.style.display = 'none'; // Hidden by default
@@ -4403,7 +4417,7 @@ export class UIBuilder {
 
 		timeContainer.appendChild(timeInputRow);
 
-		// Duration display
+		// Duration display for avspasering
 		const durationDisplay = document.createElement('div');
 		durationDisplay.style.fontSize = '12px';
 		durationDisplay.style.color = 'var(--text-muted)';
@@ -4430,10 +4444,164 @@ export class UIBuilder {
 		timeContainer.appendChild(durationDisplay);
 		content.appendChild(timeContainer);
 
-		// Show/hide time fields based on type selection
-		typeSelect.addEventListener('change', () => {
-			timeContainer.style.display = typeSelect.value === 'avspasering' ? 'block' : 'none';
+		// Time range container (for reduce_goal types like sick days)
+		const sickTimeContainer = document.createElement('div');
+		sickTimeContainer.style.marginBottom = '15px';
+		sickTimeContainer.style.display = 'none';
+
+		const sickTimeLabel = document.createElement('div');
+		sickTimeLabel.textContent = t('modals.timePeriod') || 'Tidsperiode:';
+		sickTimeLabel.style.marginBottom = '5px';
+		sickTimeLabel.style.fontWeight = 'bold';
+		sickTimeContainer.appendChild(sickTimeLabel);
+
+		// Time inputs row for sick days
+		const sickTimeInputRow = document.createElement('div');
+		sickTimeInputRow.style.display = 'flex';
+		sickTimeInputRow.style.gap = '10px';
+		sickTimeInputRow.style.alignItems = 'center';
+
+		const sickFromLabel = document.createElement('span');
+		sickFromLabel.textContent = t('modals.from') || 'Fra:';
+		sickTimeInputRow.appendChild(sickFromLabel);
+
+		// Find work entries for the selected date to auto-fill sick time
+		const sickDateStr = Utils.toLocalDateStr(dateObj);
+		let autoSickFromTime = '14:00'; // Default if no work entry found
+		let autoSickToTime = defaultEndTime;
+
+		// Check for work entries on this date
+		const workEntries = this.timerManager.data.entries.filter(entry => {
+			if (!entry.endTime) return false;
+			const entryDate = Utils.toLocalDateStr(new Date(entry.startTime || ''));
+			// Check if it's a work type (not a special day like ferie, egenmelding)
+			const behavior = this.settings.specialDayBehaviors?.find(b => b.id === entry.name.toLowerCase());
+			const isWorkType = behavior?.isWorkType || entry.name.toLowerCase() === 'jobb';
+			return entryDate === sickDateStr && isWorkType;
 		});
+
+		if (workEntries.length > 0) {
+			// Calculate total worked hours and find earliest start time
+			let totalWorkedHours = 0;
+			let earliestStartTime = new Date();
+			let latestEndTime = new Date(0);
+
+			for (const entry of workEntries) {
+				const startDate = new Date(entry.startTime!);
+				const endDate = new Date(entry.endTime!);
+				totalWorkedHours += (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60);
+
+				if (startDate < earliestStartTime) {
+					earliestStartTime = startDate;
+				}
+				if (endDate > latestEndTime) {
+					latestEndTime = endDate;
+				}
+			}
+
+			// Set sick time from end of work
+			const endH = latestEndTime.getHours();
+			const endM = latestEndTime.getMinutes();
+			autoSickFromTime = `${endH.toString().padStart(2, '0')}:${endM.toString().padStart(2, '0')}`;
+
+			// Calculate remaining time needed to reach daily goal
+			const dailyGoal = this.settings.baseWorkday * this.settings.workPercent;
+			const remainingHours = Math.max(0, dailyGoal - totalWorkedHours);
+
+			if (remainingHours > 0) {
+				// Set end time to cover the remaining hours
+				const sickEndDate = new Date(latestEndTime.getTime() + remainingHours * 60 * 60 * 1000);
+				const sickEndH = sickEndDate.getHours();
+				const sickEndM = sickEndDate.getMinutes();
+				autoSickToTime = `${sickEndH.toString().padStart(2, '0')}:${sickEndM.toString().padStart(2, '0')}`;
+			}
+		}
+
+		const sickFromTimeInput = this.createTimeInput(autoSickFromTime, () => {});
+		sickFromTimeInput.style.padding = '8px';
+		sickFromTimeInput.style.fontSize = '14px';
+		sickTimeInputRow.appendChild(sickFromTimeInput);
+
+		const sickToLabel = document.createElement('span');
+		sickToLabel.textContent = t('modals.to') || 'Til:';
+		sickTimeInputRow.appendChild(sickToLabel);
+
+		const sickToTimeInput = this.createTimeInput(autoSickToTime, () => {});
+		sickToTimeInput.style.padding = '8px';
+		sickToTimeInput.style.fontSize = '14px';
+		sickTimeInputRow.appendChild(sickToTimeInput);
+
+		sickTimeContainer.appendChild(sickTimeInputRow);
+
+		// Duration display for sick days
+		const sickDurationDisplay = document.createElement('div');
+		sickDurationDisplay.style.fontSize = '12px';
+		sickDurationDisplay.style.color = 'var(--text-muted)';
+		sickDurationDisplay.style.marginTop = '8px';
+
+		const updateSickDuration = () => {
+			const from = sickFromTimeInput.value;
+			const to = sickToTimeInput.value;
+			if (from && to) {
+				const [fH, fM] = from.split(':').map(Number);
+				const [tH, tM] = to.split(':').map(Number);
+				const hours = (tH + tM/60) - (fH + fM/60);
+				if (hours > 0) {
+					sickDurationDisplay.textContent = `${t('ui.duration') || 'Varighet'}: ${hours.toFixed(1)} ${this.settings.hourUnit || 't'}`;
+				} else if (hours === 0) {
+					sickDurationDisplay.textContent = t('modals.fullDayHint') || 'La stå tom for hel dag';
+				} else {
+					sickDurationDisplay.textContent = t('validation.invalidTimePeriod') || 'Ugyldig tidsperiode';
+				}
+			}
+		};
+		updateSickDuration();
+		sickFromTimeInput.addEventListener('change', updateSickDuration);
+		sickToTimeInput.addEventListener('change', updateSickDuration);
+
+		sickTimeContainer.appendChild(sickDurationDisplay);
+
+		// Full day checkbox
+		const fullDayRow = document.createElement('div');
+		fullDayRow.style.marginTop = '10px';
+		fullDayRow.style.display = 'flex';
+		fullDayRow.style.alignItems = 'center';
+		fullDayRow.style.gap = '8px';
+
+		const fullDayCheckbox = document.createElement('input');
+		fullDayCheckbox.type = 'checkbox';
+		fullDayCheckbox.id = 'fullDayCheckbox';
+		// If there are work entries for the day, default to partial sick day
+		fullDayCheckbox.checked = workEntries.length === 0;
+		fullDayRow.appendChild(fullDayCheckbox);
+
+		const fullDayLabel = document.createElement('label');
+		fullDayLabel.htmlFor = 'fullDayCheckbox';
+		fullDayLabel.textContent = t('ui.fullDay') || 'Hel dag';
+		fullDayLabel.style.cursor = 'pointer';
+		fullDayRow.appendChild(fullDayLabel);
+
+		sickTimeContainer.appendChild(fullDayRow);
+
+		// Toggle time inputs based on full day checkbox
+		const updateSickTimeInputs = () => {
+			const isFullDay = fullDayCheckbox.checked;
+			sickTimeInputRow.style.display = isFullDay ? 'none' : 'flex';
+			sickDurationDisplay.style.display = isFullDay ? 'none' : 'block';
+		};
+		fullDayCheckbox.addEventListener('change', updateSickTimeInputs);
+		updateSickTimeInputs();
+
+		content.appendChild(sickTimeContainer);
+
+		// Show/hide time fields based on type selection
+		const updateFieldVisibility = () => {
+			const selectedType = typeSelect.value;
+			timeContainer.style.display = selectedType === 'avspasering' ? 'block' : 'none';
+			sickTimeContainer.style.display = isReduceGoalType(selectedType) ? 'block' : 'none';
+		};
+		typeSelect.addEventListener('change', updateFieldVisibility);
+		updateFieldVisibility(); // Initial update
 
 		// Note/comment field
 		const noteLabel = document.createElement('div');
@@ -4470,7 +4638,48 @@ export class UIBuilder {
 			const note = noteInput.value.trim();
 			const startTime = dayType === 'avspasering' ? fromTimeInput.value : undefined;
 			const endTime = dayType === 'avspasering' ? toTimeInput.value : undefined;
-			await this.addSpecialDay(dateObj, dayType, note, startTime, endTime);
+
+			// Handle reduce_goal types (sick days) with duration
+			if (isReduceGoalType(dayType)) {
+				const isFullDay = fullDayCheckbox.checked;
+
+				if (!isFullDay) {
+					// Calculate duration from time inputs
+					const from = sickFromTimeInput.value;
+					const to = sickToTimeInput.value;
+					const [fH, fM] = from.split(':').map(Number);
+					const [tH, tM] = to.split(':').map(Number);
+					const sickHours = (tH + tM/60) - (fH + fM/60);
+
+					if (sickHours > 0) {
+						// Create a time entry for the partial sick day using the actual times
+						const entryStartDate = new Date(dateObj);
+						entryStartDate.setHours(fH, fM, 0, 0);
+						const entryEndDate = new Date(dateObj);
+						entryEndDate.setHours(tH, tM, 0, 0);
+
+						this.timerManager.data.entries.push({
+							name: dayType,
+							startTime: Utils.toLocalISOString(entryStartDate),
+							endTime: Utils.toLocalISOString(entryEndDate),
+							subEntries: null
+						});
+						await this.saveWithErrorHandling();
+						new Notice(`✅ ${translateSpecialDayName(dayType)}: ${sickHours.toFixed(1)}${this.settings.hourUnit || 't'} for ${Utils.toLocalDateStr(dateObj)}`);
+						await this.plugin.timerManager.onTimerChange?.();
+					} else {
+						new Notice(`❌ ${t('validation.invalidTimePeriod') || 'Ugyldig tidsperiode'}`);
+						return;
+					}
+				} else {
+					// Full day - add to holidays.md
+					await this.addSpecialDay(dateObj, dayType, note);
+				}
+			} else {
+				// Regular special day (ferie, avspasering, etc.)
+				await this.addSpecialDay(dateObj, dayType, note, startTime, endTime);
+			}
+
 			this.isModalOpen = false;
 			modal.remove();
 		};
@@ -5585,7 +5794,7 @@ export class UIBuilder {
 		});
 		content.appendChild(typeSelect);
 
-		// Start time
+		// Start time (for regular entries)
 		const startLabel = document.createElement('div');
 		startLabel.textContent = `${t('modals.startTime')}:`;
 		startLabel.style.fontWeight = 'bold';
@@ -5598,7 +5807,7 @@ export class UIBuilder {
 		startInput.style.padding = '8px';
 		content.appendChild(startInput);
 
-		// End time
+		// End time (for regular entries)
 		const endLabel = document.createElement('div');
 		endLabel.textContent = `${t('modals.endTime')}:`;
 		endLabel.style.fontWeight = 'bold';
@@ -5610,6 +5819,55 @@ export class UIBuilder {
 		endInput.style.marginBottom = '20px';
 		endInput.style.padding = '8px';
 		content.appendChild(endInput);
+
+		// Duration input (for reduce_goal types like sick days)
+		const durationContainer = document.createElement('div');
+		durationContainer.style.display = 'none';
+		durationContainer.style.marginBottom = '20px';
+
+		const durationLabel = document.createElement('div');
+		durationLabel.textContent = t('ui.duration') + ':';
+		durationLabel.style.fontWeight = 'bold';
+		durationLabel.style.marginBottom = '5px';
+		durationContainer.appendChild(durationLabel);
+
+		const durationInput = document.createElement('input');
+		durationInput.type = 'number';
+		durationInput.step = '0.5';
+		durationInput.min = '0.5';
+		durationInput.max = '24';
+		durationInput.value = '3.5';
+		durationInput.style.width = '100%';
+		durationInput.style.padding = '8px';
+		durationContainer.appendChild(durationInput);
+
+		const durationHint = document.createElement('div');
+		durationHint.style.fontSize = '12px';
+		durationHint.style.color = 'var(--text-muted)';
+		durationHint.style.marginTop = '5px';
+		durationHint.textContent = t('modals.durationHint') || 'Antall timer (f.eks. 3.5 for resten av dagen etter sykdom)';
+		durationContainer.appendChild(durationHint);
+
+		content.appendChild(durationContainer);
+
+		// Helper to check if type uses reduce_goal (sick day types)
+		const isReduceGoalType = (typeId: string): boolean => {
+			const behavior = this.settings.specialDayBehaviors.find(b => b.id === typeId);
+			return behavior?.flextimeEffect === 'reduce_goal';
+		};
+
+		// Toggle between time inputs and duration input based on type
+		const updateInputVisibility = () => {
+			const showDuration = isReduceGoalType(typeSelect.value);
+			startLabel.style.display = showDuration ? 'none' : 'block';
+			startInput.style.display = showDuration ? 'none' : 'block';
+			endLabel.style.display = showDuration ? 'none' : 'block';
+			endInput.style.display = showDuration ? 'none' : 'block';
+			durationContainer.style.display = showDuration ? 'block' : 'none';
+		};
+
+		typeSelect.onchange = updateInputVisibility;
+		updateInputVisibility(); // Initial update
 
 		// Buttons
 		const buttonContainer = document.createElement('div');
@@ -5626,23 +5884,43 @@ export class UIBuilder {
 		saveBtn.className = 'mod-cta';
 		saveBtn.textContent = t('buttons.save');
 		saveBtn.onclick = async () => {
-			const parsedStart = this.parseTimeInput(startInput.value);
-			const parsedEnd = this.parseTimeInput(endInput.value);
+			let startDate: Date;
+			let endDate: Date;
 
-			if (!parsedStart || !parsedEnd) {
-				new Notice(t('validation.invalidTime'));
-				return;
-			}
+			if (isReduceGoalType(typeSelect.value)) {
+				// For reduce_goal types, use duration input
+				const duration = parseFloat(durationInput.value);
+				if (isNaN(duration) || duration <= 0) {
+					new Notice(t('validation.invalidDuration') || 'Ugyldig varighet');
+					return;
+				}
 
-			const startDate = new Date(targetDate);
-			startDate.setHours(parsedStart.hours, parsedStart.minutes, 0, 0);
+				// Create an entry that spans the duration from noon (arbitrary anchor point)
+				// The actual times don't matter much for reduce_goal - only the duration counts
+				startDate = new Date(targetDate);
+				startDate.setHours(12, 0, 0, 0);
 
-			const endDate = new Date(targetDate);
-			endDate.setHours(parsedEnd.hours, parsedEnd.minutes, 0, 0);
+				endDate = new Date(startDate.getTime() + duration * 60 * 60 * 1000);
+			} else {
+				// For regular types, use start/end time inputs
+				const parsedStart = this.parseTimeInput(startInput.value);
+				const parsedEnd = this.parseTimeInput(endInput.value);
 
-			if (endDate <= startDate) {
-				new Notice(t('validation.endAfterStart'));
-				return;
+				if (!parsedStart || !parsedEnd) {
+					new Notice(t('validation.invalidTime'));
+					return;
+				}
+
+				startDate = new Date(targetDate);
+				startDate.setHours(parsedStart.hours, parsedStart.minutes, 0, 0);
+
+				endDate = new Date(targetDate);
+				endDate.setHours(parsedEnd.hours, parsedEnd.minutes, 0, 0);
+
+				if (endDate <= startDate) {
+					new Notice(t('validation.endAfterStart'));
+					return;
+				}
 			}
 
 			// Add new entry

@@ -82,13 +82,24 @@ export class TimerManager {
 	}
 
 	async createDataFile(): Promise<void> {
+		// Build timekeep block with entries only
+		const entriesOnly = { entries: this.data.entries };
+		const timekeepBlock = `\`\`\`timekeep
+${JSON.stringify(entriesOnly, null, 2)}
+\`\`\``;
+
+		// Build settings block if present
+		const settingsBlock = this.data.settings
+			? `\n\n\`\`\`timeflow-settings
+${JSON.stringify(this.data.settings, null, 2)}
+\`\`\``
+			: '';
+
 		const content = `# timeflow data
 
 This file contains your time tracking data in Timekeep-compatible format.
 
-\`\`\`timekeep
-${JSON.stringify(this.data)}
-\`\`\`
+${timekeepBlock}${settingsBlock}
 `;
 		// Ensure the folder exists
 		const folderPath = this.dataFile.substring(0, this.dataFile.lastIndexOf('/'));
@@ -101,11 +112,27 @@ ${JSON.stringify(this.data)}
 
 	parseTimekeepData(content: string): TimekeepData | null {
 		try {
-			// Extract JSON from timekeep codeblock
-			const match = content.match(/```timekeep\s*\n([\s\S]*?)\n```/);
-			if (match && match[1]) {
-				return JSON.parse(match[1]);
+			// Extract JSON from timekeep codeblock (entries only, or legacy format with settings)
+			const timekeepMatch = content.match(/```timekeep\s*\n([\s\S]*?)\n```/);
+			if (!timekeepMatch || !timekeepMatch[1]) {
+				return null;
 			}
+
+			const timekeepData = JSON.parse(timekeepMatch[1]);
+			const result: TimekeepData = {
+				entries: timekeepData.entries || []
+			};
+
+			// Check for separate timeflow-settings block (new format)
+			const settingsMatch = content.match(/```timeflow-settings\s*\n([\s\S]*?)\n```/);
+			if (settingsMatch && settingsMatch[1]) {
+				result.settings = JSON.parse(settingsMatch[1]);
+			} else if (timekeepData.settings) {
+				// Fall back to settings inside timekeep block (legacy format)
+				result.settings = timekeepData.settings;
+			}
+
+			return result;
 		} catch (error) {
 			console.error('Error parsing timekeep data:', error);
 		}
@@ -116,13 +143,24 @@ ${JSON.stringify(this.data)}
 		this.isSaving = true;
 		this.lastSaveTime = Date.now();
 		try {
+			// Build timekeep block with entries only (Timekeep-compatible)
+			const entriesOnly = { entries: this.data.entries };
+			const timekeepBlock = `\`\`\`timekeep
+${JSON.stringify(entriesOnly, null, 2)}
+\`\`\``;
+
+			// Build settings block separately
+			const settingsBlock = this.data.settings
+				? `\n\n\`\`\`timeflow-settings
+${JSON.stringify(this.data.settings, null, 2)}
+\`\`\``
+				: '';
+
 			const content = `# timeflow data
 
 This file contains your time tracking data in Timekeep-compatible format.
 
-\`\`\`timekeep
-${JSON.stringify(this.data, null, 2)}
-\`\`\`
+${timekeepBlock}${settingsBlock}
 `;
 
 			// First check if file exists using adapter (more reliable than vault cache)
