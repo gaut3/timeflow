@@ -334,7 +334,9 @@ export class DataManager {
 			dayEntries.forEach(e => {
 				const behavior = this.getSpecialDayBehavior(e.name);
 				if (behavior?.flextimeEffect === 'reduce_goal') {
-					goalReduction += e.duration || 0;
+					// If 0 duration (full-day entry), reduce by full daily goal
+					const reduction = (e.duration && e.duration > 0) ? e.duration : dayGoal;
+					goalReduction += reduction;
 				}
 			});
 			const effectiveGoal = Math.max(0, dayGoal - goalReduction);
@@ -446,7 +448,9 @@ export class DataManager {
 				// Handle different flextime effects
 				if (behavior?.flextimeEffect === 'reduce_goal') {
 					// Sick days, velferdspermisjon, etc. - reduce daily goal by their duration
-					goalReduction += e.duration || 0;
+					// If 0 duration (full-day entry), reduce by full daily goal
+					const reduction = (e.duration && e.duration > 0) ? e.duration : dayGoal;
+					goalReduction += reduction;
 				} else if (behavior?.flextimeEffect === 'withdraw') {
 					// Avspasering - subtract from balance
 					avspaseringHours += e.duration || 0;

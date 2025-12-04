@@ -1755,11 +1755,13 @@ export class UIBuilder {
 			posLabels.createSpan({ text: '+1.5h' });
 			posLabels.createSpan({ text: '+3h' });
 
-			// Negative gradient
+			// Negative gradient - use base negative color for the light end
+			const workBehavior = this.settings.specialDayBehaviors?.find(b => b.isWorkType);
+			const negBaseColor = workBehavior?.negativeColor || '#64b5f6';
 			const negGradient = gradientBox.createDiv();
 			negGradient.style.height = '16px';
 			negGradient.style.borderRadius = '8px';
-			negGradient.style.background = `linear-gradient(to right, ${this.flextimeColor(-3)}, ${this.flextimeColor(-1.5)}, ${this.flextimeColor(0)})`;
+			negGradient.style.background = `linear-gradient(to right, ${this.flextimeColor(-3)}, ${this.flextimeColor(-1.5)}, ${negBaseColor})`;
 			negGradient.style.margin = '4px 0';
 			negGradient.style.border = '1px solid var(--background-modifier-border)';
 
@@ -3768,8 +3770,9 @@ export class UIBuilder {
 		const completedEntries = allEntries.filter(e => {
 			if (e.duration && e.duration > 0) return true;
 			// Include special days with 0 duration (ferie entries from data.md)
+			// Also include reduce_goal entries (sick days) with 0 duration
 			const behavior = this.data.getSpecialDayBehavior(e.name);
-			return behavior && (behavior.noHoursRequired || behavior.countsAsWorkday);
+			return behavior && (behavior.noHoursRequired || behavior.countsAsWorkday || behavior.flextimeEffect === 'reduce_goal');
 		});
 		if (completedEntries.length > 0) {
 			const historyP = menuInfo.createEl('p');
@@ -3778,10 +3781,10 @@ export class UIBuilder {
 				const emoji = Utils.getEmoji(e);
 				// Don't show "0.0t" for special days with no duration
 				const behavior = this.data.getSpecialDayBehavior(e.name);
-				const isSpecialDay = behavior && (behavior.noHoursRequired || behavior.countsAsWorkday);
+				const isFullDayReduceGoal = behavior?.flextimeEffect === 'reduce_goal' && (!e.duration || e.duration === 0);
 				const durationText = (e.duration && e.duration > 0)
 					? `: ${e.duration.toFixed(1)}${this.settings.hourUnit}`
-					: '';
+					: isFullDayReduceGoal ? ` (${t('ui.fullDay')})` : '';
 				const entryP = menuInfo.createEl('p', { text: emoji + ' ' + translateSpecialDayName(e.name.toLowerCase(), e.name) + durationText });
 				entryP.style.marginLeft = '8px';
 			});

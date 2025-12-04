@@ -1,6 +1,6 @@
 {
   "name": "obsidian-timeflow-plugin",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "timeflow Flextime Dashboard for Obsidian",
   "main": "main.js",
   "scripts": {

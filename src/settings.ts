@@ -216,7 +216,7 @@ export interface WorkSchedulePeriod {
 }
 
 export const DEFAULT_SETTINGS: TimeFlowSettings = {
-	version: "1.2.1",
+	version: "1.2.2",
 	language: "nb",
 	defaultViewLocation: "sidebar",
 	hourUnit: "t",
