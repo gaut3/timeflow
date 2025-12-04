@@ -1,4 +1,4 @@
-import { App, TFile, Notice } from 'obsidian';
+import { App, TFile, Notice, normalizePath } from 'obsidian';
 import { TimeFlowSettings } from './settings';
 import { Utils } from './utils';
 
@@ -59,7 +59,6 @@ export class TimerManager {
 					const needsSave = this.normalizeEntryTimestamps();
 					if (needsSave) {
 						await this.save();
-						console.log('TimeFlow: Migrated entry timestamps to local ISO format');
 					}
 
 					// Return settings from data file if they exist
@@ -168,7 +167,7 @@ ${timekeepBlock}${settingsBlock}
 
 			if (fileExists) {
 				// File exists - get it and modify
-				const file = this.app.vault.getAbstractFileByPath(this.dataFile);
+				const file = this.app.vault.getAbstractFileByPath(normalizePath(this.dataFile));
 				if (file && file instanceof TFile) {
 					await this.app.vault.modify(file, content);
 				} else {

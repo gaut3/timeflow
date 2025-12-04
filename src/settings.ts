@@ -373,7 +373,7 @@ export class SpecialDayBehaviorModal extends Modal {
 
 		const isWorkType = this.behavior?.isWorkType ?? false;
 
-		contentEl.createEl('h2', { text: isWorkType ? 'Edit Work Entry Type' : (this.behavior ? 'Edit Absence Type' : 'Add Absence Type') });
+		contentEl.createEl('h2', { text: isWorkType ? 'Edit work entry type' : (this.behavior ? 'Edit absence type' : 'Add absence type') });
 
 		// Add Norwegian term explanations if applicable
 		if (this.behavior && !isWorkType) {
@@ -673,7 +673,7 @@ export class WorkSchedulePeriodModal extends Modal {
 		const { contentEl } = this;
 		contentEl.empty();
 
-		contentEl.createEl('h2', { text: this.period ? 'Edit Work Schedule Period' : 'Add Work Schedule Period' });
+		contentEl.createEl('h2', { text: this.period ? 'Edit work schedule period' : 'Add work schedule period' });
 
 		// Info box
 		const infoBox = contentEl.createDiv({ cls: 'setting-item-description' });
@@ -1169,7 +1169,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 		// SECTION 1: QUICK START
 		// ============================================================
 		new Setting(settingsContainer)
-			.setName('Quick Start')
+			.setName('Quick start')
 			.setDesc('Essential settings to get started with timeflow')
 			.setHeading();
 
@@ -1180,7 +1180,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 		syncInfo.style.background = 'var(--background-secondary)';
 		syncInfo.style.borderRadius = '5px';
 		syncInfo.style.fontSize = '0.9em';
-		syncInfo.createEl('strong', { text: '📱 Cross-Device Settings Sync' });
+		syncInfo.createEl('strong', { text: '📱 Cross-device settings sync' });
 		syncInfo.createEl('br');
 		syncInfo.appendText('Settings are automatically saved to ');
 		syncInfo.createEl('code', { text: 'timeflow/data.md' });
@@ -1230,7 +1230,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 		// SECTION 2: WORK CONFIGURATION
 		// ============================================================
 		new Setting(settingsContainer)
-			.setName('Work Configuration')
+			.setName('Work configuration')
 			.setDesc('Configure your work schedule and goals')
 			.setHeading();
 
@@ -1449,7 +1449,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 		// Work Schedule History subsection (collapsible)
 		const scheduleHistorySection = this.createCollapsibleSubsection(
 			settingsContainer,
-			'Work Schedule History',
+			'Work schedule history',
 			false
 		);
 
@@ -1479,7 +1479,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 		const currentLabel = currentSettingsInfo.createEl('div');
 		currentLabel.style.fontWeight = 'bold';
 		currentLabel.style.marginBottom = '5px';
-		currentLabel.textContent = 'Current Settings (Active)';
+		currentLabel.textContent = 'Current settings (active)';
 
 		const currentDetails = currentSettingsInfo.createEl('div');
 		currentDetails.style.fontSize = '0.9em';
@@ -1565,7 +1565,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 			.setName('Add historical period')
 			.setDesc('Add a period for when your work schedule was different')
 			.addButton(btn => btn
-				.setButtonText('+ Add Period')
+				.setButtonText('+ Add period')
 				.setCta()
 				.onClick(() => {
 					new WorkSchedulePeriodModal(
@@ -1590,7 +1590,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 		// Compliance warnings subsection
 		const complianceSection = this.createCollapsibleSubsection(
 			settingsContainer,
-			'Work Time Limits',
+			'Work time limits',
 			false
 		);
 		complianceSection.content.addClass('tf-compliance-settings');
@@ -1721,7 +1721,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 
 		// Work Entry Types section
 		new Setting(settingsContainer)
-			.setName('Work Entry Type')
+			.setName('Work entry type')
 			.setDesc('Configure the appearance of your regular work entries')
 			.setHeading();
 
@@ -1751,7 +1751,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 
 		// Absence Types section
 		new Setting(settingsContainer)
-			.setName('Absence Types')
+			.setName('Absence types')
 			.setDesc('Configure how different types of absences affect your workday and flextime balance. These settings determine how days are counted in flextime calculations.')
 			.setHeading();
 
@@ -1822,7 +1822,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 		// SECTION 4: DISPLAY & INTERFACE
 		// ============================================================
 		new Setting(settingsContainer)
-			.setName('Display & Interface')
+			.setName('Display & interface')
 			.setDesc('Customize the appearance and behavior of the timeflow interface')
 			.setHeading();
 
@@ -1921,7 +1921,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 		// SECTION 5: FILE PATHS & TEMPLATES
 		// ============================================================
 		new Setting(settingsContainer)
-			.setName('File Paths & Templates')
+			.setName('File paths & templates')
 			.setDesc('Configure file paths and note templates')
 			.setHeading();
 
@@ -1988,7 +1988,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 		// SECTION 6: DATA MANAGEMENT
 		// ============================================================
 		new Setting(settingsContainer)
-			.setName('Data Management')
+			.setName('Data management')
 			.setDesc('Import and export your time tracking data')
 			.setHeading();
 
@@ -2016,7 +2016,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 		// SECTION 7: ADVANCED SETTINGS
 		// ============================================================
 		new Setting(settingsContainer)
-			.setName('Advanced Settings')
+			.setName('Advanced settings')
 			.setDesc('Fine-tune balance calculations, thresholds, and visual customization')
 			.setHeading();
 
@@ -2026,14 +2026,14 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 		advancedInfo.style.background = 'var(--background-secondary)';
 		advancedInfo.style.borderRadius = '5px';
 		advancedInfo.style.fontSize = '0.9em';
-		advancedInfo.createEl('strong', { text: '⚙️ Advanced Settings' });
+		advancedInfo.createEl('strong', { text: '⚙️ Advanced settings' });
 		advancedInfo.createEl('br');
 		advancedInfo.appendText('These settings affect balance calculations and visual indicators. Settings sync across devices via your data file.');
 
 		// Balance Calculation subsection (collapsible)
 		const balanceCalcSection = this.createCollapsibleSubsection(
 			settingsContainer,
-			'Balance Calculation',
+			'Balance calculation',
 			false
 		);
 
@@ -2090,7 +2090,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 		// Balance Thresholds subsection (collapsible)
 		const balanceThresholdsSection = this.createCollapsibleSubsection(
 			settingsContainer,
-			'Balance Color Thresholds',
+			'Balance color thresholds',
 			false
 		);
 
@@ -2161,7 +2161,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 		// Data Validation subsection (collapsible)
 		const dataValidationSection = this.createCollapsibleSubsection(
 			settingsContainer,
-			'Data Validation Thresholds',
+			'Data validation thresholds',
 			false
 		);
 
@@ -2228,7 +2228,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 		// Custom Colors subsection (collapsible)
 		const customColorsSection = this.createCollapsibleSubsection(
 			settingsContainer,
-			'Custom Colors',
+			'Custom colors',
 			false
 		);
 
@@ -2385,7 +2385,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 
 	showNoteTypeModal(noteType: NoteType | null, index: number): void {
 		const modal = new Modal(this.app);
-		modal.titleEl.setText(noteType ? 'Edit Note Type' : 'Add Note Type');
+		modal.titleEl.setText(noteType ? 'Edit note type' : 'Add note type');
 
 		const { contentEl } = modal;
 
@@ -2451,7 +2451,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 
 		// Template field
 		new Setting(contentEl)
-			.setName('Template Path')
+			.setName('Template path')
 			.setDesc('Path to the template file (relative to vault root)')
 			.addText(text => text
 				.setPlaceholder('timeflow/templates/meeting-note.md')
@@ -2473,7 +2473,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 
 		// Filename pattern field
 		new Setting(contentEl)
-			.setName('Filename Pattern')
+			.setName('Filename pattern')
 			.setDesc('Pattern for note filenames. Available: {YYYY}, {MM}, {DD}, {WEEK}')
 			.addText(text => text
 				.setPlaceholder('{YYYY}-{MM}-{DD} Møte')

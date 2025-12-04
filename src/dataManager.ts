@@ -1,4 +1,4 @@
-import { App, TFile } from 'obsidian';
+import { App, TFile, normalizePath } from 'obsidian';
 import { TimeFlowSettings, SpecialDayBehavior, WorkSchedulePeriod } from './settings';
 import { Utils } from './utils';
 
@@ -66,7 +66,7 @@ export class DataManager {
 		const status = { success: false, message: '', count: 0, warning: null as string | null };
 
 		try {
-			const holidayFile = this.app.vault.getAbstractFileByPath(this.settings.holidaysFilePath);
+			const holidayFile = this.app.vault.getAbstractFileByPath(normalizePath(this.settings.holidaysFilePath));
 			if (holidayFile && holidayFile instanceof TFile) {
 				const content = await this.app.vault.read(holidayFile);
 				const lines = content.split('\n');
@@ -274,7 +274,6 @@ export class DataManager {
 
 			// Check for active entries (no endTime or endTime is null/undefined)
 			if (!e.endTime) {
-				console.log('TimeFlow: Processing active entry:', e.name, 'on', dayKey);
 				// Active entry - track separately but also include in daily for history
 				this.activeEntries.push(e);
 				if (!this.activeEntriesByDate[dayKey]) this.activeEntriesByDate[dayKey] = [];
@@ -676,9 +675,15 @@ export class DataManager {
 
 				// Track by specific type if it exists in daysByType
 				if (daysByType[name]) {
-					daysByType[name].add(dayKey);
-					if (stats[name]) {
-						stats[name].hours += e.duration || 0;
+					// For reduce_goal types (egenmelding, sykemelding), only count full-day entries (0 duration)
+					// Partial sick days mean you went to work, so they shouldn't count as sick days
+					const isReduceGoalType = behavior?.flextimeEffect === 'reduce_goal';
+					const isFullDay = !e.duration || e.duration === 0;
+					if (!isReduceGoalType || isFullDay) {
+						daysByType[name].add(dayKey);
+						if (stats[name]) {
+							stats[name].hours += e.duration || 0;
+						}
 					}
 				}
 

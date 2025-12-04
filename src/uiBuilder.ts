@@ -1,4 +1,4 @@
-import { App, TFile, Notice } from 'obsidian';
+import { App, TFile, Notice, normalizePath } from 'obsidian';
 import { DataManager } from './dataManager';
 import { TimeFlowSettings, SpecialDayBehavior } from './settings';
 import { TimerManager, Timer } from './timerManager';
@@ -4843,7 +4843,7 @@ export class UIBuilder {
 	async addSpecialDay(dateObj: Date, dayType: string, note: string = '', startTime?: string, endTime?: string): Promise<void> {
 		try {
 			const filePath = this.settings.holidaysFilePath;
-			const file = this.app.vault.getAbstractFileByPath(filePath);
+			const file = this.app.vault.getAbstractFileByPath(normalizePath(filePath));
 
 			if (!file) {
 				new Notice(`❌ Fant ikke filen: ${filePath}`);
@@ -4922,7 +4922,7 @@ export class UIBuilder {
 				.replace('{DD}', dateObj.getDate().toString().padStart(2, '0'))
 				.replace('{WEEK}', weekNum.toString());
 
-			const filePath = `${noteType.folder}/${filename}.md`;
+			const filePath = normalizePath(`${noteType.folder}/${filename}.md`);
 
 			// Check if file exists
 			const existingFile = this.app.vault.getAbstractFileByPath(filePath);
@@ -4940,7 +4940,7 @@ export class UIBuilder {
 
 			// Load template
 			let content = '';
-			const templateFile = this.app.vault.getAbstractFileByPath(noteType.template);
+			const templateFile = this.app.vault.getAbstractFileByPath(normalizePath(noteType.template));
 			if (templateFile && templateFile instanceof TFile) {
 				content = await this.app.vault.read(templateFile);
 			}
@@ -5136,7 +5136,7 @@ export class UIBuilder {
 		header.style.marginBottom = '10px';
 		header.style.fontWeight = 'bold';
 		header.style.color = 'var(--text-normal)';
-		header.innerHTML = `⏱️ ${t('ui.activeTimers')} (${activeEntries.length})`;
+		header.textContent = `⏱️ ${t('ui.activeTimers')} (${activeEntries.length})`;
 		section.appendChild(header);
 
 		// Detect if we're in wide mode
@@ -5342,13 +5342,16 @@ export class UIBuilder {
 			summary.style.fontSize = '1.1em';
 			summary.style.color = 'var(--text-normal)';
 			summary.style.listStyle = 'none';
-			summary.innerHTML = `<span style="margin-right: 8px;">${yearSection.open ? '▼' : '▶'}</span>${year}`;
+			const arrow = document.createElement('span');
+			arrow.style.marginRight = '8px';
+			arrow.textContent = yearSection.open ? '▼' : '▶';
+			summary.appendChild(arrow);
+			summary.appendChild(document.createTextNode(year.toString()));
 			yearSection.appendChild(summary);
 
 			// Toggle arrow on open/close
 			yearSection.addEventListener('toggle', () => {
-				const arrow = summary.querySelector('span');
-				if (arrow) arrow.textContent = yearSection.open ? '▼ ' : '▶ ';
+				arrow.textContent = yearSection.open ? '▼' : '▶';
 			});
 
 			const yearDiv = document.createElement('div');
@@ -5482,13 +5485,16 @@ export class UIBuilder {
 			summary.style.fontSize = '1.1em';
 			summary.style.color = 'var(--text-normal)';
 			summary.style.listStyle = 'none';
-			summary.innerHTML = `<span style="margin-right: 8px;">${yearSection.open ? '▼' : '▶'}</span>${year}`;
+			const arrow = document.createElement('span');
+			arrow.style.marginRight = '8px';
+			arrow.textContent = yearSection.open ? '▼' : '▶';
+			summary.appendChild(arrow);
+			summary.appendChild(document.createTextNode(year.toString()));
 			yearSection.appendChild(summary);
 
 			// Toggle arrow on open/close
 			yearSection.addEventListener('toggle', () => {
-				const arrow = summary.querySelector('span');
-				if (arrow) arrow.textContent = yearSection.open ? '▼ ' : '▶ ';
+				arrow.textContent = yearSection.open ? '▼' : '▶';
 			});
 
 			const yearDiv = document.createElement('div');

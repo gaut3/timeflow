@@ -1687,7 +1687,7 @@ var SpecialDayBehaviorModal = class extends import_obsidian2.Modal {
     const { contentEl } = this;
     contentEl.empty();
     const isWorkType = (_b = (_a = this.behavior) == null ? void 0 : _a.isWorkType) != null ? _b : false;
-    contentEl.createEl("h2", { text: isWorkType ? "Edit Work Entry Type" : this.behavior ? "Edit Absence Type" : "Add Absence Type" });
+    contentEl.createEl("h2", { text: isWorkType ? "Edit work entry type" : this.behavior ? "Edit absence type" : "Add absence type" });
     if (this.behavior && !isWorkType) {
       const norwegianTerms = {
         "egenmelding": "Norwegian self-reported sick leave (max 8 days/year per Norwegian labor law)",
@@ -1839,7 +1839,7 @@ var WorkSchedulePeriodModal = class extends import_obsidian2.Modal {
     var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j;
     const { contentEl } = this;
     contentEl.empty();
-    contentEl.createEl("h2", { text: this.period ? "Edit Work Schedule Period" : "Add Work Schedule Period" });
+    contentEl.createEl("h2", { text: this.period ? "Edit work schedule period" : "Add work schedule period" });
     const infoBox = contentEl.createDiv({ cls: "setting-item-description" });
     infoBox.style.padding = "10px";
     infoBox.style.marginBottom = "15px";
@@ -2189,14 +2189,14 @@ var TimeFlowSettingTab = class extends import_obsidian2.PluginSettingTab {
         }
       });
     });
-    new import_obsidian2.Setting(settingsContainer).setName("Quick Start").setDesc("Essential settings to get started with timeflow").setHeading();
+    new import_obsidian2.Setting(settingsContainer).setName("Quick start").setDesc("Essential settings to get started with timeflow").setHeading();
     const syncInfo = settingsContainer.createDiv();
     syncInfo.style.marginBottom = "15px";
     syncInfo.style.padding = "10px";
     syncInfo.style.background = "var(--background-secondary)";
     syncInfo.style.borderRadius = "5px";
     syncInfo.style.fontSize = "0.9em";
-    syncInfo.createEl("strong", { text: "\u{1F4F1} Cross-Device Settings Sync" });
+    syncInfo.createEl("strong", { text: "\u{1F4F1} Cross-device settings sync" });
     syncInfo.createEl("br");
     syncInfo.appendText("Settings are automatically saved to ");
     syncInfo.createEl("code", { text: "timeflow/data.md" });
@@ -2217,7 +2217,7 @@ var TimeFlowSettingTab = class extends import_obsidian2.PluginSettingTab {
       this.plugin.settings.holidaysFilePath = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian2.Setting(settingsContainer).setName("Work Configuration").setDesc("Configure your work schedule and goals").setHeading();
+    new import_obsidian2.Setting(settingsContainer).setName("Work configuration").setDesc("Configure your work schedule and goals").setHeading();
     new import_obsidian2.Setting(settingsContainer).setName("Enable goal tracking").setDesc("Enable flextime calculations and daily/weekly goals. Disable for simple hour tracking without goals (e.g., shift workers, freelancers).").addToggle((toggle) => toggle.setValue(this.plugin.settings.enableGoalTracking).onChange(async (value) => {
       this.plugin.settings.enableGoalTracking = value;
       await this.plugin.saveSettings();
@@ -2343,7 +2343,7 @@ var TimeFlowSettingTab = class extends import_obsidian2.PluginSettingTab {
     }
     const scheduleHistorySection = this.createCollapsibleSubsection(
       settingsContainer,
-      "Work Schedule History",
+      "Work schedule history",
       false
     );
     const scheduleHistoryInfo = scheduleHistorySection.content.createDiv();
@@ -2367,7 +2367,7 @@ var TimeFlowSettingTab = class extends import_obsidian2.PluginSettingTab {
     const currentLabel = currentSettingsInfo.createEl("div");
     currentLabel.style.fontWeight = "bold";
     currentLabel.style.marginBottom = "5px";
-    currentLabel.textContent = "Current Settings (Active)";
+    currentLabel.textContent = "Current settings (active)";
     const currentDetails = currentSettingsInfo.createEl("div");
     currentDetails.style.fontSize = "0.9em";
     const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -2435,7 +2435,7 @@ var TimeFlowSettingTab = class extends import_obsidian2.PluginSettingTab {
       noPeriods.style.marginBottom = "10px";
       noPeriods.textContent = "No historical periods defined. Add a period when your schedule changes.";
     }
-    new import_obsidian2.Setting(scheduleHistorySection.content).setName("Add historical period").setDesc("Add a period for when your work schedule was different").addButton((btn) => btn.setButtonText("+ Add Period").setCta().onClick(() => {
+    new import_obsidian2.Setting(scheduleHistorySection.content).setName("Add historical period").setDesc("Add a period for when your work schedule was different").addButton((btn) => btn.setButtonText("+ Add period").setCta().onClick(() => {
       new WorkSchedulePeriodModal(
         this.app,
         this.plugin,
@@ -2455,7 +2455,7 @@ var TimeFlowSettingTab = class extends import_obsidian2.PluginSettingTab {
     }));
     const complianceSection = this.createCollapsibleSubsection(
       settingsContainer,
-      "Work Time Limits",
+      "Work time limits",
       false
     );
     complianceSection.content.addClass("tf-compliance-settings");
@@ -2553,7 +2553,7 @@ var TimeFlowSettingTab = class extends import_obsidian2.PluginSettingTab {
     };
     const workTypes = this.plugin.settings.specialDayBehaviors.filter((b) => b.isWorkType || b.id === "jobb");
     const absenceTypes = this.plugin.settings.specialDayBehaviors.filter((b) => !b.isWorkType && b.id !== "jobb");
-    new import_obsidian2.Setting(settingsContainer).setName("Work Entry Type").setDesc("Configure the appearance of your regular work entries").setHeading();
+    new import_obsidian2.Setting(settingsContainer).setName("Work entry type").setDesc("Configure the appearance of your regular work entries").setHeading();
     workTypes.forEach((behavior) => {
       const index = this.plugin.settings.specialDayBehaviors.findIndex((b) => b.id === behavior.id);
       new import_obsidian2.Setting(settingsContainer).setName(`${behavior.icon} ${behavior.label}`).setDesc(getBehaviorDescription(behavior)).addButton((btn) => btn.setButtonText("Edit").onClick(() => {
@@ -2571,7 +2571,7 @@ var TimeFlowSettingTab = class extends import_obsidian2.PluginSettingTab {
         ).open();
       }));
     });
-    new import_obsidian2.Setting(settingsContainer).setName("Absence Types").setDesc("Configure how different types of absences affect your workday and flextime balance. These settings determine how days are counted in flextime calculations.").setHeading();
+    new import_obsidian2.Setting(settingsContainer).setName("Absence types").setDesc("Configure how different types of absences affect your workday and flextime balance. These settings determine how days are counted in flextime calculations.").setHeading();
     absenceTypes.forEach((behavior) => {
       const index = this.plugin.settings.specialDayBehaviors.findIndex((b) => b.id === behavior.id);
       new import_obsidian2.Setting(settingsContainer).setName(`${behavior.icon} ${behavior.label}`).setDesc(getBehaviorDescription(behavior)).addButton((btn) => btn.setButtonText("Edit").onClick(() => {
@@ -2617,7 +2617,7 @@ Note: Historical data in your holidays file using "${behavior.id}" will no longe
         }
       ).open();
     }));
-    new import_obsidian2.Setting(settingsContainer).setName("Display & Interface").setDesc("Customize the appearance and behavior of the timeflow interface").setHeading();
+    new import_obsidian2.Setting(settingsContainer).setName("Display & interface").setDesc("Customize the appearance and behavior of the timeflow interface").setHeading();
     new import_obsidian2.Setting(settingsContainer).setName("Default view location").setDesc("Choose where timeflow opens by default").addDropdown((dropdown) => dropdown.addOption("sidebar", "Sidebar (right panel)").addOption("main", "Main area (as a tab)").setValue(this.plugin.settings.defaultViewLocation).onChange(async (value) => {
       this.plugin.settings.defaultViewLocation = value;
       await this.plugin.saveSettings();
@@ -2663,7 +2663,7 @@ Note: Historical data in your holidays file using "${behavior.id}" will no longe
         await this.plugin.saveSettings();
       }
     }));
-    new import_obsidian2.Setting(settingsContainer).setName("File Paths & Templates").setDesc("Configure file paths and note templates").setHeading();
+    new import_obsidian2.Setting(settingsContainer).setName("File paths & templates").setDesc("Configure file paths and note templates").setHeading();
     new import_obsidian2.Setting(settingsContainer).setName("Daily notes folder").setDesc("Folder where daily notes are stored").addText((text) => text.setPlaceholder("Daily Notes").setValue(this.plugin.settings.dailyNotesFolder).onChange(async (value) => {
       this.plugin.settings.dailyNotesFolder = value;
       await this.plugin.saveSettings();
@@ -2686,26 +2686,26 @@ Note: Historical data in your holidays file using "${behavior.id}" will no longe
     new import_obsidian2.Setting(settingsContainer).setName("Add new note type").setDesc("Create a new note type for the context menu").addButton((button) => button.setButtonText("+ Add note type").setCta().onClick(() => {
       this.showNoteTypeModal(null, -1);
     }));
-    new import_obsidian2.Setting(settingsContainer).setName("Data Management").setDesc("Import and export your time tracking data").setHeading();
+    new import_obsidian2.Setting(settingsContainer).setName("Data management").setDesc("Import and export your time tracking data").setHeading();
     new import_obsidian2.Setting(settingsContainer).setName("Export data to CSV").setDesc("Export all your time tracking data to a CSV file").addButton((button) => button.setButtonText("Export CSV").setCta().onClick(async () => {
       this.exportToCSV();
     }));
     new import_obsidian2.Setting(settingsContainer).setName(t("settings.importData")).setDesc(t("settings.importDataDesc")).addButton((button) => button.setButtonText(t("settings.importData")).setCta().onClick(async () => {
       this.showImportModal();
     }));
-    new import_obsidian2.Setting(settingsContainer).setName("Advanced Settings").setDesc("Fine-tune balance calculations, thresholds, and visual customization").setHeading();
+    new import_obsidian2.Setting(settingsContainer).setName("Advanced settings").setDesc("Fine-tune balance calculations, thresholds, and visual customization").setHeading();
     const advancedInfo = settingsContainer.createDiv();
     advancedInfo.style.marginBottom = "15px";
     advancedInfo.style.padding = "10px";
     advancedInfo.style.background = "var(--background-secondary)";
     advancedInfo.style.borderRadius = "5px";
     advancedInfo.style.fontSize = "0.9em";
-    advancedInfo.createEl("strong", { text: "\u2699\uFE0F Advanced Settings" });
+    advancedInfo.createEl("strong", { text: "\u2699\uFE0F Advanced settings" });
     advancedInfo.createEl("br");
     advancedInfo.appendText("These settings affect balance calculations and visual indicators. Settings sync across devices via your data file.");
     const balanceCalcSection = this.createCollapsibleSubsection(
       settingsContainer,
-      "Balance Calculation",
+      "Balance calculation",
       false
     );
     new import_obsidian2.Setting(balanceCalcSection.content).setName("Balance start date").setDesc("Set the date from which flextime balance is calculated. Earlier entries are ignored in balance calculations. Format: YYYY-MM-DD").addText((text) => text.setPlaceholder("2025-01-01").setValue(this.plugin.settings.balanceStartDate).onChange(async (value) => {
@@ -2737,7 +2737,7 @@ Note: Historical data in your holidays file using "${behavior.id}" will no longe
     }
     const balanceThresholdsSection = this.createCollapsibleSubsection(
       settingsContainer,
-      "Balance Color Thresholds",
+      "Balance color thresholds",
       false
     );
     new import_obsidian2.Setting(balanceThresholdsSection.content).setName("Balance color thresholds").setDesc("Configure the hour thresholds for balance indicator colors. These control the color-coding of your flextime balance badge: Red = significant under/overtime, Yellow = approaching limits, Green = healthy balance.");
@@ -2775,7 +2775,7 @@ Note: Historical data in your holidays file using "${behavior.id}" will no longe
     }));
     const dataValidationSection = this.createCollapsibleSubsection(
       settingsContainer,
-      "Data Validation Thresholds",
+      "Data validation thresholds",
       false
     );
     new import_obsidian2.Setting(dataValidationSection.content).setName("Data validation thresholds").setDesc("Automatic data quality checks. Adjust these if you frequently work long hours or want stricter validation.");
@@ -2809,7 +2809,7 @@ Note: Historical data in your holidays file using "${behavior.id}" will no longe
     }));
     const customColorsSection = this.createCollapsibleSubsection(
       settingsContainer,
-      "Custom Colors",
+      "Custom colors",
       false
     );
     const balanceOkSetting = new import_obsidian2.Setting(customColorsSection.content).setName("Balance OK color").setDesc("Color when flextime balance is in acceptable range").addText((text) => {
@@ -2934,7 +2934,7 @@ Note: Historical data in your holidays file using "${behavior.id}" will no longe
   }
   showNoteTypeModal(noteType, index) {
     const modal = new import_obsidian2.Modal(this.app);
-    modal.titleEl.setText(noteType ? "Edit Note Type" : "Add Note Type");
+    modal.titleEl.setText(noteType ? "Edit note type" : "Add note type");
     const { contentEl } = modal;
     const formData = {
       id: (noteType == null ? void 0 : noteType.id) || "",
@@ -2962,13 +2962,13 @@ Note: Historical data in your holidays file using "${behavior.id}" will no longe
     new import_obsidian2.Setting(contentEl).setName("Folder").setDesc("Folder where notes will be created").addText((text) => text.setPlaceholder("M\xF8ter").setValue(formData.folder).onChange((value) => {
       formData.folder = value;
     }));
-    new import_obsidian2.Setting(contentEl).setName("Template Path").setDesc("Path to the template file (relative to vault root)").addText((text) => text.setPlaceholder("timeflow/templates/meeting-note.md").setValue(formData.template).onChange((value) => {
+    new import_obsidian2.Setting(contentEl).setName("Template path").setDesc("Path to the template file (relative to vault root)").addText((text) => text.setPlaceholder("timeflow/templates/meeting-note.md").setValue(formData.template).onChange((value) => {
       formData.template = value;
     }));
     new import_obsidian2.Setting(contentEl).setName("Tags").setDesc("Comma-separated tags to add to notes (e.g., #m\xF8te, #timeflow)").addText((text) => text.setPlaceholder("#m\xF8te, #timeflow").setValue(formData.tags).onChange((value) => {
       formData.tags = value;
     }));
-    new import_obsidian2.Setting(contentEl).setName("Filename Pattern").setDesc("Pattern for note filenames. Available: {YYYY}, {MM}, {DD}, {WEEK}").addText((text) => text.setPlaceholder("{YYYY}-{MM}-{DD} M\xF8te").setValue(formData.filenamePattern).onChange((value) => {
+    new import_obsidian2.Setting(contentEl).setName("Filename pattern").setDesc("Pattern for note filenames. Available: {YYYY}, {MM}, {DD}, {WEEK}").addText((text) => text.setPlaceholder("{YYYY}-{MM}-{DD} M\xF8te").setValue(formData.filenamePattern).onChange((value) => {
       formData.filenamePattern = value;
     }));
     const infoDiv = contentEl.createDiv();
@@ -3058,7 +3058,7 @@ var DataManager = class {
   async loadHolidays() {
     const status = { success: false, message: "", count: 0, warning: null };
     try {
-      const holidayFile = this.app.vault.getAbstractFileByPath(this.settings.holidaysFilePath);
+      const holidayFile = this.app.vault.getAbstractFileByPath((0, import_obsidian3.normalizePath)(this.settings.holidaysFilePath));
       if (holidayFile && holidayFile instanceof import_obsidian3.TFile) {
         const content = await this.app.vault.read(holidayFile);
         const lines = content.split("\n");
@@ -3213,7 +3213,6 @@ var DataManager = class {
         return;
       const dayKey = Utils.toLocalDateStr(start);
       if (!e.endTime) {
-        console.log("TimeFlow: Processing active entry:", e.name, "on", dayKey);
         this.activeEntries.push(e);
         if (!this.activeEntriesByDate[dayKey])
           this.activeEntriesByDate[dayKey] = [];
@@ -3509,9 +3508,13 @@ var DataManager = class {
           stats.weekendHours += e.duration || 0;
         }
         if (daysByType[name]) {
-          daysByType[name].add(dayKey);
-          if (stats[name]) {
-            stats[name].hours += e.duration || 0;
+          const isReduceGoalType = (behavior == null ? void 0 : behavior.flextimeEffect) === "reduce_goal";
+          const isFullDay = !e.duration || e.duration === 0;
+          if (!isReduceGoalType || isFullDay) {
+            daysByType[name].add(dayKey);
+            if (stats[name]) {
+              stats[name].hours += e.duration || 0;
+            }
           }
         }
         if ((behavior == null ? void 0 : behavior.isWorkType) || (behavior == null ? void 0 : behavior.flextimeEffect) === "accumulate" || !behavior) {
@@ -7967,7 +7970,7 @@ var UIBuilder = class {
   async addSpecialDay(dateObj, dayType, note = "", startTime, endTime) {
     try {
       const filePath = this.settings.holidaysFilePath;
-      const file = this.app.vault.getAbstractFileByPath(filePath);
+      const file = this.app.vault.getAbstractFileByPath((0, import_obsidian4.normalizePath)(filePath));
       if (!file) {
         new import_obsidian4.Notice(`\u274C Fant ikke filen: ${filePath}`);
         return;
@@ -8013,7 +8016,7 @@ var UIBuilder = class {
       const dateStr = Utils.toLocalDateStr(dateObj);
       const weekNum = Utils.getWeekNumber(dateObj);
       let filename = noteType.filenamePattern.replace("{YYYY}", dateObj.getFullYear().toString()).replace("{MM}", (dateObj.getMonth() + 1).toString().padStart(2, "0")).replace("{DD}", dateObj.getDate().toString().padStart(2, "0")).replace("{WEEK}", weekNum.toString());
-      const filePath = `${noteType.folder}/${filename}.md`;
+      const filePath = (0, import_obsidian4.normalizePath)(`${noteType.folder}/${filename}.md`);
       const existingFile = this.app.vault.getAbstractFileByPath(filePath);
       if (existingFile) {
         await this.app.workspace.getLeaf(false).openFile(existingFile);
@@ -8025,7 +8028,7 @@ var UIBuilder = class {
         await this.app.vault.createFolder(folderPath);
       }
       let content = "";
-      const templateFile = this.app.vault.getAbstractFileByPath(noteType.template);
+      const templateFile = this.app.vault.getAbstractFileByPath((0, import_obsidian4.normalizePath)(noteType.template));
       if (templateFile && templateFile instanceof import_obsidian4.TFile) {
         content = await this.app.vault.read(templateFile);
       }
@@ -8172,7 +8175,7 @@ ${noteType.tags.join(" ")}`;
     header.style.marginBottom = "10px";
     header.style.fontWeight = "bold";
     header.style.color = "var(--text-normal)";
-    header.innerHTML = `\u23F1\uFE0F ${t("ui.activeTimers")} (${activeEntries.length})`;
+    header.textContent = `\u23F1\uFE0F ${t("ui.activeTimers")} (${activeEntries.length})`;
     section.appendChild(header);
     const isWide = container.offsetWidth >= 450;
     const table = document.createElement("table");
@@ -8341,12 +8344,14 @@ ${noteType.tags.join(" ")}`;
       summary.style.fontSize = "1.1em";
       summary.style.color = "var(--text-normal)";
       summary.style.listStyle = "none";
-      summary.innerHTML = `<span style="margin-right: 8px;">${yearSection.open ? "\u25BC" : "\u25B6"}</span>${year}`;
+      const arrow = document.createElement("span");
+      arrow.style.marginRight = "8px";
+      arrow.textContent = yearSection.open ? "\u25BC" : "\u25B6";
+      summary.appendChild(arrow);
+      summary.appendChild(document.createTextNode(year.toString()));
       yearSection.appendChild(summary);
       yearSection.addEventListener("toggle", () => {
-        const arrow = summary.querySelector("span");
-        if (arrow)
-          arrow.textContent = yearSection.open ? "\u25BC " : "\u25B6 ";
+        arrow.textContent = yearSection.open ? "\u25BC" : "\u25B6";
       });
       const yearDiv = document.createElement("div");
       yearDiv.style.paddingLeft = "8px";
@@ -8444,12 +8449,14 @@ ${noteType.tags.join(" ")}`;
       summary.style.fontSize = "1.1em";
       summary.style.color = "var(--text-normal)";
       summary.style.listStyle = "none";
-      summary.innerHTML = `<span style="margin-right: 8px;">${yearSection.open ? "\u25BC" : "\u25B6"}</span>${year}`;
+      const arrow = document.createElement("span");
+      arrow.style.marginRight = "8px";
+      arrow.textContent = yearSection.open ? "\u25BC" : "\u25B6";
+      summary.appendChild(arrow);
+      summary.appendChild(document.createTextNode(year.toString()));
       yearSection.appendChild(summary);
       yearSection.addEventListener("toggle", () => {
-        const arrow = summary.querySelector("span");
-        if (arrow)
-          arrow.textContent = yearSection.open ? "\u25BC " : "\u25B6 ";
+        arrow.textContent = yearSection.open ? "\u25BC" : "\u25B6";
       });
       const yearDiv = document.createElement("div");
       yearDiv.style.paddingLeft = "8px";
@@ -9268,7 +9275,6 @@ var TimerManager = class {
           const needsSave = this.normalizeEntryTimestamps();
           if (needsSave) {
             await this.save();
-            console.log("TimeFlow: Migrated entry timestamps to local ISO format");
           }
           if (parsed.settings) {
             return parsed.settings;
@@ -9353,7 +9359,7 @@ ${timekeepBlock}${settingsBlock}
 `;
       const fileExists = await this.app.vault.adapter.exists(this.dataFile);
       if (fileExists) {
-        const file = this.app.vault.getAbstractFileByPath(this.dataFile);
+        const file = this.app.vault.getAbstractFileByPath((0, import_obsidian6.normalizePath)(this.dataFile));
         if (file && file instanceof import_obsidian6.TFile) {
           await this.app.vault.modify(file, content);
         } else {
@@ -9673,28 +9679,28 @@ var TimeFlowPlugin = class extends import_obsidian7.Plugin {
     });
     this.addCommand({
       id: "open-timeflow",
-      name: "Open timeflow Dashboard",
+      name: "Open timeflow dashboard",
       callback: () => {
         this.activateView();
       }
     });
     this.addCommand({
       id: "start-timer",
-      name: "Start Timer",
+      name: "Start timer",
       callback: async () => {
         await this.timerManager.startTimer("jobb");
       }
     });
     this.addCommand({
       id: "stop-all-timers",
-      name: "Stop All Timers",
+      name: "Stop all timers",
       callback: async () => {
         await this.timerManager.stopAllTimers();
       }
     });
     this.addCommand({
       id: "import-timekeep-data",
-      name: "Import Timekeep Data",
+      name: "Import timekeep data",
       callback: () => {
         new ImportModal(this.app, this.timerManager, () => {
           const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_TIMEFLOW);
@@ -9766,7 +9772,6 @@ var TimeFlowPlugin = class extends import_obsidian7.Plugin {
           behavior.flextimeEffect = "reduce_goal";
           behavior.noHoursRequired = false;
           changed = true;
-          console.log(`TimeFlow: Migrated ${typeId} to use reduce_goal flextimeEffect`);
         }
       });
     }
@@ -9805,7 +9810,6 @@ var TimeFlowPlugin = class extends import_obsidian7.Plugin {
     this.timerManager.data.entries.forEach((entry) => migrateEntry(entry));
     if (changed) {
       await this.timerManager.save();
-      console.log("TimeFlow: Migrated timestamps to local format");
     }
     this.settings.hasTimestampMigration = true;
     return changed;
@@ -9847,7 +9851,6 @@ var TimeFlowPlugin = class extends import_obsidian7.Plugin {
       halfDayHours: this.settings.halfDayHours
     };
     this.settings.workScheduleHistory = [initialPeriod];
-    console.log("TimeFlow: Created initial work schedule period from current settings");
     return true;
   }
   /**

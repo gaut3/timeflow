@@ -49,7 +49,7 @@ export default class TimeFlowPlugin extends Plugin {
 		// Add command to open timeflow
 		this.addCommand({
 			id: 'open-timeflow',
-			name: 'Open timeflow Dashboard',
+			name: 'Open timeflow dashboard',
 			callback: () => {
 				this.activateView();
 			}
@@ -58,7 +58,7 @@ export default class TimeFlowPlugin extends Plugin {
 		// Add commands for timer control
 		this.addCommand({
 			id: 'start-timer',
-			name: 'Start Timer',
+			name: 'Start timer',
 			callback: async () => {
 				await this.timerManager.startTimer('jobb');
 			}
@@ -66,7 +66,7 @@ export default class TimeFlowPlugin extends Plugin {
 
 		this.addCommand({
 			id: 'stop-all-timers',
-			name: 'Stop All Timers',
+			name: 'Stop all timers',
 			callback: async () => {
 				await this.timerManager.stopAllTimers();
 			}
@@ -75,7 +75,7 @@ export default class TimeFlowPlugin extends Plugin {
 		// Add command to import data
 		this.addCommand({
 			id: 'import-timekeep-data',
-			name: 'Import Timekeep Data',
+			name: 'Import timekeep data',
 			callback: () => {
 				new ImportModal(this.app, this.timerManager, () => {
 					// Refresh any open TimeFlow views
@@ -168,7 +168,6 @@ export default class TimeFlowPlugin extends Plugin {
 					behavior.flextimeEffect = 'reduce_goal';
 					behavior.noHoursRequired = false; // Allow duration input
 					changed = true;
-					console.log(`TimeFlow: Migrated ${typeId} to use reduce_goal flextimeEffect`);
 				}
 			});
 		}
@@ -218,7 +217,6 @@ export default class TimeFlowPlugin extends Plugin {
 
 		if (changed) {
 			await this.timerManager.save();
-			console.log('TimeFlow: Migrated timestamps to local format');
 		}
 
 		// Mark migration as complete
@@ -276,7 +274,6 @@ export default class TimeFlowPlugin extends Plugin {
 		};
 
 		this.settings.workScheduleHistory = [initialPeriod];
-		console.log('TimeFlow: Created initial work schedule period from current settings');
 		return true;
 	}
 
