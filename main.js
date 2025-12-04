@@ -45,12 +45,12 @@ var FIXED_DAY_TEXT_COLORS = {
 };
 function getSpecialDayColors(settings) {
   const colors = { ...FIXED_DAY_COLORS };
-  settings.specialDayBehaviors.forEach((behavior) => {
-    colors[behavior.id] = behavior.color;
-  });
   if (settings.specialDayColors) {
     Object.assign(colors, settings.specialDayColors);
   }
+  settings.specialDayBehaviors.forEach((behavior) => {
+    colors[behavior.id] = behavior.color;
+  });
   return colors;
 }
 function getSpecialDayTextColors(settings) {
@@ -308,7 +308,7 @@ var translations = {
     menu: {
       logWork: "Logg arbeidstimer",
       editWork: "Rediger arbeidstid",
-      registerSpecialDay: "Registrer spesialdag",
+      registerSpecialDay: "Registrer frav\xE6r",
       addEntry: "Legg til oppf\xF8ring",
       deleteEntry: "Slett oppf\xF8ring",
       selectOption: "Velg et alternativ fra menyen"
@@ -321,7 +321,7 @@ var translations = {
     modals: {
       logWorkTitle: "Logg arbeidstimer for",
       editWorkTitle: "Rediger arbeidstid for",
-      registerSpecialDayTitle: "Registrer spesialdag",
+      registerSpecialDayTitle: "Registrer frav\xE6r",
       addEntryTitle: "Legg til oppf\xF8ring for",
       deleteEntryTitle: "Slett oppf\xF8ring",
       startTime: "Starttid",
@@ -334,6 +334,18 @@ var translations = {
       to: "Til:",
       commentOptional: "Kommentar (valgfritt):",
       commentPlaceholder: 'F.eks. "Ferie i Spania"',
+      commentPlaceholders: {
+        ferie: 'F.eks. "Ferie i Spania"',
+        egenmelding: 'F.eks. "Hodepine"',
+        sykemelding: 'F.eks. "Influensa"',
+        velferdspermisjon: 'F.eks. "Legebes\xF8k"',
+        avspasering: 'F.eks. "Tidlig helg"',
+        helligdag: 'F.eks. "1. mai"',
+        kurs: 'F.eks. "React-kurs"',
+        studie: 'F.eks. "Eksamensforberedelse"',
+        halfday: 'F.eks. "Halv dag f\xF8r ferie"',
+        default: 'F.eks. "Kommentar"'
+      },
       durationHint: "Antall timer (f.eks. 3.5 for resten av dagen etter sykdom)"
     },
     validation: {
@@ -465,14 +477,14 @@ var translations = {
       reflection: "Refleksjonsnotat"
     },
     info: {
-      specialDayTypes: "Spesielle dagtyper",
+      specialDayTypes: "Frav\xE6rstyper",
       workDaysGradient: "Arbeidsdager - fargegradient",
       colorShowsFlextime: "Fargen viser fleksitid i forhold til dagens m\xE5l",
       calendarContextMenu: "Kalenderkontekstmeny",
       clickDayFor: "Trykk p\xE5 en dag i kalenderen for:",
       createDailyNote: "Opprett daglig notat",
       editFlextimeManually: "Rediger arbeidstid manuelt",
-      registerSpecialDays: "Registrer spesielle dagtyper",
+      registerSpecialDays: "Registrer frav\xE6r",
       flextimeBalanceZones: "Fleksitidsaldo - soner",
       green: "Gr\xF8nn",
       yellow: "Gul",
@@ -583,7 +595,7 @@ var translations = {
     menu: {
       logWork: "Log work hours",
       editWork: "Edit work time",
-      registerSpecialDay: "Register special day",
+      registerSpecialDay: "Register absence",
       addEntry: "Add entry",
       deleteEntry: "Delete entry",
       selectOption: "Select an option from the menu"
@@ -596,7 +608,7 @@ var translations = {
     modals: {
       logWorkTitle: "Log work hours for",
       editWorkTitle: "Edit work time for",
-      registerSpecialDayTitle: "Register special day",
+      registerSpecialDayTitle: "Register absence",
       addEntryTitle: "Add entry for",
       deleteEntryTitle: "Delete entry",
       startTime: "Start time",
@@ -609,6 +621,18 @@ var translations = {
       to: "To:",
       commentOptional: "Comment (optional):",
       commentPlaceholder: 'E.g. "Vacation in Spain"',
+      commentPlaceholders: {
+        ferie: 'E.g. "Vacation in Spain"',
+        egenmelding: 'E.g. "Headache"',
+        sykemelding: 'E.g. "Flu"',
+        velferdspermisjon: 'E.g. "Doctor appointment"',
+        avspasering: 'E.g. "Early weekend"',
+        helligdag: 'E.g. "May 1st"',
+        kurs: 'E.g. "React course"',
+        studie: 'E.g. "Exam preparation"',
+        halfday: 'E.g. "Half day before vacation"',
+        default: 'E.g. "Comment"'
+      },
       durationHint: "Number of hours (e.g. 3.5 for rest of day after leaving sick)"
     },
     validation: {
@@ -740,14 +764,14 @@ var translations = {
       reflection: "Reflection Note"
     },
     info: {
-      specialDayTypes: "Special day types",
+      specialDayTypes: "Absence types",
       workDaysGradient: "Work days - color gradient",
       colorShowsFlextime: "Color shows flextime relative to daily goal",
       calendarContextMenu: "Calendar context menu",
       clickDayFor: "Click on a day in the calendar for:",
       createDailyNote: "Create daily note",
       editFlextimeManually: "Edit flextime manually",
-      registerSpecialDays: "Register special day types",
+      registerSpecialDays: "Register absences",
       flextimeBalanceZones: "Flextime balance - zones",
       green: "Green",
       yellow: "Yellow",
@@ -1415,7 +1439,7 @@ var DEFAULT_SPECIAL_DAY_BEHAVIORS = [
     textColor: "#ffffff",
     negativeColor: "#64b5f6",
     // Blue for negative flextime (under goal)
-    negativeTextColor: "#000000",
+    negativeTextColor: "#ffffff",
     simpleColor: "#90caf9",
     // Light blue for simple tracking mode
     simpleTextColor: "#000000",
@@ -1515,7 +1539,7 @@ var DEFAULT_SPECIAL_DAY_BEHAVIORS = [
   }
 ];
 var DEFAULT_SETTINGS = {
-  version: "1.0.0",
+  version: "1.2.1",
   language: "nb",
   defaultViewLocation: "sidebar",
   hourUnit: "t",
@@ -1663,7 +1687,7 @@ var SpecialDayBehaviorModal = class extends import_obsidian2.Modal {
     const { contentEl } = this;
     contentEl.empty();
     const isWorkType = (_b = (_a = this.behavior) == null ? void 0 : _a.isWorkType) != null ? _b : false;
-    contentEl.createEl("h2", { text: isWorkType ? "Edit Work Entry Type" : this.behavior ? "Edit Special Day Type" : "Add Special Day Type" });
+    contentEl.createEl("h2", { text: isWorkType ? "Edit Work Entry Type" : this.behavior ? "Edit Absence Type" : "Add Absence Type" });
     if (this.behavior && !isWorkType) {
       const norwegianTerms = {
         "egenmelding": "Norwegian self-reported sick leave (max 8 days/year per Norwegian labor law)",
@@ -1697,7 +1721,7 @@ var SpecialDayBehaviorModal = class extends import_obsidian2.Modal {
       color: ((_f = this.behavior) == null ? void 0 : _f.color) || "#b3e5fc",
       textColor: ((_g = this.behavior) == null ? void 0 : _g.textColor) || "#000000",
       negativeColor: ((_h = this.behavior) == null ? void 0 : _h.negativeColor) || "#64b5f6",
-      negativeTextColor: ((_i = this.behavior) == null ? void 0 : _i.negativeTextColor) || "#000000",
+      negativeTextColor: ((_i = this.behavior) == null ? void 0 : _i.negativeTextColor) || "#ffffff",
       simpleColor: ((_j = this.behavior) == null ? void 0 : _j.simpleColor) || "#90caf9",
       simpleTextColor: ((_k = this.behavior) == null ? void 0 : _k.simpleTextColor) || "#000000",
       noHoursRequired: (_m = (_l = this.behavior) == null ? void 0 : _l.noHoursRequired) != null ? _m : true,
@@ -1772,7 +1796,7 @@ var SpecialDayBehaviorModal = class extends import_obsidian2.Modal {
           (b, i) => b.id === formData.id && i !== this.index
         );
         if (isDuplicate) {
-          new import_obsidian2.Notice("\u26A0\uFE0F A special day type with this ID already exists");
+          new import_obsidian2.Notice("\u26A0\uFE0F An absence type with this ID already exists");
           return;
         }
       }
@@ -2528,7 +2552,7 @@ var TimeFlowSettingTab = class extends import_obsidian2.PluginSettingTab {
       return parts.join(", ");
     };
     const workTypes = this.plugin.settings.specialDayBehaviors.filter((b) => b.isWorkType || b.id === "jobb");
-    const specialDays = this.plugin.settings.specialDayBehaviors.filter((b) => !b.isWorkType && b.id !== "jobb");
+    const absenceTypes = this.plugin.settings.specialDayBehaviors.filter((b) => !b.isWorkType && b.id !== "jobb");
     new import_obsidian2.Setting(settingsContainer).setName("Work Entry Type").setDesc("Configure the appearance of your regular work entries").setHeading();
     workTypes.forEach((behavior) => {
       const index = this.plugin.settings.specialDayBehaviors.findIndex((b) => b.id === behavior.id);
@@ -2547,8 +2571,8 @@ var TimeFlowSettingTab = class extends import_obsidian2.PluginSettingTab {
         ).open();
       }));
     });
-    new import_obsidian2.Setting(settingsContainer).setName("Special Day Types").setDesc("Configure how different types of special days affect your workday and flextime balance. These settings determine how days are counted in flextime calculations.").setHeading();
-    specialDays.forEach((behavior) => {
+    new import_obsidian2.Setting(settingsContainer).setName("Absence Types").setDesc("Configure how different types of absences affect your workday and flextime balance. These settings determine how days are counted in flextime calculations.").setHeading();
+    absenceTypes.forEach((behavior) => {
       const index = this.plugin.settings.specialDayBehaviors.findIndex((b) => b.id === behavior.id);
       new import_obsidian2.Setting(settingsContainer).setName(`${behavior.icon} ${behavior.label}`).setDesc(getBehaviorDescription(behavior)).addButton((btn) => btn.setButtonText("Edit").onClick(() => {
         new SpecialDayBehaviorModal(
@@ -2577,7 +2601,7 @@ Note: Historical data in your holidays file using "${behavior.id}" will no longe
         }
       }));
     });
-    new import_obsidian2.Setting(settingsContainer).setName("Add new special day type").setDesc("Create a custom day type with your own rules").addButton((btn) => btn.setButtonText("+ Add").setCta().onClick(() => {
+    new import_obsidian2.Setting(settingsContainer).setName("Add new absence type").setDesc("Create a custom absence type with your own rules").addButton((btn) => btn.setButtonText("+ Add").setCta().onClick(() => {
       new SpecialDayBehaviorModal(
         this.app,
         this.plugin,
@@ -2627,7 +2651,7 @@ Note: Historical data in your holidays file using "${behavior.id}" will no longe
         await this.refreshView();
       }
     }));
-    new import_obsidian2.Setting(settingsContainer).setName("Heatmap special day colors").setDesc("Show special day colors (ferie, egenmelding, etc.) instead of flextime gradient in heatmap").addToggle((toggle) => toggle.setValue(this.plugin.settings.heatmapShowSpecialDayColors).onChange(async (value) => {
+    new import_obsidian2.Setting(settingsContainer).setName("Heatmap absence colors").setDesc("Show absence colors (ferie, egenmelding, etc.) instead of flextime gradient in heatmap").addToggle((toggle) => toggle.setValue(this.plugin.settings.heatmapShowSpecialDayColors).onChange(async (value) => {
       this.plugin.settings.heatmapShowSpecialDayColors = value;
       await this.plugin.saveSettings();
       await this.refreshView();
@@ -3275,7 +3299,7 @@ var DataManager = class {
         } else if ((behavior == null ? void 0 : behavior.flextimeEffect) === "withdraw") {
           flextime -= e.duration || 0;
         } else {
-          if (totalWorkHours > effectiveGoal) {
+          if (totalWorkHours !== effectiveGoal && effectiveGoal > 0) {
             const proportion = (e.duration || 0) / totalWorkHours;
             flextime += (totalWorkHours - effectiveGoal) * proportion;
           }
@@ -3944,7 +3968,7 @@ var import_obsidian4 = require("obsidian");
 var UIBuilder = class {
   constructor(dataManager, systemStatus, settings, app, timerManager, plugin) {
     this.intervals = [];
-    this.statsTimeframe = "total";
+    this.statsTimeframe = "month";
     this.historyView = "list";
     this.currentMonthOffset = 0;
     this.historyFilter = [];
@@ -4377,15 +4401,18 @@ var UIBuilder = class {
 				height: 12px;
 				background: var(--background-secondary);
 				border-radius: 6px;
-				overflow: hidden;
 				margin: 10px 0;
+				position: relative;
+				overflow: hidden;
 			}
 
-			/* Light theme - Progress fill uses green gradient from timeflow.js */
+			/* Progress fill */
 			.tf-progress-fill {
 				height: 100%;
-				background: linear-gradient(90deg, #4caf50, #2e7d32);
 				transition: width 0.3s ease;
+				border-radius: 6px 0 0 6px;
+				margin-left: -0.5px;
+				min-width: 0.5px;
 			}
 
 			.tf-month-grid {
@@ -4483,12 +4510,14 @@ var UIBuilder = class {
 				font-size: clamp(10px, 2.5vw, 16px);
 				font-weight: bold;
 				cursor: pointer;
-				transition: all 0.2s;
+				transition: transform 0.2s, box-shadow 0.2s;
 				position: relative;
 				border: 2px solid transparent;
 				text-shadow: 0 1px 2px rgba(255, 255, 255, 0.5);
 				min-width: 0;
 				overflow: hidden;
+				backface-visibility: hidden;
+				-webkit-font-smoothing: subpixel-antialiased;
 			}
 
 			/* Days with entries - text color set dynamically based on special day */
@@ -4509,6 +4538,15 @@ var UIBuilder = class {
 			.tf-day-cell.today {
 				border-color: var(--interactive-accent);
 				font-weight: bold;
+			}
+
+			.tf-day-cell .secondary-type-stripe {
+				position: absolute;
+				bottom: 0;
+				left: 0;
+				right: 0;
+				height: 4px;
+				border-radius: 0 0 4px 4px;
 			}
 
 			.tf-stats-grid {
@@ -5429,8 +5467,8 @@ var UIBuilder = class {
     tabs.className = "tf-tabs";
     tabs.style.marginBottom = "0";
     tabs.style.borderBottom = "none";
-    const timeframes = ["total", "year", "month"];
-    const labels = { total: t("timeframes.total"), year: t("timeframes.year"), month: t("timeframes.month") };
+    const timeframes = ["month", "year", "total"];
+    const labels = { month: t("timeframes.month"), year: t("timeframes.year"), total: t("timeframes.total") };
     timeframes.forEach((tf) => {
       const tab = document.createElement("button");
       tab.className = `tf-tab ${tf === this.statsTimeframe ? "active" : ""}`;
@@ -6414,7 +6452,7 @@ var UIBuilder = class {
     });
   }
   createMonthGrid(displayDate) {
-    var _a;
+    var _a, _b;
     const year = displayDate.getFullYear();
     const month = displayDate.getMonth();
     const monthName = getMonthName(displayDate);
@@ -6504,17 +6542,77 @@ var UIBuilder = class {
         const behavior = this.settings.specialDayBehaviors.find((b) => b.id === entryName);
         return specialDayColors[entryName] && (!behavior || !behavior.isWorkType);
       });
+      let workDuration = 0;
+      let specialDuration = 0;
+      let dominantSpecialType = null;
+      let hasFullDaySpecial = false;
+      if (dayEntries) {
+        const specialDurations = /* @__PURE__ */ new Map();
+        for (const entry of dayEntries) {
+          const entryName = entry.name.toLowerCase();
+          const behavior = this.settings.specialDayBehaviors.find((b) => b.id === entryName);
+          const duration = entry.duration || 0;
+          if (behavior == null ? void 0 : behavior.isWorkType) {
+            workDuration += duration;
+          } else if (specialDayColors[entryName] || (behavior == null ? void 0 : behavior.color)) {
+            specialDuration += duration;
+            specialDurations.set(entryName, (specialDurations.get(entryName) || 0) + duration);
+            if ((behavior == null ? void 0 : behavior.noHoursRequired) || (behavior == null ? void 0 : behavior.countsAsWorkday)) {
+              hasFullDaySpecial = true;
+              if (!dominantSpecialType) {
+                dominantSpecialType = entryName;
+              }
+            }
+          }
+        }
+        if (!dominantSpecialType) {
+          let maxSpecialDuration = 0;
+          for (const [typeName, duration] of specialDurations) {
+            if (duration > maxSpecialDuration) {
+              maxSpecialDuration = duration;
+              dominantSpecialType = typeName;
+            }
+          }
+        }
+      }
+      const hasMixedTypes = workDuration > 0 && (specialDuration > 0 || hasFullDaySpecial);
+      const workIsDominant = !hasFullDaySpecial && workDuration >= specialDuration;
       const hasEntry = !!(holidayInfo || specialEntry || dayEntries);
       if (holidayInfo) {
         const colorKey = holidayInfo.halfDay ? "halfday" : holidayInfo.type;
         cell.style.background = specialDayColors[colorKey] || specialDayColors[holidayInfo.type] || "var(--background-secondary)";
         cell.style.color = specialDayTextColors[colorKey] || specialDayTextColors[holidayInfo.type] || "var(--text-normal)";
-      } else if (specialEntry) {
+      } else if (hasMixedTypes && !workIsDominant && dominantSpecialType) {
+        const behavior = this.settings.specialDayBehaviors.find((b) => b.id === dominantSpecialType);
+        const bgColor = (behavior == null ? void 0 : behavior.color) || specialDayColors[dominantSpecialType];
+        cell.style.background = bgColor;
+        cell.style.color = (behavior == null ? void 0 : behavior.textColor) || specialDayTextColors[dominantSpecialType] || "var(--text-normal)";
+      } else if (specialEntry && !hasMixedTypes) {
         const entryKey = specialEntry.name.toLowerCase();
-        cell.style.background = specialDayColors[entryKey];
-        cell.style.color = specialDayTextColors[entryKey] || "var(--text-normal)";
+        const behavior = this.settings.specialDayBehaviors.find((b) => b.id === entryKey);
+        cell.style.background = (behavior == null ? void 0 : behavior.color) || specialDayColors[entryKey];
+        cell.style.color = (behavior == null ? void 0 : behavior.textColor) || specialDayTextColors[entryKey] || "var(--text-normal)";
       } else if (dayEntries) {
-        if (!this.settings.enableGoalTracking) {
+        const isWeekendDay = Utils.isWeekend(date, this.settings);
+        const halfWorkday = this.settings.baseWorkday * this.settings.workPercent / 2;
+        const isMinimalWeekendWork = isWeekendDay && workDuration < halfWorkday;
+        if (isMinimalWeekendWork) {
+          cell.style.background = "var(--background-modifier-border)";
+          cell.style.color = "var(--text-muted)";
+          const dayFlextime = dayEntries.reduce((sum, e) => sum + (e.flextime || 0), 0);
+          const stripeColor = !this.settings.enableGoalTracking ? ((_b = this.settings.specialDayBehaviors.find((b) => b.isWorkType)) == null ? void 0 : _b.simpleColor) || "#90caf9" : this.flextimeColor(dayFlextime);
+          const stripe = document.createElement("div");
+          stripe.className = "secondary-type-stripe";
+          stripe.style.position = "absolute";
+          stripe.style.bottom = "0";
+          stripe.style.left = "0";
+          stripe.style.right = "0";
+          stripe.style.height = "4px";
+          stripe.style.borderRadius = "0 0 4px 4px";
+          stripe.style.background = stripeColor;
+          stripe.style.zIndex = "1";
+          cell.appendChild(stripe);
+        } else if (!this.settings.enableGoalTracking) {
           const workType = this.settings.specialDayBehaviors.find((b) => b.isWorkType);
           cell.style.background = (workType == null ? void 0 : workType.simpleColor) || "#90caf9";
           cell.style.color = (workType == null ? void 0 : workType.simpleTextColor) || "#000000";
@@ -6534,6 +6632,30 @@ var UIBuilder = class {
           cell.style.background = "var(--background-secondary)";
         } else {
           cell.style.background = "transparent";
+        }
+      }
+      if (hasMixedTypes) {
+        let stripeColor = null;
+        if (workIsDominant && dominantSpecialType) {
+          const behavior = this.settings.specialDayBehaviors.find((b) => b.id === dominantSpecialType);
+          stripeColor = (behavior == null ? void 0 : behavior.color) || specialDayColors[dominantSpecialType];
+        } else {
+          const workBehavior = this.settings.specialDayBehaviors.find((b) => b.isWorkType);
+          const dayFlextime = (dayEntries == null ? void 0 : dayEntries.reduce((sum, e) => sum + (e.flextime || 0), 0)) || 0;
+          stripeColor = this.flextimeColor(dayFlextime);
+        }
+        if (stripeColor) {
+          const stripe = document.createElement("div");
+          stripe.className = "secondary-type-stripe";
+          stripe.style.position = "absolute";
+          stripe.style.bottom = "0";
+          stripe.style.left = "0";
+          stripe.style.right = "0";
+          stripe.style.height = "4px";
+          stripe.style.borderRadius = "0 0 4px 4px";
+          stripe.style.background = stripeColor;
+          stripe.style.zIndex = "1";
+          cell.appendChild(stripe);
         }
       }
       if (hasEntry) {
@@ -6572,7 +6694,7 @@ var UIBuilder = class {
   }
   flextimeColor(val) {
     var _a, _b, _c;
-    const jobbBehavior = (_a = this.settings.specialDayBehaviors) == null ? void 0 : _a.find((b) => b.id === "jobb");
+    const workBehavior = (_a = this.settings.specialDayBehaviors) == null ? void 0 : _a.find((b) => b.isWorkType);
     const hexToRgb = (hex) => {
       const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
       return result ? {
@@ -6585,32 +6707,32 @@ var UIBuilder = class {
     const baseWorkday = this.settings.baseWorkday * this.settings.workPercent;
     const scale = Math.max(dailyLimit - baseWorkday, 0.5);
     if (val < 0) {
-      const baseColor = (jobbBehavior == null ? void 0 : jobbBehavior.negativeColor) || "#64b5f6";
+      const baseColor = (workBehavior == null ? void 0 : workBehavior.negativeColor) || "#64b5f6";
       const rgb = hexToRgb(baseColor);
       const t2 = Math.min(Math.abs(val) / scale, 1);
-      const lightFactor = (1 - t2) * 0.4;
-      const r = Math.floor(rgb.r + (255 - rgb.r) * lightFactor);
-      const g = Math.floor(rgb.g + (255 - rgb.g) * lightFactor);
-      const b = Math.floor(rgb.b + (255 - rgb.b) * lightFactor);
+      const darkFactor = t2 * 0.5;
+      const r = Math.floor(rgb.r * (1 - darkFactor));
+      const g = Math.floor(rgb.g * (1 - darkFactor));
+      const b = Math.floor(rgb.b * (1 - darkFactor));
       return `rgb(${r},${g},${b})`;
     } else {
-      const baseColor = (jobbBehavior == null ? void 0 : jobbBehavior.color) || "#4caf50";
+      const baseColor = (workBehavior == null ? void 0 : workBehavior.color) || "#4caf50";
       const rgb = hexToRgb(baseColor);
       const t2 = Math.min(val / scale, 1);
-      const lightFactor = (1 - t2) * 0.4;
-      const r = Math.floor(rgb.r + (255 - rgb.r) * lightFactor);
-      const g = Math.floor(rgb.g + (255 - rgb.g) * lightFactor);
-      const b = Math.floor(rgb.b + (255 - rgb.b) * lightFactor);
+      const darkFactor = t2 * 0.5;
+      const r = Math.floor(rgb.r * (1 - darkFactor));
+      const g = Math.floor(rgb.g * (1 - darkFactor));
+      const b = Math.floor(rgb.b * (1 - darkFactor));
       return `rgb(${r},${g},${b})`;
     }
   }
   flextimeTextColor(val) {
     var _a;
-    const jobbBehavior = (_a = this.settings.specialDayBehaviors) == null ? void 0 : _a.find((b) => b.id === "jobb");
+    const workBehavior = (_a = this.settings.specialDayBehaviors) == null ? void 0 : _a.find((b) => b.isWorkType);
     if (val < 0) {
-      return (jobbBehavior == null ? void 0 : jobbBehavior.negativeTextColor) || "#000000";
+      return (workBehavior == null ? void 0 : workBehavior.negativeTextColor) || "#ffffff";
     } else {
-      return (jobbBehavior == null ? void 0 : jobbBehavior.textColor) || "#ffffff";
+      return (workBehavior == null ? void 0 : workBehavior.textColor) || "#ffffff";
     }
   }
   /**
@@ -6859,10 +6981,16 @@ var UIBuilder = class {
   showNoteTypeMenu(cellRect, dateObj) {
     var _a, _b, _c;
     const existingMenu = document.querySelector(".tf-context-menu");
-    if (existingMenu)
+    if (existingMenu) {
+      const existingDate = existingMenu.dataset.menuDate;
       existingMenu.remove();
+      if (existingDate === Utils.toLocalDateStr(dateObj)) {
+        return;
+      }
+    }
     const menu = document.createElement("div");
     menu.className = "tf-context-menu";
+    menu.dataset.menuDate = Utils.toLocalDateStr(dateObj);
     const menuMain = document.createElement("div");
     menuMain.className = "tf-context-menu-main";
     let menuLeft = cellRect.right;
@@ -7721,13 +7849,6 @@ var UIBuilder = class {
     fullDayCheckbox.addEventListener("change", updateSickTimeInputs);
     updateSickTimeInputs();
     content.appendChild(sickTimeContainer);
-    const updateFieldVisibility = () => {
-      const selectedType = typeSelect.value;
-      timeContainer.style.display = selectedType === "avspasering" ? "block" : "none";
-      sickTimeContainer.style.display = isReduceGoalType(selectedType) ? "block" : "none";
-    };
-    typeSelect.addEventListener("change", updateFieldVisibility);
-    updateFieldVisibility();
     const noteLabel = document.createElement("div");
     noteLabel.textContent = t("modals.commentOptional");
     noteLabel.style.marginBottom = "5px";
@@ -7735,12 +7856,23 @@ var UIBuilder = class {
     content.appendChild(noteLabel);
     const noteInput = document.createElement("input");
     noteInput.type = "text";
-    noteInput.placeholder = t("modals.commentPlaceholder");
     noteInput.style.width = "100%";
     noteInput.style.marginBottom = "20px";
     noteInput.style.padding = "8px";
     noteInput.style.fontSize = "14px";
     content.appendChild(noteInput);
+    const getPlaceholderForType = (type) => {
+      const placeholders = t("modals.commentPlaceholders");
+      return placeholders[type] || placeholders["default"] || t("modals.commentPlaceholder");
+    };
+    const updateFieldVisibility = () => {
+      const selectedType = typeSelect.value;
+      timeContainer.style.display = selectedType === "avspasering" ? "block" : "none";
+      sickTimeContainer.style.display = isReduceGoalType(selectedType) ? "block" : "none";
+      noteInput.placeholder = getPlaceholderForType(selectedType);
+    };
+    typeSelect.addEventListener("change", updateFieldVisibility);
+    updateFieldVisibility();
     const buttonDiv = document.createElement("div");
     buttonDiv.style.display = "flex";
     buttonDiv.style.gap = "10px";

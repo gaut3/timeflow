@@ -14,7 +14,7 @@ timeflow provides a comprehensive flextime tracking dashboard with **built-in ti
 - **English** - Full English translation
 - Switch languages instantly in Settings
 - Dates format automatically (DD.MM.YYYY for Norwegian, YYYY-MM-DD for English)
-- Special day names and note types translate automatically
+- Absence type names and note types translate automatically
 
 ### ⏱️ Built-in Timer System
 ![timeflow-day-week-month](https://github.com/gaut3/timeflow/blob/main/images/timeflow%20day-week-month.png?raw=true)
@@ -30,7 +30,7 @@ timeflow provides a comprehensive flextime tracking dashboard with **built-in ti
 - **Week Numbers** - ISO 8601 week numbers displayed in calendar and week card (toggle in settings)
 - **Interactive Month Calendar** - Visual calendar with color-coded days for planned holidays and flextime
   - Click any date for quick actions
-  - Edit work time, register special days, create notes
+  - Edit work time, register absences, create notes
   - View running timers and day summaries in info panel
   - Week number column for easy reference
 - **Comprehensive Statistics** - View statistics for total, yearly, and monthly periods
@@ -41,7 +41,7 @@ timeflow provides a comprehensive flextime tracking dashboard with **built-in ti
 
 ### 🎯 Planning & Organization
 ![timeflow-context](https://github.com/gaut3/timeflow/blob/main/images/timeflow%20context%20-%20english.png?raw=true)
-- **Holiday Planning** - Integrate planned holidays and special days from a markdown file
+- **Holiday Planning** - Integrate planned holidays and absences from a markdown file
 - **Customizable Note Types** - Create and manage custom note templates with flexible configuration
   - Daily notes, meeting notes, project notes, weekly reviews, reflections
   - Custom folders, templates, tags, and filename patterns
@@ -54,7 +54,7 @@ timeflow provides a comprehensive flextime tracking dashboard with **built-in ti
 - **Calendar Context Menu** - Click any date to:
   - Add work time entries
   - Edit existing entries (with running timer support)
-  - Register special days (vacation, sick leave, courses, etc.)
+  - Register absences (vacation, sick leave, courses, etc.)
   - Create custom note types
   - View day summary with running timers
 - **Data Validation** - Automatically detect issues like negative durations, long-running timers, and overlapping entries
@@ -85,7 +85,7 @@ timeflow provides a comprehensive flextime tracking dashboard with **built-in ti
   - Maximum vacation days (ferie) - default: 25 days
   - Dashboard displays usage against configured limits
 
-#### Special Day Types
+#### Absence Types
 - **Fully Customizable** - Change names, colors, icons, and text colors for all day types:
   - Jobb (Work) - configurable as a work type
   - Avspasering (Comp time)
@@ -96,7 +96,7 @@ timeflow provides a comprehensive flextime tracking dashboard with **built-in ti
   - Sykemelding (Doctor's note sick leave)
   - Kurs (Course/Training)
   - Studie (Study leave)
-- **Automatic History Conversion** - Planned special days are automatically converted to timer entries when they pass, ensuring they appear in Historikk and statistics
+- **Automatic History Conversion** - Planned absences are automatically converted to timer entries when they pass, ensuring they appear in Historikk and statistics
 
 #### Advanced Configuration
 - **Balance Calculation Settings**
@@ -199,7 +199,7 @@ timeflow uses a simple folder structure to organize its files:
 Your Vault/
 └── timeflow/                     # timeflow plugin folder
     ├── data.md                   # Timer data + settings (Timekeep-compatible)
-    ├── holidays.md               # Holiday and special days definitions
+    ├── holidays.md               # Holiday and absence definitions
     └── templates/                # Note templates (customizable)
         ├── daily-notes.md
         ├── meeting-note.md
@@ -250,7 +250,7 @@ Go to **Settings → timeflow → Data Management → Import Data** to upload a 
 - **Weekends**: Behavior depends on settings:
   - Default: All work hours count as flextime bonus
   - With weekend work enabled: Count toward weekly goals
-- **Special Days**: Days marked as holidays, sick leave, etc. count as full workday (no flextime change)
+- **Absences**: Days marked as holidays, sick leave, etc. count as full workday (no flextime change)
 - **Half Days**: Goal is 4 hours instead of full workday
 - **Avspasering (Comp Time)**: Withdraws from flextime balance
 - **Courses/Training**: Regular workday goal applies

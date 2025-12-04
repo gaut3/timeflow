@@ -19,15 +19,16 @@ export const FIXED_DAY_TEXT_COLORS: Record<string, string> = {
 export function getSpecialDayColors(settings: TimeFlowSettings): Record<string, string> {
 	const colors: Record<string, string> = { ...FIXED_DAY_COLORS };
 
-	// Build color map from special day behaviors
-	settings.specialDayBehaviors.forEach(behavior => {
-		colors[behavior.id] = behavior.color;
-	});
-
 	// Fallback to old specialDayColors if it exists (for migration compatibility)
+	// Apply these first so they can be overridden by specialDayBehaviors
 	if (settings.specialDayColors) {
 		Object.assign(colors, settings.specialDayColors);
 	}
+
+	// Build color map from special day behaviors (takes priority)
+	settings.specialDayBehaviors.forEach(behavior => {
+		colors[behavior.id] = behavior.color;
+	});
 
 	return colors;
 }

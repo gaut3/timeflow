@@ -218,7 +218,7 @@ const translations: Record<Language, TranslationStrings> = {
 		menu: {
 			logWork: 'Logg arbeidstimer',
 			editWork: 'Rediger arbeidstid',
-			registerSpecialDay: 'Registrer spesialdag',
+			registerSpecialDay: 'Registrer fravær',
 			addEntry: 'Legg til oppføring',
 			deleteEntry: 'Slett oppføring',
 			selectOption: 'Velg et alternativ fra menyen',
@@ -231,7 +231,7 @@ const translations: Record<Language, TranslationStrings> = {
 		modals: {
 			logWorkTitle: 'Logg arbeidstimer for',
 			editWorkTitle: 'Rediger arbeidstid for',
-			registerSpecialDayTitle: 'Registrer spesialdag',
+			registerSpecialDayTitle: 'Registrer fravær',
 			addEntryTitle: 'Legg til oppføring for',
 			deleteEntryTitle: 'Slett oppføring',
 			startTime: 'Starttid',
@@ -244,6 +244,18 @@ const translations: Record<Language, TranslationStrings> = {
 			to: 'Til:',
 			commentOptional: 'Kommentar (valgfritt):',
 			commentPlaceholder: 'F.eks. "Ferie i Spania"',
+			commentPlaceholders: {
+				ferie: 'F.eks. "Ferie i Spania"',
+				egenmelding: 'F.eks. "Hodepine"',
+				sykemelding: 'F.eks. "Influensa"',
+				velferdspermisjon: 'F.eks. "Legebesøk"',
+				avspasering: 'F.eks. "Tidlig helg"',
+				helligdag: 'F.eks. "1. mai"',
+				kurs: 'F.eks. "React-kurs"',
+				studie: 'F.eks. "Eksamensforberedelse"',
+				halfday: 'F.eks. "Halv dag før ferie"',
+				default: 'F.eks. "Kommentar"',
+			},
 			durationHint: 'Antall timer (f.eks. 3.5 for resten av dagen etter sykdom)',
 		},
 		validation: {
@@ -375,14 +387,14 @@ const translations: Record<Language, TranslationStrings> = {
 			reflection: 'Refleksjonsnotat',
 		},
 		info: {
-			specialDayTypes: 'Spesielle dagtyper',
+			specialDayTypes: 'Fraværstyper',
 			workDaysGradient: 'Arbeidsdager - fargegradient',
 			colorShowsFlextime: 'Fargen viser fleksitid i forhold til dagens mål',
 			calendarContextMenu: 'Kalenderkontekstmeny',
 			clickDayFor: 'Trykk på en dag i kalenderen for:',
 			createDailyNote: 'Opprett daglig notat',
 			editFlextimeManually: 'Rediger arbeidstid manuelt',
-			registerSpecialDays: 'Registrer spesielle dagtyper',
+			registerSpecialDays: 'Registrer fravær',
 			flextimeBalanceZones: 'Fleksitidsaldo - soner',
 			green: 'Grønn',
 			yellow: 'Gul',
@@ -493,7 +505,7 @@ const translations: Record<Language, TranslationStrings> = {
 		menu: {
 			logWork: 'Log work hours',
 			editWork: 'Edit work time',
-			registerSpecialDay: 'Register special day',
+			registerSpecialDay: 'Register absence',
 			addEntry: 'Add entry',
 			deleteEntry: 'Delete entry',
 			selectOption: 'Select an option from the menu',
@@ -506,7 +518,7 @@ const translations: Record<Language, TranslationStrings> = {
 		modals: {
 			logWorkTitle: 'Log work hours for',
 			editWorkTitle: 'Edit work time for',
-			registerSpecialDayTitle: 'Register special day',
+			registerSpecialDayTitle: 'Register absence',
 			addEntryTitle: 'Add entry for',
 			deleteEntryTitle: 'Delete entry',
 			startTime: 'Start time',
@@ -519,6 +531,18 @@ const translations: Record<Language, TranslationStrings> = {
 			to: 'To:',
 			commentOptional: 'Comment (optional):',
 			commentPlaceholder: 'E.g. "Vacation in Spain"',
+			commentPlaceholders: {
+				ferie: 'E.g. "Vacation in Spain"',
+				egenmelding: 'E.g. "Headache"',
+				sykemelding: 'E.g. "Flu"',
+				velferdspermisjon: 'E.g. "Doctor appointment"',
+				avspasering: 'E.g. "Early weekend"',
+				helligdag: 'E.g. "May 1st"',
+				kurs: 'E.g. "React course"',
+				studie: 'E.g. "Exam preparation"',
+				halfday: 'E.g. "Half day before vacation"',
+				default: 'E.g. "Comment"',
+			},
 			durationHint: 'Number of hours (e.g. 3.5 for rest of day after leaving sick)',
 		},
 		validation: {
@@ -650,14 +674,14 @@ const translations: Record<Language, TranslationStrings> = {
 			reflection: 'Reflection Note',
 		},
 		info: {
-			specialDayTypes: 'Special day types',
+			specialDayTypes: 'Absence types',
 			workDaysGradient: 'Work days - color gradient',
 			colorShowsFlextime: 'Color shows flextime relative to daily goal',
 			calendarContextMenu: 'Calendar context menu',
 			clickDayFor: 'Click on a day in the calendar for:',
 			createDailyNote: 'Create daily note',
 			editFlextimeManually: 'Edit flextime manually',
-			registerSpecialDays: 'Register special day types',
+			registerSpecialDays: 'Register absences',
 			flextimeBalanceZones: 'Flextime balance - zones',
 			green: 'Green',
 			yellow: 'Yellow',
@@ -796,6 +820,18 @@ interface TranslationStrings {
 		to: string;
 		commentOptional: string;
 		commentPlaceholder: string;
+		commentPlaceholders: {
+			ferie: string;
+			egenmelding: string;
+			sykemelding: string;
+			velferdspermisjon: string;
+			avspasering: string;
+			helligdag: string;
+			kurs: string;
+			studie: string;
+			halfday: string;
+			default: string;
+		};
 		durationHint: string;
 	};
 	validation: {

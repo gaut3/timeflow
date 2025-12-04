@@ -11,7 +11,7 @@ export class UIBuilder {
 	container: HTMLElement;
 	intervals: number[] = [];
 	today: Date;
-	statsTimeframe: string = "total";
+	statsTimeframe: string = "month";
 	selectedYear: number;
 	selectedMonth: number;
 	historyView: string = "list";
@@ -475,15 +475,18 @@ export class UIBuilder {
 				height: 12px;
 				background: var(--background-secondary);
 				border-radius: 6px;
-				overflow: hidden;
 				margin: 10px 0;
+				position: relative;
+				overflow: hidden;
 			}
 
-			/* Light theme - Progress fill uses green gradient from timeflow.js */
+			/* Progress fill */
 			.tf-progress-fill {
 				height: 100%;
-				background: linear-gradient(90deg, #4caf50, #2e7d32);
 				transition: width 0.3s ease;
+				border-radius: 6px 0 0 6px;
+				margin-left: -0.5px;
+				min-width: 0.5px;
 			}
 
 			.tf-month-grid {
@@ -581,12 +584,14 @@ export class UIBuilder {
 				font-size: clamp(10px, 2.5vw, 16px);
 				font-weight: bold;
 				cursor: pointer;
-				transition: all 0.2s;
+				transition: transform 0.2s, box-shadow 0.2s;
 				position: relative;
 				border: 2px solid transparent;
 				text-shadow: 0 1px 2px rgba(255, 255, 255, 0.5);
 				min-width: 0;
 				overflow: hidden;
+				backface-visibility: hidden;
+				-webkit-font-smoothing: subpixel-antialiased;
 			}
 
 			/* Days with entries - text color set dynamically based on special day */
@@ -607,6 +612,15 @@ export class UIBuilder {
 			.tf-day-cell.today {
 				border-color: var(--interactive-accent);
 				font-weight: bold;
+			}
+
+			.tf-day-cell .secondary-type-stripe {
+				position: absolute;
+				bottom: 0;
+				left: 0;
+				right: 0;
+				height: 4px;
+				border-radius: 0 0 4px 4px;
 			}
 
 			.tf-stats-grid {
@@ -1602,8 +1616,8 @@ export class UIBuilder {
 		tabs.style.marginBottom = "0";
 		tabs.style.borderBottom = "none";
 
-		const timeframes = ["total", "year", "month"];
-		const labels = { total: t('timeframes.total'), year: t('timeframes.year'), month: t('timeframes.month') };
+		const timeframes = ["month", "year", "total"];
+		const labels = { month: t('timeframes.month'), year: t('timeframes.year'), total: t('timeframes.total') };
 
 		timeframes.forEach(tf => {
 			const tab = document.createElement("button");
@@ -2970,6 +2984,52 @@ export class UIBuilder {
 				return specialDayColors[entryName] && (!behavior || !behavior.isWorkType);
 			});
 
+			// Calculate durations by type category (work vs special)
+			let workDuration = 0;
+			let specialDuration = 0;
+			let dominantSpecialType: string | null = null;
+			let hasFullDaySpecial = false; // Track if any special day is a "full day" type (ferie, helligdag, etc.)
+
+			if (dayEntries) {
+				const specialDurations = new Map<string, number>();
+				for (const entry of dayEntries) {
+					const entryName = entry.name.toLowerCase();
+					const behavior = this.settings.specialDayBehaviors.find(b => b.id === entryName);
+					const duration = entry.duration || 0;
+
+					if (behavior?.isWorkType) {
+						workDuration += duration;
+					} else if (specialDayColors[entryName] || behavior?.color) {
+						specialDuration += duration;
+						specialDurations.set(entryName, (specialDurations.get(entryName) || 0) + duration);
+						// Check if this is a "full day" special type (noHoursRequired or countsAsWorkday)
+						// These types should always be dominant regardless of duration
+						if (behavior?.noHoursRequired || behavior?.countsAsWorkday) {
+							hasFullDaySpecial = true;
+							// Set as dominant if we don't have one yet
+							if (!dominantSpecialType) {
+								dominantSpecialType = entryName;
+							}
+						}
+					}
+				}
+				// Find the dominant special type by hours (only if we don't already have a full-day type)
+				if (!dominantSpecialType) {
+					let maxSpecialDuration = 0;
+					for (const [typeName, duration] of specialDurations) {
+						if (duration > maxSpecialDuration) {
+							maxSpecialDuration = duration;
+							dominantSpecialType = typeName;
+						}
+					}
+				}
+			}
+
+			const hasMixedTypes = workDuration > 0 && (specialDuration > 0 || hasFullDaySpecial);
+			// Full-day special types (ferie, helligdag, etc.) should always be dominant
+			// Otherwise, compare by duration
+			const workIsDominant = !hasFullDaySpecial && workDuration >= specialDuration;
+
 			// Track if this day has any entries
 			const hasEntry = !!(holidayInfo || specialEntry || dayEntries);
 
@@ -2978,14 +3038,47 @@ export class UIBuilder {
 				const colorKey = holidayInfo.halfDay ? 'halfday' : holidayInfo.type;
 				cell.style.background = specialDayColors[colorKey] || specialDayColors[holidayInfo.type] || "var(--background-secondary)";
 				cell.style.color = specialDayTextColors[colorKey] || specialDayTextColors[holidayInfo.type] || "var(--text-normal)";
-			} else if (specialEntry) {
-				// Special day from entries (ferie, studie, etc.)
+			} else if (hasMixedTypes && !workIsDominant && dominantSpecialType) {
+				// Special day has more hours - use special day color as main background
+				const behavior = this.settings.specialDayBehaviors.find(b => b.id === dominantSpecialType);
+				const bgColor = behavior?.color || specialDayColors[dominantSpecialType];
+				cell.style.background = bgColor;
+				cell.style.color = behavior?.textColor || specialDayTextColors[dominantSpecialType] || "var(--text-normal)";
+			} else if (specialEntry && !hasMixedTypes) {
+				// Special day ONLY (no work entries) - use special day color for whole cell
 				const entryKey = specialEntry.name.toLowerCase();
-				cell.style.background = specialDayColors[entryKey];
-				cell.style.color = specialDayTextColors[entryKey] || "var(--text-normal)";
+				const behavior = this.settings.specialDayBehaviors.find(b => b.id === entryKey);
+				cell.style.background = behavior?.color || specialDayColors[entryKey];
+				cell.style.color = behavior?.textColor || specialDayTextColors[entryKey] || "var(--text-normal)";
 			} else if (dayEntries) {
-				// Regular work day - show flextime color or simple color
-				if (!this.settings.enableGoalTracking) {
+				// Work is dominant or only work entries - show flextime color or simple color
+				const isWeekendDay = Utils.isWeekend(date, this.settings);
+				const halfWorkday = (this.settings.baseWorkday * this.settings.workPercent) / 2;
+				const isMinimalWeekendWork = isWeekendDay && workDuration < halfWorkday;
+
+				if (isMinimalWeekendWork) {
+					// Weekend with less than half workday - show gray base with work stripe
+					cell.style.background = "var(--background-modifier-border)";
+					cell.style.color = "var(--text-muted)";
+
+					// Add work stripe at bottom
+					const dayFlextime = dayEntries.reduce((sum, e) => sum + (e.flextime || 0), 0);
+					const stripeColor = !this.settings.enableGoalTracking
+						? (this.settings.specialDayBehaviors.find(b => b.isWorkType)?.simpleColor || '#90caf9')
+						: this.flextimeColor(dayFlextime);
+
+					const stripe = document.createElement("div");
+					stripe.className = "secondary-type-stripe";
+					stripe.style.position = "absolute";
+					stripe.style.bottom = "0";
+					stripe.style.left = "0";
+					stripe.style.right = "0";
+					stripe.style.height = "4px";
+					stripe.style.borderRadius = "0 0 4px 4px";
+					stripe.style.background = stripeColor;
+					stripe.style.zIndex = "1";
+					cell.appendChild(stripe);
+				} else if (!this.settings.enableGoalTracking) {
 					// Simple tracking mode - use work type's simpleColor
 					const workType = this.settings.specialDayBehaviors.find(b => b.isWorkType);
 					cell.style.background = workType?.simpleColor || '#90caf9';
@@ -3012,6 +3105,39 @@ export class UIBuilder {
 				} else {
 					// Transparent for future empty weekdays
 					cell.style.background = "transparent";
+				}
+			}
+
+			// Add secondary type stripe if day has mixed types (work + special)
+			if (hasMixedTypes) {
+				// Stripe shows the SECONDARY type (whichever is NOT dominant)
+				let stripeColor: string | null = null;
+
+				if (workIsDominant && dominantSpecialType) {
+					// Work is main, special day is stripe
+					const behavior = this.settings.specialDayBehaviors.find(b => b.id === dominantSpecialType);
+					stripeColor = behavior?.color || specialDayColors[dominantSpecialType];
+				} else {
+					// Special day is main, work (flextime gradient) is stripe
+					// Use the work type's color for the stripe
+					const workBehavior = this.settings.specialDayBehaviors.find(b => b.isWorkType);
+					const dayFlextime = dayEntries?.reduce((sum, e) => sum + (e.flextime || 0), 0) || 0;
+					stripeColor = this.flextimeColor(dayFlextime);
+				}
+
+				// Add stripe
+				if (stripeColor) {
+					const stripe = document.createElement("div");
+					stripe.className = "secondary-type-stripe";
+					stripe.style.position = "absolute";
+					stripe.style.bottom = "0";
+					stripe.style.left = "0";
+					stripe.style.right = "0";
+					stripe.style.height = "4px";
+					stripe.style.borderRadius = "0 0 4px 4px";
+					stripe.style.background = stripeColor;
+					stripe.style.zIndex = "1";
+					cell.appendChild(stripe);
 				}
 			}
 
@@ -3063,8 +3189,8 @@ export class UIBuilder {
 	}
 
 	flextimeColor(val: number): string {
-		// Find jobb behavior to get configured colors
-		const jobbBehavior = this.settings.specialDayBehaviors?.find(b => b.id === 'jobb');
+		// Find work type behavior to get configured colors
+		const workBehavior = this.settings.specialDayBehaviors?.find(b => b.isWorkType);
 
 		// Helper to parse hex color to RGB
 		const hexToRgb = (hex: string): { r: number; g: number; b: number } => {
@@ -3083,46 +3209,46 @@ export class UIBuilder {
 		const scale = Math.max(dailyLimit - baseWorkday, 0.5); // Minimum 0.5 to avoid division issues
 
 		if (val < 0) {
-			// Negative hours: use negativeColor from jobb settings (default blue)
-			const baseColor = jobbBehavior?.negativeColor || '#64b5f6';
+			// Negative hours: use negativeColor from work type settings (default blue)
+			const baseColor = workBehavior?.negativeColor || '#64b5f6';
 			const rgb = hexToRgb(baseColor);
 
 			// Create gradient intensity based on how negative
-			// Use the dynamic scale for full saturation
+			// Use the dynamic scale for full darkness
 			const t = Math.min(Math.abs(val) / scale, 1);
-			// Start lighter, transition to full base color
-			// Lower factor = darker start, higher = brighter start
-			const lightFactor = (1 - t) * 0.4;
-			const r = Math.floor(rgb.r + (255 - rgb.r) * lightFactor);
-			const g = Math.floor(rgb.g + (255 - rgb.g) * lightFactor);
-			const b = Math.floor(rgb.b + (255 - rgb.b) * lightFactor);
+			// Start at base color, transition to darker
+			// darkFactor of 0.5 means we darken by up to 50% at maximum
+			const darkFactor = t * 0.5;
+			const r = Math.floor(rgb.r * (1 - darkFactor));
+			const g = Math.floor(rgb.g * (1 - darkFactor));
+			const b = Math.floor(rgb.b * (1 - darkFactor));
 			return `rgb(${r},${g},${b})`;
 		} else {
-			// Positive hours: use color from jobb settings (default green)
-			const baseColor = jobbBehavior?.color || '#4caf50';
+			// Positive hours: use color from work type settings (default green)
+			const baseColor = workBehavior?.color || '#4caf50';
 			const rgb = hexToRgb(baseColor);
 
 			// Create gradient intensity based on how positive
-			// Use the dynamic scale for full saturation
+			// Use the dynamic scale for full darkness
 			const t = Math.min(val / scale, 1);
-			// Start lighter, transition to full base color
-			// Lower factor = darker start, higher = brighter start
-			const lightFactor = (1 - t) * 0.4;
-			const r = Math.floor(rgb.r + (255 - rgb.r) * lightFactor);
-			const g = Math.floor(rgb.g + (255 - rgb.g) * lightFactor);
-			const b = Math.floor(rgb.b + (255 - rgb.b) * lightFactor);
+			// Start at base color, transition to darker
+			// darkFactor of 0.5 means we darken by up to 50% at maximum
+			const darkFactor = t * 0.5;
+			const r = Math.floor(rgb.r * (1 - darkFactor));
+			const g = Math.floor(rgb.g * (1 - darkFactor));
+			const b = Math.floor(rgb.b * (1 - darkFactor));
 			return `rgb(${r},${g},${b})`;
 		}
 	}
 
 	flextimeTextColor(val: number): string {
-		// Find jobb behavior to get configured text colors
-		const jobbBehavior = this.settings.specialDayBehaviors?.find(b => b.id === 'jobb');
+		// Find work type behavior to get configured text colors
+		const workBehavior = this.settings.specialDayBehaviors?.find(b => b.isWorkType);
 
 		if (val < 0) {
-			return jobbBehavior?.negativeTextColor || '#000000';
+			return workBehavior?.negativeTextColor || '#ffffff';
 		} else {
-			return jobbBehavior?.textColor || '#ffffff';
+			return workBehavior?.textColor || '#ffffff';
 		}
 	}
 
@@ -3452,12 +3578,20 @@ export class UIBuilder {
 	}
 
 	showNoteTypeMenu(cellRect: DOMRect, dateObj: Date): void {
-		// Remove existing menu
-		const existingMenu = document.querySelector('.tf-context-menu');
-		if (existingMenu) existingMenu.remove();
+		// Remove existing menu - toggle behavior if clicking the same date
+		const existingMenu = document.querySelector('.tf-context-menu') as HTMLElement | null;
+		if (existingMenu) {
+			const existingDate = existingMenu.dataset.menuDate;
+			existingMenu.remove();
+			// If clicking the same date, just close (toggle off)
+			if (existingDate === Utils.toLocalDateStr(dateObj)) {
+				return;
+			}
+		}
 
 		const menu = document.createElement('div');
 		menu.className = 'tf-context-menu';
+		menu.dataset.menuDate = Utils.toLocalDateStr(dateObj); // Store for toggle detection
 
 		// Create main menu container
 		const menuMain = document.createElement('div');
@@ -4594,15 +4728,6 @@ export class UIBuilder {
 
 		content.appendChild(sickTimeContainer);
 
-		// Show/hide time fields based on type selection
-		const updateFieldVisibility = () => {
-			const selectedType = typeSelect.value;
-			timeContainer.style.display = selectedType === 'avspasering' ? 'block' : 'none';
-			sickTimeContainer.style.display = isReduceGoalType(selectedType) ? 'block' : 'none';
-		};
-		typeSelect.addEventListener('change', updateFieldVisibility);
-		updateFieldVisibility(); // Initial update
-
 		// Note/comment field
 		const noteLabel = document.createElement('div');
 		noteLabel.textContent = t('modals.commentOptional');
@@ -4612,12 +4737,27 @@ export class UIBuilder {
 
 		const noteInput = document.createElement('input');
 		noteInput.type = 'text';
-		noteInput.placeholder = t('modals.commentPlaceholder');
 		noteInput.style.width = '100%';
 		noteInput.style.marginBottom = '20px';
 		noteInput.style.padding = '8px';
 		noteInput.style.fontSize = '14px';
 		content.appendChild(noteInput);
+
+		// Helper to get placeholder for absence type
+		const getPlaceholderForType = (type: string): string => {
+			const placeholders = t('modals.commentPlaceholders') as unknown as Record<string, string>;
+			return placeholders[type] || placeholders['default'] || t('modals.commentPlaceholder');
+		};
+
+		// Show/hide time fields and update placeholder based on type selection
+		const updateFieldVisibility = () => {
+			const selectedType = typeSelect.value;
+			timeContainer.style.display = selectedType === 'avspasering' ? 'block' : 'none';
+			sickTimeContainer.style.display = isReduceGoalType(selectedType) ? 'block' : 'none';
+			noteInput.placeholder = getPlaceholderForType(selectedType);
+		};
+		typeSelect.addEventListener('change', updateFieldVisibility);
+		updateFieldVisibility(); // Initial update
 
 		// Buttons
 		const buttonDiv = document.createElement('div');

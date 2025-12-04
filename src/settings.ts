@@ -103,7 +103,7 @@ export const DEFAULT_SPECIAL_DAY_BEHAVIORS: SpecialDayBehavior[] = [
 		color: '#4caf50',           // Green for positive flextime (over goal)
 		textColor: '#ffffff',
 		negativeColor: '#64b5f6',   // Blue for negative flextime (under goal)
-		negativeTextColor: '#000000',
+		negativeTextColor: '#ffffff',
 		simpleColor: '#90caf9',     // Light blue for simple tracking mode
 		simpleTextColor: '#000000',
 		noHoursRequired: false,
@@ -216,7 +216,7 @@ export interface WorkSchedulePeriod {
 }
 
 export const DEFAULT_SETTINGS: TimeFlowSettings = {
-	version: "1.0.0",
+	version: "1.2.1",
 	language: "nb",
 	defaultViewLocation: "sidebar",
 	hourUnit: "t",
@@ -373,7 +373,7 @@ export class SpecialDayBehaviorModal extends Modal {
 
 		const isWorkType = this.behavior?.isWorkType ?? false;
 
-		contentEl.createEl('h2', { text: isWorkType ? 'Edit Work Entry Type' : (this.behavior ? 'Edit Special Day Type' : 'Add Special Day Type') });
+		contentEl.createEl('h2', { text: isWorkType ? 'Edit Work Entry Type' : (this.behavior ? 'Edit Absence Type' : 'Add Absence Type') });
 
 		// Add Norwegian term explanations if applicable
 		if (this.behavior && !isWorkType) {
@@ -414,7 +414,7 @@ export class SpecialDayBehaviorModal extends Modal {
 			color: this.behavior?.color || '#b3e5fc',
 			textColor: this.behavior?.textColor || '#000000',
 			negativeColor: this.behavior?.negativeColor || '#64b5f6',
-			negativeTextColor: this.behavior?.negativeTextColor || '#000000',
+			negativeTextColor: this.behavior?.negativeTextColor || '#ffffff',
 			simpleColor: this.behavior?.simpleColor || '#90caf9',
 			simpleTextColor: this.behavior?.simpleTextColor || '#000000',
 			noHoursRequired: this.behavior?.noHoursRequired ?? true,
@@ -512,7 +512,7 @@ export class SpecialDayBehaviorModal extends Modal {
 					.setValue(formData.simpleTextColor)
 					.onChange(value => formData.simpleTextColor = value));
 		} else {
-			// Regular color field for special days
+			// Regular color field for absence types
 			new Setting(contentEl)
 				.setName('Color')
 				.setDesc('Background color for this day type in calendar')
@@ -614,7 +614,7 @@ export class SpecialDayBehaviorModal extends Modal {
 					(b, i) => b.id === formData.id && i !== this.index
 				);
 				if (isDuplicate) {
-					new Notice('⚠️ A special day type with this ID already exists');
+					new Notice('⚠️ An absence type with this ID already exists');
 					return;
 				}
 			}
@@ -1715,9 +1715,9 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 			return parts.join(', ');
 		};
 
-		// Separate work types from special day types
+		// Separate work types from absence types
 		const workTypes = this.plugin.settings.specialDayBehaviors.filter(b => b.isWorkType || b.id === 'jobb');
-		const specialDays = this.plugin.settings.specialDayBehaviors.filter(b => !b.isWorkType && b.id !== 'jobb');
+		const absenceTypes = this.plugin.settings.specialDayBehaviors.filter(b => !b.isWorkType && b.id !== 'jobb');
 
 		// Work Entry Types section
 		new Setting(settingsContainer)
@@ -1749,14 +1749,14 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 					}));
 		});
 
-		// Special Day Types section
+		// Absence Types section
 		new Setting(settingsContainer)
-			.setName('Special Day Types')
-			.setDesc('Configure how different types of special days affect your workday and flextime balance. These settings determine how days are counted in flextime calculations.')
+			.setName('Absence Types')
+			.setDesc('Configure how different types of absences affect your workday and flextime balance. These settings determine how days are counted in flextime calculations.')
 			.setHeading();
 
-		// List special day behaviors (excluding work types)
-		specialDays.forEach((behavior) => {
+		// List absence type behaviors (excluding work types)
+		absenceTypes.forEach((behavior) => {
 			const index = this.plugin.settings.specialDayBehaviors.findIndex(b => b.id === behavior.id);
 
 			new Setting(settingsContainer)
@@ -1798,8 +1798,8 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 
 		// Add new behavior button
 		new Setting(settingsContainer)
-			.setName('Add new special day type')
-			.setDesc('Create a custom day type with your own rules')
+			.setName('Add new absence type')
+			.setDesc('Create a custom absence type with your own rules')
 			.addButton(btn => btn
 				.setButtonText('+ Add')
 				.setCta()
@@ -1893,8 +1893,8 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(settingsContainer)
-			.setName('Heatmap special day colors')
-			.setDesc('Show special day colors (ferie, egenmelding, etc.) instead of flextime gradient in heatmap')
+			.setName('Heatmap absence colors')
+			.setDesc('Show absence colors (ferie, egenmelding, etc.) instead of flextime gradient in heatmap')
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.heatmapShowSpecialDayColors)
 				.onChange(async (value) => {

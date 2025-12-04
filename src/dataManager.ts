@@ -386,9 +386,9 @@ export class DataManager {
 					// Avspasering withdraws from balance
 					flextime -= e.duration || 0;
 				} else {
-					// Regular workday with effective goal: hours beyond goal count as flextime
+					// Regular workday with effective goal: calculate flextime difference
 					// Distribute flextime proportionally if multiple work entries
-					if (totalWorkHours > effectiveGoal) {
+					if (totalWorkHours !== effectiveGoal && effectiveGoal > 0) {
 						const proportion = (e.duration || 0) / totalWorkHours;
 						flextime += (totalWorkHours - effectiveGoal) * proportion;
 					}
