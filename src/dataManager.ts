@@ -390,7 +390,7 @@ export class DataManager {
 				} else {
 					// Regular workday with effective goal: calculate flextime difference
 					// Distribute flextime proportionally if multiple work entries
-					if (totalWorkHours !== effectiveGoal && effectiveGoal > 0) {
+					if (totalWorkHours !== effectiveGoal && effectiveGoal > 0 && totalWorkHours > 0) {
 						const proportion = (e.duration || 0) / totalWorkHours;
 						flextime += (totalWorkHours - effectiveGoal) * proportion;
 					}
@@ -511,13 +511,15 @@ export class DataManager {
 			dayEntries.forEach((entry) => {
 				// Skip active entries since getOngoing() calculates their duration separately
 				if (entry.isActive) return;
-				const name = entry.name.toLowerCase();
-				if (
-					name !== "avspasering" &&
-					name !== "egenmelding" &&
-					name !== "velferdspermisjon" &&
-					name !== "ferie"
-				) {
+
+				const behavior = this.getSpecialDayBehavior(entry.name);
+				// Exclude: withdraw (avspasering), reduce_goal (sick days), none with noHoursRequired (ferie)
+				const shouldExclude = behavior && (
+					behavior.flextimeEffect === 'withdraw' ||
+					behavior.flextimeEffect === 'reduce_goal' ||
+					(behavior.flextimeEffect === 'none' && behavior.noHoursRequired)
+				);
+				if (!shouldExclude) {
 					total += entry.duration || 0;
 				}
 			});
@@ -530,8 +532,16 @@ export class DataManager {
 		const todayKey = Utils.toLocalDateStr(today);
 		const todayEntries = this.daily[todayKey] || [];
 		// Exclude active entries since getOngoing() calculates their duration separately
+		// Also exclude non-work types (vacation, sick days, avspasering)
 		return (
-			todayEntries.filter(e => !e.isActive).reduce((sum, e) => sum + (e.duration || 0), 0) + this.getOngoing()
+			todayEntries
+				.filter(e => {
+					if (e.isActive) return false;
+					const behavior = this.getSpecialDayBehavior(e.name);
+					// Include work types and accumulate types (kurs, studie)
+					return !behavior || behavior.isWorkType || behavior.flextimeEffect === 'accumulate';
+				})
+				.reduce((sum, e) => sum + (e.duration || 0), 0) + this.getOngoing()
 		);
 	}
 
@@ -642,29 +652,40 @@ export class DataManager {
 		const workDaysSet = new Set();
 
 		filteredDays.forEach((dayKey) => {
-			const dayDate = new Date(dayKey);
+			const dayDate = new Date(dayKey + 'T12:00:00');
 			const dayEntries = this.daily[dayKey];
 
 			uniqueDays.add(dayKey);
 
+			// Check weekend/workday once per day (outside entry loop)
+			const isWeekendDay = Utils.isWeekend(dayDate, this.settings);
+			if (isWeekendDay) {
+				weekendDaysSet.add(dayKey);
+			} else {
+				workDaysSet.add(dayKey);
+			}
+
 			dayEntries.forEach((e) => {
 				const name = e.name.toLowerCase();
-				if (e.date && Utils.isWeekend(e.date, this.settings)) {
-					weekendDaysSet.add(dayKey);
+				const behavior = this.getSpecialDayBehavior(name);
+
+				// Track weekend hours
+				if (isWeekendDay) {
 					stats.weekendHours += e.duration || 0;
-				} else {
-					workDaysSet.add(dayKey);
 				}
 
-				if (
-					name === "jobb" ||
-					!["avspasering", "ferie", "velferdspermisjon", "egenmelding", "studie", "kurs"].includes(name)
-				) {
+				// Track by specific type if it exists in daysByType
+				if (daysByType[name]) {
+					daysByType[name].add(dayKey);
+					if (stats[name]) {
+						stats[name].hours += e.duration || 0;
+					}
+				}
+
+				// Also count toward jobb for work types, accumulate types (kurs/studie), and unknown types
+				if (behavior?.isWorkType || behavior?.flextimeEffect === 'accumulate' || !behavior) {
 					daysByType.jobb.add(dayKey);
 					stats.jobb.hours += e.duration || 0;
-				} else if (["avspasering", "ferie", "velferdspermisjon", "egenmelding", "studie", "kurs"].includes(name)) {
-					daysByType[name].add(dayKey);
-					stats[name].hours += e.duration || 0;
 				}
 			});
 		});
@@ -677,6 +698,7 @@ export class DataManager {
 		stats.ferie.count = daysByType.ferie.size;
 		stats.velferdspermisjon.count = daysByType.velferdspermisjon.size;
 		stats.egenmelding.count = daysByType.egenmelding.size;
+		stats.sykemelding.count = daysByType.sykemelding.size;
 		stats.studie.count = daysByType.studie.size;
 		stats.kurs.count = daysByType.kurs.size;
 
@@ -833,7 +855,14 @@ export class DataManager {
 			) {
 				const dayKey = Utils.toLocalDateStr(wd);
 				const dayEntries = this.daily[dayKey] || [];
-				weekSum += dayEntries.reduce((s, e) => s + (e.duration || 0), 0);
+				// Filter using behavior properties - include work types and accumulate types
+				// Exclude: withdraw (avspasering), reduce_goal (sick days), none (ferie)
+				weekSum += dayEntries
+					.filter(e => {
+						const behavior = this.getSpecialDayBehavior(e.name);
+						return !behavior || behavior.isWorkType || behavior.flextimeEffect === 'accumulate';
+					})
+					.reduce((s, e) => s + (e.duration || 0), 0);
 			}
 			weekTotals.push(weekSum);
 		}
@@ -1006,9 +1035,12 @@ export class DataManager {
 				// Skip if it's a weekend (unless weekend work is enabled)
 				if (isWeekend) continue;
 
-				// Skip if it's a holiday that counts as a workday (ferie, egenmelding, etc.)
-				if (holidayInfo && ['ferie', 'helligdag', 'egenmelding', 'sykemelding', 'velferdspermisjon'].includes(holidayInfo.type)) {
-					continue;
+				// Skip if it's a holiday that doesn't require work (ferie, egenmelding, etc.)
+				if (holidayInfo) {
+					const behavior = this.getSpecialDayBehavior(holidayInfo.type);
+					if (behavior?.noHoursRequired || behavior?.flextimeEffect === 'reduce_goal') {
+						continue;
+					}
 				}
 
 				// Skip today and future dates
@@ -1165,20 +1197,23 @@ export class DataManager {
 			cutoffDate.setDate(cutoffDate.getDate() - 365);
 			const cutoffStr = Utils.toLocalDateStr(cutoffDate);
 
-			// Only count from data.md entries if NOT a reduce_goal type
-			if (!isReduceGoalType) {
-				Object.keys(this.daily).forEach(dateStr => {
-					if (dateStr >= cutoffStr && dateStr <= Utils.toLocalDateStr(today)) {
-						const entries = this.daily[dateStr];
-						entries.forEach(entry => {
-							if (entry.name.toLowerCase() === typeId && !daysSeen.has(dateStr)) {
-								daysSeen.add(dateStr);
-								count++;
+			// Count from data.md entries
+			// For reduce_goal types, only count full-day entries (0 duration)
+			Object.keys(this.daily).forEach(dateStr => {
+				if (dateStr >= cutoffStr && dateStr <= Utils.toLocalDateStr(today)) {
+					const entries = this.daily[dateStr];
+					entries.forEach(entry => {
+						if (entry.name.toLowerCase() === typeId && !daysSeen.has(dateStr)) {
+							// For reduce_goal types, only count if it's a full day (0 duration)
+							if (isReduceGoalType && entry.duration && entry.duration > 0) {
+								return; // Skip partial sick days
 							}
-						});
-					}
-				});
-			}
+							daysSeen.add(dateStr);
+							count++;
+						}
+					});
+				}
+			});
 
 			// Count from holidays file (full days)
 			Object.keys(this.holidays).forEach(dateStr => {
@@ -1192,21 +1227,23 @@ export class DataManager {
 			});
 		} else {
 			// Count days in the calendar year
-			// Only count from data.md entries if NOT a reduce_goal type
-			if (!isReduceGoalType) {
-				Object.keys(this.daily).forEach(dateStr => {
-					const date = new Date(dateStr);
-					if (date.getFullYear() === targetYear) {
-						const entries = this.daily[dateStr];
-						entries.forEach(entry => {
-							if (entry.name.toLowerCase() === typeId && !daysSeen.has(dateStr)) {
-								daysSeen.add(dateStr);
-								count++;
+			// For reduce_goal types, only count full-day entries (0 duration)
+			Object.keys(this.daily).forEach(dateStr => {
+				const date = new Date(dateStr);
+				if (date.getFullYear() === targetYear) {
+					const entries = this.daily[dateStr];
+					entries.forEach(entry => {
+						if (entry.name.toLowerCase() === typeId && !daysSeen.has(dateStr)) {
+							// For reduce_goal types, only count if it's a full day (0 duration)
+							if (isReduceGoalType && entry.duration && entry.duration > 0) {
+								return; // Skip partial sick days
 							}
-						});
-					}
-				});
-			}
+							daysSeen.add(dateStr);
+							count++;
+						}
+					});
+				}
+			});
 
 			// Count from holidays file (full days)
 			Object.keys(this.holidays).forEach(dateStr => {

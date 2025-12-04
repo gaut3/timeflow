@@ -502,8 +502,8 @@ ${timekeepBlock}${settingsBlock}
 			let startTime = `${dateStr}T08:00:00`;
 			let endTime = `${dateStr}T08:00:00`;
 
-			if (info.type === 'avspasering') {
-				// Avspasering uses startTime/endTime from holidays.md (e.g., 14:00-16:00)
+			if (behavior?.flextimeEffect === 'withdraw') {
+				// Withdraw types (avspasering) use startTime/endTime from holidays.md (e.g., 14:00-16:00)
 				if (info.startTime && info.endTime) {
 					startTime = `${dateStr}T${info.startTime}:00`;
 					endTime = `${dateStr}T${info.endTime}:00`;

@@ -2550,8 +2550,9 @@ export class UIBuilder {
 		const stats = this.data.getStatistics(this.statsTimeframe, this.selectedYear, this.selectedMonth);
 		const balance = this.data.getCurrentBalance();
 		const { avgDaily, avgWeekly } = this.data.getAverages();
-		const workloadPct = this.settings.baseWorkweek > 0
-			? ((avgWeekly / this.settings.baseWorkweek) * 100).toFixed(0)
+		const expectedWeeklyHours = this.settings.baseWorkweek * this.settings.workPercent;
+		const workloadPct = expectedWeeklyHours > 0
+			? ((avgWeekly / expectedWeeklyHours) * 100).toFixed(0)
 			: '0';
 
 		// Update timeframe selector
@@ -2678,14 +2679,17 @@ export class UIBuilder {
 			ferieDisplay = `${stats.ferie.count}/${stats.ferie.max} ${t('ui.days')} (${feriePercent}%)`;
 		}
 
-		// Egenmelding display with dynamic period label
-		const egenmeldingStats = this.data.getSpecialDayStats('egenmelding', this.selectedYear);
-		let egenmeldingDisplay = `${egenmeldingStats.count} ${t('ui.days')}`;
+		// Egenmelding display - use stats.egenmelding.count for month view, getSpecialDayStats for year view
+		let egenmeldingDisplay = `${stats.egenmelding.count} ${t('ui.days')}`;
 		let egenmeldingPeriodLabel = '';
 		if (this.statsTimeframe === "year") {
+			// For year view, use getSpecialDayStats for rolling/max display
+			const egenmeldingStats = this.data.getSpecialDayStats('egenmelding', this.selectedYear);
 			if (egenmeldingStats.max && egenmeldingStats.max > 0) {
 				const egenmeldingPercent = ((egenmeldingStats.count / egenmeldingStats.max) * 100).toFixed(0);
 				egenmeldingDisplay = `${egenmeldingStats.count}/${egenmeldingStats.max} ${t('ui.days')} (${egenmeldingPercent}%)`;
+			} else {
+				egenmeldingDisplay = `${egenmeldingStats.count} ${t('ui.days')}`;
 			}
 			egenmeldingPeriodLabel = `(${egenmeldingStats.periodLabel})`;
 		}
