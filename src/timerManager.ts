@@ -1,6 +1,7 @@
 import { App, TFile, Notice, normalizePath } from 'obsidian';
 import { TimeFlowSettings } from './settings';
 import { Utils } from './utils';
+import { t } from './i18n';
 
 // Timekeep-compatible format
 export interface Timer {
@@ -221,7 +222,7 @@ ${timekeepBlock}${settingsBlock}
 			this.onTimerChange();
 		}
 
-		new Notice(`⏱️ Timer started: ${name}`);
+		new Notice(`⏱️ ${t('timer.started').replace('{name}', name)}`);
 		return timer;
 	}
 
@@ -242,7 +243,7 @@ ${timekeepBlock}${settingsBlock}
 			new Date(timer.endTime)
 		);
 
-		new Notice(`✅ Timer stopped: ${timer.name} (${Utils.formatHoursToHM(duration)})`);
+		new Notice(`✅ ${t('timer.stopped').replace('{name}', timer.name).replace('{duration}', Utils.formatHoursToHM(duration))}`);
 		return timer;
 	}
 
@@ -263,7 +264,7 @@ ${timekeepBlock}${settingsBlock}
 				this.onTimerChange();
 			}
 
-			new Notice('Timer deleted');
+			new Notice(t('timer.deleted'));
 			return true;
 		}
 		return false;
@@ -457,15 +458,15 @@ ${timekeepBlock}${settingsBlock}
 
 				// Show detailed notice about import results
 				if (skippedCount > 0) {
-					new Notice(`✅ Imported ${addedCount} entries, skipped ${skippedCount} duplicates`);
+					new Notice(`✅ ${t('import.imported')} ${addedCount} ${t('import.entries')}, ${t('import.skippedDuplicates')} ${skippedCount} ${t('import.duplicates')}`);
 				} else {
-					new Notice(`✅ Imported ${addedCount} entries`);
+					new Notice(`✅ ${t('import.imported')} ${addedCount} ${t('import.entries')}`);
 				}
 				return true;
 			}
 		} catch (error) {
 			console.error('Error importing timekeep data:', error);
-			new Notice('❌ Error importing data');
+			new Notice(`❌ ${t('notifications.errorImporting')}`);
 		}
 		return false;
 	}

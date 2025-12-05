@@ -285,7 +285,8 @@ var translations = {
       clickForDetails: "klikk for detaljer",
       holidayNotLoaded: "Helligdagsdata ikke lastet",
       activeTimers: "aktive timer",
-      entriesChecked: "oppf\xF8ringer sjekket"
+      entriesChecked: "oppf\xF8ringer sjekket",
+      loadedPlannedDays: "Lastet inn {count} planlagte dager"
     },
     buttons: {
       cancel: "Avbryt",
@@ -354,14 +355,32 @@ var translations = {
       invalidTimePeriod: "Ugyldig tidsperiode",
       overlappingEntry: "Denne oppf\xF8ringen overlapper med en eksisterende oppf\xF8ring",
       endTimeNextDay: "Sluttid satt til neste dag (f\xF8r starttid)",
-      invalidDuration: "Ugyldig varighet"
+      invalidDuration: "Ugyldig varighet",
+      invalidTimeFormat: "Ugyldig tidsformat. Bruk HH:MM format.",
+      startTimeRequired: "Starttid m\xE5 fylles ut",
+      invalidStartDateTime: "Ugyldig startdato/tid",
+      invalidEndDateTime: "Ugyldig sluttdato/tid"
     },
     notifications: {
       added: "Lagt til",
       updated: "Oppdatert",
       deleted: "Slettet",
       exported: "Eksportert til CSV",
-      saveError: "Feil ved lagring av data"
+      saveError: "Feil ved lagring av data",
+      addedWorkTime: "Lagt til {duration} timer arbeidstid for {date}",
+      errorAddingWorkTime: "Kunne ikke legge til arbeidstid",
+      noWorkEntriesFound: "Ingen arbeidstidsoppf\xF8ringer funnet for denne datoen",
+      entryUpdated: "Oppf\xF8ring oppdatert",
+      fileNotFound: "Fant ikke filen: {path}",
+      sectionNotFound: "Fant ikke seksjonen",
+      codeBlockNotFound: "Fant ikke kodeblokk i seksjonen",
+      errorAddingSpecialDay: "Kunne ikke legge til spesialdag",
+      openedExistingNote: "\xC5pnet eksisterende notat: {filename}",
+      createdNote: "Opprettet notat: {filename}",
+      errorCreatingNote: "Feil ved opprettelse av notat: {error}",
+      addedHours: "Lagt til {duration} timer for {date}",
+      errorLoadingDashboard: "Feil ved lasting av dashboard: {error}",
+      errorImporting: "Feil ved importering av data"
     },
     confirm: {
       deleteEntry: "Er du sikker p\xE5 at du vil slette denne oppf\xF8ringen?",
@@ -434,7 +453,8 @@ var translations = {
         expectedJsonArray: "Forventet en JSON-array",
         couldNotParseDateTime: "Kunne ikke tolke dato/tid",
         entry: "Oppf\xF8ring",
-        row: "Rad"
+        row: "Rad",
+        dateAutoCorrected: "Ugyldig dato {date} ble autokorrigert til {corrected}"
       },
       warnings: "Advarsler",
       errors_label: "Feil",
@@ -467,7 +487,10 @@ var translations = {
     },
     timer: {
       runningTimers: "P\xE5g\xE5ende timer",
-      noActiveTimers: "Ingen aktive timer"
+      noActiveTimers: "Ingen aktive timer",
+      started: "Timer startet: {name}",
+      stopped: "Timer stoppet: {name} ({duration})",
+      deleted: "Timer slettet"
     },
     noteTypes: {
       daily: "Daglig Notat",
@@ -572,7 +595,8 @@ var translations = {
       clickForDetails: "click for details",
       holidayNotLoaded: "Holiday data not loaded",
       activeTimers: "active timers",
-      entriesChecked: "entries checked"
+      entriesChecked: "entries checked",
+      loadedPlannedDays: "Loaded {count} planned days"
     },
     buttons: {
       cancel: "Cancel",
@@ -641,14 +665,32 @@ var translations = {
       invalidTimePeriod: "Invalid time period",
       overlappingEntry: "This entry overlaps with an existing entry",
       endTimeNextDay: "End time set to next day (before start time)",
-      invalidDuration: "Invalid duration"
+      invalidDuration: "Invalid duration",
+      invalidTimeFormat: "Invalid time format. Use HH:MM format.",
+      startTimeRequired: "Start time is required",
+      invalidStartDateTime: "Invalid start date/time",
+      invalidEndDateTime: "Invalid end date/time"
     },
     notifications: {
       added: "Added",
       updated: "Updated",
       deleted: "Deleted",
       exported: "Exported to CSV",
-      saveError: "Error saving data"
+      saveError: "Error saving data",
+      addedWorkTime: "Added {duration} hours of work time for {date}",
+      errorAddingWorkTime: "Could not add work time",
+      noWorkEntriesFound: "No work entries found for this date",
+      entryUpdated: "Entry updated",
+      fileNotFound: "File not found: {path}",
+      sectionNotFound: "Section not found",
+      codeBlockNotFound: "Code block not found in section",
+      errorAddingSpecialDay: "Could not add special day",
+      openedExistingNote: "Opened existing note: {filename}",
+      createdNote: "Created note: {filename}",
+      errorCreatingNote: "Error creating note: {error}",
+      addedHours: "Added {duration} hours for {date}",
+      errorLoadingDashboard: "Error loading dashboard: {error}",
+      errorImporting: "Error importing data"
     },
     confirm: {
       deleteEntry: "Are you sure you want to delete this entry?",
@@ -721,7 +763,8 @@ var translations = {
         expectedJsonArray: "Expected a JSON array",
         couldNotParseDateTime: "Could not parse date/time",
         entry: "Entry",
-        row: "Row"
+        row: "Row",
+        dateAutoCorrected: "Invalid date {date} was auto-corrected to {corrected}"
       },
       warnings: "Warnings",
       errors_label: "Errors",
@@ -754,7 +797,10 @@ var translations = {
     },
     timer: {
       runningTimers: "Running timers",
-      noActiveTimers: "No active timers"
+      noActiveTimers: "No active timers",
+      started: "Timer started: {name}",
+      stopped: "Timer stopped: {name} ({duration})",
+      deleted: "Timer deleted"
     },
     noteTypes: {
       daily: "Daily Note",
@@ -1021,7 +1067,7 @@ var CSVParser = class {
     if (date.getFullYear() !== yearNum || date.getMonth() !== monthNum - 1 || date.getDate() !== dayNum) {
       const correctedStr = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, "0")}-${date.getDate().toString().padStart(2, "0")}`;
       if (warnings) {
-        warnings.push(`Invalid date ${dateStr} was auto-corrected to ${correctedStr}`);
+        warnings.push(t("import.errors.dateAutoCorrected").replace("{date}", dateStr).replace("{corrected}", correctedStr));
       }
     }
     return date;
@@ -1562,8 +1608,8 @@ var DEFAULT_SETTINGS = {
   enableWeeklyGoals: true,
   maxEgenmeldingDays: 8,
   maxFerieDays: 25,
-  updateInterval: 3e4,
-  clockInterval: 1e3,
+  updateInterval: 30,
+  clockInterval: 1,
   dataFilePath: "timeflow/data.md",
   holidaysFilePath: "timeflow/holidays.md",
   dailyNotesFolder: "Daily Notes",
@@ -2656,9 +2702,9 @@ Note: Historical data in your holidays file using "${behavior.id}" will no longe
       await this.plugin.saveSettings();
       await this.refreshView();
     }));
-    new import_obsidian2.Setting(settingsContainer).setName("Update interval (ms)").setDesc("How often to update the dashboard data (in milliseconds)").addText((text) => text.setPlaceholder("30000").setValue(this.plugin.settings.updateInterval.toString()).onChange(async (value) => {
+    new import_obsidian2.Setting(settingsContainer).setName("Update interval (seconds)").setDesc("How often to update the dashboard data (in seconds)").addText((text) => text.setPlaceholder("30").setValue(this.plugin.settings.updateInterval.toString()).onChange(async (value) => {
       const num = parseInt(value);
-      if (!isNaN(num) && num >= 1e3) {
+      if (!isNaN(num) && num >= 1) {
         this.plugin.settings.updateInterval = num;
         await this.plugin.saveSettings();
       }
@@ -3085,7 +3131,7 @@ var DataManager = class {
         });
         status.success = true;
         status.count = Object.keys(this.holidays).length;
-        status.message = `Loaded ${status.count} planned days`;
+        status.message = t("status.loadedPlannedDays").replace("{count}", String(status.count));
       } else {
         status.warning = `Holiday file not found: ${this.settings.holidaysFilePath}`;
         console.warn(status.warning);
@@ -6376,7 +6422,7 @@ var UIBuilder = class {
       return { item, valueDiv };
     };
     if (this.settings.enableGoalTracking) {
-      createStatItem(t("stats.flextimeBalance"), `${sign}${balance.toFixed(1)}t`, t("stats.totalBalance"), "tf-stat-colored", `background: ${timesaldoColor};`);
+      createStatItem(t("stats.flextimeBalance"), `${sign}${Utils.formatHoursToHM(Math.abs(balance), this.settings.hourUnit)}`, t("stats.totalBalance"), "tf-stat-colored", `background: ${timesaldoColor};`);
     }
     createStatItem(`\u23F1\uFE0F ${t("stats.hours")}`, `${stats.totalHours.toFixed(1)}t`);
     createStatItem(`\u{1F4CA} ${t("stats.avgPerDay")}`, `${avgDaily.toFixed(1)}t`);
@@ -7352,7 +7398,7 @@ var UIBuilder = class {
       const endTime = endInput.value.trim();
       const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
       if (!timeRegex.test(startTime) || !timeRegex.test(endTime)) {
-        new import_obsidian4.Notice("\u274C Ugyldig tidsformat. Bruk HH:MM format.");
+        new import_obsidian4.Notice(`\u274C ${t("validation.invalidTimeFormat")}`);
         return;
       }
       const [startHour, startMin] = startTime.split(":").map(Number);
@@ -7376,7 +7422,7 @@ var UIBuilder = class {
           });
           await this.saveWithErrorHandling();
           const duration = (finalEndDate.getTime() - startDate.getTime()) / (1e3 * 60 * 60);
-          new import_obsidian4.Notice(`\u2705 Lagt til ${duration.toFixed(1)} timer arbeidstid for ${dateStr}`);
+          new import_obsidian4.Notice(`\u2705 ${t("notifications.addedWorkTime").replace("{duration}", duration.toFixed(1)).replace("{date}", dateStr)}`);
           this.data.rawEntries = this.timerManager.convertToTimeEntries();
           this.data.processEntries();
           this.updateDayCard();
@@ -7387,7 +7433,7 @@ var UIBuilder = class {
           modal.remove();
         } catch (error) {
           console.error("Failed to add work time:", error);
-          new import_obsidian4.Notice("\u274C Kunne ikke legge til arbeidstid");
+          new import_obsidian4.Notice(`\u274C ${t("notifications.errorAddingWorkTime")}`);
         }
       };
       if (endDate <= startDate) {
@@ -7430,7 +7476,7 @@ var UIBuilder = class {
       }
     });
     if (workEntries.length === 0) {
-      new import_obsidian4.Notice("Ingen arbeidstidsoppf\xF8ringer funnet for denne datoen");
+      new import_obsidian4.Notice(t("notifications.noWorkEntriesFound"));
       return;
     }
     this.isModalOpen = true;
@@ -7547,12 +7593,12 @@ var UIBuilder = class {
           const newEndDateValue = endDateInput.value;
           const newEndTimeValue = endTimeInput.value;
           if (!newStartDateValue || !newStartTimeValue) {
-            new import_obsidian4.Notice("\u274C Starttid m\xE5 fylles ut");
+            new import_obsidian4.Notice(`\u274C ${t("validation.startTimeRequired")}`);
             return;
           }
           const newStartDate = /* @__PURE__ */ new Date(`${newStartDateValue}T${newStartTimeValue}:00`);
           if (isNaN(newStartDate.getTime())) {
-            new import_obsidian4.Notice("\u274C Ugyldig startdato/tid");
+            new import_obsidian4.Notice(`\u274C ${t("validation.invalidStartDateTime")}`);
             return;
           }
           const saveUpdate = async (finalEndDate) => {
@@ -7566,7 +7612,7 @@ var UIBuilder = class {
             entry.startTime = Utils.toLocalISOString(newStartDate);
             entry.endTime = finalEndDate ? Utils.toLocalISOString(finalEndDate) : null;
             await this.saveWithErrorHandling();
-            new import_obsidian4.Notice("\u2705 Oppf\xF8ring oppdatert");
+            new import_obsidian4.Notice(`\u2705 ${t("notifications.entryUpdated")}`);
             this.data.rawEntries = this.timerManager.convertToTimeEntries();
             this.data.processEntries();
             this.updateDayCard();
@@ -7579,11 +7625,11 @@ var UIBuilder = class {
           if (newEndTimeValue) {
             const newEndDate = /* @__PURE__ */ new Date(`${newEndDateValue}T${newEndTimeValue}:00`);
             if (isNaN(newEndDate.getTime())) {
-              new import_obsidian4.Notice("\u274C Ugyldig sluttdato/tid");
+              new import_obsidian4.Notice(`\u274C ${t("validation.invalidEndDateTime")}`);
               return;
             }
             if (newEndDate <= newStartDate) {
-              new import_obsidian4.Notice("\u274C Sluttid m\xE5 v\xE6re etter starttid");
+              new import_obsidian4.Notice(`\u274C ${t("validation.endAfterStart")}`);
               return;
             }
             saveUpdate(newEndDate);
@@ -7619,7 +7665,7 @@ var UIBuilder = class {
           }
           if (deleted) {
             await this.saveWithErrorHandling();
-            new import_obsidian4.Notice("\u2705 Oppf\xF8ring slettet");
+            new import_obsidian4.Notice(`\u2705 ${t("notifications.deleted")}`);
             this.data.rawEntries = this.timerManager.convertToTimeEntries();
             this.data.processEntries();
             this.updateDayCard();
@@ -7972,7 +8018,7 @@ var UIBuilder = class {
       const filePath = this.settings.holidaysFilePath;
       const file = this.app.vault.getAbstractFileByPath((0, import_obsidian4.normalizePath)(filePath));
       if (!file) {
-        new import_obsidian4.Notice(`\u274C Fant ikke filen: ${filePath}`);
+        new import_obsidian4.Notice(`\u274C ${t("notifications.fileNotFound").replace("{path}", filePath)}`);
         return;
       }
       const year = dateObj.getFullYear();
@@ -7983,13 +8029,13 @@ var UIBuilder = class {
       const sectionMarker = "## Planlagte egne fridager";
       const sectionIndex = content.indexOf(sectionMarker);
       if (sectionIndex === -1) {
-        new import_obsidian4.Notice('\u274C Fant ikke seksjonen "Planlagte egne fridager"');
+        new import_obsidian4.Notice(`\u274C ${t("notifications.sectionNotFound")}`);
         return;
       }
       const codeBlockStart = content.indexOf("```", sectionIndex);
       const codeBlockEnd = content.indexOf("```", codeBlockStart + 3);
       if (codeBlockStart === -1 || codeBlockEnd === -1) {
-        new import_obsidian4.Notice("\u274C Fant ikke kodeblokk i seksjonen");
+        new import_obsidian4.Notice(`\u274C ${t("notifications.codeBlockNotFound")}`);
         return;
       }
       let typeWithModifier = dayType;
@@ -8008,7 +8054,7 @@ var UIBuilder = class {
       this.updateMonthCard();
     } catch (error) {
       console.error("Failed to add special day:", error);
-      new import_obsidian4.Notice("\u274C Kunne ikke legge til spesialdag");
+      new import_obsidian4.Notice(`\u274C ${t("notifications.errorAddingSpecialDay")}`);
     }
   }
   async createNoteFromType(dateObj, noteType) {
@@ -8020,7 +8066,7 @@ var UIBuilder = class {
       const existingFile = this.app.vault.getAbstractFileByPath(filePath);
       if (existingFile) {
         await this.app.workspace.getLeaf(false).openFile(existingFile);
-        new import_obsidian4.Notice(`Opened existing note: ${filename}`);
+        new import_obsidian4.Notice(t("notifications.openedExistingNote").replace("{filename}", filename));
         return;
       }
       const folderPath = noteType.folder;
@@ -8040,9 +8086,9 @@ ${noteType.tags.join(" ")}`;
       }
       const file = await this.app.vault.create(filePath, content);
       await this.app.workspace.getLeaf(false).openFile(file);
-      new import_obsidian4.Notice(`Created note: ${filename}`);
+      new import_obsidian4.Notice(t("notifications.createdNote").replace("{filename}", filename));
     } catch (error) {
-      new import_obsidian4.Notice(`Error creating note: ${error.message}`);
+      new import_obsidian4.Notice(t("notifications.errorCreatingNote").replace("{error}", error.message));
       console.error("Error creating note:", error);
     }
   }
@@ -8926,7 +8972,7 @@ ${noteType.tags.join(" ")}`;
       this.isModalOpen = false;
       modal.remove();
       const duration = (endDate.getTime() - startDate.getTime()) / (1e3 * 60 * 60);
-      new import_obsidian4.Notice(`\u2705 Lagt til ${duration.toFixed(1)} timer for ${dateStr}`);
+      new import_obsidian4.Notice(`\u2705 ${t("notifications.addedHours").replace("{duration}", duration.toFixed(1)).replace("{date}", dateStr)}`);
       await ((_b = (_a = this.plugin.timerManager).onTimerChange) == null ? void 0 : _b.call(_a));
     };
     buttonContainer.appendChild(saveBtn);
@@ -9027,16 +9073,16 @@ ${noteType.tags.join(" ")}`;
     a.download = `timeflow-export-${Utils.toLocalDateStr(/* @__PURE__ */ new Date())}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-    new import_obsidian4.Notice("Exported to CSV");
+    new import_obsidian4.Notice(t("notifications.exported"));
   }
   startUpdates() {
     const clockInterval = window.setInterval(() => {
       this.updateClock();
-    }, this.settings.clockInterval);
+    }, this.settings.clockInterval * 1e3);
     this.intervals.push(clockInterval);
     const dataInterval = window.setInterval(() => {
       this.updateAll();
-    }, this.settings.updateInterval);
+    }, this.settings.updateInterval * 1e3);
     this.intervals.push(dataInterval);
   }
   updateAll() {
@@ -9229,7 +9275,7 @@ var TimeFlowView = class extends import_obsidian5.ItemView {
     } catch (error) {
       console.error("Error loading TimeFlow dashboard:", error);
       container.createDiv({
-        text: `Error loading dashboard: ${error.message}`,
+        text: t("notifications.errorLoadingDashboard").replace("{error}", error.message),
         cls: "timeflow-error"
       });
     }
@@ -9405,7 +9451,7 @@ ${timekeepBlock}${settingsBlock}
     if (this.onTimerChange) {
       this.onTimerChange();
     }
-    new import_obsidian6.Notice(`\u23F1\uFE0F Timer started: ${name}`);
+    new import_obsidian6.Notice(`\u23F1\uFE0F ${t("timer.started").replace("{name}", name)}`);
     return timer;
   }
   async stopTimer(timer) {
@@ -9421,7 +9467,7 @@ ${timekeepBlock}${settingsBlock}
       new Date(timer.startTime),
       new Date(timer.endTime)
     );
-    new import_obsidian6.Notice(`\u2705 Timer stopped: ${timer.name} (${Utils.formatHoursToHM(duration)})`);
+    new import_obsidian6.Notice(`\u2705 ${t("timer.stopped").replace("{name}", timer.name).replace("{duration}", Utils.formatHoursToHM(duration))}`);
     return timer;
   }
   async stopAllTimers() {
@@ -9438,7 +9484,7 @@ ${timekeepBlock}${settingsBlock}
       if (this.onTimerChange) {
         this.onTimerChange();
       }
-      new import_obsidian6.Notice("Timer deleted");
+      new import_obsidian6.Notice(t("timer.deleted"));
       return true;
     }
     return false;
@@ -9589,15 +9635,15 @@ ${timekeepBlock}${settingsBlock}
           this.onTimerChange();
         }
         if (skippedCount > 0) {
-          new import_obsidian6.Notice(`\u2705 Imported ${addedCount} entries, skipped ${skippedCount} duplicates`);
+          new import_obsidian6.Notice(`\u2705 ${t("import.imported")} ${addedCount} ${t("import.entries")}, ${t("import.skippedDuplicates")} ${skippedCount} ${t("import.duplicates")}`);
         } else {
-          new import_obsidian6.Notice(`\u2705 Imported ${addedCount} entries`);
+          new import_obsidian6.Notice(`\u2705 ${t("import.imported")} ${addedCount} ${t("import.entries")}`);
         }
         return true;
       }
     } catch (error) {
       console.error("Error importing timekeep data:", error);
-      new import_obsidian6.Notice("\u274C Error importing data");
+      new import_obsidian6.Notice(`\u274C ${t("notifications.errorImporting")}`);
     }
     return false;
   }

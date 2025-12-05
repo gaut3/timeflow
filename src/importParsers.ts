@@ -299,7 +299,7 @@ export class CSVParser implements ImportParser {
 			date.getDate() !== dayNum) {
 			const correctedStr = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`;
 			if (warnings) {
-				warnings.push(`Invalid date ${dateStr} was auto-corrected to ${correctedStr}`);
+				warnings.push(t('import.errors.dateAutoCorrected').replace('{date}', dateStr).replace('{corrected}', correctedStr));
 			}
 		}
 

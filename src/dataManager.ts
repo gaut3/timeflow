@@ -1,6 +1,7 @@
 import { App, TFile, normalizePath } from 'obsidian';
 import { TimeFlowSettings, SpecialDayBehavior, WorkSchedulePeriod } from './settings';
 import { Utils } from './utils';
+import { t } from './i18n';
 
 export interface TimeEntry {
 	name: string;
@@ -102,7 +103,7 @@ export class DataManager {
 
 				status.success = true;
 				status.count = Object.keys(this.holidays).length;
-				status.message = `Loaded ${status.count} planned days`;
+				status.message = t('status.loadedPlannedDays').replace('{count}', String(status.count));
 			} else {
 				status.warning = `Holiday file not found: ${this.settings.holidaysFilePath}`;
 				console.warn(status.warning);

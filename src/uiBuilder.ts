@@ -2711,7 +2711,7 @@ export class UIBuilder {
 
 		// Flextime balance (conditional)
 		if (this.settings.enableGoalTracking) {
-			createStatItem(t('stats.flextimeBalance'), `${sign}${balance.toFixed(1)}t`, t('stats.totalBalance'), 'tf-stat-colored', `background: ${timesaldoColor};`);
+			createStatItem(t('stats.flextimeBalance'), `${sign}${Utils.formatHoursToHM(Math.abs(balance), this.settings.hourUnit)}`, t('stats.totalBalance'), 'tf-stat-colored', `background: ${timesaldoColor};`);
 		}
 
 		// Hours
@@ -4033,7 +4033,7 @@ export class UIBuilder {
 			// Validate time format
 			const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
 			if (!timeRegex.test(startTime) || !timeRegex.test(endTime)) {
-				new Notice('❌ Ugyldig tidsformat. Bruk HH:MM format.');
+				new Notice(`❌ ${t('validation.invalidTimeFormat')}`);
 				return;
 			}
 
@@ -4068,7 +4068,7 @@ export class UIBuilder {
 					await this.saveWithErrorHandling();
 
 					const duration = (finalEndDate.getTime() - startDate.getTime()) / (1000 * 60 * 60);
-					new Notice(`✅ Lagt til ${duration.toFixed(1)} timer arbeidstid for ${dateStr}`);
+					new Notice(`✅ ${t('notifications.addedWorkTime').replace('{duration}', duration.toFixed(1)).replace('{date}', dateStr)}`);
 
 					// Reload data to reflect changes
 					this.data.rawEntries = this.timerManager.convertToTimeEntries();
@@ -4084,7 +4084,7 @@ export class UIBuilder {
 					modal.remove();
 				} catch (error) {
 					console.error('Failed to add work time:', error);
-					new Notice('❌ Kunne ikke legge til arbeidstid');
+					new Notice(`❌ ${t('notifications.errorAddingWorkTime')}`);
 				}
 			};
 
@@ -4139,7 +4139,7 @@ export class UIBuilder {
 		});
 
 		if (workEntries.length === 0) {
-			new Notice('Ingen arbeidstidsoppføringer funnet for denne datoen');
+			new Notice(t('notifications.noWorkEntriesFound'));
 			return;
 		}
 
@@ -4299,14 +4299,14 @@ export class UIBuilder {
 
 					// Validate inputs
 					if (!newStartDateValue || !newStartTimeValue) {
-						new Notice('❌ Starttid må fylles ut');
+						new Notice(`❌ ${t('validation.startTimeRequired')}`);
 						return;
 					}
 
 					// Create new start date
 					const newStartDate = new Date(`${newStartDateValue}T${newStartTimeValue}:00`);
 					if (isNaN(newStartDate.getTime())) {
-						new Notice('❌ Ugyldig startdato/tid');
+						new Notice(`❌ ${t('validation.invalidStartDateTime')}`);
 						return;
 					}
 
@@ -4326,7 +4326,7 @@ export class UIBuilder {
 						entry.endTime = finalEndDate ? Utils.toLocalISOString(finalEndDate) : null;
 
 						await this.saveWithErrorHandling();
-						new Notice('✅ Oppføring oppdatert');
+						new Notice(`✅ ${t('notifications.entryUpdated')}`);
 
 						// Reload data to reflect changes
 						this.data.rawEntries = this.timerManager.convertToTimeEntries();
@@ -4346,12 +4346,12 @@ export class UIBuilder {
 						// Create end date from inputs
 						const newEndDate = new Date(`${newEndDateValue}T${newEndTimeValue}:00`);
 						if (isNaN(newEndDate.getTime())) {
-							new Notice('❌ Ugyldig sluttdato/tid');
+							new Notice(`❌ ${t('validation.invalidEndDateTime')}`);
 							return;
 						}
 
 						if (newEndDate <= newStartDate) {
-							new Notice('❌ Sluttid må være etter starttid');
+							new Notice(`❌ ${t('validation.endAfterStart')}`);
 							return;
 						}
 
@@ -4396,7 +4396,7 @@ export class UIBuilder {
 
 					if (deleted) {
 						await this.saveWithErrorHandling();
-						new Notice('✅ Oppføring slettet');
+						new Notice(`✅ ${t('notifications.deleted')}`);
 
 						// Reload data to reflect changes
 						this.data.rawEntries = this.timerManager.convertToTimeEntries();
@@ -4846,7 +4846,7 @@ export class UIBuilder {
 			const file = this.app.vault.getAbstractFileByPath(normalizePath(filePath));
 
 			if (!file) {
-				new Notice(`❌ Fant ikke filen: ${filePath}`);
+				new Notice(`❌ ${t('notifications.fileNotFound').replace('{path}', filePath)}`);
 				return;
 			}
 
@@ -4864,7 +4864,7 @@ export class UIBuilder {
 			const sectionIndex = content.indexOf(sectionMarker);
 
 			if (sectionIndex === -1) {
-				new Notice('❌ Fant ikke seksjonen "Planlagte egne fridager"');
+				new Notice(`❌ ${t('notifications.sectionNotFound')}`);
 				return;
 			}
 
@@ -4873,7 +4873,7 @@ export class UIBuilder {
 			const codeBlockEnd = content.indexOf('```', codeBlockStart + 3);
 
 			if (codeBlockStart === -1 || codeBlockEnd === -1) {
-				new Notice('❌ Fant ikke kodeblokk i seksjonen');
+				new Notice(`❌ ${t('notifications.codeBlockNotFound')}`);
 				return;
 			}
 
@@ -4907,7 +4907,7 @@ export class UIBuilder {
 			this.updateMonthCard();
 		} catch (error) {
 			console.error('Failed to add special day:', error);
-			new Notice('❌ Kunne ikke legge til spesialdag');
+			new Notice(`❌ ${t('notifications.errorAddingSpecialDay')}`);
 		}
 	}
 
@@ -4928,7 +4928,7 @@ export class UIBuilder {
 			const existingFile = this.app.vault.getAbstractFileByPath(filePath);
 			if (existingFile) {
 				await this.app.workspace.getLeaf(false).openFile(existingFile as TFile);
-				new Notice(`Opened existing note: ${filename}`);
+				new Notice(t('notifications.openedExistingNote').replace('{filename}', filename));
 				return;
 			}
 
@@ -4959,10 +4959,10 @@ export class UIBuilder {
 			// Create file
 			const file = await this.app.vault.create(filePath, content);
 			await this.app.workspace.getLeaf(false).openFile(file);
-			new Notice(`Created note: ${filename}`);
+			new Notice(t('notifications.createdNote').replace('{filename}', filename));
 
 		} catch (error: any) {
-			new Notice(`Error creating note: ${error.message}`);
+			new Notice(t('notifications.errorCreatingNote').replace('{error}', error.message));
 			console.error('Error creating note:', error);
 		}
 	}
@@ -6089,7 +6089,7 @@ export class UIBuilder {
 			modal.remove();
 
 			const duration = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60);
-			new Notice(`✅ Lagt til ${duration.toFixed(1)} timer for ${dateStr}`);
+			new Notice(`✅ ${t('notifications.addedHours').replace('{duration}', duration.toFixed(1)).replace('{date}', dateStr)}`);
 
 			await this.plugin.timerManager.onTimerChange?.();
 		};
@@ -6218,20 +6218,20 @@ export class UIBuilder {
 		a.click();
 		URL.revokeObjectURL(url);
 
-		new Notice('Exported to CSV');
+		new Notice(t('notifications.exported'));
 	}
 
 	startUpdates(): void {
-		// Update clock every second
+		// Update clock every second (settings in seconds, setInterval needs ms)
 		const clockInterval = window.setInterval(() => {
 			this.updateClock();
-		}, this.settings.clockInterval);
+		}, this.settings.clockInterval * 1000);
 		this.intervals.push(clockInterval);
 
-		// Update data every 30 seconds
+		// Update data periodically (settings in seconds, setInterval needs ms)
 		const dataInterval = window.setInterval(() => {
 			this.updateAll();
-		}, this.settings.updateInterval);
+		}, this.settings.updateInterval * 1000);
 		this.intervals.push(dataInterval);
 	}
 

@@ -196,6 +196,7 @@ const translations: Record<Language, TranslationStrings> = {
 			holidayNotLoaded: 'Helligdagsdata ikke lastet',
 			activeTimers: 'aktive timer',
 			entriesChecked: 'oppføringer sjekket',
+			loadedPlannedDays: 'Lastet inn {count} planlagte dager',
 		},
 		buttons: {
 			cancel: 'Avbryt',
@@ -265,6 +266,10 @@ const translations: Record<Language, TranslationStrings> = {
 			overlappingEntry: 'Denne oppføringen overlapper med en eksisterende oppføring',
 			endTimeNextDay: 'Sluttid satt til neste dag (før starttid)',
 			invalidDuration: 'Ugyldig varighet',
+			invalidTimeFormat: 'Ugyldig tidsformat. Bruk HH:MM format.',
+			startTimeRequired: 'Starttid må fylles ut',
+			invalidStartDateTime: 'Ugyldig startdato/tid',
+			invalidEndDateTime: 'Ugyldig sluttdato/tid',
 		},
 		notifications: {
 			added: 'Lagt til',
@@ -272,6 +277,20 @@ const translations: Record<Language, TranslationStrings> = {
 			deleted: 'Slettet',
 			exported: 'Eksportert til CSV',
 			saveError: 'Feil ved lagring av data',
+			addedWorkTime: 'Lagt til {duration} timer arbeidstid for {date}',
+			errorAddingWorkTime: 'Kunne ikke legge til arbeidstid',
+			noWorkEntriesFound: 'Ingen arbeidstidsoppføringer funnet for denne datoen',
+			entryUpdated: 'Oppføring oppdatert',
+			fileNotFound: 'Fant ikke filen: {path}',
+			sectionNotFound: 'Fant ikke seksjonen',
+			codeBlockNotFound: 'Fant ikke kodeblokk i seksjonen',
+			errorAddingSpecialDay: 'Kunne ikke legge til spesialdag',
+			openedExistingNote: 'Åpnet eksisterende notat: {filename}',
+			createdNote: 'Opprettet notat: {filename}',
+			errorCreatingNote: 'Feil ved opprettelse av notat: {error}',
+			addedHours: 'Lagt til {duration} timer for {date}',
+			errorLoadingDashboard: 'Feil ved lasting av dashboard: {error}',
+			errorImporting: 'Feil ved importering av data',
 		},
 		confirm: {
 			deleteEntry: 'Er du sikker på at du vil slette denne oppføringen?',
@@ -345,6 +364,7 @@ const translations: Record<Language, TranslationStrings> = {
 				couldNotParseDateTime: 'Kunne ikke tolke dato/tid',
 				entry: 'Oppføring',
 				row: 'Rad',
+				dateAutoCorrected: 'Ugyldig dato {date} ble autokorrigert til {corrected}',
 			},
 			warnings: 'Advarsler',
 			errors_label: 'Feil',
@@ -378,6 +398,9 @@ const translations: Record<Language, TranslationStrings> = {
 		timer: {
 			runningTimers: 'Pågående timer',
 			noActiveTimers: 'Ingen aktive timer',
+			started: 'Timer startet: {name}',
+			stopped: 'Timer stoppet: {name} ({duration})',
+			deleted: 'Timer slettet',
 		},
 		noteTypes: {
 			daily: 'Daglig Notat',
@@ -483,6 +506,7 @@ const translations: Record<Language, TranslationStrings> = {
 			holidayNotLoaded: 'Holiday data not loaded',
 			activeTimers: 'active timers',
 			entriesChecked: 'entries checked',
+			loadedPlannedDays: 'Loaded {count} planned days',
 		},
 		buttons: {
 			cancel: 'Cancel',
@@ -552,6 +576,10 @@ const translations: Record<Language, TranslationStrings> = {
 			overlappingEntry: 'This entry overlaps with an existing entry',
 			endTimeNextDay: 'End time set to next day (before start time)',
 			invalidDuration: 'Invalid duration',
+			invalidTimeFormat: 'Invalid time format. Use HH:MM format.',
+			startTimeRequired: 'Start time is required',
+			invalidStartDateTime: 'Invalid start date/time',
+			invalidEndDateTime: 'Invalid end date/time',
 		},
 		notifications: {
 			added: 'Added',
@@ -559,6 +587,20 @@ const translations: Record<Language, TranslationStrings> = {
 			deleted: 'Deleted',
 			exported: 'Exported to CSV',
 			saveError: 'Error saving data',
+			addedWorkTime: 'Added {duration} hours of work time for {date}',
+			errorAddingWorkTime: 'Could not add work time',
+			noWorkEntriesFound: 'No work entries found for this date',
+			entryUpdated: 'Entry updated',
+			fileNotFound: 'File not found: {path}',
+			sectionNotFound: 'Section not found',
+			codeBlockNotFound: 'Code block not found in section',
+			errorAddingSpecialDay: 'Could not add special day',
+			openedExistingNote: 'Opened existing note: {filename}',
+			createdNote: 'Created note: {filename}',
+			errorCreatingNote: 'Error creating note: {error}',
+			addedHours: 'Added {duration} hours for {date}',
+			errorLoadingDashboard: 'Error loading dashboard: {error}',
+			errorImporting: 'Error importing data',
 		},
 		confirm: {
 			deleteEntry: 'Are you sure you want to delete this entry?',
@@ -632,6 +674,7 @@ const translations: Record<Language, TranslationStrings> = {
 				couldNotParseDateTime: 'Could not parse date/time',
 				entry: 'Entry',
 				row: 'Row',
+				dateAutoCorrected: 'Invalid date {date} was auto-corrected to {corrected}',
 			},
 			warnings: 'Warnings',
 			errors_label: 'Errors',
@@ -665,6 +708,9 @@ const translations: Record<Language, TranslationStrings> = {
 		timer: {
 			runningTimers: 'Running timers',
 			noActiveTimers: 'No active timers',
+			started: 'Timer started: {name}',
+			stopped: 'Timer stopped: {name} ({duration})',
+			deleted: 'Timer deleted',
 		},
 		noteTypes: {
 			daily: 'Daily Note',
@@ -772,6 +818,7 @@ interface TranslationStrings {
 		holidayNotLoaded: string;
 		activeTimers: string;
 		entriesChecked: string;
+		loadedPlannedDays: string;
 	};
 	buttons: {
 		cancel: string;
@@ -841,6 +888,10 @@ interface TranslationStrings {
 		overlappingEntry: string;
 		endTimeNextDay: string;
 		invalidDuration: string;
+		invalidTimeFormat: string;
+		startTimeRequired: string;
+		invalidStartDateTime: string;
+		invalidEndDateTime: string;
 	};
 	notifications: {
 		added: string;
@@ -848,6 +899,20 @@ interface TranslationStrings {
 		deleted: string;
 		exported: string;
 		saveError: string;
+		addedWorkTime: string;
+		errorAddingWorkTime: string;
+		noWorkEntriesFound: string;
+		entryUpdated: string;
+		fileNotFound: string;
+		sectionNotFound: string;
+		codeBlockNotFound: string;
+		errorAddingSpecialDay: string;
+		openedExistingNote: string;
+		createdNote: string;
+		errorCreatingNote: string;
+		addedHours: string;
+		errorLoadingDashboard: string;
+		errorImporting: string;
 	};
 	confirm: {
 		deleteEntry: string;
@@ -921,6 +986,7 @@ interface TranslationStrings {
 			couldNotParseDateTime: string;
 			entry: string;
 			row: string;
+			dateAutoCorrected: string;
 		};
 		warnings: string;
 		errors_label: string;
@@ -954,6 +1020,9 @@ interface TranslationStrings {
 	timer: {
 		runningTimers: string;
 		noActiveTimers: string;
+		started: string;
+		stopped: string;
+		deleted: string;
 	};
 	noteTypes: {
 		daily: string;

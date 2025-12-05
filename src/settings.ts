@@ -234,8 +234,8 @@ export const DEFAULT_SETTINGS: TimeFlowSettings = {
 	enableWeeklyGoals: true,
 	maxEgenmeldingDays: 8,
 	maxFerieDays: 25,
-	updateInterval: 30000,
-	clockInterval: 1000,
+	updateInterval: 30,
+	clockInterval: 1,
 	dataFilePath: "timeflow/data.md",
 	holidaysFilePath: "timeflow/holidays.md",
 	dailyNotesFolder: "Daily Notes",
@@ -1904,14 +1904,14 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(settingsContainer)
-			.setName('Update interval (ms)')
-			.setDesc('How often to update the dashboard data (in milliseconds)')
+			.setName('Update interval (seconds)')
+			.setDesc('How often to update the dashboard data (in seconds)')
 			.addText(text => text
-				.setPlaceholder('30000')
+				.setPlaceholder('30')
 				.setValue(this.plugin.settings.updateInterval.toString())
 				.onChange(async (value) => {
 					const num = parseInt(value);
-					if (!isNaN(num) && num >= 1000) {
+					if (!isNaN(num) && num >= 1) {
 						this.plugin.settings.updateInterval = num;
 						await this.plugin.saveSettings();
 					}

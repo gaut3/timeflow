@@ -2,6 +2,7 @@ import { ItemView, WorkspaceLeaf, TFile } from 'obsidian';
 import TimeFlowPlugin from './main';
 import { DataManager } from './dataManager';
 import { UIBuilder } from './uiBuilder';
+import { t } from './i18n';
 
 export const VIEW_TYPE_TIMEFLOW = 'timeflow-view';
 
@@ -113,7 +114,7 @@ export class TimeFlowView extends ItemView {
 		} catch (error) {
 			console.error('Error loading TimeFlow dashboard:', error);
 			container.createDiv({
-				text: `Error loading dashboard: ${error.message}`,
+				text: t('notifications.errorLoadingDashboard').replace('{error}', error.message),
 				cls: 'timeflow-error'
 			});
 		}
