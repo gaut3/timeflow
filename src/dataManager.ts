@@ -681,13 +681,14 @@ export class DataManager {
 					const isFullDay = !e.duration || e.duration === 0;
 					if (!isReduceGoalType || isFullDay) {
 						daysByType[name].add(dayKey);
-						if (stats[name]) {
+						// Only add hours to non-jobb types here (jobb hours are handled below)
+						if (stats[name] && name !== 'jobb') {
 							stats[name].hours += e.duration || 0;
 						}
 					}
 				}
 
-				// Also count toward jobb for work types, accumulate types (kurs/studie), and unknown types
+				// Count toward jobb for work types, accumulate types (kurs/studie), and unknown types
 				if (behavior?.isWorkType || behavior?.flextimeEffect === 'accumulate' || !behavior) {
 					daysByType.jobb.add(dayKey);
 					stats.jobb.hours += e.duration || 0;

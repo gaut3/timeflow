@@ -3512,7 +3512,7 @@ var DataManager = class {
           const isFullDay = !e.duration || e.duration === 0;
           if (!isReduceGoalType || isFullDay) {
             daysByType[name].add(dayKey);
-            if (stats[name]) {
+            if (stats[name] && name !== "jobb") {
               stats[name].hours += e.duration || 0;
             }
           }
