@@ -195,7 +195,8 @@ var specialDayTranslationMap = {
   "velferdspermisjon": "specialDays.welfareLeave",
   "kurs": "specialDays.course",
   "studie": "specialDays.study",
-  "helligdag": "specialDays.publicHoliday"
+  "helligdag": "specialDays.publicHoliday",
+  "annet": "specialDays.other"
 };
 function translateSpecialDayName(id, fallbackLabel) {
   const translationKey = specialDayTranslationMap[id.toLowerCase()];
@@ -268,7 +269,10 @@ var translations = {
       addNewEntry: "+ Legg til ny oppf\xF8ring",
       restPeriodWarning: "Hviletid: Kun {hours} timer mellom arbeids\xF8kter (minimum {min} timer)",
       restPeriod: "Hviletid",
-      minimum: "minimum"
+      minimum: "minimum",
+      multipleDays: "Flere dager",
+      startDate: "Startdato",
+      endDate: "Sluttdato"
     },
     status: {
       ok: "OK",
@@ -353,6 +357,7 @@ var translations = {
       endAfterStart: "Sluttid m\xE5 v\xE6re etter starttid",
       invalidTime: "Ugyldig tid (bruk format HH:MM, 00-23:00-59)",
       invalidTimePeriod: "Ugyldig tidsperiode",
+      invalidDateRange: "Ugyldig datoperiode",
       overlappingEntry: "Denne oppf\xF8ringen overlapper med en eksisterende oppf\xF8ring",
       endTimeNextDay: "Sluttid satt til neste dag (f\xF8r starttid)",
       invalidDuration: "Ugyldig varighet",
@@ -360,6 +365,11 @@ var translations = {
       startTimeRequired: "Starttid m\xE5 fylles ut",
       invalidStartDateTime: "Ugyldig startdato/tid",
       invalidEndDateTime: "Ugyldig sluttdato/tid"
+    },
+    units: {
+      day: "dag",
+      days: "dager",
+      hours: "timer"
     },
     notifications: {
       added: "Lagt til",
@@ -404,7 +414,12 @@ var translations = {
       doctorSick: "Sykemelding",
       study: "Studiedag",
       course: "Kursdag",
-      totalBalance: "Total saldo"
+      totalBalance: "Total saldo",
+      weeklyHours: "Uketimer",
+      monthlyHours: "M\xE5nedstimer",
+      yearlyHours: "\xC5rstimer",
+      target: "M\xE5l",
+      weekPrefix: "U"
     },
     specialDays: {
       work: "Jobb",
@@ -415,7 +430,44 @@ var translations = {
       welfareLeave: "Velferdspermisjon",
       course: "Kursdag",
       study: "Studiedag",
-      publicHoliday: "Helligdag"
+      publicHoliday: "Helligdag",
+      other: "Annet"
+    },
+    annet: {
+      title: "Annet",
+      custom: "Egendefinert",
+      fullDay: "Hel dag",
+      saveAsTemplate: "Lagre som mal",
+      templateName: "Mal-navn",
+      templateIcon: "Ikon",
+      addTemplate: "Legg til mal",
+      editTemplate: "Rediger mal",
+      deleteTemplate: "Slett mal",
+      noTemplates: "Ingen maler definert",
+      selectTemplate: "Velg mal eller egendefinert",
+      description: "Beskrivelse",
+      fromTime: "Fra",
+      toTime: "Til",
+      templateDescription: 'Maler for "Annet"-frav\xE6rstype. Atferd bestemmes automatisk av om det er hel dag eller delvis frav\xE6r.',
+      idDesc: "Unik identifikator (sm\xE5 bokstaver, ingen mellomrom). Brukes i fil-formatet.",
+      labelField: "Navn",
+      labelDesc: "Visningsnavn i grensesnittet",
+      iconField: "Ikon",
+      iconDesc: "Emoji som vises sammen med malen",
+      idRequired: "ID er p\xE5krevd",
+      labelRequired: "Navn er p\xE5krevd",
+      iconRequired: "Ikon er p\xE5krevd",
+      duplicateId: "En mal med denne ID-en finnes allerede",
+      templatesSection: "Annet-maler",
+      templatesDesc: "Maler for fleksible frav\xE6rstyper. Atferd bestemmes av om det er hel dag eller delvis frav\xE6r.",
+      labelPlaceholder: "Lege"
+    },
+    common: {
+      cancel: "Avbryt",
+      save: "Lagre",
+      delete: "Slett",
+      edit: "Rediger",
+      add: "Legg til"
     },
     import: {
       title: "Importer data",
@@ -470,8 +522,12 @@ var translations = {
       languageDesc: "Velg spr\xE5k for grensesnittet",
       showWeekNumbers: "Vis ukenummer",
       showWeekNumbersDesc: "Vis ukenummer i kalender og uke-kortet (ISO 8601 ukenummer)",
+      hideEmptyStats: "Skjul tomme statistikker",
+      hideEmptyStatsDesc: "Skjul statistikker med 0 timer/dager",
       importData: "Importer data",
-      importDataDesc: "Importer tidsdata fra ulike formater: Timekeep JSON, CSV (norsk/ISO datoformat), eller JSON-arrays"
+      importDataDesc: "Importer tidsdata fra ulike formater: Timekeep JSON, CSV (norsk/ISO datoformat), eller JSON-arrays",
+      absenceTypesDesc: 'Opprett egendefinerte frav\xE6rskategorier med spesifikke fleksitid- og statistikkregler. St\xF8tter frav\xE6r over flere dager. For enkeltst\xE5ende frav\xE6r, bruk "Annet-maler" nedenfor.',
+      addAbsenceType: "Legg til frav\xE6rstype"
     },
     compliance: {
       title: "Arbeidstidsgrenser",
@@ -578,7 +634,10 @@ var translations = {
       addNewEntry: "+ Add new entry",
       restPeriodWarning: "Rest period: Only {hours} hours between work sessions (minimum {min} hours)",
       restPeriod: "Rest period",
-      minimum: "minimum"
+      minimum: "minimum",
+      multipleDays: "Multiple days",
+      startDate: "Start date",
+      endDate: "End date"
     },
     status: {
       ok: "OK",
@@ -663,6 +722,7 @@ var translations = {
       endAfterStart: "End time must be after start time",
       invalidTime: "Invalid time (use format HH:MM, 00-23:00-59)",
       invalidTimePeriod: "Invalid time period",
+      invalidDateRange: "Invalid date range",
       overlappingEntry: "This entry overlaps with an existing entry",
       endTimeNextDay: "End time set to next day (before start time)",
       invalidDuration: "Invalid duration",
@@ -670,6 +730,11 @@ var translations = {
       startTimeRequired: "Start time is required",
       invalidStartDateTime: "Invalid start date/time",
       invalidEndDateTime: "Invalid end date/time"
+    },
+    units: {
+      day: "day",
+      days: "days",
+      hours: "hours"
     },
     notifications: {
       added: "Added",
@@ -714,7 +779,12 @@ var translations = {
       doctorSick: "Certified sick leave",
       study: "Study",
       course: "Course",
-      totalBalance: "Total balance"
+      totalBalance: "Total balance",
+      weeklyHours: "Weekly hours",
+      monthlyHours: "Monthly hours",
+      yearlyHours: "Yearly hours",
+      target: "Target",
+      weekPrefix: "W"
     },
     specialDays: {
       work: "Work",
@@ -725,7 +795,44 @@ var translations = {
       welfareLeave: "Welfare leave",
       course: "Course",
       study: "Study",
-      publicHoliday: "Public holiday"
+      publicHoliday: "Public holiday",
+      other: "Other"
+    },
+    annet: {
+      title: "Other",
+      custom: "Custom",
+      fullDay: "Full day",
+      saveAsTemplate: "Save as template",
+      templateName: "Template name",
+      templateIcon: "Icon",
+      addTemplate: "Add template",
+      editTemplate: "Edit template",
+      deleteTemplate: "Delete template",
+      noTemplates: "No templates defined",
+      selectTemplate: "Select template or custom",
+      description: "Description",
+      fromTime: "From",
+      toTime: "To",
+      templateDescription: 'Templates for "Other" absence type. Behavior is automatically determined by full day or partial absence.',
+      idDesc: "Unique identifier (lowercase, no spaces). Used in file format.",
+      labelField: "Name",
+      labelDesc: "Display name in the interface",
+      iconField: "Icon",
+      iconDesc: "Emoji displayed with the template",
+      idRequired: "ID is required",
+      labelRequired: "Name is required",
+      iconRequired: "Icon is required",
+      duplicateId: "A template with this ID already exists",
+      templatesSection: "Other templates",
+      templatesDesc: "Templates for flexible absence types. Behavior is determined by full day or partial absence.",
+      labelPlaceholder: "Doctor"
+    },
+    common: {
+      cancel: "Cancel",
+      save: "Save",
+      delete: "Delete",
+      edit: "Edit",
+      add: "Add"
     },
     import: {
       title: "Import data",
@@ -780,8 +887,12 @@ var translations = {
       languageDesc: "Choose interface language",
       showWeekNumbers: "Show week numbers",
       showWeekNumbersDesc: "Show week numbers in calendar and week card (ISO 8601 week numbers)",
+      hideEmptyStats: "Hide empty statistics",
+      hideEmptyStatsDesc: "Hide statistics with 0 hours/days",
       importData: "Import data",
-      importDataDesc: "Import time data from various formats: Timekeep JSON, CSV (Norwegian/ISO date format), or JSON arrays"
+      importDataDesc: "Import time data from various formats: Timekeep JSON, CSV (Norwegian/ISO date format), or JSON arrays",
+      absenceTypesDesc: 'Create custom absence categories with specific flextime and statistics rules. Supports multi-day absences. For occasional one-off absences, use "Other templates" below.',
+      addAbsenceType: "Add absence type"
     },
     compliance: {
       title: "Work time limits",
@@ -1492,7 +1603,8 @@ var DEFAULT_SPECIAL_DAY_BEHAVIORS = [
     noHoursRequired: false,
     flextimeEffect: "accumulate",
     includeInStats: true,
-    isWorkType: true
+    isWorkType: true,
+    showInTimerDropdown: true
   },
   {
     id: "ferie",
@@ -1561,7 +1673,8 @@ var DEFAULT_SPECIAL_DAY_BEHAVIORS = [
     textColor: "#000000",
     noHoursRequired: false,
     flextimeEffect: "accumulate",
-    includeInStats: true
+    includeInStats: true,
+    showInTimerDropdown: true
   },
   {
     id: "studie",
@@ -1571,7 +1684,8 @@ var DEFAULT_SPECIAL_DAY_BEHAVIORS = [
     textColor: "#000000",
     noHoursRequired: false,
     flextimeEffect: "accumulate",
-    includeInStats: true
+    includeInStats: true,
+    showInTimerDropdown: true
   },
   {
     id: "helligdag",
@@ -1582,7 +1696,24 @@ var DEFAULT_SPECIAL_DAY_BEHAVIORS = [
     noHoursRequired: true,
     flextimeEffect: "none",
     includeInStats: true
+  },
+  {
+    id: "annet",
+    label: "Other",
+    icon: "\u{1F4CB}",
+    color: "#e0e0e0",
+    textColor: "#000000",
+    noHoursRequired: false,
+    // Dynamic - determined at parse time based on entry format
+    flextimeEffect: "reduce_goal",
+    // Dynamic - determined at parse time
+    includeInStats: false
   }
+];
+var DEFAULT_ANNET_TEMPLATES = [
+  { id: "doctor", label: "Doctor", icon: "\u{1F3E5}" },
+  { id: "dentist", label: "Dentist", icon: "\u{1F9B7}" },
+  { id: "funeral", label: "Funeral", icon: "\u26AB" }
 ];
 var DEFAULT_SETTINGS = {
   version: "1.2.2",
@@ -1590,6 +1721,7 @@ var DEFAULT_SETTINGS = {
   defaultViewLocation: "sidebar",
   hourUnit: "t",
   showWeekNumbers: true,
+  hideEmptyStats: false,
   workPercent: 1,
   baseWorkday: 7.5,
   baseWorkweek: 37.5,
@@ -1669,6 +1801,7 @@ var DEFAULT_SETTINGS = {
     }
   ],
   specialDayBehaviors: DEFAULT_SPECIAL_DAY_BEHAVIORS,
+  annetTemplates: DEFAULT_ANNET_TEMPLATES,
   specialDayColors: {
     avspasering: "#ffe0b2",
     ferie: "#b3e5fc",
@@ -1729,7 +1862,7 @@ var SpecialDayBehaviorModal = class extends import_obsidian2.Modal {
     this.onSave = onSave;
   }
   onOpen() {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q, _r;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q, _r, _s, _t, _u;
     const { contentEl } = this;
     contentEl.empty();
     const isWorkType = (_b = (_a = this.behavior) == null ? void 0 : _a.isWorkType) != null ? _b : false;
@@ -1770,12 +1903,14 @@ var SpecialDayBehaviorModal = class extends import_obsidian2.Modal {
       negativeTextColor: ((_i = this.behavior) == null ? void 0 : _i.negativeTextColor) || "#ffffff",
       simpleColor: ((_j = this.behavior) == null ? void 0 : _j.simpleColor) || "#90caf9",
       simpleTextColor: ((_k = this.behavior) == null ? void 0 : _k.simpleTextColor) || "#000000",
-      noHoursRequired: (_m = (_l = this.behavior) == null ? void 0 : _l.noHoursRequired) != null ? _m : true,
+      noHoursRequired: (_m = (_l = this.behavior) == null ? void 0 : _l.noHoursRequired) != null ? _m : false,
       flextimeEffect: ((_n = this.behavior) == null ? void 0 : _n.flextimeEffect) || "none",
       includeInStats: (_p = (_o = this.behavior) == null ? void 0 : _o.includeInStats) != null ? _p : true,
       maxDaysPerYear: ((_q = this.behavior) == null ? void 0 : _q.maxDaysPerYear) || void 0,
       countingPeriod: ((_r = this.behavior) == null ? void 0 : _r.countingPeriod) || "calendar",
-      isWorkType
+      isWorkType,
+      // Default to true for jobb, studie, kurs if not explicitly set
+      showInTimerDropdown: (_u = (_s = this.behavior) == null ? void 0 : _s.showInTimerDropdown) != null ? _u : ["jobb", "studie", "kurs"].includes(((_t = this.behavior) == null ? void 0 : _t.id) || "")
     };
     if (!isWorkType) {
       new import_obsidian2.Setting(contentEl).setName("ID").setDesc("Unique identifier (lowercase, no spaces). Used in holiday file format.").addText((text) => {
@@ -1816,6 +1951,7 @@ var SpecialDayBehaviorModal = class extends import_obsidian2.Modal {
       });
       new import_obsidian2.Setting(contentEl).setName("Counting period").setDesc("How to count the max days limit. Calendar year resets each January 1st. Rolling 365 days counts backwards from today.").addDropdown((dropdown) => dropdown.addOption("calendar", "Calendar year").addOption("rolling365", "Rolling 365 days").setValue(formData.countingPeriod).onChange((value) => formData.countingPeriod = value));
     }
+    new import_obsidian2.Setting(contentEl).setName("Show in timer dropdown").setDesc("Include this type in the quick-start timer menu").addToggle((toggle) => toggle.setValue(formData.showInTimerDropdown).onChange((value) => formData.showInTimerDropdown = value));
     const buttonDiv = contentEl.createDiv();
     buttonDiv.style.display = "flex";
     buttonDiv.style.gap = "10px";
@@ -1862,9 +1998,88 @@ var SpecialDayBehaviorModal = class extends import_obsidian2.Modal {
         includeInStats: formData.isWorkType ? true : formData.includeInStats,
         maxDaysPerYear: formData.isWorkType ? void 0 : formData.maxDaysPerYear,
         countingPeriod: formData.isWorkType ? void 0 : formData.countingPeriod,
-        isWorkType: formData.isWorkType
+        isWorkType: formData.isWorkType,
+        showInTimerDropdown: formData.showInTimerDropdown
       };
       this.onSave(behavior, this.index);
+      this.close();
+    };
+  }
+  onClose() {
+    const { contentEl } = this;
+    contentEl.empty();
+  }
+};
+var AnnetTemplateModal = class extends import_obsidian2.Modal {
+  constructor(app, plugin, template, index, onSave) {
+    super(app);
+    this.plugin = plugin;
+    this.template = template;
+    this.index = index;
+    this.onSave = onSave;
+  }
+  onOpen() {
+    var _a, _b, _c;
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.createEl("h2", { text: this.template ? t("annet.editTemplate") : t("annet.addTemplate") });
+    const infoBox = contentEl.createDiv({ cls: "setting-item-description" });
+    infoBox.style.padding = "10px";
+    infoBox.style.marginBottom = "15px";
+    infoBox.style.background = "var(--background-secondary)";
+    infoBox.style.borderRadius = "5px";
+    infoBox.style.fontSize = "0.9em";
+    infoBox.createSpan({ text: t("annet.templateDescription") });
+    const formData = {
+      id: ((_a = this.template) == null ? void 0 : _a.id) || "",
+      label: ((_b = this.template) == null ? void 0 : _b.label) || "",
+      icon: ((_c = this.template) == null ? void 0 : _c.icon) || "\u{1F4CB}"
+    };
+    new import_obsidian2.Setting(contentEl).setName("ID").setDesc(t("annet.idDesc")).addText((text) => {
+      text.setPlaceholder("lege").setValue(formData.id).onChange((value) => formData.id = value.toLowerCase().replace(/\s+/g, ""));
+      if (this.template) {
+        text.setDisabled(true);
+      }
+    });
+    new import_obsidian2.Setting(contentEl).setName(t("annet.labelField")).setDesc(t("annet.labelDesc")).addText((text) => text.setPlaceholder(t("annet.labelPlaceholder")).setValue(formData.label).onChange((value) => formData.label = value));
+    new import_obsidian2.Setting(contentEl).setName(t("annet.iconField")).setDesc(t("annet.iconDesc")).addText((text) => text.setPlaceholder("\u{1F3E5}").setValue(formData.icon).onChange((value) => formData.icon = value));
+    const buttonDiv = contentEl.createDiv();
+    buttonDiv.style.display = "flex";
+    buttonDiv.style.gap = "10px";
+    buttonDiv.style.justifyContent = "flex-end";
+    buttonDiv.style.marginTop = "20px";
+    const cancelBtn = buttonDiv.createEl("button", { text: t("common.cancel") });
+    cancelBtn.onclick = () => this.close();
+    const saveBtn = buttonDiv.createEl("button", { text: t("common.save"), cls: "mod-cta" });
+    saveBtn.onclick = () => {
+      if (!formData.id) {
+        new import_obsidian2.Notice(t("annet.idRequired"));
+        return;
+      }
+      if (!formData.label) {
+        new import_obsidian2.Notice(t("annet.labelRequired"));
+        return;
+      }
+      if (!formData.icon) {
+        new import_obsidian2.Notice(t("annet.iconRequired"));
+        return;
+      }
+      if (!this.template) {
+        const isDuplicate = this.plugin.settings.annetTemplates.some(
+          (tmpl) => tmpl.id === formData.id
+        );
+        if (isDuplicate) {
+          new import_obsidian2.Notice(t("annet.duplicateId"));
+          return;
+        }
+      }
+      const template = {
+        id: this.template ? this.template.id : formData.id,
+        // Keep original ID if editing
+        label: formData.label,
+        icon: formData.icon
+      };
+      this.onSave(template, this.index);
       this.close();
     };
   }
@@ -2617,7 +2832,7 @@ var TimeFlowSettingTab = class extends import_obsidian2.PluginSettingTab {
         ).open();
       }));
     });
-    new import_obsidian2.Setting(settingsContainer).setName("Absence types").setDesc("Configure how different types of absences affect your workday and flextime balance. These settings determine how days are counted in flextime calculations.").setHeading();
+    new import_obsidian2.Setting(settingsContainer).setName("Absence types").setDesc(t("settings.absenceTypesDesc")).setHeading();
     absenceTypes.forEach((behavior) => {
       const index = this.plugin.settings.specialDayBehaviors.findIndex((b) => b.id === behavior.id);
       new import_obsidian2.Setting(settingsContainer).setName(`${behavior.icon} ${behavior.label}`).setDesc(getBehaviorDescription(behavior)).addButton((btn) => btn.setButtonText("Edit").onClick(() => {
@@ -2647,16 +2862,61 @@ Note: Historical data in your holidays file using "${behavior.id}" will no longe
         }
       }));
     });
-    new import_obsidian2.Setting(settingsContainer).setName("Add new absence type").setDesc("Create a custom absence type with your own rules").addButton((btn) => btn.setButtonText("+ Add").setCta().onClick(() => {
+    new import_obsidian2.Setting(settingsContainer).setName(t("settings.addAbsenceType")).addButton((btn) => btn.setButtonText("+ " + t("common.add")).setCta().onClick(() => {
       new SpecialDayBehaviorModal(
         this.app,
         this.plugin,
         null,
-        // New behavior
+        // New absence type
         this.plugin.settings.specialDayBehaviors.length,
         // Index at end
         async (newBehavior) => {
           this.plugin.settings.specialDayBehaviors.push(newBehavior);
+          await this.plugin.saveSettings();
+          await this.refreshView();
+          this.display();
+        }
+      ).open();
+    }));
+    new import_obsidian2.Setting(settingsContainer).setName(t("annet.templatesSection")).setDesc(t("annet.templatesDesc")).setHeading();
+    this.plugin.settings.annetTemplates.forEach((template, index) => {
+      new import_obsidian2.Setting(settingsContainer).setName(`${template.icon} ${template.label}`).setDesc(`ID: ${template.id}`).addButton((btn) => btn.setButtonText(t("common.edit")).onClick(() => {
+        new AnnetTemplateModal(
+          this.app,
+          this.plugin,
+          template,
+          index,
+          async (updatedTemplate, idx) => {
+            this.plugin.settings.annetTemplates[idx] = updatedTemplate;
+            await this.plugin.saveSettings();
+            await this.refreshView();
+            this.display();
+          }
+        ).open();
+      })).addButton((btn) => btn.setButtonText(t("common.delete")).setWarning().onClick(async () => {
+        const confirmation = confirm(
+          `Are you sure you want to delete "${template.label}"?
+
+Note: Historical data using "annet:${template.id}" will still work but show a generic icon.`
+        );
+        if (confirmation) {
+          this.plugin.settings.annetTemplates.splice(index, 1);
+          await this.plugin.saveSettings();
+          await this.refreshView();
+          this.display();
+        }
+      }));
+    });
+    new import_obsidian2.Setting(settingsContainer).setName(t("annet.addTemplate")).addButton((btn) => btn.setButtonText("+ " + t("common.add")).setCta().onClick(() => {
+      new AnnetTemplateModal(
+        this.app,
+        this.plugin,
+        null,
+        // New template
+        this.plugin.settings.annetTemplates.length,
+        // Index at end
+        async (newTemplate) => {
+          this.plugin.settings.annetTemplates.push(newTemplate);
           await this.plugin.saveSettings();
           await this.refreshView();
           this.display();
@@ -2677,6 +2937,14 @@ Note: Historical data in your holidays file using "${behavior.id}" will no longe
       var _a;
       return toggle.setValue((_a = this.plugin.settings.showWeekNumbers) != null ? _a : true).onChange(async (value) => {
         this.plugin.settings.showWeekNumbers = value;
+        await this.plugin.saveSettings();
+        await this.refreshView();
+      });
+    });
+    new import_obsidian2.Setting(settingsContainer).setName(t("settings.hideEmptyStats")).setDesc(t("settings.hideEmptyStatsDesc")).addToggle((toggle) => {
+      var _a;
+      return toggle.setValue((_a = this.plugin.settings.hideEmptyStats) != null ? _a : false).onChange(async (value) => {
+        this.plugin.settings.hideEmptyStats = value;
         await this.plugin.saveSettings();
         await this.refreshView();
       });
@@ -3110,7 +3378,33 @@ var DataManager = class {
         const lines = content.split("\n");
         lines.forEach((line) => {
           const match = line.match(/^-\s*(\d{4}-\d{2}-\d{2}):\s*(\w+)(?::(half|\d{2}:\d{2}-\d{2}:\d{2})?)?:\s*(.+)$/);
-          if (match) {
+          const annetMatch = line.match(/^-\s*(\d{4}-\d{2}-\d{2}):\s*annet(?::([^:]+))?(?::(\d{2}:\d{2}-\d{2}:\d{2}))?:\s*(.+)$/);
+          if (annetMatch) {
+            const [, date, templateOrTime, timeRange, description] = annetMatch;
+            let annetTemplateId;
+            let startTime;
+            let endTime;
+            if (templateOrTime && /^\d{2}:\d{2}-\d{2}:\d{2}$/.test(templateOrTime)) {
+              const [start, end] = templateOrTime.split("-");
+              startTime = start;
+              endTime = end;
+            } else if (templateOrTime) {
+              annetTemplateId = templateOrTime.trim().toLowerCase();
+              if (timeRange) {
+                const [start, end] = timeRange.split("-");
+                startTime = start;
+                endTime = end;
+              }
+            }
+            this.holidays[date] = {
+              type: "annet",
+              description: description.trim(),
+              halfDay: false,
+              startTime,
+              endTime,
+              annetTemplateId
+            };
+          } else if (match) {
             const [, date, type, modifier, description] = match;
             const isHalfDay = modifier === "half";
             let startTime;
@@ -3163,6 +3457,47 @@ var DataManager = class {
       };
     }
     return behavior;
+  }
+  /**
+   * Get the behavior for an 'annet' holiday entry with dynamic properties based on time range.
+   * - Full day (no time range): noHoursRequired=true, flextimeEffect='none'
+   * - Partial day (with time range): noHoursRequired=false, flextimeEffect='reduce_goal'
+   */
+  getAnnetBehavior(holidayInfo) {
+    var _a;
+    const baseBehavior = this.getSpecialDayBehavior("annet");
+    const hasTimeRange = !!holidayInfo.startTime && !!holidayInfo.endTime;
+    let icon = (baseBehavior == null ? void 0 : baseBehavior.icon) || "\u{1F4CB}";
+    let label = (baseBehavior == null ? void 0 : baseBehavior.label) || "Annet";
+    if (holidayInfo.annetTemplateId) {
+      const template = (_a = this.settings.annetTemplates) == null ? void 0 : _a.find(
+        (t2) => {
+          var _a2;
+          return t2.id.toLowerCase() === ((_a2 = holidayInfo.annetTemplateId) == null ? void 0 : _a2.toLowerCase());
+        }
+      );
+      if (template) {
+        icon = template.icon;
+        label = template.label;
+      }
+    }
+    if (hasTimeRange) {
+      return {
+        ...baseBehavior,
+        icon,
+        label,
+        noHoursRequired: false,
+        flextimeEffect: "reduce_goal"
+      };
+    } else {
+      return {
+        ...baseBehavior,
+        icon,
+        label,
+        noHoursRequired: true,
+        flextimeEffect: "none"
+      };
+    }
   }
   /**
    * Get the work schedule that was active on a specific date.
@@ -3224,7 +3559,7 @@ var DataManager = class {
       return 0;
     const holidayInfo = this.getHolidayInfo(dateStr);
     if (holidayInfo) {
-      const behavior = this.getSpecialDayBehavior(holidayInfo.type);
+      const behavior = holidayInfo.type === "annet" ? this.getAnnetBehavior(holidayInfo) : this.getSpecialDayBehavior(holidayInfo.type);
       if (behavior && behavior.noHoursRequired) {
         return 0;
       }
@@ -3325,25 +3660,22 @@ var DataManager = class {
           e.flextime = 0;
           return;
         }
-        if (holidayInfo) {
-          const holidayBehavior = this.getSpecialDayBehavior(holidayInfo.type);
-          if (holidayBehavior) {
-            if (holidayBehavior.flextimeEffect === "withdraw") {
-              flextime -= e.duration || 0;
-            } else if (holidayBehavior.flextimeEffect === "accumulate") {
-              if (effectiveGoal > 0 && (e.duration || 0) > effectiveGoal) {
-                flextime += (e.duration || 0) - effectiveGoal;
-              } else if (effectiveGoal === 0) {
-                flextime += e.duration || 0;
-              }
-            } else if (holidayBehavior.noHoursRequired && effectiveGoal === 0) {
+        const effectiveBehavior = behavior || (holidayInfo ? holidayInfo.type === "annet" ? this.getAnnetBehavior(holidayInfo) : this.getSpecialDayBehavior(holidayInfo.type) : null);
+        const isWorkTypeEntry = (effectiveBehavior == null ? void 0 : effectiveBehavior.isWorkType) || !behavior && !holidayInfo;
+        if (effectiveBehavior && !isWorkTypeEntry) {
+          if (effectiveBehavior.flextimeEffect === "withdraw") {
+            flextime -= e.duration || 0;
+          } else if (effectiveBehavior.flextimeEffect === "accumulate") {
+            if (effectiveGoal > 0 && (e.duration || 0) > effectiveGoal) {
+              flextime += (e.duration || 0) - effectiveGoal;
+            } else if (effectiveGoal === 0) {
               flextime += e.duration || 0;
             }
+          } else if (effectiveBehavior.noHoursRequired && effectiveGoal === 0) {
+            flextime += e.duration || 0;
           }
         } else if (effectiveGoal === 0) {
           flextime += e.duration || 0;
-        } else if ((behavior == null ? void 0 : behavior.flextimeEffect) === "withdraw") {
-          flextime -= e.duration || 0;
         } else {
           if (totalWorkHours !== effectiveGoal && effectiveGoal > 0 && totalWorkHours > 0) {
             const proportion = (e.duration || 0) / totalWorkHours;
@@ -3380,10 +3712,12 @@ var DataManager = class {
     for (const day of sortedDays) {
       const dayGoal = this.getDailyGoal(day);
       const dayEntries = this.daily[day] || [];
-      let dayWorked = 0;
+      let regularWorked = 0;
+      let accumulateWorked = 0;
       let avspaseringHours = 0;
       let goalReduction = 0;
       let hasCompletedEntries = false;
+      let hasAccumulateEntry = false;
       dayEntries.forEach((e) => {
         if (e.isActive)
           return;
@@ -3395,18 +3729,33 @@ var DataManager = class {
         } else if ((behavior == null ? void 0 : behavior.flextimeEffect) === "withdraw") {
           avspaseringHours += e.duration || 0;
         } else if (behavior && (behavior.noHoursRequired || behavior.countsAsWorkday)) {
-          return;
+          regularWorked += e.duration || 0;
+        } else if ((behavior == null ? void 0 : behavior.flextimeEffect) === "accumulate" && !behavior.isWorkType) {
+          accumulateWorked += e.duration || 0;
+          hasAccumulateEntry = true;
         } else {
-          dayWorked += e.duration || 0;
+          regularWorked += e.duration || 0;
         }
       });
       if (!hasCompletedEntries)
         continue;
       const effectiveGoal = Math.max(0, dayGoal - goalReduction);
-      if (effectiveGoal === 0) {
-        balance += dayWorked;
+      if (hasAccumulateEntry && regularWorked === 0) {
+        if (effectiveGoal === 0) {
+          balance += accumulateWorked;
+        } else {
+          const excess = accumulateWorked - effectiveGoal;
+          if (excess > 0) {
+            balance += excess;
+          }
+        }
       } else {
-        balance += dayWorked - effectiveGoal;
+        const totalWorked = regularWorked + accumulateWorked;
+        if (effectiveGoal === 0) {
+          balance += totalWorked;
+        } else {
+          balance += totalWorked - effectiveGoal;
+        }
       }
       balance -= avspaseringHours;
     }
@@ -3604,7 +3953,7 @@ var DataManager = class {
       filteredDays.forEach((dayKey) => {
         const holidayInfo = this.getHolidayInfo(dayKey);
         if (holidayInfo) {
-          const behavior = this.getSpecialDayBehavior(holidayInfo.type);
+          const behavior = holidayInfo.type === "annet" ? this.getAnnetBehavior(holidayInfo) : this.getSpecialDayBehavior(holidayInfo.type);
           if (behavior == null ? void 0 : behavior.noHoursRequired) {
             noHoursRequiredDays++;
           }
@@ -3849,7 +4198,7 @@ var DataManager = class {
         if (isWeekend)
           continue;
         if (holidayInfo) {
-          const behavior = this.getSpecialDayBehavior(holidayInfo.type);
+          const behavior = holidayInfo.type === "annet" ? this.getAnnetBehavior(holidayInfo) : this.getSpecialDayBehavior(holidayInfo.type);
           if ((behavior == null ? void 0 : behavior.noHoursRequired) || (behavior == null ? void 0 : behavior.flextimeEffect) === "reduce_goal") {
             continue;
           }
@@ -4033,6 +4382,128 @@ var DataManager = class {
       isRolling: useRolling,
       periodLabel: useRolling ? "365d" : targetYear.toString()
     };
+  }
+  /**
+   * Get total hours for a specific week (Monday to Sunday)
+   */
+  getWeekHours(weekStart) {
+    let total = 0;
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(weekStart);
+      d.setDate(weekStart.getDate() + i);
+      const dayKey = Utils.toLocalDateStr(d);
+      const dayEntries = this.daily[dayKey] || [];
+      dayEntries.forEach((entry) => {
+        if (!entry.isActive) {
+          const behavior = this.getSpecialDayBehavior(entry.name);
+          const shouldExclude = behavior && (behavior.flextimeEffect === "withdraw" || behavior.flextimeEffect === "reduce_goal" || behavior.flextimeEffect === "none" && behavior.noHoursRequired);
+          if (!shouldExclude) {
+            total += entry.duration || 0;
+          }
+        }
+      });
+    }
+    return total;
+  }
+  /**
+   * Get total hours for a specific month
+   */
+  getMonthHours(year, month) {
+    let total = 0;
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    for (let day = 1; day <= daysInMonth; day++) {
+      const d = new Date(year, month, day);
+      const dayKey = Utils.toLocalDateStr(d);
+      const dayEntries = this.daily[dayKey] || [];
+      dayEntries.forEach((entry) => {
+        if (!entry.isActive) {
+          const behavior = this.getSpecialDayBehavior(entry.name);
+          const shouldExclude = behavior && (behavior.flextimeEffect === "withdraw" || behavior.flextimeEffect === "reduce_goal" || behavior.flextimeEffect === "none" && behavior.noHoursRequired);
+          if (!shouldExclude) {
+            total += entry.duration || 0;
+          }
+        }
+      });
+    }
+    return total;
+  }
+  /**
+   * Get total hours for a specific year
+   */
+  getYearHours(year) {
+    let total = 0;
+    for (let month = 0; month < 12; month++) {
+      total += this.getMonthHours(year, month);
+    }
+    return total;
+  }
+  /**
+   * Get historical hours data for bar chart
+   * Returns array of { label, hours, target? }
+   */
+  getHistoricalHoursData(timeframe, selectedYear, selectedMonth) {
+    const data = [];
+    const today = /* @__PURE__ */ new Date();
+    const weeklyTarget = this.workweekHours;
+    if (timeframe === "month") {
+      const currentWeekStart = this.getWeekStart(today);
+      const weekPrefix = t("stats.weekPrefix") || "U";
+      for (let i = 5; i >= 0; i--) {
+        const weekStart = new Date(currentWeekStart);
+        weekStart.setDate(currentWeekStart.getDate() - i * 7);
+        const weekNum = this.getISOWeekNumber(weekStart);
+        const hours = this.getWeekHours(weekStart);
+        data.push({
+          label: `${weekPrefix}${weekNum}`,
+          hours,
+          target: weeklyTarget
+        });
+      }
+    } else if (timeframe === "year") {
+      const year = selectedYear || today.getFullYear();
+      const monthNames = ["Jan", "Feb", "Mar", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Des"];
+      const monthlyTarget = weeklyTarget * 4.33;
+      for (let month = 0; month < 12; month++) {
+        const hours = this.getMonthHours(year, month);
+        data.push({
+          label: monthNames[month],
+          hours,
+          target: monthlyTarget
+        });
+      }
+    } else {
+      const currentYear = today.getFullYear();
+      for (let i = 5; i >= 0; i--) {
+        const year = currentYear - i;
+        const hours = this.getYearHours(year);
+        data.push({
+          label: year.toString(),
+          hours
+        });
+      }
+    }
+    return data;
+  }
+  /**
+   * Get the Monday of the week containing the given date
+   */
+  getWeekStart(date) {
+    const d = new Date(date);
+    const dayOfWeek = d.getDay();
+    const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    d.setDate(d.getDate() - daysFromMonday);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }
+  /**
+   * Get ISO week number for a date
+   */
+  getISOWeekNumber(date) {
+    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const dayNum = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    return Math.ceil(((d.getTime() - yearStart.getTime()) / 864e5 + 1) / 7);
   }
 };
 
@@ -4394,8 +4865,20 @@ var UIBuilder = class {
 
 			/* Wide layout: 2x2 grid - Day/Week top, Month/Stats side by side bottom */
 			@container dashboard (min-width: 750px) {
+				.tf-main-cards-wrapper {
+					align-items: stretch;
+				}
 				.tf-card-month { grid-column: 1; grid-row: 2; }
-				.tf-card-stats { grid-column: 2; grid-row: 2; }
+				.tf-card-stats {
+					grid-column: 2;
+					grid-row: 2;
+					display: flex;
+					flex-direction: column;
+				}
+				/* In wide layout, content wrapper expands to fill card and push chart to bottom */
+				.tf-card-stats .tf-collapsible-content.open {
+					flex: 1;
+				}
 			}
 
 			/* Default card styling - used for month card */
@@ -4520,12 +5003,12 @@ var UIBuilder = class {
 				color: #ffffff;
 			}
 			.tf-week-number-cell.week-over {
-				background: linear-gradient(135deg, #ffe0b2, #ffcc80);
-				color: #000000;
-			}
-			.tf-week-number-cell.week-under {
 				background: linear-gradient(135deg, #ffcdd2, #ef9a9a);
 				color: #ffffff;
+			}
+			.tf-week-number-cell.week-under {
+				background: linear-gradient(135deg, #ffe0b2, #ffcc80);
+				color: #000000;
 			}
 			.tf-week-number-cell.week-partial {
 				background: linear-gradient(135deg, #e0e0e0, #bdbdbd);
@@ -4656,6 +5139,22 @@ var UIBuilder = class {
 					opacity: 0.8;
 				}
 
+				.tf-future-days-inner {
+					position: relative;
+				}
+
+				/* Fade overlay at bottom - only shown when there are more items */
+				.tf-future-days-inner.has-more::after {
+					content: '';
+					position: absolute;
+					bottom: 0;
+					left: 0;
+					right: 0;
+					height: 30px;
+					background: linear-gradient(to bottom, transparent, var(--background-primary-alt));
+					pointer-events: none;
+				}
+
 				.tf-future-day-item {
 					display: flex;
 					justify-content: space-between;
@@ -4699,6 +5198,106 @@ var UIBuilder = class {
 				font-size: 20px;
 				font-weight: bold;
 				color: var(--text-normal);
+			}
+
+			/* Hours bar chart */
+			.tf-hours-chart {
+				margin-top: auto;
+				padding-top: 20px;
+				border-top: 1px solid var(--background-modifier-border);
+			}
+
+			.tf-hours-chart-title {
+				font-size: 12px;
+				color: var(--text-muted);
+				margin-bottom: 12px;
+			}
+
+			.tf-hours-chart-container {
+				position: relative;
+				height: 120px;
+			}
+
+			.tf-hours-bars-area {
+				display: flex;
+				gap: 6px;
+				height: 100%;
+				position: relative;
+				align-items: flex-end;
+			}
+
+			.tf-hours-bar-wrapper {
+				flex: 1;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				min-width: 0;
+			}
+
+			.tf-hours-bar-container {
+				width: 100%;
+				flex: 1;
+				display: flex;
+				align-items: flex-end;
+			}
+
+			.tf-hours-bar {
+				width: 100%;
+				background: var(--interactive-accent);
+				border-radius: 3px 3px 0 0;
+				min-height: 2px;
+				transition: height 0.3s ease;
+			}
+
+			.tf-hours-bar.empty {
+				background: var(--background-modifier-border);
+			}
+
+			.tf-hours-bar-label {
+				font-size: 10px;
+				color: var(--text-muted);
+				margin-top: 6px;
+				text-align: center;
+				white-space: nowrap;
+			}
+
+			.tf-hours-bar-value {
+				font-size: 10px;
+				color: var(--text-normal);
+				text-align: center;
+				white-space: nowrap;
+				font-weight: 500;
+				height: 16px;
+				line-height: 16px;
+			}
+
+			.tf-hours-target-line {
+				position: absolute;
+				left: 0;
+				right: 0;
+				height: 1px;
+				background: var(--text-muted);
+				opacity: 0.6;
+				z-index: 10;
+				pointer-events: none;
+			}
+
+			.tf-hours-target-label {
+				position: absolute;
+				right: 4px;
+				top: -12px;
+				font-size: 9px;
+				color: var(--text-muted);
+				font-weight: 500;
+			}
+
+			.tf-hours-target-label-left {
+				position: absolute;
+				left: 4px;
+				top: -12px;
+				font-size: 9px;
+				color: var(--text-muted);
+				font-weight: 500;
 			}
 
 			/* Timeframe label styling */
@@ -4961,6 +5560,12 @@ var UIBuilder = class {
 			.tf-collapsible-content.open {
 				max-height: none;
 				overflow: visible;
+			}
+
+			/* Stats card content wrapper - base styling */
+			.tf-card-stats .tf-collapsible-content.open {
+				display: flex;
+				flex-direction: column;
 			}
 
 			/* Info section two-column grid */
@@ -5385,11 +5990,15 @@ var UIBuilder = class {
     menu.style.zIndex = "1000";
     menu.style.minWidth = "150px";
     menu.style.overflow = "hidden";
-    const timerTypes = [
-      { name: "jobb", icon: "\u{1F4BC}", label: translateSpecialDayName("jobb") },
-      { name: "kurs", icon: "\u{1F4DA}", label: translateSpecialDayName("kurs") },
-      { name: "studie", icon: "\u{1F393}", label: translateSpecialDayName("studie") }
-    ];
+    const defaultTimerTypes = ["jobb", "studie", "kurs"];
+    const timerTypes = this.settings.specialDayBehaviors.filter((b) => {
+      var _a;
+      return (_a = b.showInTimerDropdown) != null ? _a : defaultTimerTypes.includes(b.id);
+    }).map((b) => ({
+      name: b.id,
+      icon: b.icon,
+      label: translateSpecialDayName(b.id, b.label)
+    }));
     timerTypes.forEach((type) => {
       const item = document.createElement("div");
       item.style.padding = "10px 15px";
@@ -5561,7 +6170,8 @@ var UIBuilder = class {
     card.appendChild(headerRow);
     const timeframeSelectorContainer = document.createElement("div");
     timeframeSelectorContainer.className = "tf-timeframe-selector";
-    timeframeSelectorContainer.style.marginBottom = "15px";
+    timeframeSelectorContainer.style.marginTop = "12px";
+    timeframeSelectorContainer.style.marginBottom = "12px";
     timeframeSelectorContainer.style.display = "flex";
     timeframeSelectorContainer.style.gap = "10px";
     timeframeSelectorContainer.style.alignItems = "center";
@@ -5710,8 +6320,8 @@ var UIBuilder = class {
       weekContainer.style.gap = "6px";
       weekContainer.style.fontSize = "0.9em";
       createColorRow(weekContainer, "linear-gradient(135deg, #c8e6c9, #a5d6a7)", t("info.green"), t("info.reachedGoal") + " (\xB10.5h)");
-      createColorRow(weekContainer, "linear-gradient(135deg, #ffe0b2, #ffcc80)", t("info.orange"), t("info.overGoal"));
-      createColorRow(weekContainer, "linear-gradient(135deg, #ffcdd2, #ef9a9a)", t("info.red"), t("info.underGoal"));
+      createColorRow(weekContainer, "linear-gradient(135deg, #ffcdd2, #ef9a9a)", t("info.red"), t("info.overGoal"));
+      createColorRow(weekContainer, "linear-gradient(135deg, #ffe0b2, #ffcc80)", t("info.orange"), t("info.underGoal"));
       createColorRow(weekContainer, "linear-gradient(135deg, #e0e0e0, #bdbdbd)", t("info.gray"), t("info.weekInProgress"));
       const weekTip = weekBox.createEl("p");
       weekTip.style.margin = "8px 0 0 0";
@@ -6424,45 +7034,68 @@ var UIBuilder = class {
     if (this.settings.enableGoalTracking) {
       createStatItem(t("stats.flextimeBalance"), `${sign}${Utils.formatHoursToHM(Math.abs(balance), this.settings.hourUnit)}`, t("stats.totalBalance"), "tf-stat-colored", `background: ${timesaldoColor};`);
     }
-    createStatItem(`\u23F1\uFE0F ${t("stats.hours")}`, `${stats.totalHours.toFixed(1)}t`);
-    createStatItem(`\u{1F4CA} ${t("stats.avgPerDay")}`, `${avgDaily.toFixed(1)}t`);
-    const weekItem = this.elements.statsCard.createDiv({ cls: "tf-stat-item" });
-    weekItem.createDiv({ cls: "tf-stat-label", text: `\u{1F4C5} ${t("stats.avgPerWeek")}` });
-    weekItem.createDiv({ cls: "tf-stat-value", text: `${avgWeekly.toFixed(1)}t` });
-    if (context.lastWeekHours > 0) {
-      const currWeekHours = this.data.getCurrentWeekHours(this.today);
-      const diff = currWeekHours - context.lastWeekHours;
-      if (Math.abs(diff) > 2) {
-        const arrow = diff > 0 ? "\u{1F4C8}" : "\u{1F4C9}";
-        const signDiff = diff > 0 ? "+" : "";
-        const compDiv = weekItem.createDiv({ text: `${t("ui.vsLastWeek")}: ${signDiff}${diff.toFixed(1)}t ${arrow}` });
-        compDiv.style.cssText = "font-size: 0.75em; margin-top: 4px;";
+    if (!this.settings.hideEmptyStats || stats.totalHours > 0) {
+      createStatItem(`\u23F1\uFE0F ${t("stats.hours")}`, `${stats.totalHours.toFixed(1)}t`);
+    }
+    if (!this.settings.hideEmptyStats || avgDaily > 0) {
+      createStatItem(`\u{1F4CA} ${t("stats.avgPerDay")}`, `${avgDaily.toFixed(1)}t`);
+    }
+    if (!this.settings.hideEmptyStats || avgWeekly > 0) {
+      const weekItem = this.elements.statsCard.createDiv({ cls: "tf-stat-item" });
+      weekItem.createDiv({ cls: "tf-stat-label", text: `\u{1F4C5} ${t("stats.avgPerWeek")}` });
+      weekItem.createDiv({ cls: "tf-stat-value", text: `${avgWeekly.toFixed(1)}t` });
+      if (context.lastWeekHours > 0) {
+        const currWeekHours = this.data.getCurrentWeekHours(this.today);
+        const diff = currWeekHours - context.lastWeekHours;
+        if (Math.abs(diff) > 2) {
+          const arrow = diff > 0 ? "\u{1F4C8}" : "\u{1F4C9}";
+          const signDiff = diff > 0 ? "+" : "";
+          const compDiv = weekItem.createDiv({ text: `${t("ui.vsLastWeek")}: ${signDiff}${diff.toFixed(1)}t ${arrow}` });
+          compDiv.style.cssText = "font-size: 0.75em; margin-top: 4px;";
+        }
       }
     }
     if (this.settings.enableGoalTracking && this.settings.enableWeeklyGoals) {
       createStatItem(`\u{1F4AA} ${t("stats.workIntensity")}`, `${workloadPct}%`, t("stats.ofNormalWeek"));
     }
-    createStatItem(`\u{1F4BC} ${t("stats.work")}`, `${stats.jobb.count} ${t("ui.days")}`, `${stats.jobb.hours.toFixed(1)}t`);
+    if (!this.settings.hideEmptyStats || stats.jobb.count > 0) {
+      createStatItem(`\u{1F4BC} ${t("stats.work")}`, `${stats.jobb.count} ${t("ui.days")}`, `${stats.jobb.hours.toFixed(1)}t`);
+    }
     if (stats.weekendDays > 0) {
       createStatItem(`\u{1F319} ${t("stats.weekendDaysWorked")}`, `${stats.weekendDays} ${t("ui.days")}`, `${stats.weekendHours.toFixed(1)}${this.settings.hourUnit}`);
     }
-    createStatItem(`\u{1F6CC} ${t("stats.flexTimeOff")}`, `${stats.avspasering.count} ${t("ui.days")}`, `${stats.avspasering.hours.toFixed(1)}${this.settings.hourUnit}`);
-    const vacationItem = this.elements.statsCard.createDiv({ cls: "tf-stat-item" });
-    vacationItem.createDiv({ cls: "tf-stat-label", text: `\u{1F3D6}\uFE0F ${t("stats.vacation")}` });
-    const vacationValue = vacationItem.createDiv({ cls: "tf-stat-value", text: ferieDisplay });
-    vacationValue.style.fontSize = this.statsTimeframe === "year" ? "0.9em" : "1.3em";
-    const vacationSub = vacationItem.createDiv();
-    vacationSub.style.cssText = "font-size: 0.75em; margin-top: 4px;";
-    createStatItem(`\u{1F3E5} ${t("stats.welfareLeave")}`, `${stats.velferdspermisjon.count} ${t("ui.days")}`);
-    const sickItem = this.elements.statsCard.createDiv({ cls: "tf-stat-item" });
-    sickItem.createDiv({ cls: "tf-stat-label", text: `\u{1F912} ${t("stats.selfReportedSick")}` });
-    const sickValue = sickItem.createDiv({ cls: "tf-stat-value", text: egenmeldingDisplay });
-    sickValue.style.fontSize = this.statsTimeframe === "year" ? "0.9em" : "1.3em";
-    const sickSub = sickItem.createDiv({ text: egenmeldingPeriodLabel });
-    sickSub.style.cssText = "font-size: 0.75em; margin-top: 4px;";
-    createStatItem(`\u{1F3E5} ${t("stats.doctorSick")}`, `${stats.sykemelding.count} ${t("ui.days")}`);
-    createStatItem(`\u{1F4DA} ${t("stats.study")}`, `${stats.studie.count} ${t("ui.days")}`, `${stats.studie.hours.toFixed(1)}${this.settings.hourUnit}`);
-    createStatItem(`\u{1F4DA} ${t("stats.course")}`, `${stats.kurs.count} ${t("ui.days")}`, `${stats.kurs.hours.toFixed(1)}${this.settings.hourUnit}`);
+    if (!this.settings.hideEmptyStats || stats.avspasering.count > 0) {
+      createStatItem(`\u{1F6CC} ${t("stats.flexTimeOff")}`, `${stats.avspasering.count} ${t("ui.days")}`, `${stats.avspasering.hours.toFixed(1)}${this.settings.hourUnit}`);
+    }
+    if (!this.settings.hideEmptyStats || stats.ferie.count > 0) {
+      const vacationItem = this.elements.statsCard.createDiv({ cls: "tf-stat-item" });
+      vacationItem.createDiv({ cls: "tf-stat-label", text: `\u{1F3D6}\uFE0F ${t("stats.vacation")}` });
+      const vacationValue = vacationItem.createDiv({ cls: "tf-stat-value", text: ferieDisplay });
+      vacationValue.style.fontSize = this.statsTimeframe === "year" ? "0.9em" : "1.3em";
+      const vacationSub = vacationItem.createDiv();
+      vacationSub.style.cssText = "font-size: 0.75em; margin-top: 4px;";
+    }
+    if (!this.settings.hideEmptyStats || stats.velferdspermisjon.count > 0) {
+      createStatItem(`\u{1F3E5} ${t("stats.welfareLeave")}`, `${stats.velferdspermisjon.count} ${t("ui.days")}`);
+    }
+    if (!this.settings.hideEmptyStats || stats.egenmelding.count > 0) {
+      const sickItem = this.elements.statsCard.createDiv({ cls: "tf-stat-item" });
+      sickItem.createDiv({ cls: "tf-stat-label", text: `\u{1F912} ${t("stats.selfReportedSick")}` });
+      const sickValue = sickItem.createDiv({ cls: "tf-stat-value", text: egenmeldingDisplay });
+      sickValue.style.fontSize = this.statsTimeframe === "year" ? "0.9em" : "1.3em";
+      const sickSub = sickItem.createDiv({ text: egenmeldingPeriodLabel });
+      sickSub.style.cssText = "font-size: 0.75em; margin-top: 4px;";
+    }
+    if (!this.settings.hideEmptyStats || stats.sykemelding.count > 0) {
+      createStatItem(`\u{1F3E5} ${t("stats.doctorSick")}`, `${stats.sykemelding.count} ${t("ui.days")}`);
+    }
+    if (!this.settings.hideEmptyStats || stats.studie.count > 0) {
+      createStatItem(`\u{1F4DA} ${t("stats.study")}`, `${stats.studie.count} ${t("ui.days")}`, `${stats.studie.hours.toFixed(1)}${this.settings.hourUnit}`);
+    }
+    if (!this.settings.hideEmptyStats || stats.kurs.count > 0) {
+      createStatItem(`\u{1F4DA} ${t("stats.course")}`, `${stats.kurs.count} ${t("ui.days")}`, `${stats.kurs.hours.toFixed(1)}${this.settings.hourUnit}`);
+    }
+    this.renderHoursBarChart();
     const tabs = (_b = this.elements.statsCard.parentElement) == null ? void 0 : _b.querySelectorAll(".tf-tab");
     tabs == null ? void 0 : tabs.forEach((tab) => {
       var _a2;
@@ -6472,6 +7105,83 @@ var UIBuilder = class {
       } else {
         tab.classList.remove("active");
       }
+    });
+  }
+  /**
+   * Render the hours bar chart at the bottom of the stats card section
+   */
+  renderHoursBarChart() {
+    var _a;
+    if (!this.elements.statsCard)
+      return;
+    const contentWrapper = this.elements.statsCard.parentElement;
+    if (!contentWrapper)
+      return;
+    const existingChart = contentWrapper.querySelector(".tf-hours-chart");
+    if (existingChart) {
+      existingChart.remove();
+    }
+    const chartData = this.data.getHistoricalHoursData(
+      this.statsTimeframe,
+      this.selectedYear,
+      this.selectedMonth
+    );
+    if (chartData.length === 0)
+      return;
+    const maxHours = Math.max(...chartData.map((d) => d.hours), ...chartData.map((d) => d.target || 0));
+    if (maxHours === 0)
+      return;
+    const chartContainer = document.createElement("div");
+    chartContainer.className = "tf-hours-chart";
+    contentWrapper.appendChild(chartContainer);
+    const createDiv = (className, text) => {
+      const div = document.createElement("div");
+      div.className = className;
+      if (text)
+        div.textContent = text;
+      return div;
+    };
+    let title = "";
+    if (this.statsTimeframe === "month") {
+      title = t("stats.weeklyHours") || "Uketimer";
+    } else if (this.statsTimeframe === "year") {
+      title = t("stats.monthlyHours") || "M\xE5nedstimer";
+    } else {
+      title = t("stats.yearlyHours") || "\xC5rstimer";
+    }
+    chartContainer.appendChild(createDiv("tf-hours-chart-title", title));
+    const chartInner = createDiv("tf-hours-chart-container");
+    chartContainer.appendChild(chartInner);
+    const barsArea = createDiv("tf-hours-bars-area");
+    chartInner.appendChild(barsArea);
+    const maxBarHeight = 80;
+    const bottomOffset = 20;
+    const target = (_a = chartData[0]) == null ? void 0 : _a.target;
+    if (target && target > 0) {
+      const targetHeight = target / maxHours * maxBarHeight;
+      const targetLine = createDiv("tf-hours-target-line");
+      targetLine.style.bottom = `${targetHeight + bottomOffset}px`;
+      const targetLabelLeft = createDiv("tf-hours-target-label-left", t("stats.target") || "M\xE5l");
+      const targetLabelRight = createDiv("tf-hours-target-label", `${target.toFixed(0)}t`);
+      targetLine.appendChild(targetLabelLeft);
+      targetLine.appendChild(targetLabelRight);
+      chartInner.appendChild(targetLine);
+    }
+    chartData.forEach((item) => {
+      const barWrapper = createDiv("tf-hours-bar-wrapper");
+      const valueLabel = createDiv("tf-hours-bar-value", item.hours > 0 ? `${item.hours.toFixed(0)}` : "");
+      barWrapper.appendChild(valueLabel);
+      const barContainer = createDiv("tf-hours-bar-container");
+      const bar = createDiv("tf-hours-bar");
+      const barHeight = maxHours > 0 ? item.hours / maxHours * maxBarHeight : 0;
+      bar.style.height = `${Math.max(barHeight, 2)}px`;
+      if (item.hours === 0) {
+        bar.classList.add("empty");
+      }
+      barContainer.appendChild(bar);
+      barWrapper.appendChild(barContainer);
+      barWrapper.appendChild(createDiv("tf-hours-bar-label", item.label));
+      barsArea.appendChild(barWrapper);
     });
   }
   updateMonthCard() {
@@ -6500,10 +7210,27 @@ var UIBuilder = class {
         const behavior = this.settings.specialDayBehaviors.find((b) => b.id === holiday.type);
         if (behavior) {
           const translatedLabel = translateSpecialDayName(behavior.id, behavior.label);
+          let displayLabel = holiday.description || translatedLabel;
+          if (holiday.type === "annet") {
+            const parts = [];
+            if (holiday.annetTemplateId) {
+              const template = this.settings.annetTemplates.find((t2) => t2.id === holiday.annetTemplateId);
+              if (template) {
+                parts.push(`${template.icon} ${template.label}`);
+              }
+            }
+            if (holiday.startTime && holiday.endTime) {
+              parts.push(`${holiday.startTime}-${holiday.endTime}`);
+            }
+            if (holiday.description) {
+              parts.push(holiday.description);
+            }
+            displayLabel = parts.length > 0 ? parts.join(" \xB7 ") : translatedLabel;
+          }
           futureDays.push({
             date: dateStr,
             type: translatedLabel,
-            label: holiday.description || translatedLabel,
+            label: displayLabel,
             color: behavior.color,
             textColor: behavior.textColor || "#000000"
           });
@@ -6511,18 +7238,20 @@ var UIBuilder = class {
       }
     });
     futureDays.sort((a, b) => a.date.localeCompare(b.date));
-    const limit = this.settings.enableGoalTracking ? 10 : 7;
-    const limitedDays = futureDays.slice(0, limit);
-    if (limitedDays.length === 0) {
+    const maxEntries = this.settings.hideEmptyStats ? 10 : 15;
+    const displayDays = futureDays.slice(0, maxEntries);
+    const hasMore = futureDays.length > maxEntries;
+    if (displayDays.length === 0) {
       container.empty();
       return;
     }
     container.empty();
     container.createEl("h4", { text: t("ui.upcomingPlannedDays") });
-    limitedDays.forEach((day) => {
+    const innerContainer = container.createDiv({ cls: `tf-future-days-inner${hasMore ? " has-more" : ""}` });
+    displayDays.forEach((day) => {
       const date = /* @__PURE__ */ new Date(day.date + "T00:00:00");
       const dateStr = formatDate(date, "long");
-      const itemDiv = container.createDiv({ cls: "tf-future-day-item" });
+      const itemDiv = innerContainer.createDiv({ cls: "tf-future-day-item" });
       itemDiv.createSpan({ cls: "tf-future-day-date", text: dateStr });
       const typeSpan = itemDiv.createSpan({ cls: "tf-future-day-type", text: day.label });
       typeSpan.style.backgroundColor = day.color;
@@ -6999,13 +7728,13 @@ var UIBuilder = class {
     let statusText = t("status.onTarget");
     let statusColor = "#4caf50";
     if (data.status === "over") {
-      statusIcon = "\u{1F7E8}";
-      statusText = t("status.overTarget");
-      statusColor = "#ff9800";
-    } else if (data.status === "under") {
       statusIcon = "\u{1F7E5}";
-      statusText = t("status.underTarget");
+      statusText = t("status.overTarget");
       statusColor = "#f44336";
+    } else if (data.status === "under") {
+      statusIcon = "\u{1F7E8}";
+      statusText = t("status.underTarget");
+      statusColor = "#ff9800";
     } else if (data.status === "partial") {
       statusIcon = "\u23F3";
       statusText = t("status.inProgress");
@@ -7057,7 +7786,7 @@ var UIBuilder = class {
     setTimeout(() => document.addEventListener("click", closeHandler), 0);
   }
   showNoteTypeMenu(cellRect, dateObj) {
-    var _a, _b, _c;
+    var _a, _b, _c, _d;
     const existingMenu = document.querySelector(".tf-context-menu");
     if (existingMenu) {
       const existingDate = existingMenu.dataset.menuDate;
@@ -7171,9 +7900,19 @@ var UIBuilder = class {
     menuInfo.createEl("h4", { text: "\u{1F4C5} " + dateStr });
     if (isPlannedDay && plannedInfo) {
       const emoji = Utils.getEmoji({ name: plannedInfo.type, date: dateObj });
-      const halfDayText = plannedInfo.halfDay ? " (halv dag)" : "";
+      let typeName = translateSpecialDayName(plannedInfo.type);
+      if (plannedInfo.type === "annet" && plannedInfo.annetTemplateId) {
+        const template = (_a = this.settings.annetTemplates) == null ? void 0 : _a.find((tmpl) => tmpl.id === plannedInfo.annetTemplateId);
+        if (template) {
+          typeName = `${template.icon} ${template.label}`;
+        }
+      }
       const plannedP = menuInfo.createEl("p");
-      plannedP.createEl("strong", { text: emoji + " " + plannedInfo.description + halfDayText });
+      let displayText = plannedInfo.description ? `${emoji} ${typeName}: ${plannedInfo.description}` : `${emoji} ${typeName}`;
+      if (plannedInfo.halfDay) {
+        displayText += " (\xBD)";
+      }
+      plannedP.createEl("strong", { text: displayText });
     }
     if (runningTimersForDate.length > 0) {
       const timersP = menuInfo.createEl("p");
@@ -7207,7 +7946,7 @@ var UIBuilder = class {
       if (!isFutureDay) {
         const totalHours = allEntries.reduce((sum, e) => sum + (e.duration || 0), 0);
         const dayGoal = this.data.getDailyGoal(dateStr);
-        const dailyDelta = dayGoal === 0 ? totalHours : totalHours - dayGoal;
+        const dailyDelta = allEntries.reduce((sum, e) => sum + (e.flextime || 0), 0);
         const runningBalance = this.data.getBalanceUpToDate(dateStr);
         const goalP = menuInfo.createEl("p");
         goalP.style.marginTop = "8px";
@@ -7224,10 +7963,10 @@ var UIBuilder = class {
       const noRegP = menuInfo.createEl("p", { text: t("ui.noRegistration") });
       noRegP.style.color = "var(--text-muted)";
     }
-    if (((_a = this.settings.complianceSettings) == null ? void 0 : _a.enableWarnings) && !isFutureDay && completedEntries.length > 0) {
+    if (((_b = this.settings.complianceSettings) == null ? void 0 : _b.enableWarnings) && !isFutureDay && completedEntries.length > 0) {
       const restCheck = this.data.checkRestPeriodViolation(dateStr);
       if (restCheck.violated && restCheck.restHours !== null) {
-        const minimumRest = (_c = (_b = this.settings.complianceSettings) == null ? void 0 : _b.minimumRestHours) != null ? _c : 11;
+        const minimumRest = (_d = (_c = this.settings.complianceSettings) == null ? void 0 : _c.minimumRestHours) != null ? _d : 11;
         const warningDiv = menuInfo.createDiv({ cls: "tf-rest-period-warning" });
         warningDiv.createSpan({ cls: "warning-icon", text: "\u26A0\uFE0F" });
         warningDiv.createSpan({ text: t("ui.restPeriod") + ": " + restCheck.restHours.toFixed(1) + "h (" + t("ui.minimum") + " " + minimumRest + "h)" });
@@ -7729,6 +8468,83 @@ var UIBuilder = class {
     dateDisplay.style.fontSize = "16px";
     dateDisplay.style.fontWeight = "bold";
     content.appendChild(dateDisplay);
+    const multiDayContainer = document.createElement("div");
+    multiDayContainer.style.marginBottom = "15px";
+    const multiDayRow = document.createElement("div");
+    multiDayRow.style.display = "flex";
+    multiDayRow.style.alignItems = "center";
+    multiDayRow.style.gap = "8px";
+    multiDayRow.style.marginBottom = "10px";
+    const multiDayCheckbox = document.createElement("input");
+    multiDayCheckbox.type = "checkbox";
+    multiDayCheckbox.id = "multiDayCheckbox";
+    multiDayRow.appendChild(multiDayCheckbox);
+    const multiDayLabel = document.createElement("label");
+    multiDayLabel.htmlFor = "multiDayCheckbox";
+    multiDayLabel.textContent = t("ui.multipleDays");
+    multiDayLabel.style.cursor = "pointer";
+    multiDayRow.appendChild(multiDayLabel);
+    multiDayContainer.appendChild(multiDayRow);
+    const dateRangeContainer = document.createElement("div");
+    dateRangeContainer.style.display = "none";
+    dateRangeContainer.style.gap = "10px";
+    const startDateRow = document.createElement("div");
+    startDateRow.style.display = "flex";
+    startDateRow.style.alignItems = "center";
+    startDateRow.style.gap = "8px";
+    startDateRow.style.marginBottom = "8px";
+    const startDateLabel = document.createElement("span");
+    startDateLabel.textContent = t("ui.startDate") + ":";
+    startDateLabel.style.minWidth = "80px";
+    startDateRow.appendChild(startDateLabel);
+    const startDateInput = document.createElement("input");
+    startDateInput.type = "date";
+    startDateInput.value = dateStr;
+    startDateInput.style.flex = "1";
+    startDateInput.style.padding = "6px";
+    startDateRow.appendChild(startDateInput);
+    dateRangeContainer.appendChild(startDateRow);
+    const endDateRow = document.createElement("div");
+    endDateRow.style.display = "flex";
+    endDateRow.style.alignItems = "center";
+    endDateRow.style.gap = "8px";
+    const endDateLabel = document.createElement("span");
+    endDateLabel.textContent = t("ui.endDate") + ":";
+    endDateLabel.style.minWidth = "80px";
+    endDateRow.appendChild(endDateLabel);
+    const endDateInput = document.createElement("input");
+    endDateInput.type = "date";
+    endDateInput.value = dateStr;
+    endDateInput.style.flex = "1";
+    endDateInput.style.padding = "6px";
+    endDateRow.appendChild(endDateInput);
+    dateRangeContainer.appendChild(endDateRow);
+    const daysCountDisplay = document.createElement("div");
+    daysCountDisplay.style.fontSize = "12px";
+    daysCountDisplay.style.color = "var(--text-muted)";
+    daysCountDisplay.style.marginTop = "8px";
+    const updateDaysCount = () => {
+      const start = new Date(startDateInput.value);
+      const end = new Date(endDateInput.value);
+      if (start && end && end >= start) {
+        const days = Math.floor((end.getTime() - start.getTime()) / (1e3 * 60 * 60 * 24)) + 1;
+        daysCountDisplay.textContent = `${days} ${days === 1 ? t("units.day") : t("units.days")}`;
+      } else {
+        daysCountDisplay.textContent = t("validation.invalidDateRange") || "Invalid date range";
+      }
+    };
+    updateDaysCount();
+    startDateInput.addEventListener("change", updateDaysCount);
+    endDateInput.addEventListener("change", updateDaysCount);
+    dateRangeContainer.appendChild(daysCountDisplay);
+    multiDayContainer.appendChild(dateRangeContainer);
+    const updateMultiDayVisibility = () => {
+      const isMultiDay = multiDayCheckbox.checked;
+      dateDisplay.style.display = isMultiDay ? "none" : "block";
+      dateRangeContainer.style.display = isMultiDay ? "block" : "none";
+    };
+    multiDayCheckbox.addEventListener("change", updateMultiDayVisibility);
+    content.appendChild(multiDayContainer);
     const typeLabel = document.createElement("div");
     typeLabel.textContent = t("modals.dayType");
     typeLabel.style.marginBottom = "5px";
@@ -7927,6 +8743,190 @@ var UIBuilder = class {
     fullDayCheckbox.addEventListener("change", updateSickTimeInputs);
     updateSickTimeInputs();
     content.appendChild(sickTimeContainer);
+    const annetContainer = document.createElement("div");
+    annetContainer.style.marginBottom = "15px";
+    annetContainer.style.display = "none";
+    const annetTemplateLabel = document.createElement("div");
+    annetTemplateLabel.textContent = t("annet.selectTemplate");
+    annetTemplateLabel.style.marginBottom = "8px";
+    annetTemplateLabel.style.fontWeight = "bold";
+    annetContainer.appendChild(annetTemplateLabel);
+    const annetTemplateButtons = document.createElement("div");
+    annetTemplateButtons.style.display = "flex";
+    annetTemplateButtons.style.flexWrap = "wrap";
+    annetTemplateButtons.style.gap = "8px";
+    annetTemplateButtons.style.marginBottom = "12px";
+    let selectedAnnetTemplate = null;
+    const annetTemplates = this.settings.annetTemplates || [];
+    const templateButtonRefs = [];
+    annetTemplates.forEach((template) => {
+      const btn = document.createElement("button");
+      btn.textContent = `${template.icon} ${template.label}`;
+      btn.style.padding = "8px 12px";
+      btn.style.borderRadius = "4px";
+      btn.style.cursor = "pointer";
+      btn.dataset.templateId = template.id;
+      templateButtonRefs.push(btn);
+      annetTemplateButtons.appendChild(btn);
+    });
+    const customBtn = document.createElement("button");
+    customBtn.textContent = `\u{1F4CB} ${t("annet.custom")}`;
+    customBtn.style.padding = "8px 12px";
+    customBtn.style.borderRadius = "4px";
+    customBtn.style.cursor = "pointer";
+    customBtn.onclick = () => {
+      annetTemplateButtons.querySelectorAll("button").forEach((b) => {
+        b.style.backgroundColor = "";
+        b.classList.remove("mod-cta");
+      });
+      customBtn.style.backgroundColor = "var(--interactive-accent)";
+      customBtn.classList.add("mod-cta");
+      selectedAnnetTemplate = null;
+      saveAsTemplateContainer.style.display = "block";
+    };
+    annetTemplateButtons.appendChild(customBtn);
+    annetContainer.appendChild(annetTemplateButtons);
+    const saveAsTemplateContainer = document.createElement("div");
+    saveAsTemplateContainer.style.display = "none";
+    saveAsTemplateContainer.style.marginBottom = "12px";
+    saveAsTemplateContainer.style.padding = "10px";
+    saveAsTemplateContainer.style.backgroundColor = "var(--background-secondary)";
+    saveAsTemplateContainer.style.borderRadius = "4px";
+    const templateNameRow = document.createElement("div");
+    templateNameRow.style.display = "flex";
+    templateNameRow.style.alignItems = "center";
+    templateNameRow.style.gap = "8px";
+    templateNameRow.style.marginBottom = "8px";
+    const templateNameLabel = document.createElement("span");
+    templateNameLabel.textContent = t("annet.templateName") + ":";
+    templateNameLabel.style.minWidth = "80px";
+    templateNameRow.appendChild(templateNameLabel);
+    const templateNameInput = document.createElement("input");
+    templateNameInput.type = "text";
+    templateNameInput.style.flex = "1";
+    templateNameInput.style.padding = "6px";
+    templateNameInput.placeholder = t("annet.labelPlaceholder");
+    templateNameRow.appendChild(templateNameInput);
+    saveAsTemplateContainer.appendChild(templateNameRow);
+    const templateIconRow = document.createElement("div");
+    templateIconRow.style.display = "flex";
+    templateIconRow.style.alignItems = "center";
+    templateIconRow.style.gap = "8px";
+    templateIconRow.style.marginBottom = "8px";
+    const templateIconLabel = document.createElement("span");
+    templateIconLabel.textContent = t("annet.templateIcon") + ":";
+    templateIconLabel.style.minWidth = "80px";
+    templateIconRow.appendChild(templateIconLabel);
+    const templateIconInput = document.createElement("input");
+    templateIconInput.type = "text";
+    templateIconInput.style.width = "60px";
+    templateIconInput.style.padding = "6px";
+    templateIconInput.placeholder = "\u{1F3E5}";
+    templateIconRow.appendChild(templateIconInput);
+    saveAsTemplateContainer.appendChild(templateIconRow);
+    const saveAsTemplateRow = document.createElement("div");
+    saveAsTemplateRow.style.display = "flex";
+    saveAsTemplateRow.style.alignItems = "center";
+    saveAsTemplateRow.style.gap = "8px";
+    saveAsTemplateRow.style.marginTop = "8px";
+    saveAsTemplateRow.style.paddingTop = "8px";
+    saveAsTemplateRow.style.borderTop = "1px solid var(--background-modifier-border)";
+    const saveAsTemplateCheckbox = document.createElement("input");
+    saveAsTemplateCheckbox.type = "checkbox";
+    saveAsTemplateCheckbox.id = "saveAsTemplateCheckbox";
+    saveAsTemplateRow.appendChild(saveAsTemplateCheckbox);
+    const saveAsTemplateLabel = document.createElement("label");
+    saveAsTemplateLabel.htmlFor = "saveAsTemplateCheckbox";
+    saveAsTemplateLabel.textContent = t("annet.saveAsTemplate");
+    saveAsTemplateLabel.style.cursor = "pointer";
+    saveAsTemplateRow.appendChild(saveAsTemplateLabel);
+    saveAsTemplateContainer.appendChild(saveAsTemplateRow);
+    annetContainer.appendChild(saveAsTemplateContainer);
+    templateButtonRefs.forEach((btn) => {
+      const templateId = btn.dataset.templateId;
+      btn.onclick = () => {
+        annetTemplateButtons.querySelectorAll("button").forEach((b) => {
+          b.style.backgroundColor = "";
+          b.classList.remove("mod-cta");
+        });
+        btn.style.backgroundColor = "var(--interactive-accent)";
+        btn.classList.add("mod-cta");
+        selectedAnnetTemplate = templateId || null;
+        saveAsTemplateContainer.style.display = "none";
+        saveAsTemplateCheckbox.checked = false;
+        templateNameInput.value = "";
+        templateIconInput.value = "";
+      };
+    });
+    const annetFullDayRow = document.createElement("div");
+    annetFullDayRow.style.display = "flex";
+    annetFullDayRow.style.alignItems = "center";
+    annetFullDayRow.style.gap = "8px";
+    annetFullDayRow.style.marginBottom = "12px";
+    const annetFullDayCheckbox = document.createElement("input");
+    annetFullDayCheckbox.type = "checkbox";
+    annetFullDayCheckbox.id = "annetFullDayCheckbox";
+    annetFullDayCheckbox.checked = true;
+    annetFullDayRow.appendChild(annetFullDayCheckbox);
+    const annetFullDayLabel = document.createElement("label");
+    annetFullDayLabel.htmlFor = "annetFullDayCheckbox";
+    annetFullDayLabel.textContent = t("annet.fullDay");
+    annetFullDayLabel.style.cursor = "pointer";
+    annetFullDayRow.appendChild(annetFullDayLabel);
+    annetContainer.appendChild(annetFullDayRow);
+    const annetTimeInputRow = document.createElement("div");
+    annetTimeInputRow.style.display = "none";
+    annetTimeInputRow.style.gap = "10px";
+    annetTimeInputRow.style.alignItems = "center";
+    annetTimeInputRow.style.marginBottom = "12px";
+    const annetFromLabel = document.createElement("span");
+    annetFromLabel.textContent = t("annet.fromTime") + ":";
+    annetTimeInputRow.appendChild(annetFromLabel);
+    const annetFromTimeInput = this.createTimeInput("09:00", () => {
+    });
+    annetFromTimeInput.style.padding = "8px";
+    annetFromTimeInput.style.fontSize = "14px";
+    annetTimeInputRow.appendChild(annetFromTimeInput);
+    const annetToLabel = document.createElement("span");
+    annetToLabel.textContent = t("annet.toTime") + ":";
+    annetTimeInputRow.appendChild(annetToLabel);
+    const annetToTimeInput = this.createTimeInput("11:00", () => {
+    });
+    annetToTimeInput.style.padding = "8px";
+    annetToTimeInput.style.fontSize = "14px";
+    annetTimeInputRow.appendChild(annetToTimeInput);
+    annetContainer.appendChild(annetTimeInputRow);
+    const annetDurationDisplay = document.createElement("div");
+    annetDurationDisplay.style.fontSize = "12px";
+    annetDurationDisplay.style.color = "var(--text-muted)";
+    annetDurationDisplay.style.marginBottom = "12px";
+    annetDurationDisplay.style.display = "none";
+    const updateAnnetDuration = () => {
+      const from = annetFromTimeInput.value;
+      const to = annetToTimeInput.value;
+      if (from && to) {
+        const [fH, fM] = from.split(":").map(Number);
+        const [tH, tM] = to.split(":").map(Number);
+        const hours = tH + tM / 60 - (fH + fM / 60);
+        if (hours > 0) {
+          annetDurationDisplay.textContent = `${t("modals.duration") || "Varighet"}: ${hours.toFixed(1)} ${t("units.hours") || "timer"}`;
+        } else {
+          annetDurationDisplay.textContent = t("validation.invalidTimePeriod") || "Ugyldig tidsperiode";
+        }
+      }
+    };
+    updateAnnetDuration();
+    annetFromTimeInput.addEventListener("change", updateAnnetDuration);
+    annetToTimeInput.addEventListener("change", updateAnnetDuration);
+    annetContainer.appendChild(annetDurationDisplay);
+    const updateAnnetTimeInputs = () => {
+      const isFullDay = annetFullDayCheckbox.checked;
+      annetTimeInputRow.style.display = isFullDay ? "none" : "flex";
+      annetDurationDisplay.style.display = isFullDay ? "none" : "block";
+    };
+    annetFullDayCheckbox.addEventListener("change", updateAnnetTimeInputs);
+    updateAnnetTimeInputs();
+    content.appendChild(annetContainer);
     const noteLabel = document.createElement("div");
     noteLabel.textContent = t("modals.commentOptional");
     noteLabel.style.marginBottom = "5px";
@@ -7946,7 +8946,13 @@ var UIBuilder = class {
     const updateFieldVisibility = () => {
       const selectedType = typeSelect.value;
       timeContainer.style.display = selectedType === "avspasering" ? "block" : "none";
-      sickTimeContainer.style.display = isReduceGoalType(selectedType) ? "block" : "none";
+      sickTimeContainer.style.display = isReduceGoalType(selectedType) && selectedType !== "annet" ? "block" : "none";
+      annetContainer.style.display = selectedType === "annet" ? "block" : "none";
+      multiDayContainer.style.display = selectedType === "annet" ? "none" : "block";
+      if (selectedType === "annet") {
+        multiDayCheckbox.checked = false;
+        updateMultiDayVisibility();
+      }
       noteInput.placeholder = getPlaceholderForType(selectedType);
     };
     typeSelect.addEventListener("change", updateFieldVisibility);
@@ -7971,7 +8977,51 @@ var UIBuilder = class {
       const note = noteInput.value.trim();
       const startTime = dayType === "avspasering" ? fromTimeInput.value : void 0;
       const endTime = dayType === "avspasering" ? toTimeInput.value : void 0;
-      if (isReduceGoalType(dayType)) {
+      if (dayType === "annet") {
+        const isFullDay = annetFullDayCheckbox.checked;
+        let templateId = selectedAnnetTemplate;
+        let entryDescription = note;
+        if (selectedAnnetTemplate === null) {
+          const customName = templateNameInput.value.trim();
+          const customIcon = templateIconInput.value.trim() || "\u{1F4CB}";
+          if (saveAsTemplateCheckbox.checked) {
+            if (!customName) {
+              new import_obsidian4.Notice(`\u274C ${t("annet.labelRequired")}`);
+              return;
+            }
+            const newTemplateId = customName.toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "");
+            if (this.settings.annetTemplates.some((tmpl) => tmpl.id === newTemplateId)) {
+              new import_obsidian4.Notice(`\u274C ${t("annet.duplicateId")}`);
+              return;
+            }
+            this.settings.annetTemplates.push({
+              id: newTemplateId,
+              label: customName,
+              icon: customIcon
+            });
+            await this.plugin.saveSettings();
+            new import_obsidian4.Notice(`\u2705 ${t("annet.addTemplate")}: ${customIcon} ${customName}`);
+            templateId = newTemplateId;
+          } else if (customName) {
+            const prefix = `${customIcon} ${customName}`;
+            entryDescription = note ? `${prefix}: ${note}` : prefix;
+          }
+        }
+        if (!isFullDay) {
+          const from = annetFromTimeInput.value;
+          const to = annetToTimeInput.value;
+          const [fH, fM] = from.split(":").map(Number);
+          const [tH, tM] = to.split(":").map(Number);
+          const hours = tH + tM / 60 - (fH + fM / 60);
+          if (hours <= 0) {
+            new import_obsidian4.Notice(`\u274C ${t("validation.invalidTimePeriod") || "Ugyldig tidsperiode"}`);
+            return;
+          }
+          await this.addAnnetEntry(dateObj, templateId, from, to, entryDescription);
+        } else {
+          await this.addAnnetEntry(dateObj, templateId, null, null, entryDescription);
+        }
+      } else if (isReduceGoalType(dayType)) {
         const isFullDay = fullDayCheckbox.checked;
         if (!isFullDay) {
           const from = sickFromTimeInput.value;
@@ -8001,7 +9051,26 @@ var UIBuilder = class {
           await this.addSpecialDay(dateObj, dayType, note);
         }
       } else {
-        await this.addSpecialDay(dateObj, dayType, note, startTime, endTime);
+        if (multiDayCheckbox.checked) {
+          const startDate = new Date(startDateInput.value);
+          const endDate = new Date(endDateInput.value);
+          if (endDate < startDate) {
+            new import_obsidian4.Notice(`\u274C ${t("validation.invalidDateRange") || "Invalid date range"}`);
+            return;
+          }
+          const currentDate = new Date(startDate);
+          let daysAdded = 0;
+          while (currentDate <= endDate) {
+            await this.addSpecialDay(new Date(currentDate), dayType, note, startTime, endTime);
+            currentDate.setDate(currentDate.getDate() + 1);
+            daysAdded++;
+          }
+          const behavior = this.settings.specialDayBehaviors.find((b) => b.id === dayType);
+          const typeName = behavior ? translateSpecialDayName(behavior.id, behavior.label) : dayType;
+          new import_obsidian4.Notice(`\u2705 ${typeName}: ${daysAdded} ${daysAdded === 1 ? t("units.day") : t("units.days")}`);
+        } else {
+          await this.addSpecialDay(dateObj, dayType, note, startTime, endTime);
+        }
       }
       this.isModalOpen = false;
       modal.remove();
@@ -8054,6 +9123,70 @@ var UIBuilder = class {
       this.updateMonthCard();
     } catch (error) {
       console.error("Failed to add special day:", error);
+      new import_obsidian4.Notice(`\u274C ${t("notifications.errorAddingSpecialDay")}`);
+    }
+  }
+  /**
+   * Add an annet (other) entry to the holidays file
+   * Format: - YYYY-MM-DD: annet:templateId:HH:MM-HH:MM: description
+   *    or:  - YYYY-MM-DD: annet:templateId: description (full day)
+   *    or:  - YYYY-MM-DD: annet:HH:MM-HH:MM: description (partial, no template)
+   *    or:  - YYYY-MM-DD: annet: description (full day, no template)
+   */
+  async addAnnetEntry(dateObj, templateId, startTime, endTime, note) {
+    try {
+      const filePath = this.settings.holidaysFilePath;
+      const file = this.app.vault.getAbstractFileByPath((0, import_obsidian4.normalizePath)(filePath));
+      if (!file) {
+        new import_obsidian4.Notice(`\u274C ${t("notifications.fileNotFound").replace("{path}", filePath)}`);
+        return;
+      }
+      const year = dateObj.getFullYear();
+      const month = String(dateObj.getMonth() + 1).padStart(2, "0");
+      const day = String(dateObj.getDate()).padStart(2, "0");
+      const dateStr = `${year}-${month}-${day}`;
+      let content = await this.app.vault.read(file);
+      const sectionMarker = "## Planlagte egne fridager";
+      const sectionIndex = content.indexOf(sectionMarker);
+      if (sectionIndex === -1) {
+        new import_obsidian4.Notice(`\u274C ${t("notifications.sectionNotFound")}`);
+        return;
+      }
+      const codeBlockStart = content.indexOf("```", sectionIndex);
+      const codeBlockEnd = content.indexOf("```", codeBlockStart + 3);
+      if (codeBlockStart === -1 || codeBlockEnd === -1) {
+        new import_obsidian4.Notice(`\u274C ${t("notifications.codeBlockNotFound")}`);
+        return;
+      }
+      let annetType = "annet";
+      if (templateId) {
+        annetType += `:${templateId}`;
+      }
+      if (startTime && endTime) {
+        annetType += `:${startTime}-${endTime}`;
+      }
+      const newEntry = `- ${dateStr}: ${annetType}: ${note}`;
+      const beforeClosing = content.substring(0, codeBlockEnd);
+      const afterClosing = content.substring(codeBlockEnd);
+      const needsNewline = !beforeClosing.endsWith("\n");
+      content = beforeClosing + (needsNewline ? "\n" : "") + newEntry + "\n" + afterClosing;
+      await this.app.vault.modify(file, content);
+      let label = t("annet.title");
+      if (templateId) {
+        const template = this.settings.annetTemplates.find((t2) => t2.id === templateId);
+        if (template) {
+          label = `${template.icon} ${template.label}`;
+        }
+      }
+      if (startTime && endTime) {
+        new import_obsidian4.Notice(`\u2705 ${t("notifications.added")} ${dateStr} (${label} ${startTime}-${endTime})`);
+      } else {
+        new import_obsidian4.Notice(`\u2705 ${t("notifications.added")} ${dateStr} (${label})`);
+      }
+      await this.data.loadHolidays();
+      this.updateMonthCard();
+    } catch (error) {
+      console.error("Failed to add annet entry:", error);
       new import_obsidian4.Notice(`\u274C ${t("notifications.errorAddingSpecialDay")}`);
     }
   }
@@ -9076,23 +10209,32 @@ ${noteType.tags.join(" ")}`;
     new import_obsidian4.Notice(t("notifications.exported"));
   }
   startUpdates() {
+    const clockMs = (this.settings.clockInterval || 1) * 1e3;
     const clockInterval = window.setInterval(() => {
       this.updateClock();
-    }, this.settings.clockInterval * 1e3);
+    }, clockMs);
     this.intervals.push(clockInterval);
+    const updateMs = (this.settings.updateInterval || 30) * 1e3;
     const dataInterval = window.setInterval(() => {
       this.updateAll();
-    }, this.settings.updateInterval * 1e3);
+    }, updateMs);
     this.intervals.push(dataInterval);
   }
   updateAll() {
     if (this.isModalOpen)
       return;
+    this.data.rawEntries = this.timerManager.convertToTimeEntries();
+    this.data.processEntries();
     this.updateBadge();
     this.updateTimerBadge();
     this.updateDayCard();
     this.updateWeekCard();
     this.updateStatsCard();
+    this.updateMonthCard();
+    const historyContainer = this.container.querySelector(".tf-history-content");
+    if (historyContainer) {
+      this.updateEditToggleVisibility(historyContainer);
+    }
   }
   /**
    * Soft refresh for inline editing - updates data and history view
@@ -9650,6 +10792,7 @@ ${timekeepBlock}${settingsBlock}
   // Convert past planned days (from holidays.md) to timer entries
   // This ensures planned days like ferie, avspasering appear in Historikk
   async convertPastPlannedDays(holidays, settings) {
+    var _a;
     const today = /* @__PURE__ */ new Date();
     today.setHours(0, 0, 0, 0);
     let converted = 0;
@@ -9657,8 +10800,14 @@ ${timekeepBlock}${settingsBlock}
       const plannedDate = new Date(dateStr);
       if (plannedDate >= today)
         continue;
-      const behavior = settings.specialDayBehaviors.find((b) => b.id === info.type);
-      if (!(behavior == null ? void 0 : behavior.noHoursRequired))
+      let shouldConvert = false;
+      if (info.type === "annet") {
+        shouldConvert = true;
+      } else {
+        const behavior2 = settings.specialDayBehaviors.find((b) => b.id === info.type);
+        shouldConvert = (_a = behavior2 == null ? void 0 : behavior2.noHoursRequired) != null ? _a : false;
+      }
+      if (!shouldConvert)
         continue;
       if (info.type === "helligdag")
         continue;
@@ -9672,6 +10821,7 @@ ${timekeepBlock}${settingsBlock}
         continue;
       let startTime = `${dateStr}T08:00:00`;
       let endTime = `${dateStr}T08:00:00`;
+      const behavior = settings.specialDayBehaviors.find((b) => b.id === info.type);
       if ((behavior == null ? void 0 : behavior.flextimeEffect) === "withdraw") {
         if (info.startTime && info.endTime) {
           startTime = `${dateStr}T${info.startTime}:00`;
@@ -9682,6 +10832,9 @@ ${timekeepBlock}${settingsBlock}
           const m = Math.round((hours - h) * 60);
           endTime = `${dateStr}T${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:00`;
         }
+      } else if (info.type === "annet" && info.startTime && info.endTime) {
+        startTime = `${dateStr}T${info.startTime}:00`;
+        endTime = `${dateStr}T${info.endTime}:00`;
       }
       const entry = {
         name: info.type,
@@ -9710,7 +10863,7 @@ var TimeFlowPlugin = class extends import_obsidian7.Plugin {
       this.settings = Object.assign({}, DEFAULT_SETTINGS, this.settings, syncedSettings);
       this.timerManager.settings = this.settings;
     }
-    const needsSave = this.migrateWorkDaysSettings() || this.migrateSpecialDayBehaviors() || this.migrateWorkScheduleHistory();
+    const needsSave = this.migrateWorkDaysSettings() || this.migrateSpecialDayBehaviors() || this.migrateWorkScheduleHistory() || this.migrateIntervalSettings();
     const timestampMigrated = await this.migrateTimestamps();
     if (needsSave || timestampMigrated) {
       await this.saveSettings();
@@ -9898,6 +11051,22 @@ var TimeFlowPlugin = class extends import_obsidian7.Plugin {
     };
     this.settings.workScheduleHistory = [initialPeriod];
     return true;
+  }
+  /**
+   * Migrate interval settings from milliseconds to seconds.
+   * Old versions stored intervals in ms, new versions expect seconds.
+   */
+  migrateIntervalSettings() {
+    let changed = false;
+    if (this.settings.updateInterval > 1e3) {
+      this.settings.updateInterval = Math.round(this.settings.updateInterval / 1e3);
+      changed = true;
+    }
+    if (this.settings.clockInterval > 100) {
+      this.settings.clockInterval = Math.round(this.settings.clockInterval / 1e3);
+      changed = true;
+    }
+    return changed;
   }
   /**
    * Validate and clamp settings to sensible bounds to prevent division by zero

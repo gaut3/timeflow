@@ -20,6 +20,7 @@ export interface HolidayInfo {
 	halfDay: boolean;
 	startTime?: string;  // HH:MM format for avspasering
 	endTime?: string;    // HH:MM format for avspasering
+	annetTemplateId?: string;  // Template ID for 'annet' entries
 }
 
 export interface ValidationResults {
@@ -77,8 +78,47 @@ export class DataManager {
 					// - YYYY-MM-DD: type: description
 					// - YYYY-MM-DD: type:half: description
 					// - YYYY-MM-DD: avspasering:14:00-16:00: description (time range)
+					// - YYYY-MM-DD: annet:templateId:HH:MM-HH:MM: description (annet with template and time)
+					// - YYYY-MM-DD: annet:templateId: description (annet with template, full day)
+					// - YYYY-MM-DD: annet:HH:MM-HH:MM: description (annet without template, with time)
+					// - YYYY-MM-DD: annet: description (annet without template, full day)
 					const match = line.match(/^-\s*(\d{4}-\d{2}-\d{2}):\s*(\w+)(?::(half|\d{2}:\d{2}-\d{2}:\d{2})?)?:\s*(.+)$/);
-					if (match) {
+
+					// Special handling for annet entries with more complex format
+					const annetMatch = line.match(/^-\s*(\d{4}-\d{2}-\d{2}):\s*annet(?::([^:]+))?(?::(\d{2}:\d{2}-\d{2}:\d{2}))?:\s*(.+)$/);
+
+					if (annetMatch) {
+						const [, date, templateOrTime, timeRange, description] = annetMatch;
+						let annetTemplateId: string | undefined;
+						let startTime: string | undefined;
+						let endTime: string | undefined;
+
+						// Check if templateOrTime is a time range (HH:MM-HH:MM) or a template ID
+						if (templateOrTime && /^\d{2}:\d{2}-\d{2}:\d{2}$/.test(templateOrTime)) {
+							// It's a time range without template
+							const [start, end] = templateOrTime.split('-');
+							startTime = start;
+							endTime = end;
+						} else if (templateOrTime) {
+							// It's a template ID
+							annetTemplateId = templateOrTime.trim().toLowerCase();
+							// Check for time range in third position
+							if (timeRange) {
+								const [start, end] = timeRange.split('-');
+								startTime = start;
+								endTime = end;
+							}
+						}
+
+						this.holidays[date] = {
+							type: 'annet',
+							description: description.trim(),
+							halfDay: false,
+							startTime,
+							endTime,
+							annetTemplateId
+						};
+					} else if (match) {
 						const [, date, type, modifier, description] = match;
 						const isHalfDay = modifier === 'half';
 
@@ -142,6 +182,50 @@ export class DataManager {
 			};
 		}
 		return behavior;
+	}
+
+	/**
+	 * Get the behavior for an 'annet' holiday entry with dynamic properties based on time range.
+	 * - Full day (no time range): noHoursRequired=true, flextimeEffect='none'
+	 * - Partial day (with time range): noHoursRequired=false, flextimeEffect='reduce_goal'
+	 */
+	getAnnetBehavior(holidayInfo: HolidayInfo): SpecialDayBehavior {
+		const baseBehavior = this.getSpecialDayBehavior('annet');
+		const hasTimeRange = !!holidayInfo.startTime && !!holidayInfo.endTime;
+
+		// Get template info for icon/label if available
+		let icon = baseBehavior?.icon || '📋';
+		let label = baseBehavior?.label || 'Annet';
+
+		if (holidayInfo.annetTemplateId) {
+			const template = this.settings.annetTemplates?.find(
+				t => t.id.toLowerCase() === holidayInfo.annetTemplateId?.toLowerCase()
+			);
+			if (template) {
+				icon = template.icon;
+				label = template.label;
+			}
+		}
+
+		if (hasTimeRange) {
+			// Partial day: reduce_goal behavior
+			return {
+				...baseBehavior!,
+				icon,
+				label,
+				noHoursRequired: false,
+				flextimeEffect: 'reduce_goal'
+			};
+		} else {
+			// Full day: none behavior (like ferie)
+			return {
+				...baseBehavior!,
+				icon,
+				label,
+				noHoursRequired: true,
+				flextimeEffect: 'none'
+			};
+		}
 	}
 
 	/**
@@ -223,7 +307,10 @@ export class DataManager {
 		const holidayInfo = this.getHolidayInfo(dateStr);
 		if (holidayInfo) {
 			// Check if this special day type requires no hours
-			const behavior = this.getSpecialDayBehavior(holidayInfo.type);
+			// Use dynamic behavior for 'annet' entries
+			const behavior = holidayInfo.type === 'annet'
+				? this.getAnnetBehavior(holidayInfo)
+				: this.getSpecialDayBehavior(holidayInfo.type);
 			if (behavior && behavior.noHoursRequired) {
 				// No work hours required (e.g., vacation, sick leave)
 				return 0;
@@ -361,32 +448,39 @@ export class DataManager {
 					return;
 				}
 
-				// Check if this is a special day with behavior rules
-				if (holidayInfo) {
-					const holidayBehavior = this.getSpecialDayBehavior(holidayInfo.type);
-					if (holidayBehavior) {
-						if (holidayBehavior.flextimeEffect === 'withdraw') {
-							// Withdraws from flextime (e.g., avspasering)
-							flextime -= e.duration || 0;
-						} else if (holidayBehavior.flextimeEffect === 'accumulate') {
-							// Excess hours count as flextime (e.g., kurs, studie)
-							if (effectiveGoal > 0 && (e.duration || 0) > effectiveGoal) {
-								flextime += (e.duration || 0) - effectiveGoal;
-							} else if (effectiveGoal === 0) {
-								flextime += e.duration || 0;
-							}
-						} else if (holidayBehavior.noHoursRequired && effectiveGoal === 0) {
-							// 'none' effect on no-hours-required day: work counts as bonus (like weekends)
+				// Determine which behavior to use:
+				// 1. If entry has its own behavior (e.g., studie timer), use that
+				// 2. Otherwise, if there's a holidayInfo, use the holiday's behavior
+				// This ensures timer entries take priority over planned days
+				const effectiveBehavior = behavior || (holidayInfo ? (
+					holidayInfo.type === 'annet'
+						? this.getAnnetBehavior(holidayInfo)
+						: this.getSpecialDayBehavior(holidayInfo.type)
+				) : null);
+
+				// Work types (jobb) use regular flextime calculation, not special behavior
+				const isWorkTypeEntry = effectiveBehavior?.isWorkType || (!behavior && !holidayInfo);
+
+				if (effectiveBehavior && !isWorkTypeEntry) {
+					if (effectiveBehavior.flextimeEffect === 'withdraw') {
+						// Withdraws from flextime (e.g., avspasering)
+						flextime -= e.duration || 0;
+					} else if (effectiveBehavior.flextimeEffect === 'accumulate') {
+						// Accumulate types (studie, kurs): only gain flextime for excess hours over goal
+						if (effectiveGoal > 0 && (e.duration || 0) > effectiveGoal) {
+							flextime += (e.duration || 0) - effectiveGoal;
+						} else if (effectiveGoal === 0) {
 							flextime += e.duration || 0;
 						}
-						// 'none' effect on regular goal day means no special flextime handling
+						// If hours <= goal, flextime stays 0 (no negative balance)
+					} else if (effectiveBehavior.noHoursRequired && effectiveGoal === 0) {
+						// 'none' effect on no-hours-required day: work counts as bonus (like weekends)
+						flextime += e.duration || 0;
 					}
+					// 'none' effect on regular goal day means no special flextime handling
 				} else if (effectiveGoal === 0) {
 					// Weekend, no goal, or fully covered by sick time: all hours count as flextime bonus
 					flextime += e.duration || 0;
-				} else if (behavior?.flextimeEffect === 'withdraw') {
-					// Avspasering withdraws from balance
-					flextime -= e.duration || 0;
 				} else {
 					// Regular workday with effective goal: calculate flextime difference
 					// Distribute flextime proportionally if multiple work entries
@@ -432,10 +526,12 @@ export class DataManager {
 			const dayGoal = this.getDailyGoal(day);
 			const dayEntries = this.daily[day] || [];
 
-			let dayWorked = 0;
+			let regularWorked = 0;  // Regular work hours (can be negative vs goal)
+			let accumulateWorked = 0;  // Accumulate type hours (studie, kurs - only positive excess)
 			let avspaseringHours = 0;
 			let goalReduction = 0;  // Hours that reduce daily goal (sick days, etc.)
 			let hasCompletedEntries = false;
+			let hasAccumulateEntry = false;  // Track if any accumulate entries exist
 
 			dayEntries.forEach(e => {
 				// Skip active entries - only count completed work in balance
@@ -455,12 +551,16 @@ export class DataManager {
 					// Avspasering - subtract from balance
 					avspaseringHours += e.duration || 0;
 				} else if (behavior && (behavior.noHoursRequired || behavior.countsAsWorkday)) {
-					// Skip hours for noHoursRequired types (ferie, helligdag, etc.)
-					// These entries mark the day but their hours shouldn't affect flextime
-					return;
+					// noHoursRequired types (ferie, helligdag, etc.) - any hours worked are bonus
+					// Since goal is 0 for these days, hours count as extra flextime
+					regularWorked += e.duration || 0;
+				} else if (behavior?.flextimeEffect === 'accumulate' && !behavior.isWorkType) {
+					// Accumulate types (studie, kurs) - only count hours over goal as positive
+					accumulateWorked += e.duration || 0;
+					hasAccumulateEntry = true;
 				} else {
-					// Regular work hours (jobb, kurs, studie, etc.)
-					dayWorked += e.duration || 0;
+					// Regular work hours (jobb, etc.)
+					regularWorked += e.duration || 0;
 				}
 			});
 
@@ -470,10 +570,28 @@ export class DataManager {
 			// Calculate effective goal after reductions (but not below 0)
 			const effectiveGoal = Math.max(0, dayGoal - goalReduction);
 
-			if (effectiveGoal === 0) {
-				balance += dayWorked;
+			// Handle accumulate entries: only positive excess over goal counts
+			if (hasAccumulateEntry && regularWorked === 0) {
+				// Day only has accumulate entries (studie, kurs)
+				if (effectiveGoal === 0) {
+					// No goal day - all hours count as bonus
+					balance += accumulateWorked;
+				} else {
+					// Only hours over goal count (never negative)
+					const excess = accumulateWorked - effectiveGoal;
+					if (excess > 0) {
+						balance += excess;
+					}
+					// If <= goal, no contribution to balance (not negative)
+				}
 			} else {
-				balance += (dayWorked - effectiveGoal);
+				// Regular work or mixed entries
+				const totalWorked = regularWorked + accumulateWorked;
+				if (effectiveGoal === 0) {
+					balance += totalWorked;
+				} else {
+					balance += (totalWorked - effectiveGoal);
+				}
 			}
 
 			balance -= avspaseringHours;
@@ -742,7 +860,10 @@ export class DataManager {
 			filteredDays.forEach((dayKey) => {
 				const holidayInfo = this.getHolidayInfo(dayKey);
 				if (holidayInfo) {
-					const behavior = this.getSpecialDayBehavior(holidayInfo.type);
+					// Use dynamic behavior for 'annet' entries
+					const behavior = holidayInfo.type === 'annet'
+						? this.getAnnetBehavior(holidayInfo)
+						: this.getSpecialDayBehavior(holidayInfo.type);
 					if (behavior?.noHoursRequired) {
 						noHoursRequiredDays++;
 					}
@@ -1044,7 +1165,10 @@ export class DataManager {
 
 				// Skip if it's a holiday that doesn't require work (ferie, egenmelding, etc.)
 				if (holidayInfo) {
-					const behavior = this.getSpecialDayBehavior(holidayInfo.type);
+					// Use dynamic behavior for 'annet' entries
+					const behavior = holidayInfo.type === 'annet'
+						? this.getAnnetBehavior(holidayInfo)
+						: this.getSpecialDayBehavior(holidayInfo.type);
 					if (behavior?.noHoursRequired || behavior?.flextimeEffect === 'reduce_goal') {
 						continue;
 					}
@@ -1271,5 +1395,146 @@ export class DataManager {
 			isRolling: useRolling,
 			periodLabel: useRolling ? '365d' : targetYear.toString()
 		};
+	}
+
+	/**
+	 * Get total hours for a specific week (Monday to Sunday)
+	 */
+	getWeekHours(weekStart: Date): number {
+		let total = 0;
+		for (let i = 0; i < 7; i++) {
+			const d = new Date(weekStart);
+			d.setDate(weekStart.getDate() + i);
+			const dayKey = Utils.toLocalDateStr(d);
+			const dayEntries = this.daily[dayKey] || [];
+			dayEntries.forEach(entry => {
+				if (!entry.isActive) {
+					const behavior = this.getSpecialDayBehavior(entry.name);
+					const shouldExclude = behavior && (
+						behavior.flextimeEffect === 'withdraw' ||
+						behavior.flextimeEffect === 'reduce_goal' ||
+						(behavior.flextimeEffect === 'none' && behavior.noHoursRequired)
+					);
+					if (!shouldExclude) {
+						total += entry.duration || 0;
+					}
+				}
+			});
+		}
+		return total;
+	}
+
+	/**
+	 * Get total hours for a specific month
+	 */
+	getMonthHours(year: number, month: number): number {
+		let total = 0;
+		const daysInMonth = new Date(year, month + 1, 0).getDate();
+		for (let day = 1; day <= daysInMonth; day++) {
+			const d = new Date(year, month, day);
+			const dayKey = Utils.toLocalDateStr(d);
+			const dayEntries = this.daily[dayKey] || [];
+			dayEntries.forEach(entry => {
+				if (!entry.isActive) {
+					const behavior = this.getSpecialDayBehavior(entry.name);
+					const shouldExclude = behavior && (
+						behavior.flextimeEffect === 'withdraw' ||
+						behavior.flextimeEffect === 'reduce_goal' ||
+						(behavior.flextimeEffect === 'none' && behavior.noHoursRequired)
+					);
+					if (!shouldExclude) {
+						total += entry.duration || 0;
+					}
+				}
+			});
+		}
+		return total;
+	}
+
+	/**
+	 * Get total hours for a specific year
+	 */
+	getYearHours(year: number): number {
+		let total = 0;
+		for (let month = 0; month < 12; month++) {
+			total += this.getMonthHours(year, month);
+		}
+		return total;
+	}
+
+	/**
+	 * Get historical hours data for bar chart
+	 * Returns array of { label, hours, target? }
+	 */
+	getHistoricalHoursData(timeframe: 'month' | 'year' | 'total', selectedYear?: number, selectedMonth?: number): Array<{ label: string; hours: number; target?: number }> {
+		const data: Array<{ label: string; hours: number; target?: number }> = [];
+		const today = new Date();
+		const weeklyTarget = this.workweekHours;
+
+		if (timeframe === 'month') {
+			// Last 6 weeks
+			const currentWeekStart = this.getWeekStart(today);
+			const weekPrefix = t('stats.weekPrefix') || 'U';
+			for (let i = 5; i >= 0; i--) {
+				const weekStart = new Date(currentWeekStart);
+				weekStart.setDate(currentWeekStart.getDate() - (i * 7));
+				const weekNum = this.getISOWeekNumber(weekStart);
+				const hours = this.getWeekHours(weekStart);
+				data.push({
+					label: `${weekPrefix}${weekNum}`,
+					hours,
+					target: weeklyTarget
+				});
+			}
+		} else if (timeframe === 'year') {
+			// All 12 months for selected year
+			const year = selectedYear || today.getFullYear();
+			const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Des'];
+			const monthlyTarget = weeklyTarget * 4.33; // Approximate weeks per month
+			for (let month = 0; month < 12; month++) {
+				const hours = this.getMonthHours(year, month);
+				data.push({
+					label: monthNames[month],
+					hours,
+					target: monthlyTarget
+				});
+			}
+		} else {
+			// Total: Last 6 years
+			const currentYear = today.getFullYear();
+			for (let i = 5; i >= 0; i--) {
+				const year = currentYear - i;
+				const hours = this.getYearHours(year);
+				data.push({
+					label: year.toString(),
+					hours
+				});
+			}
+		}
+
+		return data;
+	}
+
+	/**
+	 * Get the Monday of the week containing the given date
+	 */
+	private getWeekStart(date: Date): Date {
+		const d = new Date(date);
+		const dayOfWeek = d.getDay();
+		const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+		d.setDate(d.getDate() - daysFromMonday);
+		d.setHours(0, 0, 0, 0);
+		return d;
+	}
+
+	/**
+	 * Get ISO week number for a date
+	 */
+	private getISOWeekNumber(date: Date): number {
+		const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+		const dayNum = d.getUTCDay() || 7;
+		d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+		const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+		return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
 	}
 }

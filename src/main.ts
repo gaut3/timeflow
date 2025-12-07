@@ -26,7 +26,7 @@ export default class TimeFlowPlugin extends Plugin {
 		}
 
 		// Now run migrations AFTER merging synced settings
-		const needsSave = this.migrateWorkDaysSettings() || this.migrateSpecialDayBehaviors() || this.migrateWorkScheduleHistory();
+		const needsSave = this.migrateWorkDaysSettings() || this.migrateSpecialDayBehaviors() || this.migrateWorkScheduleHistory() || this.migrateIntervalSettings();
 		const timestampMigrated = await this.migrateTimestamps();
 		if (needsSave || timestampMigrated) {
 			await this.saveSettings();
@@ -275,6 +275,29 @@ export default class TimeFlowPlugin extends Plugin {
 
 		this.settings.workScheduleHistory = [initialPeriod];
 		return true;
+	}
+
+	/**
+	 * Migrate interval settings from milliseconds to seconds.
+	 * Old versions stored intervals in ms, new versions expect seconds.
+	 */
+	migrateIntervalSettings(): boolean {
+		let changed = false;
+
+		// If updateInterval is > 1000, it's likely in milliseconds (old format)
+		// Normal values should be 1-300 seconds
+		if (this.settings.updateInterval > 1000) {
+			this.settings.updateInterval = Math.round(this.settings.updateInterval / 1000);
+			changed = true;
+		}
+
+		// Same for clockInterval - should be 1-60 seconds, not 1000+
+		if (this.settings.clockInterval > 100) {
+			this.settings.clockInterval = Math.round(this.settings.clockInterval / 1000);
+			changed = true;
+		}
+
+		return changed;
 	}
 
 	/**

@@ -483,8 +483,16 @@ ${timekeepBlock}${settingsBlock}
 			if (plannedDate >= today) continue; // Skip future/today
 
 			// Skip types that don't auto-convert
-			const behavior = settings.specialDayBehaviors.find(b => b.id === info.type);
-			if (!behavior?.noHoursRequired) continue; // studie, kurs don't convert
+			// 'annet' entries always convert (both full day and partial day)
+			let shouldConvert = false;
+			if (info.type === 'annet') {
+				// All annet entries should be converted to history
+				shouldConvert = true;
+			} else {
+				const behavior = settings.specialDayBehaviors.find(b => b.id === info.type);
+				shouldConvert = behavior?.noHoursRequired ?? false;
+			}
+			if (!shouldConvert) continue; // studie, kurs don't convert
 			if (info.type === 'helligdag') continue; // System holiday
 
 			// Check if entry of same type already exists for this date
@@ -502,6 +510,7 @@ ${timekeepBlock}${settingsBlock}
 			let startTime = `${dateStr}T08:00:00`;
 			let endTime = `${dateStr}T08:00:00`;
 
+			const behavior = settings.specialDayBehaviors.find(b => b.id === info.type);
 			if (behavior?.flextimeEffect === 'withdraw') {
 				// Withdraw types (avspasering) use startTime/endTime from holidays.md (e.g., 14:00-16:00)
 				if (info.startTime && info.endTime) {
@@ -514,6 +523,10 @@ ${timekeepBlock}${settingsBlock}
 					const m = Math.round((hours - h) * 60);
 					endTime = `${dateStr}T${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:00`;
 				}
+			} else if (info.type === 'annet' && info.startTime && info.endTime) {
+				// Partial day annet - use the specified time range
+				startTime = `${dateStr}T${info.startTime}:00`;
+				endTime = `${dateStr}T${info.endTime}:00`;
 			}
 			// ferie, velferdspermisjon, sykemelding, egenmelding: 08:00-08:00 (0 duration is fine)
 

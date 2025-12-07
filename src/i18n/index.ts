@@ -91,6 +91,7 @@ const specialDayTranslationMap: Record<string, string> = {
 	'kurs': 'specialDays.course',
 	'studie': 'specialDays.study',
 	'helligdag': 'specialDays.publicHoliday',
+	'annet': 'specialDays.other',
 };
 
 /**
@@ -179,6 +180,9 @@ const translations: Record<Language, TranslationStrings> = {
 			restPeriodWarning: 'Hviletid: Kun {hours} timer mellom arbeidsøkter (minimum {min} timer)',
 			restPeriod: 'Hviletid',
 			minimum: 'minimum',
+			multipleDays: 'Flere dager',
+			startDate: 'Startdato',
+			endDate: 'Sluttdato',
 		},
 		status: {
 			ok: 'OK',
@@ -263,6 +267,7 @@ const translations: Record<Language, TranslationStrings> = {
 			endAfterStart: 'Sluttid må være etter starttid',
 			invalidTime: 'Ugyldig tid (bruk format HH:MM, 00-23:00-59)',
 			invalidTimePeriod: 'Ugyldig tidsperiode',
+			invalidDateRange: 'Ugyldig datoperiode',
 			overlappingEntry: 'Denne oppføringen overlapper med en eksisterende oppføring',
 			endTimeNextDay: 'Sluttid satt til neste dag (før starttid)',
 			invalidDuration: 'Ugyldig varighet',
@@ -270,6 +275,11 @@ const translations: Record<Language, TranslationStrings> = {
 			startTimeRequired: 'Starttid må fylles ut',
 			invalidStartDateTime: 'Ugyldig startdato/tid',
 			invalidEndDateTime: 'Ugyldig sluttdato/tid',
+		},
+		units: {
+			day: 'dag',
+			days: 'dager',
+			hours: 'timer',
 		},
 		notifications: {
 			added: 'Lagt til',
@@ -315,6 +325,11 @@ const translations: Record<Language, TranslationStrings> = {
 			study: 'Studiedag',
 			course: 'Kursdag',
 			totalBalance: 'Total saldo',
+			weeklyHours: 'Uketimer',
+			monthlyHours: 'Månedstimer',
+			yearlyHours: 'Årstimer',
+			target: 'Mål',
+			weekPrefix: 'U',
 		},
 		specialDays: {
 			work: 'Jobb',
@@ -326,6 +341,43 @@ const translations: Record<Language, TranslationStrings> = {
 			course: 'Kursdag',
 			study: 'Studiedag',
 			publicHoliday: 'Helligdag',
+			other: 'Annet',
+		},
+		annet: {
+			title: 'Annet',
+			custom: 'Egendefinert',
+			fullDay: 'Hel dag',
+			saveAsTemplate: 'Lagre som mal',
+			templateName: 'Mal-navn',
+			templateIcon: 'Ikon',
+			addTemplate: 'Legg til mal',
+			editTemplate: 'Rediger mal',
+			deleteTemplate: 'Slett mal',
+			noTemplates: 'Ingen maler definert',
+			selectTemplate: 'Velg mal eller egendefinert',
+			description: 'Beskrivelse',
+			fromTime: 'Fra',
+			toTime: 'Til',
+			templateDescription: 'Maler for "Annet"-fraværstype. Atferd bestemmes automatisk av om det er hel dag eller delvis fravær.',
+			idDesc: 'Unik identifikator (små bokstaver, ingen mellomrom). Brukes i fil-formatet.',
+			labelField: 'Navn',
+			labelDesc: 'Visningsnavn i grensesnittet',
+			iconField: 'Ikon',
+			iconDesc: 'Emoji som vises sammen med malen',
+			idRequired: 'ID er påkrevd',
+			labelRequired: 'Navn er påkrevd',
+			iconRequired: 'Ikon er påkrevd',
+			duplicateId: 'En mal med denne ID-en finnes allerede',
+			templatesSection: 'Annet-maler',
+			templatesDesc: 'Maler for fleksible fraværstyper. Atferd bestemmes av om det er hel dag eller delvis fravær.',
+			labelPlaceholder: 'Lege',
+		},
+		common: {
+			cancel: 'Avbryt',
+			save: 'Lagre',
+			delete: 'Slett',
+			edit: 'Rediger',
+			add: 'Legg til',
 		},
 		import: {
 			title: 'Importer data',
@@ -380,8 +432,12 @@ const translations: Record<Language, TranslationStrings> = {
 			languageDesc: 'Velg språk for grensesnittet',
 			showWeekNumbers: 'Vis ukenummer',
 			showWeekNumbersDesc: 'Vis ukenummer i kalender og uke-kortet (ISO 8601 ukenummer)',
+			hideEmptyStats: 'Skjul tomme statistikker',
+			hideEmptyStatsDesc: 'Skjul statistikker med 0 timer/dager',
 			importData: 'Importer data',
 			importDataDesc: 'Importer tidsdata fra ulike formater: Timekeep JSON, CSV (norsk/ISO datoformat), eller JSON-arrays',
+			absenceTypesDesc: 'Opprett egendefinerte fraværskategorier med spesifikke fleksitid- og statistikkregler. Støtter fravær over flere dager. For enkeltstående fravær, bruk "Annet-maler" nedenfor.',
+			addAbsenceType: 'Legg til fraværstype',
 		},
 		compliance: {
 			title: 'Arbeidstidsgrenser',
@@ -489,6 +545,9 @@ const translations: Record<Language, TranslationStrings> = {
 			restPeriodWarning: 'Rest period: Only {hours} hours between work sessions (minimum {min} hours)',
 			restPeriod: 'Rest period',
 			minimum: 'minimum',
+			multipleDays: 'Multiple days',
+			startDate: 'Start date',
+			endDate: 'End date',
 		},
 		status: {
 			ok: 'OK',
@@ -573,6 +632,7 @@ const translations: Record<Language, TranslationStrings> = {
 			endAfterStart: 'End time must be after start time',
 			invalidTime: 'Invalid time (use format HH:MM, 00-23:00-59)',
 			invalidTimePeriod: 'Invalid time period',
+			invalidDateRange: 'Invalid date range',
 			overlappingEntry: 'This entry overlaps with an existing entry',
 			endTimeNextDay: 'End time set to next day (before start time)',
 			invalidDuration: 'Invalid duration',
@@ -580,6 +640,11 @@ const translations: Record<Language, TranslationStrings> = {
 			startTimeRequired: 'Start time is required',
 			invalidStartDateTime: 'Invalid start date/time',
 			invalidEndDateTime: 'Invalid end date/time',
+		},
+		units: {
+			day: 'day',
+			days: 'days',
+			hours: 'hours',
 		},
 		notifications: {
 			added: 'Added',
@@ -625,6 +690,11 @@ const translations: Record<Language, TranslationStrings> = {
 			study: 'Study',
 			course: 'Course',
 			totalBalance: 'Total balance',
+			weeklyHours: 'Weekly hours',
+			monthlyHours: 'Monthly hours',
+			yearlyHours: 'Yearly hours',
+			target: 'Target',
+			weekPrefix: 'W',
 		},
 		specialDays: {
 			work: 'Work',
@@ -636,6 +706,43 @@ const translations: Record<Language, TranslationStrings> = {
 			course: 'Course',
 			study: 'Study',
 			publicHoliday: 'Public holiday',
+			other: 'Other',
+		},
+		annet: {
+			title: 'Other',
+			custom: 'Custom',
+			fullDay: 'Full day',
+			saveAsTemplate: 'Save as template',
+			templateName: 'Template name',
+			templateIcon: 'Icon',
+			addTemplate: 'Add template',
+			editTemplate: 'Edit template',
+			deleteTemplate: 'Delete template',
+			noTemplates: 'No templates defined',
+			selectTemplate: 'Select template or custom',
+			description: 'Description',
+			fromTime: 'From',
+			toTime: 'To',
+			templateDescription: 'Templates for "Other" absence type. Behavior is automatically determined by full day or partial absence.',
+			idDesc: 'Unique identifier (lowercase, no spaces). Used in file format.',
+			labelField: 'Name',
+			labelDesc: 'Display name in the interface',
+			iconField: 'Icon',
+			iconDesc: 'Emoji displayed with the template',
+			idRequired: 'ID is required',
+			labelRequired: 'Name is required',
+			iconRequired: 'Icon is required',
+			duplicateId: 'A template with this ID already exists',
+			templatesSection: 'Other templates',
+			templatesDesc: 'Templates for flexible absence types. Behavior is determined by full day or partial absence.',
+			labelPlaceholder: 'Doctor',
+		},
+		common: {
+			cancel: 'Cancel',
+			save: 'Save',
+			delete: 'Delete',
+			edit: 'Edit',
+			add: 'Add',
 		},
 		import: {
 			title: 'Import data',
@@ -690,8 +797,12 @@ const translations: Record<Language, TranslationStrings> = {
 			languageDesc: 'Choose interface language',
 			showWeekNumbers: 'Show week numbers',
 			showWeekNumbersDesc: 'Show week numbers in calendar and week card (ISO 8601 week numbers)',
+			hideEmptyStats: 'Hide empty statistics',
+			hideEmptyStatsDesc: 'Hide statistics with 0 hours/days',
 			importData: 'Import data',
 			importDataDesc: 'Import time data from various formats: Timekeep JSON, CSV (Norwegian/ISO date format), or JSON arrays',
+			absenceTypesDesc: 'Create custom absence categories with specific flextime and statistics rules. Supports multi-day absences. For occasional one-off absences, use "Other templates" below.',
+			addAbsenceType: 'Add absence type',
 		},
 		compliance: {
 			title: 'Work time limits',
@@ -801,6 +912,9 @@ interface TranslationStrings {
 		restPeriodWarning: string;
 		restPeriod: string;
 		minimum: string;
+		multipleDays: string;
+		startDate: string;
+		endDate: string;
 	};
 	status: {
 		ok: string;
@@ -885,6 +999,7 @@ interface TranslationStrings {
 		endAfterStart: string;
 		invalidTime: string;
 		invalidTimePeriod: string;
+		invalidDateRange: string;
 		overlappingEntry: string;
 		endTimeNextDay: string;
 		invalidDuration: string;
@@ -892,6 +1007,11 @@ interface TranslationStrings {
 		startTimeRequired: string;
 		invalidStartDateTime: string;
 		invalidEndDateTime: string;
+	};
+	units: {
+		day: string;
+		days: string;
+		hours: string;
 	};
 	notifications: {
 		added: string;
@@ -937,6 +1057,11 @@ interface TranslationStrings {
 		study: string;
 		course: string;
 		totalBalance: string;
+		weeklyHours: string;
+		monthlyHours: string;
+		yearlyHours: string;
+		target: string;
+		weekPrefix: string;
 	};
 	specialDays: {
 		work: string;
@@ -948,6 +1073,43 @@ interface TranslationStrings {
 		course: string;
 		study: string;
 		publicHoliday: string;
+		other: string;
+	};
+	annet: {
+		title: string;
+		custom: string;
+		fullDay: string;
+		saveAsTemplate: string;
+		templateName: string;
+		templateIcon: string;
+		addTemplate: string;
+		editTemplate: string;
+		deleteTemplate: string;
+		noTemplates: string;
+		selectTemplate: string;
+		description: string;
+		fromTime: string;
+		toTime: string;
+		templateDescription: string;
+		idDesc: string;
+		labelField: string;
+		labelDesc: string;
+		iconField: string;
+		iconDesc: string;
+		idRequired: string;
+		labelRequired: string;
+		iconRequired: string;
+		duplicateId: string;
+		templatesSection: string;
+		templatesDesc: string;
+		labelPlaceholder: string;
+	};
+	common: {
+		cancel: string;
+		save: string;
+		delete: string;
+		edit: string;
+		add: string;
 	};
 	import: {
 		title: string;
@@ -1002,8 +1164,12 @@ interface TranslationStrings {
 		languageDesc: string;
 		showWeekNumbers: string;
 		showWeekNumbersDesc: string;
+		hideEmptyStats: string;
+		hideEmptyStatsDesc: string;
 		importData: string;
 		importDataDesc: string;
+		absenceTypesDesc: string;
+		addAbsenceType: string;
 	};
 	compliance: {
 		title: string;

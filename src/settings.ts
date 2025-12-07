@@ -10,6 +10,7 @@ export interface TimeFlowSettings {
 	defaultViewLocation: 'sidebar' | 'main';
 	hourUnit: 'h' | 't';
 	showWeekNumbers: boolean;
+	hideEmptyStats: boolean;
 	workPercent: number;
 	baseWorkday: number;
 	baseWorkweek: number;
@@ -38,6 +39,7 @@ export interface TimeFlowSettings {
 	heatmapShowSpecialDayColors: boolean;
 	noteTypes: NoteType[];
 	specialDayBehaviors: SpecialDayBehavior[];
+	annetTemplates: AnnetTemplate[];
 	specialDayColors?: Record<string, string>; // DEPRECATED - kept for migration
 	specialDayLabels?: Record<string, string>; // DEPRECATED - kept for migration
 	// Advanced configuration settings
@@ -93,6 +95,7 @@ export interface SpecialDayBehavior {
 	maxDaysPerYear?: number;       // Optional limit
 	countingPeriod?: 'calendar' | 'rolling365'; // How to count max days: calendar year or rolling 365 days
 	isWorkType?: boolean;          // True for regular work entry types (jobb), cannot be deleted
+	showInTimerDropdown?: boolean; // Show this type in the timer start dropdown menu
 }
 
 export const DEFAULT_SPECIAL_DAY_BEHAVIORS: SpecialDayBehavior[] = [
@@ -109,7 +112,8 @@ export const DEFAULT_SPECIAL_DAY_BEHAVIORS: SpecialDayBehavior[] = [
 		noHoursRequired: false,
 		flextimeEffect: 'accumulate',
 		includeInStats: true,
-		isWorkType: true
+		isWorkType: true,
+		showInTimerDropdown: true
 	},
 	{
 		id: 'ferie',
@@ -172,7 +176,8 @@ export const DEFAULT_SPECIAL_DAY_BEHAVIORS: SpecialDayBehavior[] = [
 		textColor: '#000000',
 		noHoursRequired: false,
 		flextimeEffect: 'accumulate',
-		includeInStats: true
+		includeInStats: true,
+		showInTimerDropdown: true
 	},
 	{
 		id: 'studie',
@@ -182,7 +187,8 @@ export const DEFAULT_SPECIAL_DAY_BEHAVIORS: SpecialDayBehavior[] = [
 		textColor: '#000000',
 		noHoursRequired: false,
 		flextimeEffect: 'accumulate',
-		includeInStats: true
+		includeInStats: true,
+		showInTimerDropdown: true
 	},
 	{
 		id: 'helligdag',
@@ -193,6 +199,16 @@ export const DEFAULT_SPECIAL_DAY_BEHAVIORS: SpecialDayBehavior[] = [
 		noHoursRequired: true,
 		flextimeEffect: 'none',
 		includeInStats: true
+	},
+	{
+		id: 'annet',
+		label: 'Other',
+		icon: '📋',
+		color: '#e0e0e0',
+		textColor: '#000000',
+		noHoursRequired: false,  // Dynamic - determined at parse time based on entry format
+		flextimeEffect: 'reduce_goal',  // Dynamic - determined at parse time
+		includeInStats: false
 	}
 ];
 
@@ -205,6 +221,18 @@ export interface NoteType {
 	tags: string[];
 	filenamePattern: string;
 }
+
+export interface AnnetTemplate {
+	id: string;      // "lege", "tannlege", "begravelse"
+	label: string;   // Display name
+	icon: string;    // Emoji icon
+}
+
+export const DEFAULT_ANNET_TEMPLATES: AnnetTemplate[] = [
+	{ id: 'doctor', label: 'Doctor', icon: '🏥' },
+	{ id: 'dentist', label: 'Dentist', icon: '🦷' },
+	{ id: 'funeral', label: 'Funeral', icon: '⚫' },
+];
 
 export interface WorkSchedulePeriod {
 	effectiveFrom: string;  // ISO date "YYYY-MM-DD"
@@ -221,6 +249,7 @@ export const DEFAULT_SETTINGS: TimeFlowSettings = {
 	defaultViewLocation: "sidebar",
 	hourUnit: "t",
 	showWeekNumbers: true,
+	hideEmptyStats: false,
 	workPercent: 1.0,
 	baseWorkday: 7.5,
 	baseWorkweek: 37.5,
@@ -295,6 +324,7 @@ export const DEFAULT_SETTINGS: TimeFlowSettings = {
 		}
 	],
 	specialDayBehaviors: DEFAULT_SPECIAL_DAY_BEHAVIORS,
+	annetTemplates: DEFAULT_ANNET_TEMPLATES,
 	specialDayColors: {
 		avspasering: "#ffe0b2",
 		ferie: "#b3e5fc",
@@ -417,12 +447,14 @@ export class SpecialDayBehaviorModal extends Modal {
 			negativeTextColor: this.behavior?.negativeTextColor || '#ffffff',
 			simpleColor: this.behavior?.simpleColor || '#90caf9',
 			simpleTextColor: this.behavior?.simpleTextColor || '#000000',
-			noHoursRequired: this.behavior?.noHoursRequired ?? true,
+			noHoursRequired: this.behavior?.noHoursRequired ?? false,
 			flextimeEffect: this.behavior?.flextimeEffect || 'none',
 			includeInStats: this.behavior?.includeInStats ?? true,
 			maxDaysPerYear: this.behavior?.maxDaysPerYear || undefined,
 			countingPeriod: this.behavior?.countingPeriod || 'calendar',
-			isWorkType: isWorkType
+			isWorkType: isWorkType,
+			// Default to true for jobb, studie, kurs if not explicitly set
+			showInTimerDropdown: this.behavior?.showInTimerDropdown ?? ['jobb', 'studie', 'kurs'].includes(this.behavior?.id || '')
 		};
 
 		// ID field (readonly if editing, hidden for work types)
@@ -582,6 +614,14 @@ export class SpecialDayBehaviorModal extends Modal {
 					.onChange(value => formData.countingPeriod = value as 'calendar' | 'rolling365'));
 		}
 
+		// Show in timer dropdown toggle (available for all types)
+		new Setting(contentEl)
+			.setName('Show in timer dropdown')
+			.setDesc('Include this type in the quick-start timer menu')
+			.addToggle(toggle => toggle
+				.setValue(formData.showInTimerDropdown)
+				.onChange(value => formData.showInTimerDropdown = value));
+
 		// Buttons
 		const buttonDiv = contentEl.createDiv();
 		buttonDiv.style.display = 'flex';
@@ -635,10 +675,140 @@ export class SpecialDayBehaviorModal extends Modal {
 				includeInStats: formData.isWorkType ? true : formData.includeInStats,
 				maxDaysPerYear: formData.isWorkType ? undefined : formData.maxDaysPerYear,
 				countingPeriod: formData.isWorkType ? undefined : formData.countingPeriod as 'calendar' | 'rolling365',
-				isWorkType: formData.isWorkType
+				isWorkType: formData.isWorkType,
+				showInTimerDropdown: formData.showInTimerDropdown
 			};
 
 			this.onSave(behavior, this.index);
+			this.close();
+		};
+	}
+
+	onClose() {
+		const { contentEl } = this;
+		contentEl.empty();
+	}
+}
+
+export class AnnetTemplateModal extends Modal {
+	template: AnnetTemplate | null;
+	index: number;
+	plugin: TimeFlowPlugin;
+	onSave: (template: AnnetTemplate, index: number) => void;
+
+	constructor(
+		app: App,
+		plugin: TimeFlowPlugin,
+		template: AnnetTemplate | null,
+		index: number,
+		onSave: (template: AnnetTemplate, index: number) => void
+	) {
+		super(app);
+		this.plugin = plugin;
+		this.template = template;
+		this.index = index;
+		this.onSave = onSave;
+	}
+
+	onOpen() {
+		const { contentEl } = this;
+		contentEl.empty();
+
+		contentEl.createEl('h2', { text: this.template ? t('annet.editTemplate') : t('annet.addTemplate') });
+
+		// Info box explaining annet templates
+		const infoBox = contentEl.createDiv({ cls: 'setting-item-description' });
+		infoBox.style.padding = '10px';
+		infoBox.style.marginBottom = '15px';
+		infoBox.style.background = 'var(--background-secondary)';
+		infoBox.style.borderRadius = '5px';
+		infoBox.style.fontSize = '0.9em';
+		infoBox.createSpan({ text: t('annet.templateDescription') });
+
+		// Store form values
+		const formData = {
+			id: this.template?.id || '',
+			label: this.template?.label || '',
+			icon: this.template?.icon || '📋',
+		};
+
+		// ID field (readonly if editing)
+		new Setting(contentEl)
+			.setName('ID')
+			.setDesc(t('annet.idDesc'))
+			.addText(text => {
+				text
+					.setPlaceholder('lege')
+					.setValue(formData.id)
+					.onChange(value => formData.id = value.toLowerCase().replace(/\s+/g, ''));
+				if (this.template) {
+					text.setDisabled(true); // Can't change ID when editing
+				}
+			});
+
+		// Label field
+		new Setting(contentEl)
+			.setName(t('annet.labelField'))
+			.setDesc(t('annet.labelDesc'))
+			.addText(text => text
+				.setPlaceholder(t('annet.labelPlaceholder'))
+				.setValue(formData.label)
+				.onChange(value => formData.label = value));
+
+		// Icon field
+		new Setting(contentEl)
+			.setName(t('annet.iconField'))
+			.setDesc(t('annet.iconDesc'))
+			.addText(text => text
+				.setPlaceholder('🏥')
+				.setValue(formData.icon)
+				.onChange(value => formData.icon = value));
+
+		// Buttons
+		const buttonDiv = contentEl.createDiv();
+		buttonDiv.style.display = 'flex';
+		buttonDiv.style.gap = '10px';
+		buttonDiv.style.justifyContent = 'flex-end';
+		buttonDiv.style.marginTop = '20px';
+
+		const cancelBtn = buttonDiv.createEl('button', { text: t('common.cancel') });
+		cancelBtn.onclick = () => this.close();
+
+		const saveBtn = buttonDiv.createEl('button', { text: t('common.save'), cls: 'mod-cta' });
+		saveBtn.onclick = () => {
+			// Validate
+			if (!formData.id) {
+				new Notice(t('annet.idRequired'));
+				return;
+			}
+			if (!formData.label) {
+				new Notice(t('annet.labelRequired'));
+				return;
+			}
+			if (!formData.icon) {
+				new Notice(t('annet.iconRequired'));
+				return;
+			}
+
+			// Check for duplicate IDs (only when adding new)
+			if (!this.template) {
+				const isDuplicate = this.plugin.settings.annetTemplates.some(
+					(tmpl) => tmpl.id === formData.id
+				);
+				if (isDuplicate) {
+					new Notice(t('annet.duplicateId'));
+					return;
+				}
+			}
+
+			// Create template object
+			const template: AnnetTemplate = {
+				id: this.template ? this.template.id : formData.id, // Keep original ID if editing
+				label: formData.label,
+				icon: formData.icon,
+			};
+
+			this.onSave(template, this.index);
 			this.close();
 		};
 	}
@@ -1752,7 +1922,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 		// Absence Types section
 		new Setting(settingsContainer)
 			.setName('Absence types')
-			.setDesc('Configure how different types of absences affect your workday and flextime balance. These settings determine how days are counted in flextime calculations.')
+			.setDesc(t('settings.absenceTypesDesc'))
 			.setHeading();
 
 		// List absence type behaviors (excluding work types)
@@ -1796,21 +1966,85 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 					}));
 		});
 
-		// Add new behavior button
+		// Add new absence type button
 		new Setting(settingsContainer)
-			.setName('Add new absence type')
-			.setDesc('Create a custom absence type with your own rules')
+			.setName(t('settings.addAbsenceType'))
 			.addButton(btn => btn
-				.setButtonText('+ Add')
+				.setButtonText('+ ' + t('common.add'))
 				.setCta()
 				.onClick(() => {
 					new SpecialDayBehaviorModal(
 						this.app,
 						this.plugin,
-						null, // New behavior
+						null, // New absence type
 						this.plugin.settings.specialDayBehaviors.length, // Index at end
 						async (newBehavior) => {
 							this.plugin.settings.specialDayBehaviors.push(newBehavior);
+							await this.plugin.saveSettings();
+							await this.refreshView();
+							this.display(); // Refresh settings panel
+						}
+					).open();
+				}));
+
+		// Annet Templates section
+		new Setting(settingsContainer)
+			.setName(t('annet.templatesSection'))
+			.setDesc(t('annet.templatesDesc'))
+			.setHeading();
+
+		// List annet templates
+		this.plugin.settings.annetTemplates.forEach((template, index) => {
+			new Setting(settingsContainer)
+				.setName(`${template.icon} ${template.label}`)
+				.setDesc(`ID: ${template.id}`)
+				.addButton(btn => btn
+					.setButtonText(t('common.edit'))
+					.onClick(() => {
+						new AnnetTemplateModal(
+							this.app,
+							this.plugin,
+							template,
+							index,
+							async (updatedTemplate, idx) => {
+								this.plugin.settings.annetTemplates[idx] = updatedTemplate;
+								await this.plugin.saveSettings();
+								await this.refreshView();
+								this.display(); // Refresh settings panel
+							}
+						).open();
+					}))
+				.addButton(btn => btn
+					.setButtonText(t('common.delete'))
+					.setWarning()
+					.onClick(async () => {
+						const confirmation = confirm(
+							`Are you sure you want to delete "${template.label}"?\n\n` +
+							`Note: Historical data using "annet:${template.id}" will still work but show a generic icon.`
+						);
+						if (confirmation) {
+							this.plugin.settings.annetTemplates.splice(index, 1);
+							await this.plugin.saveSettings();
+							await this.refreshView();
+							this.display(); // Refresh settings panel
+						}
+					}));
+		});
+
+		// Add new template button
+		new Setting(settingsContainer)
+			.setName(t('annet.addTemplate'))
+			.addButton(btn => btn
+				.setButtonText('+ ' + t('common.add'))
+				.setCta()
+				.onClick(() => {
+					new AnnetTemplateModal(
+						this.app,
+						this.plugin,
+						null, // New template
+						this.plugin.settings.annetTemplates.length, // Index at end
+						async (newTemplate) => {
+							this.plugin.settings.annetTemplates.push(newTemplate);
 							await this.plugin.saveSettings();
 							await this.refreshView();
 							this.display(); // Refresh settings panel
@@ -1858,6 +2092,17 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.showWeekNumbers ?? true)
 				.onChange(async (value) => {
 					this.plugin.settings.showWeekNumbers = value;
+					await this.plugin.saveSettings();
+					await this.refreshView();
+				}));
+
+		new Setting(settingsContainer)
+			.setName(t('settings.hideEmptyStats'))
+			.setDesc(t('settings.hideEmptyStatsDesc'))
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.hideEmptyStats ?? false)
+				.onChange(async (value) => {
+					this.plugin.settings.hideEmptyStats = value;
 					await this.plugin.saveSettings();
 					await this.refreshView();
 				}));

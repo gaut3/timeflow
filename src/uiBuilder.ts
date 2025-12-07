@@ -395,8 +395,20 @@ export class UIBuilder {
 
 			/* Wide layout: 2x2 grid - Day/Week top, Month/Stats side by side bottom */
 			@container dashboard (min-width: 750px) {
+				.tf-main-cards-wrapper {
+					align-items: stretch;
+				}
 				.tf-card-month { grid-column: 1; grid-row: 2; }
-				.tf-card-stats { grid-column: 2; grid-row: 2; }
+				.tf-card-stats {
+					grid-column: 2;
+					grid-row: 2;
+					display: flex;
+					flex-direction: column;
+				}
+				/* In wide layout, content wrapper expands to fill card and push chart to bottom */
+				.tf-card-stats .tf-collapsible-content.open {
+					flex: 1;
+				}
 			}
 
 			/* Default card styling - used for month card */
@@ -521,12 +533,12 @@ export class UIBuilder {
 				color: #ffffff;
 			}
 			.tf-week-number-cell.week-over {
-				background: linear-gradient(135deg, #ffe0b2, #ffcc80);
-				color: #000000;
-			}
-			.tf-week-number-cell.week-under {
 				background: linear-gradient(135deg, #ffcdd2, #ef9a9a);
 				color: #ffffff;
+			}
+			.tf-week-number-cell.week-under {
+				background: linear-gradient(135deg, #ffe0b2, #ffcc80);
+				color: #000000;
 			}
 			.tf-week-number-cell.week-partial {
 				background: linear-gradient(135deg, #e0e0e0, #bdbdbd);
@@ -657,6 +669,22 @@ export class UIBuilder {
 					opacity: 0.8;
 				}
 
+				.tf-future-days-inner {
+					position: relative;
+				}
+
+				/* Fade overlay at bottom - only shown when there are more items */
+				.tf-future-days-inner.has-more::after {
+					content: '';
+					position: absolute;
+					bottom: 0;
+					left: 0;
+					right: 0;
+					height: 30px;
+					background: linear-gradient(to bottom, transparent, var(--background-primary-alt));
+					pointer-events: none;
+				}
+
 				.tf-future-day-item {
 					display: flex;
 					justify-content: space-between;
@@ -700,6 +728,106 @@ export class UIBuilder {
 				font-size: 20px;
 				font-weight: bold;
 				color: var(--text-normal);
+			}
+
+			/* Hours bar chart */
+			.tf-hours-chart {
+				margin-top: auto;
+				padding-top: 20px;
+				border-top: 1px solid var(--background-modifier-border);
+			}
+
+			.tf-hours-chart-title {
+				font-size: 12px;
+				color: var(--text-muted);
+				margin-bottom: 12px;
+			}
+
+			.tf-hours-chart-container {
+				position: relative;
+				height: 120px;
+			}
+
+			.tf-hours-bars-area {
+				display: flex;
+				gap: 6px;
+				height: 100%;
+				position: relative;
+				align-items: flex-end;
+			}
+
+			.tf-hours-bar-wrapper {
+				flex: 1;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				min-width: 0;
+			}
+
+			.tf-hours-bar-container {
+				width: 100%;
+				flex: 1;
+				display: flex;
+				align-items: flex-end;
+			}
+
+			.tf-hours-bar {
+				width: 100%;
+				background: var(--interactive-accent);
+				border-radius: 3px 3px 0 0;
+				min-height: 2px;
+				transition: height 0.3s ease;
+			}
+
+			.tf-hours-bar.empty {
+				background: var(--background-modifier-border);
+			}
+
+			.tf-hours-bar-label {
+				font-size: 10px;
+				color: var(--text-muted);
+				margin-top: 6px;
+				text-align: center;
+				white-space: nowrap;
+			}
+
+			.tf-hours-bar-value {
+				font-size: 10px;
+				color: var(--text-normal);
+				text-align: center;
+				white-space: nowrap;
+				font-weight: 500;
+				height: 16px;
+				line-height: 16px;
+			}
+
+			.tf-hours-target-line {
+				position: absolute;
+				left: 0;
+				right: 0;
+				height: 1px;
+				background: var(--text-muted);
+				opacity: 0.6;
+				z-index: 10;
+				pointer-events: none;
+			}
+
+			.tf-hours-target-label {
+				position: absolute;
+				right: 4px;
+				top: -12px;
+				font-size: 9px;
+				color: var(--text-muted);
+				font-weight: 500;
+			}
+
+			.tf-hours-target-label-left {
+				position: absolute;
+				left: 4px;
+				top: -12px;
+				font-size: 9px;
+				color: var(--text-muted);
+				font-weight: 500;
 			}
 
 			/* Timeframe label styling */
@@ -962,6 +1090,12 @@ export class UIBuilder {
 			.tf-collapsible-content.open {
 				max-height: none;
 				overflow: visible;
+			}
+
+			/* Stats card content wrapper - base styling */
+			.tf-card-stats .tf-collapsible-content.open {
+				display: flex;
+				flex-direction: column;
 			}
 
 			/* Info section two-column grid */
@@ -1413,11 +1547,16 @@ export class UIBuilder {
 		menu.style.minWidth = '150px';
 		menu.style.overflow = 'hidden';
 
-		const timerTypes = [
-			{ name: 'jobb', icon: '💼', label: translateSpecialDayName('jobb') },
-			{ name: 'kurs', icon: '📚', label: translateSpecialDayName('kurs') },
-			{ name: 'studie', icon: '🎓', label: translateSpecialDayName('studie') }
-		];
+		// Build timer types from settings - filter by showInTimerDropdown
+		// Default to true for jobb, studie, kurs if not explicitly set
+		const defaultTimerTypes = ['jobb', 'studie', 'kurs'];
+		const timerTypes = this.settings.specialDayBehaviors
+			.filter(b => b.showInTimerDropdown ?? defaultTimerTypes.includes(b.id))
+			.map(b => ({
+				name: b.id,
+				icon: b.icon,
+				label: translateSpecialDayName(b.id, b.label)
+			}));
 
 		timerTypes.forEach(type => {
 			const item = document.createElement('div');
@@ -1643,7 +1782,8 @@ export class UIBuilder {
 		// Timeframe selector container
 		const timeframeSelectorContainer = document.createElement("div");
 		timeframeSelectorContainer.className = "tf-timeframe-selector";
-		timeframeSelectorContainer.style.marginBottom = "15px";
+		timeframeSelectorContainer.style.marginTop = "12px"; // Add gap between tabs and dropdowns on mobile
+		timeframeSelectorContainer.style.marginBottom = "12px";
 		timeframeSelectorContainer.style.display = "flex";
 		timeframeSelectorContainer.style.gap = "10px";
 		timeframeSelectorContainer.style.alignItems = "center";
@@ -1833,8 +1973,8 @@ export class UIBuilder {
 			weekContainer.style.gap = '6px';
 			weekContainer.style.fontSize = '0.9em';
 			createColorRow(weekContainer, 'linear-gradient(135deg, #c8e6c9, #a5d6a7)', t('info.green'), t('info.reachedGoal') + ' (±0.5h)');
-			createColorRow(weekContainer, 'linear-gradient(135deg, #ffe0b2, #ffcc80)', t('info.orange'), t('info.overGoal'));
-			createColorRow(weekContainer, 'linear-gradient(135deg, #ffcdd2, #ef9a9a)', t('info.red'), t('info.underGoal'));
+			createColorRow(weekContainer, 'linear-gradient(135deg, #ffcdd2, #ef9a9a)', t('info.red'), t('info.overGoal'));
+			createColorRow(weekContainer, 'linear-gradient(135deg, #ffe0b2, #ffcc80)', t('info.orange'), t('info.underGoal'));
 			createColorRow(weekContainer, 'linear-gradient(135deg, #e0e0e0, #bdbdbd)', t('info.gray'), t('info.weekInProgress'));
 			const weekTip = weekBox.createEl('p');
 			weekTip.style.margin = '8px 0 0 0';
@@ -2715,23 +2855,29 @@ export class UIBuilder {
 		}
 
 		// Hours
-		createStatItem(`⏱️ ${t('stats.hours')}`, `${stats.totalHours.toFixed(1)}t`);
+		if (!this.settings.hideEmptyStats || stats.totalHours > 0) {
+			createStatItem(`⏱️ ${t('stats.hours')}`, `${stats.totalHours.toFixed(1)}t`);
+		}
 
 		// Avg per day
-		createStatItem(`📊 ${t('stats.avgPerDay')}`, `${avgDaily.toFixed(1)}t`);
+		if (!this.settings.hideEmptyStats || avgDaily > 0) {
+			createStatItem(`📊 ${t('stats.avgPerDay')}`, `${avgDaily.toFixed(1)}t`);
+		}
 
 		// Avg per week with comparison
-		const weekItem = this.elements.statsCard.createDiv({ cls: 'tf-stat-item' });
-		weekItem.createDiv({ cls: 'tf-stat-label', text: `📅 ${t('stats.avgPerWeek')}` });
-		weekItem.createDiv({ cls: 'tf-stat-value', text: `${avgWeekly.toFixed(1)}t` });
-		if (context.lastWeekHours > 0) {
-			const currWeekHours = this.data.getCurrentWeekHours(this.today);
-			const diff = currWeekHours - context.lastWeekHours;
-			if (Math.abs(diff) > 2) {
-				const arrow = diff > 0 ? "📈" : "📉";
-				const signDiff = diff > 0 ? "+" : "";
-				const compDiv = weekItem.createDiv({ text: `${t('ui.vsLastWeek')}: ${signDiff}${diff.toFixed(1)}t ${arrow}` });
-				compDiv.style.cssText = 'font-size: 0.75em; margin-top: 4px;';
+		if (!this.settings.hideEmptyStats || avgWeekly > 0) {
+			const weekItem = this.elements.statsCard.createDiv({ cls: 'tf-stat-item' });
+			weekItem.createDiv({ cls: 'tf-stat-label', text: `📅 ${t('stats.avgPerWeek')}` });
+			weekItem.createDiv({ cls: 'tf-stat-value', text: `${avgWeekly.toFixed(1)}t` });
+			if (context.lastWeekHours > 0) {
+				const currWeekHours = this.data.getCurrentWeekHours(this.today);
+				const diff = currWeekHours - context.lastWeekHours;
+				if (Math.abs(diff) > 2) {
+					const arrow = diff > 0 ? "📈" : "📉";
+					const signDiff = diff > 0 ? "+" : "";
+					const compDiv = weekItem.createDiv({ text: `${t('ui.vsLastWeek')}: ${signDiff}${diff.toFixed(1)}t ${arrow}` });
+					compDiv.style.cssText = 'font-size: 0.75em; margin-top: 4px;';
+				}
 			}
 		}
 
@@ -2741,7 +2887,9 @@ export class UIBuilder {
 		}
 
 		// Work
-		createStatItem(`💼 ${t('stats.work')}`, `${stats.jobb.count} ${t('ui.days')}`, `${stats.jobb.hours.toFixed(1)}t`);
+		if (!this.settings.hideEmptyStats || stats.jobb.count > 0) {
+			createStatItem(`💼 ${t('stats.work')}`, `${stats.jobb.count} ${t('ui.days')}`, `${stats.jobb.hours.toFixed(1)}t`);
+		}
 
 		// Weekend days (conditional)
 		if (stats.weekendDays > 0) {
@@ -2749,35 +2897,52 @@ export class UIBuilder {
 		}
 
 		// Flex time off
-		createStatItem(`🛌 ${t('stats.flexTimeOff')}`, `${stats.avspasering.count} ${t('ui.days')}`, `${stats.avspasering.hours.toFixed(1)}${this.settings.hourUnit}`);
+		if (!this.settings.hideEmptyStats || stats.avspasering.count > 0) {
+			createStatItem(`🛌 ${t('stats.flexTimeOff')}`, `${stats.avspasering.count} ${t('ui.days')}`, `${stats.avspasering.hours.toFixed(1)}${this.settings.hourUnit}`);
+		}
 
 		// Vacation
-		const vacationItem = this.elements.statsCard.createDiv({ cls: 'tf-stat-item' });
-		vacationItem.createDiv({ cls: 'tf-stat-label', text: `🏖️ ${t('stats.vacation')}` });
-		const vacationValue = vacationItem.createDiv({ cls: 'tf-stat-value', text: ferieDisplay });
-		vacationValue.style.fontSize = this.statsTimeframe === 'year' ? '0.9em' : '1.3em';
-		const vacationSub = vacationItem.createDiv();
-		vacationSub.style.cssText = 'font-size: 0.75em; margin-top: 4px;';
+		if (!this.settings.hideEmptyStats || stats.ferie.count > 0) {
+			const vacationItem = this.elements.statsCard.createDiv({ cls: 'tf-stat-item' });
+			vacationItem.createDiv({ cls: 'tf-stat-label', text: `🏖️ ${t('stats.vacation')}` });
+			const vacationValue = vacationItem.createDiv({ cls: 'tf-stat-value', text: ferieDisplay });
+			vacationValue.style.fontSize = this.statsTimeframe === 'year' ? '0.9em' : '1.3em';
+			const vacationSub = vacationItem.createDiv();
+			vacationSub.style.cssText = 'font-size: 0.75em; margin-top: 4px;';
+		}
 
 		// Welfare leave
-		createStatItem(`🏥 ${t('stats.welfareLeave')}`, `${stats.velferdspermisjon.count} ${t('ui.days')}`);
+		if (!this.settings.hideEmptyStats || stats.velferdspermisjon.count > 0) {
+			createStatItem(`🏥 ${t('stats.welfareLeave')}`, `${stats.velferdspermisjon.count} ${t('ui.days')}`);
+		}
 
 		// Self-reported sick
-		const sickItem = this.elements.statsCard.createDiv({ cls: 'tf-stat-item' });
-		sickItem.createDiv({ cls: 'tf-stat-label', text: `🤒 ${t('stats.selfReportedSick')}` });
-		const sickValue = sickItem.createDiv({ cls: 'tf-stat-value', text: egenmeldingDisplay });
-		sickValue.style.fontSize = this.statsTimeframe === 'year' ? '0.9em' : '1.3em';
-		const sickSub = sickItem.createDiv({ text: egenmeldingPeriodLabel });
-		sickSub.style.cssText = 'font-size: 0.75em; margin-top: 4px;';
+		if (!this.settings.hideEmptyStats || stats.egenmelding.count > 0) {
+			const sickItem = this.elements.statsCard.createDiv({ cls: 'tf-stat-item' });
+			sickItem.createDiv({ cls: 'tf-stat-label', text: `🤒 ${t('stats.selfReportedSick')}` });
+			const sickValue = sickItem.createDiv({ cls: 'tf-stat-value', text: egenmeldingDisplay });
+			sickValue.style.fontSize = this.statsTimeframe === 'year' ? '0.9em' : '1.3em';
+			const sickSub = sickItem.createDiv({ text: egenmeldingPeriodLabel });
+			sickSub.style.cssText = 'font-size: 0.75em; margin-top: 4px;';
+		}
 
 		// Doctor sick
-		createStatItem(`🏥 ${t('stats.doctorSick')}`, `${stats.sykemelding.count} ${t('ui.days')}`);
+		if (!this.settings.hideEmptyStats || stats.sykemelding.count > 0) {
+			createStatItem(`🏥 ${t('stats.doctorSick')}`, `${stats.sykemelding.count} ${t('ui.days')}`);
+		}
 
 		// Study
-		createStatItem(`📚 ${t('stats.study')}`, `${stats.studie.count} ${t('ui.days')}`, `${stats.studie.hours.toFixed(1)}${this.settings.hourUnit}`);
+		if (!this.settings.hideEmptyStats || stats.studie.count > 0) {
+			createStatItem(`📚 ${t('stats.study')}`, `${stats.studie.count} ${t('ui.days')}`, `${stats.studie.hours.toFixed(1)}${this.settings.hourUnit}`);
+		}
 
 		// Course
-		createStatItem(`📚 ${t('stats.course')}`, `${stats.kurs.count} ${t('ui.days')}`, `${stats.kurs.hours.toFixed(1)}${this.settings.hourUnit}`);
+		if (!this.settings.hideEmptyStats || stats.kurs.count > 0) {
+			createStatItem(`📚 ${t('stats.course')}`, `${stats.kurs.count} ${t('ui.days')}`, `${stats.kurs.hours.toFixed(1)}${this.settings.hourUnit}`);
+		}
+
+		// Hours bar chart
+		this.renderHoursBarChart();
 
 		// Update tab active state
 		const tabs = this.elements.statsCard.parentElement?.querySelectorAll('.tf-tab');
@@ -2792,6 +2957,108 @@ export class UIBuilder {
 			} else {
 				tab.classList.remove('active');
 			}
+		});
+	}
+
+	/**
+	 * Render the hours bar chart at the bottom of the stats card section
+	 */
+	renderHoursBarChart(): void {
+		if (!this.elements.statsCard) return;
+
+		// Get the content wrapper (parent of stats grid)
+		const contentWrapper = this.elements.statsCard.parentElement;
+		if (!contentWrapper) return;
+
+		// Remove existing chart if any
+		const existingChart = contentWrapper.querySelector('.tf-hours-chart');
+		if (existingChart) {
+			existingChart.remove();
+		}
+
+		const chartData = this.data.getHistoricalHoursData(
+			this.statsTimeframe as 'month' | 'year' | 'total',
+			this.selectedYear,
+			this.selectedMonth
+		);
+
+		// Skip if no data
+		if (chartData.length === 0) return;
+
+		// Find max value for scaling
+		const maxHours = Math.max(...chartData.map(d => d.hours), ...chartData.map(d => d.target || 0));
+		if (maxHours === 0) return; // No data to display
+
+		// Create chart container and append to content wrapper (not stats grid)
+		const chartContainer = document.createElement('div');
+		chartContainer.className = 'tf-hours-chart';
+		contentWrapper.appendChild(chartContainer);
+
+		// Helper to create div elements
+		const createDiv = (className: string, text?: string): HTMLDivElement => {
+			const div = document.createElement('div');
+			div.className = className;
+			if (text) div.textContent = text;
+			return div;
+		};
+
+		// Title based on timeframe
+		let title = '';
+		if (this.statsTimeframe === 'month') {
+			title = t('stats.weeklyHours') || 'Uketimer';
+		} else if (this.statsTimeframe === 'year') {
+			title = t('stats.monthlyHours') || 'Månedstimer';
+		} else {
+			title = t('stats.yearlyHours') || 'Årstimer';
+		}
+		chartContainer.appendChild(createDiv('tf-hours-chart-title', title));
+
+		const chartInner = createDiv('tf-hours-chart-container');
+		chartContainer.appendChild(chartInner);
+
+		// Create bars area (where bars go)
+		const barsArea = createDiv('tf-hours-bars-area');
+		chartInner.appendChild(barsArea);
+
+		// Constants for bar sizing
+		const maxBarHeight = 80; // pixels
+		const bottomOffset = 20; // space for labels at bottom
+
+		// Add target line if applicable (inside chartInner for correct absolute positioning)
+		const target = chartData[0]?.target;
+		if (target && target > 0) {
+			const targetHeight = (target / maxHours) * maxBarHeight;
+			const targetLine = createDiv('tf-hours-target-line');
+			targetLine.style.bottom = `${targetHeight + bottomOffset}px`;
+			const targetLabelLeft = createDiv('tf-hours-target-label-left', t('stats.target') || 'Mål');
+			const targetLabelRight = createDiv('tf-hours-target-label', `${target.toFixed(0)}t`);
+			targetLine.appendChild(targetLabelLeft);
+			targetLine.appendChild(targetLabelRight);
+			chartInner.appendChild(targetLine);
+		}
+
+		// Render bars
+		chartData.forEach(item => {
+			const barWrapper = createDiv('tf-hours-bar-wrapper');
+
+			// Value label above bar
+			const valueLabel = createDiv('tf-hours-bar-value', item.hours > 0 ? `${item.hours.toFixed(0)}` : '');
+			barWrapper.appendChild(valueLabel);
+
+			// Bar container with the actual bar
+			const barContainer = createDiv('tf-hours-bar-container');
+			const bar = createDiv('tf-hours-bar');
+			const barHeight = maxHours > 0 ? (item.hours / maxHours) * maxBarHeight : 0;
+			bar.style.height = `${Math.max(barHeight, 2)}px`;
+			if (item.hours === 0) {
+				bar.classList.add('empty');
+			}
+			barContainer.appendChild(bar);
+			barWrapper.appendChild(barContainer);
+
+			// Label below bar
+			barWrapper.appendChild(createDiv('tf-hours-bar-label', item.label));
+			barsArea.appendChild(barWrapper);
 		});
 	}
 
@@ -2827,10 +3094,38 @@ export class UIBuilder {
 				const behavior = this.settings.specialDayBehaviors.find(b => b.id === holiday.type);
 				if (behavior) {
 					const translatedLabel = translateSpecialDayName(behavior.id, behavior.label);
+
+					// Build display label - special handling for 'annet' type
+					let displayLabel = holiday.description || translatedLabel;
+					if (holiday.type === 'annet') {
+						const parts: string[] = [];
+
+						// Add template icon and label if available
+						if (holiday.annetTemplateId) {
+							const template = this.settings.annetTemplates.find(t => t.id === holiday.annetTemplateId);
+							if (template) {
+								parts.push(`${template.icon} ${template.label}`);
+							}
+						}
+
+						// Add time range if specified
+						if (holiday.startTime && holiday.endTime) {
+							parts.push(`${holiday.startTime}-${holiday.endTime}`);
+						}
+
+						// Add description if available
+						if (holiday.description) {
+							parts.push(holiday.description);
+						}
+
+						// Combine parts or fall back to translated label
+						displayLabel = parts.length > 0 ? parts.join(' · ') : translatedLabel;
+					}
+
 					futureDays.push({
 						date: dateStr,
 						type: translatedLabel,
-						label: holiday.description || translatedLabel,
+						label: displayLabel,
 						color: behavior.color,
 						textColor: behavior.textColor || '#000000'
 					});
@@ -2841,22 +3136,27 @@ export class UIBuilder {
 		// Sort by date
 		futureDays.sort((a, b) => a.date.localeCompare(b.date));
 
-		// Limit based on goal tracking mode: 7 in simple mode, 10 in goal mode
-		const limit = this.settings.enableGoalTracking ? 10 : 7;
-		const limitedDays = futureDays.slice(0, limit);
+		// Show fewer items when hideEmptyStats is enabled (fewer stats visible = shorter card)
+		const maxEntries = this.settings.hideEmptyStats ? 10 : 15;
+		const displayDays = futureDays.slice(0, maxEntries);
+		const hasMore = futureDays.length > maxEntries;
 
-		if (limitedDays.length === 0) {
+		if (displayDays.length === 0) {
 			container.empty();
 			return;
 		}
 
-		// Build list using DOM API
+		// Build list using DOM API with inner container for fade effect
 		container.empty();
 		container.createEl('h4', { text: t('ui.upcomingPlannedDays') });
-		limitedDays.forEach(day => {
+
+		// Inner container for items - allows fade overlay via CSS ::after when there are more items
+		const innerContainer = container.createDiv({ cls: `tf-future-days-inner${hasMore ? ' has-more' : ''}` });
+
+		displayDays.forEach(day => {
 			const date = new Date(day.date + 'T00:00:00');
 			const dateStr = formatDate(date, 'long');
-			const itemDiv = container.createDiv({ cls: 'tf-future-day-item' });
+			const itemDiv = innerContainer.createDiv({ cls: 'tf-future-day-item' });
 			itemDiv.createSpan({ cls: 'tf-future-day-date', text: dateStr });
 			const typeSpan = itemDiv.createSpan({ cls: 'tf-future-day-type', text: day.label });
 			typeSpan.style.backgroundColor = day.color;
@@ -3506,13 +3806,13 @@ export class UIBuilder {
 		let statusText = t('status.onTarget');
 		let statusColor = '#4caf50';
 		if (data.status === 'over') {
-			statusIcon = '🟨';
-			statusText = t('status.overTarget');
-			statusColor = '#ff9800';
-		} else if (data.status === 'under') {
 			statusIcon = '🟥';
+			statusText = t('status.overTarget');
+			statusColor = '#f44336'; // Red - over target (working too much)
+		} else if (data.status === 'under') {
+			statusIcon = '🟨';
 			statusText = t('status.underTarget');
-			statusColor = '#f44336';
+			statusColor = '#ff9800'; // Yellow - under target (needs to catch up)
 		} else if (data.status === 'partial') {
 			statusIcon = '⏳';
 			statusText = t('status.inProgress');
@@ -3750,9 +4050,25 @@ export class UIBuilder {
 		// Show planned day information if exists
 		if (isPlannedDay && plannedInfo) {
 			const emoji = Utils.getEmoji({ name: plannedInfo.type, date: dateObj });
-			const halfDayText = plannedInfo.halfDay ? ' (halv dag)' : '';
+
+			// Get type name (translated) and for annet, include template label
+			let typeName = translateSpecialDayName(plannedInfo.type);
+			if (plannedInfo.type === 'annet' && plannedInfo.annetTemplateId) {
+				const template = this.settings.annetTemplates?.find(tmpl => tmpl.id === plannedInfo.annetTemplateId);
+				if (template) {
+					typeName = `${template.icon} ${template.label}`;
+				}
+			}
+
 			const plannedP = menuInfo.createEl('p');
-			plannedP.createEl('strong', { text: emoji + ' ' + plannedInfo.description + halfDayText });
+			// Show: "🌴 Vacation: Summer trip" or "🏥 Doctor: Annual checkup"
+			let displayText = plannedInfo.description
+				? `${emoji} ${typeName}: ${plannedInfo.description}`
+				: `${emoji} ${typeName}`;
+			if (plannedInfo.halfDay) {
+				displayText += ' (½)';
+			}
+			plannedP.createEl('strong', { text: displayText });
 		}
 
 		// Show running timers first
@@ -3797,7 +4113,8 @@ export class UIBuilder {
 			if (!isFutureDay) {
 				const totalHours = allEntries.reduce((sum, e) => sum + (e.duration || 0), 0);
 				const dayGoal = this.data.getDailyGoal(dateStr);
-				const dailyDelta = dayGoal === 0 ? totalHours : (totalHours - dayGoal);
+				// Use actual flextime from entries (accounts for accumulate/withdraw behaviors)
+				const dailyDelta = allEntries.reduce((sum, e) => sum + (e.flextime || 0), 0);
 				const runningBalance = this.data.getBalanceUpToDate(dateStr);
 
 				const goalP = menuInfo.createEl('p');
@@ -4471,13 +4788,116 @@ export class UIBuilder {
 		content.className = 'modal-content';
 		content.style.padding = '20px';
 
-		// Date display
+		// Date display (single day mode)
 		const dateDisplay = document.createElement('div');
 		dateDisplay.textContent = `${t('ui.date')}: ${dateStr}`;
 		dateDisplay.style.marginBottom = '15px';
 		dateDisplay.style.fontSize = '16px';
 		dateDisplay.style.fontWeight = 'bold';
 		content.appendChild(dateDisplay);
+
+		// Multi-day toggle container
+		const multiDayContainer = document.createElement('div');
+		multiDayContainer.style.marginBottom = '15px';
+
+		// Multiple days checkbox row
+		const multiDayRow = document.createElement('div');
+		multiDayRow.style.display = 'flex';
+		multiDayRow.style.alignItems = 'center';
+		multiDayRow.style.gap = '8px';
+		multiDayRow.style.marginBottom = '10px';
+
+		const multiDayCheckbox = document.createElement('input');
+		multiDayCheckbox.type = 'checkbox';
+		multiDayCheckbox.id = 'multiDayCheckbox';
+		multiDayRow.appendChild(multiDayCheckbox);
+
+		const multiDayLabel = document.createElement('label');
+		multiDayLabel.htmlFor = 'multiDayCheckbox';
+		multiDayLabel.textContent = t('ui.multipleDays');
+		multiDayLabel.style.cursor = 'pointer';
+		multiDayRow.appendChild(multiDayLabel);
+
+		multiDayContainer.appendChild(multiDayRow);
+
+		// Date range inputs (hidden by default)
+		const dateRangeContainer = document.createElement('div');
+		dateRangeContainer.style.display = 'none';
+		dateRangeContainer.style.gap = '10px';
+
+		// Start date row
+		const startDateRow = document.createElement('div');
+		startDateRow.style.display = 'flex';
+		startDateRow.style.alignItems = 'center';
+		startDateRow.style.gap = '8px';
+		startDateRow.style.marginBottom = '8px';
+
+		const startDateLabel = document.createElement('span');
+		startDateLabel.textContent = t('ui.startDate') + ':';
+		startDateLabel.style.minWidth = '80px';
+		startDateRow.appendChild(startDateLabel);
+
+		const startDateInput = document.createElement('input');
+		startDateInput.type = 'date';
+		startDateInput.value = dateStr;
+		startDateInput.style.flex = '1';
+		startDateInput.style.padding = '6px';
+		startDateRow.appendChild(startDateInput);
+
+		dateRangeContainer.appendChild(startDateRow);
+
+		// End date row
+		const endDateRow = document.createElement('div');
+		endDateRow.style.display = 'flex';
+		endDateRow.style.alignItems = 'center';
+		endDateRow.style.gap = '8px';
+
+		const endDateLabel = document.createElement('span');
+		endDateLabel.textContent = t('ui.endDate') + ':';
+		endDateLabel.style.minWidth = '80px';
+		endDateRow.appendChild(endDateLabel);
+
+		const endDateInput = document.createElement('input');
+		endDateInput.type = 'date';
+		endDateInput.value = dateStr;
+		endDateInput.style.flex = '1';
+		endDateInput.style.padding = '6px';
+		endDateRow.appendChild(endDateInput);
+
+		dateRangeContainer.appendChild(endDateRow);
+
+		// Days count display
+		const daysCountDisplay = document.createElement('div');
+		daysCountDisplay.style.fontSize = '12px';
+		daysCountDisplay.style.color = 'var(--text-muted)';
+		daysCountDisplay.style.marginTop = '8px';
+
+		const updateDaysCount = () => {
+			const start = new Date(startDateInput.value);
+			const end = new Date(endDateInput.value);
+			if (start && end && end >= start) {
+				const days = Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+				daysCountDisplay.textContent = `${days} ${days === 1 ? t('units.day') : t('units.days')}`;
+			} else {
+				daysCountDisplay.textContent = t('validation.invalidDateRange') || 'Invalid date range';
+			}
+		};
+		updateDaysCount();
+		startDateInput.addEventListener('change', updateDaysCount);
+		endDateInput.addEventListener('change', updateDaysCount);
+
+		dateRangeContainer.appendChild(daysCountDisplay);
+		multiDayContainer.appendChild(dateRangeContainer);
+
+		// Toggle date range inputs based on multi-day checkbox
+		const updateMultiDayVisibility = () => {
+			const isMultiDay = multiDayCheckbox.checked;
+			dateDisplay.style.display = isMultiDay ? 'none' : 'block';
+			dateRangeContainer.style.display = isMultiDay ? 'block' : 'none';
+		};
+		multiDayCheckbox.addEventListener('change', updateMultiDayVisibility);
+
+		content.appendChild(multiDayContainer);
 
 		// Day type selection
 		const typeLabel = document.createElement('div');
@@ -4735,6 +5155,247 @@ export class UIBuilder {
 
 		content.appendChild(sickTimeContainer);
 
+		// Annet (Other) container - shown only when annet type is selected
+		const annetContainer = document.createElement('div');
+		annetContainer.style.marginBottom = '15px';
+		annetContainer.style.display = 'none';
+
+		// Template selector
+		const annetTemplateLabel = document.createElement('div');
+		annetTemplateLabel.textContent = t('annet.selectTemplate');
+		annetTemplateLabel.style.marginBottom = '8px';
+		annetTemplateLabel.style.fontWeight = 'bold';
+		annetContainer.appendChild(annetTemplateLabel);
+
+		// Template buttons container
+		const annetTemplateButtons = document.createElement('div');
+		annetTemplateButtons.style.display = 'flex';
+		annetTemplateButtons.style.flexWrap = 'wrap';
+		annetTemplateButtons.style.gap = '8px';
+		annetTemplateButtons.style.marginBottom = '12px';
+
+		let selectedAnnetTemplate: string | null = null;
+
+		// Create template buttons
+		const annetTemplates = this.settings.annetTemplates || [];
+		// We'll store button references to update them after saveAsTemplateContainer is created
+		const templateButtonRefs: HTMLButtonElement[] = [];
+		annetTemplates.forEach(template => {
+			const btn = document.createElement('button');
+			btn.textContent = `${template.icon} ${template.label}`;
+			btn.style.padding = '8px 12px';
+			btn.style.borderRadius = '4px';
+			btn.style.cursor = 'pointer';
+			btn.dataset.templateId = template.id;
+			templateButtonRefs.push(btn);
+			annetTemplateButtons.appendChild(btn);
+		});
+
+		// Custom/Egendefinert button
+		const customBtn = document.createElement('button');
+		customBtn.textContent = `📋 ${t('annet.custom')}`;
+		customBtn.style.padding = '8px 12px';
+		customBtn.style.borderRadius = '4px';
+		customBtn.style.cursor = 'pointer';
+		customBtn.onclick = () => {
+			// Deselect all buttons
+			annetTemplateButtons.querySelectorAll('button').forEach(b => {
+				b.style.backgroundColor = '';
+				b.classList.remove('mod-cta');
+			});
+			// Select this button
+			customBtn.style.backgroundColor = 'var(--interactive-accent)';
+			customBtn.classList.add('mod-cta');
+			selectedAnnetTemplate = null; // Custom entry
+			// Show save as template section
+			saveAsTemplateContainer.style.display = 'block';
+		};
+		annetTemplateButtons.appendChild(customBtn);
+
+		annetContainer.appendChild(annetTemplateButtons);
+
+		// Custom entry section (shown only when custom is selected)
+		const saveAsTemplateContainer = document.createElement('div');
+		saveAsTemplateContainer.style.display = 'none';
+		saveAsTemplateContainer.style.marginBottom = '12px';
+		saveAsTemplateContainer.style.padding = '10px';
+		saveAsTemplateContainer.style.backgroundColor = 'var(--background-secondary)';
+		saveAsTemplateContainer.style.borderRadius = '4px';
+
+		// Name row (always visible when custom is selected)
+		const templateNameRow = document.createElement('div');
+		templateNameRow.style.display = 'flex';
+		templateNameRow.style.alignItems = 'center';
+		templateNameRow.style.gap = '8px';
+		templateNameRow.style.marginBottom = '8px';
+
+		const templateNameLabel = document.createElement('span');
+		templateNameLabel.textContent = t('annet.templateName') + ':';
+		templateNameLabel.style.minWidth = '80px';
+		templateNameRow.appendChild(templateNameLabel);
+
+		const templateNameInput = document.createElement('input');
+		templateNameInput.type = 'text';
+		templateNameInput.style.flex = '1';
+		templateNameInput.style.padding = '6px';
+		templateNameInput.placeholder = t('annet.labelPlaceholder');
+		templateNameRow.appendChild(templateNameInput);
+
+		saveAsTemplateContainer.appendChild(templateNameRow);
+
+		// Icon row (always visible when custom is selected)
+		const templateIconRow = document.createElement('div');
+		templateIconRow.style.display = 'flex';
+		templateIconRow.style.alignItems = 'center';
+		templateIconRow.style.gap = '8px';
+		templateIconRow.style.marginBottom = '8px';
+
+		const templateIconLabel = document.createElement('span');
+		templateIconLabel.textContent = t('annet.templateIcon') + ':';
+		templateIconLabel.style.minWidth = '80px';
+		templateIconRow.appendChild(templateIconLabel);
+
+		const templateIconInput = document.createElement('input');
+		templateIconInput.type = 'text';
+		templateIconInput.style.width = '60px';
+		templateIconInput.style.padding = '6px';
+		templateIconInput.placeholder = '🏥';
+		templateIconRow.appendChild(templateIconInput);
+
+		saveAsTemplateContainer.appendChild(templateIconRow);
+
+		// Save as template checkbox row
+		const saveAsTemplateRow = document.createElement('div');
+		saveAsTemplateRow.style.display = 'flex';
+		saveAsTemplateRow.style.alignItems = 'center';
+		saveAsTemplateRow.style.gap = '8px';
+		saveAsTemplateRow.style.marginTop = '8px';
+		saveAsTemplateRow.style.paddingTop = '8px';
+		saveAsTemplateRow.style.borderTop = '1px solid var(--background-modifier-border)';
+
+		const saveAsTemplateCheckbox = document.createElement('input');
+		saveAsTemplateCheckbox.type = 'checkbox';
+		saveAsTemplateCheckbox.id = 'saveAsTemplateCheckbox';
+		saveAsTemplateRow.appendChild(saveAsTemplateCheckbox);
+
+		const saveAsTemplateLabel = document.createElement('label');
+		saveAsTemplateLabel.htmlFor = 'saveAsTemplateCheckbox';
+		saveAsTemplateLabel.textContent = t('annet.saveAsTemplate');
+		saveAsTemplateLabel.style.cursor = 'pointer';
+		saveAsTemplateRow.appendChild(saveAsTemplateLabel);
+
+		saveAsTemplateContainer.appendChild(saveAsTemplateRow);
+
+		annetContainer.appendChild(saveAsTemplateContainer);
+
+		// Now set up onclick handlers for template buttons (after saveAsTemplateContainer exists)
+		templateButtonRefs.forEach(btn => {
+			const templateId = btn.dataset.templateId;
+			btn.onclick = () => {
+				// Deselect all buttons
+				annetTemplateButtons.querySelectorAll('button').forEach(b => {
+					(b as HTMLElement).style.backgroundColor = '';
+					b.classList.remove('mod-cta');
+				});
+				// Select this button
+				btn.style.backgroundColor = 'var(--interactive-accent)';
+				btn.classList.add('mod-cta');
+				selectedAnnetTemplate = templateId || null;
+				// Hide custom entry section
+				saveAsTemplateContainer.style.display = 'none';
+				saveAsTemplateCheckbox.checked = false;
+				// Clear custom fields
+				templateNameInput.value = '';
+				templateIconInput.value = '';
+			};
+		});
+
+		// Full day toggle for annet
+		const annetFullDayRow = document.createElement('div');
+		annetFullDayRow.style.display = 'flex';
+		annetFullDayRow.style.alignItems = 'center';
+		annetFullDayRow.style.gap = '8px';
+		annetFullDayRow.style.marginBottom = '12px';
+
+		const annetFullDayCheckbox = document.createElement('input');
+		annetFullDayCheckbox.type = 'checkbox';
+		annetFullDayCheckbox.id = 'annetFullDayCheckbox';
+		annetFullDayCheckbox.checked = true;
+		annetFullDayRow.appendChild(annetFullDayCheckbox);
+
+		const annetFullDayLabel = document.createElement('label');
+		annetFullDayLabel.htmlFor = 'annetFullDayCheckbox';
+		annetFullDayLabel.textContent = t('annet.fullDay');
+		annetFullDayLabel.style.cursor = 'pointer';
+		annetFullDayRow.appendChild(annetFullDayLabel);
+
+		annetContainer.appendChild(annetFullDayRow);
+
+		// Time inputs for partial day annet
+		const annetTimeInputRow = document.createElement('div');
+		annetTimeInputRow.style.display = 'none';
+		annetTimeInputRow.style.gap = '10px';
+		annetTimeInputRow.style.alignItems = 'center';
+		annetTimeInputRow.style.marginBottom = '12px';
+
+		const annetFromLabel = document.createElement('span');
+		annetFromLabel.textContent = t('annet.fromTime') + ':';
+		annetTimeInputRow.appendChild(annetFromLabel);
+
+		const annetFromTimeInput = this.createTimeInput('09:00', () => {});
+		annetFromTimeInput.style.padding = '8px';
+		annetFromTimeInput.style.fontSize = '14px';
+		annetTimeInputRow.appendChild(annetFromTimeInput);
+
+		const annetToLabel = document.createElement('span');
+		annetToLabel.textContent = t('annet.toTime') + ':';
+		annetTimeInputRow.appendChild(annetToLabel);
+
+		const annetToTimeInput = this.createTimeInput('11:00', () => {});
+		annetToTimeInput.style.padding = '8px';
+		annetToTimeInput.style.fontSize = '14px';
+		annetTimeInputRow.appendChild(annetToTimeInput);
+
+		annetContainer.appendChild(annetTimeInputRow);
+
+		// Duration display for annet
+		const annetDurationDisplay = document.createElement('div');
+		annetDurationDisplay.style.fontSize = '12px';
+		annetDurationDisplay.style.color = 'var(--text-muted)';
+		annetDurationDisplay.style.marginBottom = '12px';
+		annetDurationDisplay.style.display = 'none';
+
+		const updateAnnetDuration = () => {
+			const from = annetFromTimeInput.value;
+			const to = annetToTimeInput.value;
+			if (from && to) {
+				const [fH, fM] = from.split(':').map(Number);
+				const [tH, tM] = to.split(':').map(Number);
+				const hours = (tH + tM/60) - (fH + fM/60);
+				if (hours > 0) {
+					annetDurationDisplay.textContent = `${t('modals.duration') || 'Varighet'}: ${hours.toFixed(1)} ${t('units.hours') || 'timer'}`;
+				} else {
+					annetDurationDisplay.textContent = t('validation.invalidTimePeriod') || 'Ugyldig tidsperiode';
+				}
+			}
+		};
+		updateAnnetDuration();
+		annetFromTimeInput.addEventListener('change', updateAnnetDuration);
+		annetToTimeInput.addEventListener('change', updateAnnetDuration);
+
+		annetContainer.appendChild(annetDurationDisplay);
+
+		// Toggle time inputs based on full day checkbox
+		const updateAnnetTimeInputs = () => {
+			const isFullDay = annetFullDayCheckbox.checked;
+			annetTimeInputRow.style.display = isFullDay ? 'none' : 'flex';
+			annetDurationDisplay.style.display = isFullDay ? 'none' : 'block';
+		};
+		annetFullDayCheckbox.addEventListener('change', updateAnnetTimeInputs);
+		updateAnnetTimeInputs();
+
+		content.appendChild(annetContainer);
+
 		// Note/comment field
 		const noteLabel = document.createElement('div');
 		noteLabel.textContent = t('modals.commentOptional');
@@ -4760,7 +5421,16 @@ export class UIBuilder {
 		const updateFieldVisibility = () => {
 			const selectedType = typeSelect.value;
 			timeContainer.style.display = selectedType === 'avspasering' ? 'block' : 'none';
-			sickTimeContainer.style.display = isReduceGoalType(selectedType) ? 'block' : 'none';
+			// Exclude annet from sick time container - annet has its own UI
+			sickTimeContainer.style.display = (isReduceGoalType(selectedType) && selectedType !== 'annet') ? 'block' : 'none';
+			annetContainer.style.display = selectedType === 'annet' ? 'block' : 'none';
+			// Hide multi-day option for annet (Other) type - it has its own single-day UI
+			multiDayContainer.style.display = selectedType === 'annet' ? 'none' : 'block';
+			// Reset multi-day checkbox when switching to annet
+			if (selectedType === 'annet') {
+				multiDayCheckbox.checked = false;
+				updateMultiDayVisibility();
+			}
 			noteInput.placeholder = getPlaceholderForType(selectedType);
 		};
 		typeSelect.addEventListener('change', updateFieldVisibility);
@@ -4786,8 +5456,72 @@ export class UIBuilder {
 			const startTime = dayType === 'avspasering' ? fromTimeInput.value : undefined;
 			const endTime = dayType === 'avspasering' ? toTimeInput.value : undefined;
 
-			// Handle reduce_goal types (sick days) with duration
-			if (isReduceGoalType(dayType)) {
+			// Handle annet type with templates and full/partial day
+			if (dayType === 'annet') {
+				const isFullDay = annetFullDayCheckbox.checked;
+				let templateId = selectedAnnetTemplate; // Can be null for custom
+				let entryDescription = note;
+
+				// Handle custom entry (when no template is selected)
+				if (selectedAnnetTemplate === null) {
+					const customName = templateNameInput.value.trim();
+					const customIcon = templateIconInput.value.trim() || '📋';
+
+					// Check if user wants to save as template
+					if (saveAsTemplateCheckbox.checked) {
+						if (!customName) {
+							new Notice(`❌ ${t('annet.labelRequired')}`);
+							return;
+						}
+
+						// Generate ID from name (lowercase, no spaces)
+						const newTemplateId = customName.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+
+						// Check for duplicate ID
+						if (this.settings.annetTemplates.some(tmpl => tmpl.id === newTemplateId)) {
+							new Notice(`❌ ${t('annet.duplicateId')}`);
+							return;
+						}
+
+						// Save new template
+						this.settings.annetTemplates.push({
+							id: newTemplateId,
+							label: customName,
+							icon: customIcon
+						});
+						await this.plugin.saveSettings();
+						new Notice(`✅ ${t('annet.addTemplate')}: ${customIcon} ${customName}`);
+
+						// Use the new template ID for this entry
+						templateId = newTemplateId;
+					} else if (customName) {
+						// Not saving as template, but user provided name/icon - include in description
+						const prefix = `${customIcon} ${customName}`;
+						entryDescription = note ? `${prefix}: ${note}` : prefix;
+					}
+				}
+
+				if (!isFullDay) {
+					// Partial day - add with time range
+					const from = annetFromTimeInput.value;
+					const to = annetToTimeInput.value;
+					const [fH, fM] = from.split(':').map(Number);
+					const [tH, tM] = to.split(':').map(Number);
+					const hours = (tH + tM/60) - (fH + fM/60);
+
+					if (hours <= 0) {
+						new Notice(`❌ ${t('validation.invalidTimePeriod') || 'Ugyldig tidsperiode'}`);
+						return;
+					}
+
+					// Format: annet:templateId:HH:MM-HH:MM: description (or annet:HH:MM-HH:MM: for custom)
+					await this.addAnnetEntry(dateObj, templateId, from, to, entryDescription);
+				} else {
+					// Full day - format: annet:templateId: description (or annet: for custom)
+					await this.addAnnetEntry(dateObj, templateId, null, null, entryDescription);
+				}
+			} else if (isReduceGoalType(dayType)) {
+				// Handle reduce_goal types (sick days) with duration
 				const isFullDay = fullDayCheckbox.checked;
 
 				if (!isFullDay) {
@@ -4824,7 +5558,32 @@ export class UIBuilder {
 				}
 			} else {
 				// Regular special day (ferie, avspasering, etc.)
-				await this.addSpecialDay(dateObj, dayType, note, startTime, endTime);
+				// Check if multi-day is enabled
+				if (multiDayCheckbox.checked) {
+					const startDate = new Date(startDateInput.value);
+					const endDate = new Date(endDateInput.value);
+
+					if (endDate < startDate) {
+						new Notice(`❌ ${t('validation.invalidDateRange') || 'Invalid date range'}`);
+						return;
+					}
+
+					// Loop through each day in the range and create entries
+					const currentDate = new Date(startDate);
+					let daysAdded = 0;
+					while (currentDate <= endDate) {
+						await this.addSpecialDay(new Date(currentDate), dayType, note, startTime, endTime);
+						currentDate.setDate(currentDate.getDate() + 1);
+						daysAdded++;
+					}
+
+					const behavior = this.settings.specialDayBehaviors.find(b => b.id === dayType);
+					const typeName = behavior ? translateSpecialDayName(behavior.id, behavior.label) : dayType;
+					new Notice(`✅ ${typeName}: ${daysAdded} ${daysAdded === 1 ? t('units.day') : t('units.days')}`);
+				} else {
+					// Single day entry (existing behavior)
+					await this.addSpecialDay(dateObj, dayType, note, startTime, endTime);
+				}
 			}
 
 			this.isModalOpen = false;
@@ -4907,6 +5666,99 @@ export class UIBuilder {
 			this.updateMonthCard();
 		} catch (error) {
 			console.error('Failed to add special day:', error);
+			new Notice(`❌ ${t('notifications.errorAddingSpecialDay')}`);
+		}
+	}
+
+	/**
+	 * Add an annet (other) entry to the holidays file
+	 * Format: - YYYY-MM-DD: annet:templateId:HH:MM-HH:MM: description
+	 *    or:  - YYYY-MM-DD: annet:templateId: description (full day)
+	 *    or:  - YYYY-MM-DD: annet:HH:MM-HH:MM: description (partial, no template)
+	 *    or:  - YYYY-MM-DD: annet: description (full day, no template)
+	 */
+	async addAnnetEntry(dateObj: Date, templateId: string | null, startTime: string | null, endTime: string | null, note: string): Promise<void> {
+		try {
+			const filePath = this.settings.holidaysFilePath;
+			const file = this.app.vault.getAbstractFileByPath(normalizePath(filePath));
+
+			if (!file) {
+				new Notice(`❌ ${t('notifications.fileNotFound').replace('{path}', filePath)}`);
+				return;
+			}
+
+			// Format the date as YYYY-MM-DD
+			const year = dateObj.getFullYear();
+			const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+			const day = String(dateObj.getDate()).padStart(2, '0');
+			const dateStr = `${year}-${month}-${day}`;
+
+			// Read the file content
+			let content = await this.app.vault.read(file as TFile);
+
+			// Find the "Planlagte egne fridager" section
+			const sectionMarker = '## Planlagte egne fridager';
+			const sectionIndex = content.indexOf(sectionMarker);
+
+			if (sectionIndex === -1) {
+				new Notice(`❌ ${t('notifications.sectionNotFound')}`);
+				return;
+			}
+
+			// Find the code block after the section
+			const codeBlockStart = content.indexOf('```', sectionIndex);
+			const codeBlockEnd = content.indexOf('```', codeBlockStart + 3);
+
+			if (codeBlockStart === -1 || codeBlockEnd === -1) {
+				new Notice(`❌ ${t('notifications.codeBlockNotFound')}`);
+				return;
+			}
+
+			// Build the annet entry string
+			// Format: annet:templateId:HH:MM-HH:MM (with time) or annet:templateId (full day)
+			let annetType = 'annet';
+			if (templateId) {
+				annetType += `:${templateId}`;
+			}
+			if (startTime && endTime) {
+				annetType += `:${startTime}-${endTime}`;
+			}
+
+			const newEntry = `- ${dateStr}: ${annetType}: ${note}`;
+
+			// Insert the new line at the end of the code block, before the closing ```
+			const beforeClosing = content.substring(0, codeBlockEnd);
+			const afterClosing = content.substring(codeBlockEnd);
+
+			// Add newline if needed
+			const needsNewline = !beforeClosing.endsWith('\n');
+			content = beforeClosing + (needsNewline ? '\n' : '') + newEntry + '\n' + afterClosing;
+
+			// Write back to file
+			await this.app.vault.modify(file as TFile, content);
+
+			// Get the label for display
+			let label = t('annet.title');
+			if (templateId) {
+				const template = this.settings.annetTemplates.find(t => t.id === templateId);
+				if (template) {
+					label = `${template.icon} ${template.label}`;
+				}
+			}
+
+			if (startTime && endTime) {
+				new Notice(`✅ ${t('notifications.added')} ${dateStr} (${label} ${startTime}-${endTime})`);
+			} else {
+				new Notice(`✅ ${t('notifications.added')} ${dateStr} (${label})`);
+			}
+
+			// Reload holidays to pick up the new entry
+			await this.data.loadHolidays();
+
+			// Refresh the dashboard to show the special day
+			this.updateMonthCard();
+		} catch (error) {
+			console.error('Failed to add annet entry:', error);
 			new Notice(`❌ ${t('notifications.errorAddingSpecialDay')}`);
 		}
 	}
@@ -6223,15 +7075,17 @@ export class UIBuilder {
 
 	startUpdates(): void {
 		// Update clock every second (settings in seconds, setInterval needs ms)
+		const clockMs = (this.settings.clockInterval || 1) * 1000;
 		const clockInterval = window.setInterval(() => {
 			this.updateClock();
-		}, this.settings.clockInterval * 1000);
+		}, clockMs);
 		this.intervals.push(clockInterval);
 
 		// Update data periodically (settings in seconds, setInterval needs ms)
+		const updateMs = (this.settings.updateInterval || 30) * 1000;
 		const dataInterval = window.setInterval(() => {
 			this.updateAll();
-		}, this.settings.updateInterval * 1000);
+		}, updateMs);
 		this.intervals.push(dataInterval);
 	}
 
@@ -6239,11 +7093,22 @@ export class UIBuilder {
 		// Skip refresh while modal is open to prevent input interference
 		if (this.isModalOpen) return;
 
+		// Reload data from timer manager to get latest state
+		this.data.rawEntries = this.timerManager.convertToTimeEntries();
+		this.data.processEntries();
+
 		this.updateBadge();
 		this.updateTimerBadge();
 		this.updateDayCard();
 		this.updateWeekCard();
 		this.updateStatsCard();
+		this.updateMonthCard();
+
+		// Update history edit toggle visibility (width may have changed)
+		const historyContainer = this.container.querySelector('.tf-history-content');
+		if (historyContainer) {
+			this.updateEditToggleVisibility(historyContainer as HTMLElement);
+		}
 	}
 
 	/**
