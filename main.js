@@ -205,6 +205,18 @@ function translateSpecialDayName(id, fallbackLabel) {
   }
   return fallbackLabel || id;
 }
+var annetTemplateTranslationMap = {
+  "doctor": "annet.doctor",
+  "dentist": "annet.dentist",
+  "funeral": "annet.funeral"
+};
+function translateAnnetTemplateName(id, fallbackLabel) {
+  const translationKey = annetTemplateTranslationMap[id.toLowerCase()];
+  if (translationKey) {
+    return t(translationKey);
+  }
+  return fallbackLabel || id;
+}
 var noteTypeTranslationMap = {
   "daily": "noteTypes.daily",
   "meeting": "noteTypes.meeting",
@@ -314,6 +326,7 @@ var translations = {
       logWork: "Logg arbeidstimer",
       editWork: "Rediger arbeidstid",
       registerSpecialDay: "Registrer frav\xE6r",
+      editPlannedDay: "Rediger",
       addEntry: "Legg til oppf\xF8ring",
       deleteEntry: "Slett oppf\xF8ring",
       selectOption: "Velg et alternativ fra menyen"
@@ -460,7 +473,11 @@ var translations = {
       duplicateId: "En mal med denne ID-en finnes allerede",
       templatesSection: "Annet-maler",
       templatesDesc: "Maler for fleksible frav\xE6rstyper. Atferd bestemmes av om det er hel dag eller delvis frav\xE6r.",
-      labelPlaceholder: "Lege"
+      labelPlaceholder: "Lege",
+      // Default template names
+      doctor: "Lege",
+      dentist: "Tannlege",
+      funeral: "Begravelse"
     },
     common: {
       cancel: "Avbryt",
@@ -679,6 +696,7 @@ var translations = {
       logWork: "Log work hours",
       editWork: "Edit work time",
       registerSpecialDay: "Register absence",
+      editPlannedDay: "Edit",
       addEntry: "Add entry",
       deleteEntry: "Delete entry",
       selectOption: "Select an option from the menu"
@@ -825,7 +843,11 @@ var translations = {
       duplicateId: "A template with this ID already exists",
       templatesSection: "Other templates",
       templatesDesc: "Templates for flexible absence types. Behavior is determined by full day or partial absence.",
-      labelPlaceholder: "Doctor"
+      labelPlaceholder: "Doctor",
+      // Default template names
+      doctor: "Doctor",
+      dentist: "Dentist",
+      funeral: "Funeral"
     },
     common: {
       cancel: "Cancel",
@@ -2880,7 +2902,8 @@ Note: Historical data in your holidays file using "${behavior.id}" will no longe
     }));
     new import_obsidian2.Setting(settingsContainer).setName(t("annet.templatesSection")).setDesc(t("annet.templatesDesc")).setHeading();
     this.plugin.settings.annetTemplates.forEach((template, index) => {
-      new import_obsidian2.Setting(settingsContainer).setName(`${template.icon} ${template.label}`).setDesc(`ID: ${template.id}`).addButton((btn) => btn.setButtonText(t("common.edit")).onClick(() => {
+      const translatedName = translateAnnetTemplateName(template.id, template.label);
+      new import_obsidian2.Setting(settingsContainer).setName(`${template.icon} ${translatedName}`).setDesc(`ID: ${template.id}`).addButton((btn) => btn.setButtonText(t("common.edit")).onClick(() => {
         new AnnetTemplateModal(
           this.app,
           this.plugin,
@@ -2895,7 +2918,7 @@ Note: Historical data in your holidays file using "${behavior.id}" will no longe
         ).open();
       })).addButton((btn) => btn.setButtonText(t("common.delete")).setWarning().onClick(async () => {
         const confirmation = confirm(
-          `Are you sure you want to delete "${template.label}"?
+          `Are you sure you want to delete "${translatedName}"?
 
 Note: Historical data using "annet:${template.id}" will still work but show a generic icon.`
         );
@@ -3371,6 +3394,7 @@ var DataManager = class {
   }
   async loadHolidays() {
     const status = { success: false, message: "", count: 0, warning: null };
+    this.holidays = {};
     try {
       const holidayFile = this.app.vault.getAbstractFileByPath((0, import_obsidian3.normalizePath)(this.settings.holidaysFilePath));
       if (holidayFile && holidayFile instanceof import_obsidian3.TFile) {
@@ -3452,7 +3476,8 @@ var DataManager = class {
         color: "#cccccc",
         textColor: "#000000",
         noHoursRequired: false,
-        flextimeEffect: "accumulate",
+        flextimeEffect: "none",
+        isWorkType: true,
         includeInStats: true
       };
     }
@@ -3478,7 +3503,7 @@ var DataManager = class {
       );
       if (template) {
         icon = template.icon;
-        label = template.label;
+        label = translateAnnetTemplateName(template.id, template.label);
       }
     }
     if (hasTimeRange) {
@@ -7216,7 +7241,7 @@ var UIBuilder = class {
             if (holiday.annetTemplateId) {
               const template = this.settings.annetTemplates.find((t2) => t2.id === holiday.annetTemplateId);
               if (template) {
-                parts.push(`${template.icon} ${template.label}`);
+                parts.push(`${template.icon} ${translateAnnetTemplateName(template.id, template.label)}`);
               }
             }
             if (holiday.startTime && holiday.endTime) {
@@ -7786,7 +7811,7 @@ var UIBuilder = class {
     setTimeout(() => document.addEventListener("click", closeHandler), 0);
   }
   showNoteTypeMenu(cellRect, dateObj) {
-    var _a, _b, _c, _d;
+    var _a, _b, _c, _d, _e;
     const existingMenu = document.querySelector(".tf-context-menu");
     if (existingMenu) {
       const existingDate = existingMenu.dataset.menuDate;
@@ -7869,6 +7894,25 @@ var UIBuilder = class {
       this.showSpecialDayModal(dateObj);
     };
     menuMain.appendChild(specialDayItem);
+    const plannedDayInfo = this.data.getHolidayInfo(dateStr);
+    if (plannedDayInfo) {
+      let typeName = translateSpecialDayName(plannedDayInfo.type);
+      if (plannedDayInfo.type === "annet" && plannedDayInfo.annetTemplateId) {
+        const template = (_a = this.settings.annetTemplates) == null ? void 0 : _a.find((tmpl) => tmpl.id === plannedDayInfo.annetTemplateId);
+        if (template) {
+          typeName = translateAnnetTemplateName(template.id, template.label);
+        }
+      }
+      const editPlannedItem = document.createElement("div");
+      editPlannedItem.className = "tf-menu-item";
+      editPlannedItem.createSpan({ text: "\u270F\uFE0F" });
+      editPlannedItem.createSpan({ text: `${t("menu.editPlannedDay")} ${typeName}` });
+      editPlannedItem.onclick = () => {
+        menu.remove();
+        this.showEditPlannedDayModal(dateObj, plannedDayInfo);
+      };
+      menuMain.appendChild(editPlannedItem);
+    }
     const separator1 = document.createElement("div");
     separator1.className = "tf-menu-separator";
     menuMain.appendChild(separator1);
@@ -7902,9 +7946,9 @@ var UIBuilder = class {
       const emoji = Utils.getEmoji({ name: plannedInfo.type, date: dateObj });
       let typeName = translateSpecialDayName(plannedInfo.type);
       if (plannedInfo.type === "annet" && plannedInfo.annetTemplateId) {
-        const template = (_a = this.settings.annetTemplates) == null ? void 0 : _a.find((tmpl) => tmpl.id === plannedInfo.annetTemplateId);
+        const template = (_b = this.settings.annetTemplates) == null ? void 0 : _b.find((tmpl) => tmpl.id === plannedInfo.annetTemplateId);
         if (template) {
-          typeName = `${template.icon} ${template.label}`;
+          typeName = `${template.icon} ${translateAnnetTemplateName(template.id, template.label)}`;
         }
       }
       const plannedP = menuInfo.createEl("p");
@@ -7963,10 +8007,10 @@ var UIBuilder = class {
       const noRegP = menuInfo.createEl("p", { text: t("ui.noRegistration") });
       noRegP.style.color = "var(--text-muted)";
     }
-    if (((_b = this.settings.complianceSettings) == null ? void 0 : _b.enableWarnings) && !isFutureDay && completedEntries.length > 0) {
+    if (((_c = this.settings.complianceSettings) == null ? void 0 : _c.enableWarnings) && !isFutureDay && completedEntries.length > 0) {
       const restCheck = this.data.checkRestPeriodViolation(dateStr);
       if (restCheck.violated && restCheck.restHours !== null) {
-        const minimumRest = (_d = (_c = this.settings.complianceSettings) == null ? void 0 : _c.minimumRestHours) != null ? _d : 11;
+        const minimumRest = (_e = (_d = this.settings.complianceSettings) == null ? void 0 : _d.minimumRestHours) != null ? _e : 11;
         const warningDiv = menuInfo.createDiv({ cls: "tf-rest-period-warning" });
         warningDiv.createSpan({ cls: "warning-icon", text: "\u26A0\uFE0F" });
         warningDiv.createSpan({ text: t("ui.restPeriod") + ": " + restCheck.restHours.toFixed(1) + "h (" + t("ui.minimum") + " " + minimumRest + "h)" });
@@ -8083,6 +8127,8 @@ var UIBuilder = class {
     modalContent.addEventListener("keydown", (e) => e.stopPropagation());
     modalContent.addEventListener("keyup", (e) => e.stopPropagation());
     modalContent.addEventListener("keypress", (e) => e.stopPropagation());
+    modalContent.addEventListener("beforeinput", (e) => e.stopPropagation());
+    modalContent.addEventListener("input", (e) => e.stopPropagation());
     const title = document.createElement("div");
     title.className = "modal-title";
     title.textContent = `${t("modals.logWorkTitle")} ${dateStr}`;
@@ -8237,6 +8283,8 @@ var UIBuilder = class {
     modalContent.addEventListener("keydown", (e) => e.stopPropagation());
     modalContent.addEventListener("keyup", (e) => e.stopPropagation());
     modalContent.addEventListener("keypress", (e) => e.stopPropagation());
+    modalContent.addEventListener("beforeinput", (e) => e.stopPropagation());
+    modalContent.addEventListener("input", (e) => e.stopPropagation());
     const title = document.createElement("div");
     title.className = "modal-title";
     title.textContent = `${t("modals.editWorkTitle")} ${dateStr}`;
@@ -8455,6 +8503,8 @@ var UIBuilder = class {
     modalContent.addEventListener("keydown", (e) => e.stopPropagation());
     modalContent.addEventListener("keyup", (e) => e.stopPropagation());
     modalContent.addEventListener("keypress", (e) => e.stopPropagation());
+    modalContent.addEventListener("beforeinput", (e) => e.stopPropagation());
+    modalContent.addEventListener("input", (e) => e.stopPropagation());
     const title = document.createElement("div");
     title.className = "modal-title";
     title.textContent = t("modals.registerSpecialDayTitle");
@@ -8761,7 +8811,7 @@ var UIBuilder = class {
     const templateButtonRefs = [];
     annetTemplates.forEach((template) => {
       const btn = document.createElement("button");
-      btn.textContent = `${template.icon} ${template.label}`;
+      btn.textContent = `${template.icon} ${translateAnnetTemplateName(template.id, template.label)}`;
       btn.style.padding = "8px 12px";
       btn.style.borderRadius = "4px";
       btn.style.cursor = "pointer";
@@ -9175,7 +9225,7 @@ var UIBuilder = class {
       if (templateId) {
         const template = this.settings.annetTemplates.find((t2) => t2.id === templateId);
         if (template) {
-          label = `${template.icon} ${template.label}`;
+          label = `${template.icon} ${translateAnnetTemplateName(template.id, template.label)}`;
         }
       }
       if (startTime && endTime) {
@@ -9188,6 +9238,231 @@ var UIBuilder = class {
     } catch (error) {
       console.error("Failed to add annet entry:", error);
       new import_obsidian4.Notice(`\u274C ${t("notifications.errorAddingSpecialDay")}`);
+    }
+  }
+  /**
+   * Show modal to edit or delete an existing planned day
+   */
+  showEditPlannedDayModal(dateObj, plannedInfo) {
+    var _a;
+    const dateStr = Utils.toLocalDateStr(dateObj);
+    this.isModalOpen = true;
+    const modal = document.createElement("div");
+    modal.className = "modal-container mod-dim";
+    modal.style.zIndex = "1000";
+    const modalBg = document.createElement("div");
+    modalBg.className = "modal-bg";
+    modalBg.onclick = () => {
+      this.isModalOpen = false;
+      modal.remove();
+    };
+    modal.appendChild(modalBg);
+    const modalContent = document.createElement("div");
+    modalContent.className = "modal";
+    modalContent.style.width = "400px";
+    modalContent.addEventListener("keydown", (e) => e.stopPropagation());
+    modalContent.addEventListener("keyup", (e) => e.stopPropagation());
+    modalContent.addEventListener("keypress", (e) => e.stopPropagation());
+    modalContent.addEventListener("beforeinput", (e) => e.stopPropagation());
+    modalContent.addEventListener("input", (e) => e.stopPropagation());
+    const title = document.createElement("div");
+    title.className = "modal-title";
+    const emoji = Utils.getEmoji({ name: plannedInfo.type, date: dateObj });
+    let typeName = translateSpecialDayName(plannedInfo.type);
+    if (plannedInfo.type === "annet" && plannedInfo.annetTemplateId) {
+      const template = (_a = this.settings.annetTemplates) == null ? void 0 : _a.find((tmpl) => tmpl.id === plannedInfo.annetTemplateId);
+      if (template) {
+        typeName = translateAnnetTemplateName(template.id, template.label);
+      }
+    }
+    title.textContent = `${t("menu.editPlannedDay")} ${emoji} ${typeName}`;
+    modalContent.appendChild(title);
+    const content = document.createElement("div");
+    content.className = "modal-content";
+    content.style.padding = "20px";
+    const dateDisplay = document.createElement("div");
+    dateDisplay.textContent = `${t("ui.date")}: ${dateStr}`;
+    dateDisplay.style.marginBottom = "15px";
+    dateDisplay.style.fontSize = "16px";
+    dateDisplay.style.fontWeight = "bold";
+    content.appendChild(dateDisplay);
+    const typeDisplay = document.createElement("div");
+    typeDisplay.style.marginBottom = "15px";
+    typeDisplay.style.padding = "10px";
+    typeDisplay.style.backgroundColor = "var(--background-secondary)";
+    typeDisplay.style.borderRadius = "4px";
+    typeDisplay.innerHTML = `<strong>${t("ui.type")}:</strong> ${emoji} ${typeName}`;
+    if (plannedInfo.halfDay) {
+      typeDisplay.innerHTML += " (\xBD)";
+    }
+    content.appendChild(typeDisplay);
+    if (plannedInfo.startTime && plannedInfo.endTime) {
+      const timeDisplay = document.createElement("div");
+      timeDisplay.style.marginBottom = "15px";
+      timeDisplay.innerHTML = `<strong>${t("ui.start")} - ${t("ui.end")}:</strong> ${plannedInfo.startTime} - ${plannedInfo.endTime}`;
+      content.appendChild(timeDisplay);
+    }
+    const descRow = document.createElement("div");
+    descRow.style.marginBottom = "15px";
+    const descLabel = document.createElement("label");
+    descLabel.textContent = `${t("ui.comment")} (${t("ui.optional")}):`;
+    descLabel.style.display = "block";
+    descLabel.style.marginBottom = "5px";
+    descRow.appendChild(descLabel);
+    const descInput = document.createElement("input");
+    descInput.type = "text";
+    descInput.value = plannedInfo.description || "";
+    descInput.style.width = "100%";
+    descInput.style.padding = "8px";
+    descInput.style.boxSizing = "border-box";
+    descRow.appendChild(descInput);
+    content.appendChild(descRow);
+    const buttonDiv = document.createElement("div");
+    buttonDiv.style.display = "flex";
+    buttonDiv.style.justifyContent = "space-between";
+    buttonDiv.style.marginTop = "20px";
+    const deleteBtn = document.createElement("button");
+    deleteBtn.textContent = `\u{1F5D1}\uFE0F ${t("buttons.delete")}`;
+    deleteBtn.className = "mod-warning";
+    deleteBtn.style.backgroundColor = "var(--text-error)";
+    deleteBtn.style.color = "white";
+    deleteBtn.onclick = async () => {
+      if (confirm(t("confirm.deleteEntry"))) {
+        await this.deletePlannedDay(dateStr);
+        this.isModalOpen = false;
+        modal.remove();
+      }
+    };
+    buttonDiv.appendChild(deleteBtn);
+    const rightButtons = document.createElement("div");
+    rightButtons.style.display = "flex";
+    rightButtons.style.gap = "10px";
+    const cancelBtn = document.createElement("button");
+    cancelBtn.textContent = t("buttons.cancel");
+    cancelBtn.onclick = () => {
+      this.isModalOpen = false;
+      modal.remove();
+    };
+    rightButtons.appendChild(cancelBtn);
+    const saveBtn = document.createElement("button");
+    saveBtn.textContent = t("buttons.save");
+    saveBtn.className = "mod-cta";
+    saveBtn.onclick = async () => {
+      const newDescription = descInput.value.trim();
+      await this.updatePlannedDayDescription(dateStr, newDescription);
+      this.isModalOpen = false;
+      modal.remove();
+    };
+    rightButtons.appendChild(saveBtn);
+    buttonDiv.appendChild(rightButtons);
+    content.appendChild(buttonDiv);
+    modalContent.appendChild(content);
+    modal.appendChild(modalContent);
+    document.body.appendChild(modal);
+    descInput.focus();
+  }
+  /**
+   * Delete a planned day entry from the holidays file
+   */
+  async deletePlannedDay(dateStr) {
+    try {
+      const filePath = this.settings.holidaysFilePath;
+      const file = this.app.vault.getAbstractFileByPath((0, import_obsidian4.normalizePath)(filePath));
+      if (!file) {
+        new import_obsidian4.Notice(`\u274C ${t("notifications.fileNotFound").replace("{path}", filePath)}`);
+        return;
+      }
+      let content = await this.app.vault.read(file);
+      const sectionMarker = "## Planlagte egne fridager";
+      const sectionIndex = content.indexOf(sectionMarker);
+      if (sectionIndex === -1) {
+        new import_obsidian4.Notice(`\u274C ${t("notifications.sectionNotFound")}`);
+        return;
+      }
+      const codeBlockStart = content.indexOf("```", sectionIndex);
+      const codeBlockEnd = content.indexOf("```", codeBlockStart + 3);
+      if (codeBlockStart === -1 || codeBlockEnd === -1) {
+        new import_obsidian4.Notice(`\u274C ${t("notifications.codeBlockNotFound")}`);
+        return;
+      }
+      const codeBlockContent = content.substring(codeBlockStart, codeBlockEnd + 3);
+      const lines = codeBlockContent.split("\n");
+      const filteredLines = lines.filter((line) => !line.includes(`- ${dateStr}:`));
+      if (filteredLines.length === lines.length) {
+        new import_obsidian4.Notice(`\u274C Entry not found for ${dateStr}`);
+        return;
+      }
+      const newCodeBlock = filteredLines.join("\n");
+      content = content.substring(0, codeBlockStart) + newCodeBlock + content.substring(codeBlockEnd + 3);
+      await this.app.vault.modify(file, content);
+      new import_obsidian4.Notice(`\u2705 ${t("notifications.deleted")} ${dateStr}`);
+      await this.data.loadHolidays();
+      this.data.processEntries();
+      this.updateMonthCard();
+      this.updateStatsCard();
+      this.updateWeekCard();
+      this.updateDayCard();
+    } catch (error) {
+      console.error("Failed to delete planned day:", error);
+      new import_obsidian4.Notice(`\u274C Error deleting entry`);
+    }
+  }
+  /**
+   * Update the description of a planned day entry
+   */
+  async updatePlannedDayDescription(dateStr, newDescription) {
+    try {
+      const filePath = this.settings.holidaysFilePath;
+      const file = this.app.vault.getAbstractFileByPath((0, import_obsidian4.normalizePath)(filePath));
+      if (!file) {
+        new import_obsidian4.Notice(`\u274C ${t("notifications.fileNotFound").replace("{path}", filePath)}`);
+        return;
+      }
+      let content = await this.app.vault.read(file);
+      const sectionMarker = "## Planlagte egne fridager";
+      const sectionIndex = content.indexOf(sectionMarker);
+      if (sectionIndex === -1) {
+        new import_obsidian4.Notice(`\u274C ${t("notifications.sectionNotFound")}`);
+        return;
+      }
+      const codeBlockStart = content.indexOf("```", sectionIndex);
+      const codeBlockEnd = content.indexOf("```", codeBlockStart + 3);
+      if (codeBlockStart === -1 || codeBlockEnd === -1) {
+        new import_obsidian4.Notice(`\u274C ${t("notifications.codeBlockNotFound")}`);
+        return;
+      }
+      const codeBlockContent = content.substring(codeBlockStart, codeBlockEnd + 3);
+      const lines = codeBlockContent.split("\n");
+      let updated = false;
+      const updatedLines = lines.map((line) => {
+        if (line.includes(`- ${dateStr}:`)) {
+          updated = true;
+          const match = line.match(/^- (\d{4}-\d{2}-\d{2}): ([^:]+(?::[^:]+)*): ?(.*)$/);
+          if (match) {
+            const [, date, typeWithModifiers] = match;
+            return `- ${date}: ${typeWithModifiers}: ${newDescription}`;
+          }
+          return line;
+        }
+        return line;
+      });
+      if (!updated) {
+        new import_obsidian4.Notice(`\u274C Entry not found for ${dateStr}`);
+        return;
+      }
+      const newCodeBlock = updatedLines.join("\n");
+      content = content.substring(0, codeBlockStart) + newCodeBlock + content.substring(codeBlockEnd + 3);
+      await this.app.vault.modify(file, content);
+      new import_obsidian4.Notice(`\u2705 ${t("notifications.updated")} ${dateStr}`);
+      await this.data.loadHolidays();
+      this.data.processEntries();
+      this.updateMonthCard();
+      this.updateStatsCard();
+      this.updateWeekCard();
+      this.updateDayCard();
+    } catch (error) {
+      console.error("Failed to update planned day:", error);
+      new import_obsidian4.Notice(`\u274C Error updating entry`);
     }
   }
   async createNoteFromType(dateObj, noteType) {
@@ -9340,6 +9615,10 @@ ${noteType.tags.join(" ")}`;
     container.appendChild(filterBar);
   }
   renderActiveEntriesSection(container, activeEntries) {
+    const section = this.createActiveEntriesSection(activeEntries, container);
+    container.appendChild(section);
+  }
+  createActiveEntriesSection(activeEntries, containerForWidth) {
     const section = document.createElement("div");
     section.className = "tf-active-entries-section";
     section.style.marginBottom = "16px";
@@ -9356,7 +9635,7 @@ ${noteType.tags.join(" ")}`;
     header.style.color = "var(--text-normal)";
     header.textContent = `\u23F1\uFE0F ${t("ui.activeTimers")} (${activeEntries.length})`;
     section.appendChild(header);
-    const isWide = container.offsetWidth >= 450;
+    const isWide = containerForWidth ? containerForWidth.offsetWidth >= 450 : false;
     const table = document.createElement("table");
     table.className = isWide ? "tf-history-table-wide" : "tf-history-table-narrow";
     table.style.width = "100%";
@@ -9508,7 +9787,7 @@ ${noteType.tags.join(" ")}`;
     });
     table.appendChild(tbody);
     section.appendChild(table);
-    container.appendChild(section);
+    return section;
   }
   renderNarrowListView(container, years) {
     const currentYear = (/* @__PURE__ */ new Date()).getFullYear().toString();
@@ -9969,6 +10248,8 @@ ${noteType.tags.join(" ")}`;
     modalContent.addEventListener("keydown", (e) => e.stopPropagation());
     modalContent.addEventListener("keyup", (e) => e.stopPropagation());
     modalContent.addEventListener("keypress", (e) => e.stopPropagation());
+    modalContent.addEventListener("beforeinput", (e) => e.stopPropagation());
+    modalContent.addEventListener("input", (e) => e.stopPropagation());
     const title = document.createElement("div");
     title.className = "modal-title";
     title.textContent = `${t("modals.addEntryTitle")} ${dateStr}`;
@@ -10231,6 +10512,37 @@ ${noteType.tags.join(" ")}`;
     this.updateWeekCard();
     this.updateStatsCard();
     this.updateMonthCard();
+    const activeSection = this.container.querySelector(".tf-active-entries-section");
+    if (activeSection && this.data.activeEntries.length > 0) {
+      const tbody = activeSection.querySelector("tbody");
+      if (tbody) {
+        const rows = tbody.querySelectorAll("tr");
+        const now = /* @__PURE__ */ new Date();
+        rows.forEach((row, index) => {
+          if (index < this.data.activeEntries.length) {
+            const entry = this.data.activeEntries[index];
+            const start = Utils.parseDate(entry.startTime);
+            let duration = start ? Utils.hoursDiff(start, now) : 0;
+            if (entry.name.toLowerCase() === "jobb" && this.settings.lunchBreakMinutes > 0) {
+              duration = Math.max(0, duration - this.settings.lunchBreakMinutes / 60);
+            }
+            const cells = row.querySelectorAll("td");
+            const isWide = cells.length >= 5;
+            const hoursCell = isWide ? cells[3] : cells[2];
+            if (hoursCell) {
+              const hoursText = Utils.formatHoursToHM(duration, this.settings.hourUnit);
+              hoursCell.textContent = `${hoursText}...`;
+            }
+            if (isWide && cells[4]) {
+              const flextime = duration - this.settings.baseWorkday;
+              cells[4].textContent = Utils.formatHoursToHM(flextime, this.settings.hourUnit);
+            }
+          }
+        });
+      }
+    } else if (activeSection && this.data.activeEntries.length === 0) {
+      activeSection.remove();
+    }
     const historyContainer = this.container.querySelector(".tf-history-content");
     if (historyContainer) {
       this.updateEditToggleVisibility(historyContainer);
@@ -10244,14 +10556,14 @@ ${noteType.tags.join(" ")}`;
     this.data.rawEntries = this.timerManager.convertToTimeEntries();
     this.data.processEntries();
     const activeSection = this.container.querySelector(".tf-active-entries-section");
-    if (activeSection) {
+    if (activeSection && this.data.activeEntries.length > 0) {
       const parent = activeSection.parentElement;
       if (parent) {
-        activeSection.remove();
-        if (this.data.activeEntries.length > 0) {
-          this.renderActiveEntriesSection(parent, this.data.activeEntries);
-        }
+        const newSection = this.createActiveEntriesSection(this.data.activeEntries, parent);
+        activeSection.replaceWith(newSection);
       }
+    } else if (activeSection && this.data.activeEntries.length === 0) {
+      activeSection.remove();
     }
     const historyContainer = this.container.querySelector(".tf-history-content");
     if (historyContainer) {

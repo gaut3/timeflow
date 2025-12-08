@@ -1,7 +1,7 @@
 import { App, TFile, normalizePath } from 'obsidian';
 import { TimeFlowSettings, SpecialDayBehavior, WorkSchedulePeriod } from './settings';
 import { Utils } from './utils';
-import { t } from './i18n';
+import { t, translateAnnetTemplateName } from './i18n';
 
 export interface TimeEntry {
 	name: string;
@@ -66,6 +66,9 @@ export class DataManager {
 
 	async loadHolidays(): Promise<any> {
 		const status = { success: false, message: '', count: 0, warning: null as string | null };
+
+		// Clear existing holidays before reloading
+		this.holidays = {};
 
 		try {
 			const holidayFile = this.app.vault.getAbstractFileByPath(normalizePath(this.settings.holidaysFilePath));
@@ -170,6 +173,7 @@ export class DataManager {
 		if (!behavior) {
 			// Return a work-like fallback for unknown types (e.g., "Block 1" from Timekeep imports)
 			// This treats unknown entries as regular work - hours count toward daily goal
+			// Using isWorkType: true ensures they behave like "jobb" entries, not like "accumulate" types
 			return {
 				id: id,
 				label: id,
@@ -177,7 +181,8 @@ export class DataManager {
 				color: '#cccccc',
 				textColor: '#000000',
 				noHoursRequired: false,
-				flextimeEffect: 'accumulate',
+				flextimeEffect: 'none',
+				isWorkType: true,
 				includeInStats: true
 			};
 		}
@@ -203,7 +208,7 @@ export class DataManager {
 			);
 			if (template) {
 				icon = template.icon;
-				label = template.label;
+				label = translateAnnetTemplateName(template.id, template.label);
 			}
 		}
 

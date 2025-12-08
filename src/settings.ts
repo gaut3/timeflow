@@ -2,7 +2,7 @@ import { App, PluginSettingTab, Setting, Notice, Modal } from 'obsidian';
 import TimeFlowPlugin from './main';
 import { Utils } from './utils';
 import { ImportModal } from './importModal';
-import { setLanguage, t } from './i18n';
+import { setLanguage, t, translateAnnetTemplateName } from './i18n';
 
 export interface TimeFlowSettings {
 	version: string;
@@ -1995,8 +1995,9 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 
 		// List annet templates
 		this.plugin.settings.annetTemplates.forEach((template, index) => {
+			const translatedName = translateAnnetTemplateName(template.id, template.label);
 			new Setting(settingsContainer)
-				.setName(`${template.icon} ${template.label}`)
+				.setName(`${template.icon} ${translatedName}`)
 				.setDesc(`ID: ${template.id}`)
 				.addButton(btn => btn
 					.setButtonText(t('common.edit'))
@@ -2019,7 +2020,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 					.setWarning()
 					.onClick(async () => {
 						const confirmation = confirm(
-							`Are you sure you want to delete "${template.label}"?\n\n` +
+							`Are you sure you want to delete "${translatedName}"?\n\n` +
 							`Note: Historical data using "annet:${template.id}" will still work but show a generic icon.`
 						);
 						if (confirmation) {

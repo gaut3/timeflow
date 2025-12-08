@@ -107,6 +107,27 @@ export function translateSpecialDayName(id: string, fallbackLabel?: string): str
 }
 
 /**
+ * Map from annet template ID to translation key
+ */
+const annetTemplateTranslationMap: Record<string, string> = {
+	'doctor': 'annet.doctor',
+	'dentist': 'annet.dentist',
+	'funeral': 'annet.funeral',
+};
+
+/**
+ * Translate an annet template name based on its ID
+ * Falls back to the original label if no translation exists
+ */
+export function translateAnnetTemplateName(id: string, fallbackLabel?: string): string {
+	const translationKey = annetTemplateTranslationMap[id.toLowerCase()];
+	if (translationKey) {
+		return t(translationKey);
+	}
+	return fallbackLabel || id;
+}
+
+/**
  * Map from note type ID to translation key
  */
 const noteTypeTranslationMap: Record<string, string> = {
@@ -224,6 +245,7 @@ const translations: Record<Language, TranslationStrings> = {
 			logWork: 'Logg arbeidstimer',
 			editWork: 'Rediger arbeidstid',
 			registerSpecialDay: 'Registrer fravær',
+			editPlannedDay: 'Rediger',
 			addEntry: 'Legg til oppføring',
 			deleteEntry: 'Slett oppføring',
 			selectOption: 'Velg et alternativ fra menyen',
@@ -371,6 +393,10 @@ const translations: Record<Language, TranslationStrings> = {
 			templatesSection: 'Annet-maler',
 			templatesDesc: 'Maler for fleksible fraværstyper. Atferd bestemmes av om det er hel dag eller delvis fravær.',
 			labelPlaceholder: 'Lege',
+			// Default template names
+			doctor: 'Lege',
+			dentist: 'Tannlege',
+			funeral: 'Begravelse',
 		},
 		common: {
 			cancel: 'Avbryt',
@@ -589,6 +615,7 @@ const translations: Record<Language, TranslationStrings> = {
 			logWork: 'Log work hours',
 			editWork: 'Edit work time',
 			registerSpecialDay: 'Register absence',
+			editPlannedDay: 'Edit',
 			addEntry: 'Add entry',
 			deleteEntry: 'Delete entry',
 			selectOption: 'Select an option from the menu',
@@ -736,6 +763,10 @@ const translations: Record<Language, TranslationStrings> = {
 			templatesSection: 'Other templates',
 			templatesDesc: 'Templates for flexible absence types. Behavior is determined by full day or partial absence.',
 			labelPlaceholder: 'Doctor',
+			// Default template names
+			doctor: 'Doctor',
+			dentist: 'Dentist',
+			funeral: 'Funeral',
 		},
 		common: {
 			cancel: 'Cancel',
@@ -956,6 +987,7 @@ interface TranslationStrings {
 		logWork: string;
 		editWork: string;
 		registerSpecialDay: string;
+		editPlannedDay: string;
 		addEntry: string;
 		deleteEntry: string;
 		selectOption: string;
@@ -1103,6 +1135,10 @@ interface TranslationStrings {
 		templatesSection: string;
 		templatesDesc: string;
 		labelPlaceholder: string;
+		// Default template names
+		doctor: string;
+		dentist: string;
+		funeral: string;
 	};
 	common: {
 		cancel: string;
