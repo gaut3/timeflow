@@ -23,20 +23,90 @@ export interface HolidayInfo {
 	annetTemplateId?: string;  // Template ID for 'annet' entries
 }
 
+export interface ValidationIssue {
+	severity: string;
+	type: string;
+	description: string;
+	date: string;
+	entry?: {
+		name: string;
+		startTime: string;
+		endTime?: string;
+		duration?: number;
+	};
+}
+
+export interface ValidationIssues {
+	errors: ValidationIssue[];
+	warnings: ValidationIssue[];
+	info: ValidationIssue[];
+	stats: {
+		totalEntries: number;
+		entriesChecked: number;
+		entriesWithIssues: number;
+	};
+}
+
+export interface AveragesData {
+	avgDaily: number;
+	avgWeekly: number;
+	totalDaysWorked: number;
+	totalHoursWorked: number;
+}
+
+export interface StatisticsData {
+	totalHours: number;
+	workDays: number;
+	averagePerDay: number;
+	weekdayBreakdown: Record<string, number>;
+	monthlyTotals: Record<string, number>;
+	typeBreakdown: Record<string, number>;
+	avgByType: Record<string, number>;
+}
+
+export interface ContextualData {
+	consecutiveFlextimeDays: number;
+	sameDayAvg: number;
+	lastWeekHours: number;
+}
+
+export interface DayTypeStats {
+	count: number;
+	hours: number;
+	planned?: number;
+	max?: number;
+}
+
+export interface TimeStatistics {
+	totalHours: number;
+	totalFlextime: number;
+	jobb: DayTypeStats;
+	avspasering: DayTypeStats;
+	ferie: DayTypeStats;
+	velferdspermisjon: DayTypeStats;
+	egenmelding: DayTypeStats;
+	sykemelding: DayTypeStats;
+	studie: DayTypeStats;
+	kurs: DayTypeStats;
+	workDays: number;
+	weekendDays: number;
+	weekendHours: number;
+	avgDailyHours: number;
+	workloadPercent: number;
+}
+
+export interface HolidayLoadStatus {
+	success: boolean;
+	message: string;
+	count: number;
+	warning: string | null;
+}
+
 export interface ValidationResults {
 	hasErrors: boolean;
 	hasWarnings: boolean;
 	hasInfo: boolean;
-	issues: {
-		errors: any[];
-		warnings: any[];
-		info: any[];
-		stats: {
-			totalEntries: number;
-			entriesChecked: number;
-			entriesWithIssues: number;
-		};
-	};
+	issues: ValidationIssues;
 	generatedAt: string;
 }
 
@@ -53,8 +123,8 @@ export class DataManager {
 	app: App;
 
 	// Cache for expensive calculations
-	private _cachedAverages: any = null;
-	private _cachedContextData: Record<string, any> = {};
+	private _cachedAverages: AveragesData | null = null;
+	private _cachedContextData: Record<string, ContextualData> = {};
 
 	constructor(entries: TimeEntry[], settings: TimeFlowSettings, app: App) {
 		this.rawEntries = entries;
@@ -64,8 +134,8 @@ export class DataManager {
 		this.workweekHours = settings.baseWorkweek * settings.workPercent;
 	}
 
-	async loadHolidays(): Promise<any> {
-		const status = { success: false, message: '', count: 0, warning: null as string | null };
+	async loadHolidays(): Promise<HolidayLoadStatus> {
+		const status: HolidayLoadStatus = { success: false, message: '', count: 0, warning: null };
 
 		// Clear existing holidays before reloading
 		this.holidays = {};
@@ -151,8 +221,8 @@ export class DataManager {
 				status.warning = `Holiday file not found: ${this.settings.holidaysFilePath}`;
 				console.warn(status.warning);
 			}
-		} catch (error: any) {
-			status.warning = `Error loading holidays: ${error.message}`;
+		} catch (error) {
+			status.warning = `Error loading holidays: ${error instanceof Error ? error.message : String(error)}`;
 			console.warn("Could not load future days file:", error);
 		}
 
@@ -160,7 +230,7 @@ export class DataManager {
 	}
 
 	isHoliday(dateStr: string): boolean {
-		return this.holidays.hasOwnProperty(dateStr);
+		return Object.prototype.hasOwnProperty.call(this.holidays, dateStr);
 	}
 
 	getHolidayInfo(dateStr: string): HolidayInfo | null {
@@ -668,7 +738,7 @@ export class DataManager {
 		);
 	}
 
-	getAverages(): any {
+	getAverages(): AveragesData {
 		if (this._cachedAverages) {
 			return this._cachedAverages;
 		}
@@ -720,7 +790,7 @@ export class DataManager {
 		return this._cachedAverages;
 	}
 
-	getStatistics(timeframe: string = "total", year?: number, month?: number): any {
+	getStatistics(timeframe: string = "total", year?: number, month?: number): TimeStatistics {
 		const today = new Date();
 		let filterFn: (dateStr: string) => boolean;
 
@@ -741,7 +811,7 @@ export class DataManager {
 		const filteredDays = Object.keys(this.daily).filter(filterFn);
 		const allEntries = filteredDays.flatMap((day) => this.daily[day]);
 
-		const stats: any = {
+		const stats: TimeStatistics = {
 			totalHours: allEntries.reduce((sum, e) => sum + (e.duration || 0), 0),
 			totalFlextime: allEntries.reduce((sum, e) => sum + (e.flextime || 0), 0),
 			jobb: { count: 0, hours: 0 },
@@ -806,8 +876,10 @@ export class DataManager {
 					if (!isReduceGoalType || isFullDay) {
 						daysByType[name].add(dayKey);
 						// Only add hours to non-jobb types here (jobb hours are handled below)
-						if (stats[name] && name !== 'jobb') {
-							stats[name].hours += e.duration || 0;
+						// Type-safe access using known keys
+						const statKey = name as keyof typeof stats;
+						if (name !== 'jobb' && typeof stats[statKey] === 'object' && stats[statKey] !== null && 'hours' in stats[statKey]) {
+							(stats[statKey] as DayTypeStats).hours += e.duration || 0;
 						}
 					}
 				}
@@ -839,15 +911,15 @@ export class DataManager {
 
 			if (filterFn(dateStr) && plannedDate > today) {
 				const type = plannedInfo.type;
-				if (type === 'ferie' && stats.ferie) {
+				if (type === 'ferie' && stats.ferie.planned !== undefined) {
 					stats.ferie.planned++;
-				} else if (type === 'avspasering' && stats.avspasering) {
+				} else if (type === 'avspasering' && stats.avspasering.planned !== undefined) {
 					stats.avspasering.planned++;
-				} else if (type === 'velferdspermisjon' && stats.velferdspermisjon) {
+				} else if (type === 'velferdspermisjon' && stats.velferdspermisjon.planned !== undefined) {
 					stats.velferdspermisjon.planned++;
-				} else if (type === 'studie' && stats.studie) {
+				} else if (type === 'studie' && stats.studie.planned !== undefined) {
 					stats.studie.planned++;
-				} else if (type === 'kurs' && stats.kurs) {
+				} else if (type === 'kurs' && stats.kurs.planned !== undefined) {
 					stats.kurs.planned++;
 				}
 			}
@@ -903,7 +975,7 @@ export class DataManager {
 		return Array.from(months).sort((a, b) => a - b); // Ascending order
 	}
 
-	getContextualData(today: Date): any {
+	getContextualData(today: Date): ContextualData {
 		const todayKey = Utils.toLocalDateStr(today);
 
 		if (this._cachedContextData[todayKey]) {
@@ -1003,7 +1075,7 @@ export class DataManager {
 	}
 
 	validateData(): ValidationResults {
-		const issues: any = {
+		const issues: ValidationIssues = {
 			errors: [],
 			warnings: [],
 			info: [],

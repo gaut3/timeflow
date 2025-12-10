@@ -2,6 +2,7 @@ import { App, TFile, Notice, normalizePath } from 'obsidian';
 import { TimeFlowSettings } from './settings';
 import { Utils } from './utils';
 import { t } from './i18n';
+import type { TimeEntry } from './dataManager';
 
 // Timekeep-compatible format
 export interface Timer {
@@ -184,9 +185,9 @@ ${timekeepBlock}${settingsBlock}
 				}
 				try {
 					await this.app.vault.create(this.dataFile, content);
-				} catch (createError: any) {
+				} catch (createError) {
 					// If file was created between our check and create (race condition), just write to it
-					if (createError?.message?.includes('File already exists')) {
+					if (createError instanceof Error && createError.message?.includes('File already exists')) {
 						await this.app.vault.adapter.write(this.dataFile, content);
 					} else {
 						throw createError;
@@ -340,8 +341,8 @@ ${timekeepBlock}${settingsBlock}
 	}
 
 	// Flatten all entries including subEntries for DataManager
-	convertToTimeEntries(): any[] {
-		const flatEntries: any[] = [];
+	convertToTimeEntries(): TimeEntry[] {
+		const flatEntries: TimeEntry[] = [];
 
 		const flattenEntry = (entry: Timer) => {
 			if (entry.collapsed && entry.subEntries) {
@@ -352,8 +353,8 @@ ${timekeepBlock}${settingsBlock}
 				flatEntries.push({
 					name: entry.name,
 					startTime: entry.startTime,
-					endTime: entry.endTime,
-					subEntries: null
+					endTime: entry.endTime ?? undefined,
+					subEntries: undefined
 				});
 			}
 		};

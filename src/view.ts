@@ -1,4 +1,4 @@
-import { ItemView, WorkspaceLeaf, TFile } from 'obsidian';
+import { ItemView, WorkspaceLeaf } from 'obsidian';
 import TimeFlowPlugin from './main';
 import { DataManager } from './dataManager';
 import { UIBuilder } from './uiBuilder';
@@ -37,11 +37,12 @@ export class TimeFlowView extends ItemView {
 		await this.loadDashboard(container as HTMLElement);
 	}
 
-	async onClose() {
+	async onClose(): Promise<void> {
 		// Cleanup intervals and resources
 		if (this.uiBuilder) {
 			this.uiBuilder.cleanup();
 		}
+		return Promise.resolve();
 	}
 
 	async loadDashboard(container: HTMLElement) {
@@ -100,7 +101,7 @@ export class TimeFlowView extends ItemView {
 
 			// Set up timer change callback to refresh dashboard
 			this.plugin.timerManager.onTimerChange = () => {
-				this.refresh();
+				void this.refresh();
 			};
 
 			// Build and append the dashboard
@@ -113,8 +114,9 @@ export class TimeFlowView extends ItemView {
 
 		} catch (error) {
 			console.error('Error loading TimeFlow dashboard:', error);
+			const errorMessage = error instanceof Error ? error.message : String(error);
 			container.createDiv({
-				text: t('notifications.errorLoadingDashboard').replace('{error}', error.message),
+				text: t('notifications.errorLoadingDashboard').replace('{error}', errorMessage),
 				cls: 'timeflow-error'
 			});
 		}

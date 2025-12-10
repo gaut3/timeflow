@@ -81,8 +81,8 @@ export class TimekeepParser implements ImportParser {
 			}
 
 			result.success = result.entries.length > 0;
-		} catch (error: any) {
-			result.errors.push(`${t('import.errors.jsonError')}: ${error.message}`);
+		} catch (error) {
+			result.errors.push(`${t('import.errors.jsonError')}: ${error instanceof Error ? error.message : String(error)}`);
 		}
 
 		return result;
@@ -211,8 +211,8 @@ export class CSVParser implements ImportParser {
 			}
 
 			result.success = result.entries.length > 0;
-		} catch (error: any) {
-			result.errors.push(`CSV ${t('import.errors_label')}: ${error.message}`);
+		} catch (error) {
+			result.errors.push(`CSV ${t('import.errors_label')}: ${error instanceof Error ? error.message : String(error)}`);
 		}
 
 		return result;
@@ -424,8 +424,8 @@ export class GenericJSONParser implements ImportParser {
 			}
 
 			result.success = result.entries.length > 0;
-		} catch (error: any) {
-			result.errors.push(`${t('import.errors.jsonError')}: ${error.message}`);
+		} catch (error) {
+			result.errors.push(`${t('import.errors.jsonError')}: ${error instanceof Error ? error.message : String(error)}`);
 		}
 
 		return result;

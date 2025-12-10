@@ -42,16 +42,16 @@ export default class TimeFlowPlugin extends Plugin {
 		);
 
 		// Add ribbon icon to open timeflow
-		this.addRibbonIcon('calendar-clock', 'Open timeflow', () => {
-			this.activateView();
+		this.addRibbonIcon('calendar-clock', 'Open Timeflow', () => {
+			void this.activateView();
 		});
 
 		// Add command to open timeflow
 		this.addCommand({
 			id: 'open-timeflow',
-			name: 'Open timeflow dashboard',
+			name: 'Open dashboard',
 			callback: () => {
-				this.activateView();
+				void this.activateView();
 			}
 		});
 
@@ -75,7 +75,7 @@ export default class TimeFlowPlugin extends Plugin {
 		// Add command to import data
 		this.addCommand({
 			id: 'import-timekeep-data',
-			name: 'Import timekeep data',
+			name: 'Import Timekeep data',
 			callback: () => {
 				new ImportModal(this.app, this.timerManager, () => {
 					// Refresh any open TimeFlow views
@@ -83,7 +83,7 @@ export default class TimeFlowPlugin extends Plugin {
 					leaves.forEach(leaf => {
 						const view = leaf.view as TimeFlowView;
 						if (view && view.refresh) {
-							view.refresh();
+							void view.refresh();
 						}
 					});
 				}).open();

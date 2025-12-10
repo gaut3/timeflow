@@ -1,10 +1,16 @@
 import { App, TFile, Notice, normalizePath } from 'obsidian';
-import { DataManager, HolidayInfo } from './dataManager';
-import { TimeFlowSettings, SpecialDayBehavior } from './settings';
+import { DataManager, HolidayInfo, ValidationResults, ValidationIssue, TimeEntry } from './dataManager';
+import { TimeFlowSettings, SpecialDayBehavior, NoteType } from './settings';
 import { TimerManager, Timer } from './timerManager';
 import { Utils, getSpecialDayColors, getSpecialDayTextColors } from './utils';
 import type TimeFlowPlugin from './main';
-import { t, formatDate, formatTime, getDayNamesShort, getLocale, getMonthName, translateSpecialDayName, translateNoteTypeName, translateAnnetTemplateName } from './i18n';
+import { t, formatDate, formatTime, getDayNamesShort, getMonthName, translateSpecialDayName, translateNoteTypeName, translateAnnetTemplateName } from './i18n';
+
+export interface SystemStatus {
+	validation?: ValidationResults;
+	holiday?: { message?: string };
+	activeTimers?: number;
+}
 
 export class UIBuilder {
 	data: DataManager;
@@ -19,7 +25,7 @@ export class UIBuilder {
 	historyFilter: string[] = []; // empty = all, or list of type IDs to filter by
 	inlineEditMode: boolean = false; // toggle for inline editing in wide view
 	isModalOpen: boolean = false; // prevents background refresh while modal is open
-	systemStatus: any;
+	systemStatus: SystemStatus;
 	settings: TimeFlowSettings;
 	app: App;
 	timerManager: TimerManager;
@@ -35,7 +41,7 @@ export class UIBuilder {
 		monthCard: HTMLElement | null;
 	};
 
-	constructor(dataManager: DataManager, systemStatus: any, settings: TimeFlowSettings, app: App, timerManager: TimerManager, plugin: TimeFlowPlugin) {
+	constructor(dataManager: DataManager, systemStatus: SystemStatus, settings: TimeFlowSettings, app: App, timerManager: TimerManager, plugin: TimeFlowPlugin) {
 		this.data = dataManager;
 		this.systemStatus = systemStatus;
 		this.settings = settings;
@@ -72,9 +78,9 @@ export class UIBuilder {
 	private darkenColor(color: string, percent: number): string {
 		// Simple darkening: extract RGB and reduce by percent
 		const hex = color.replace('#', '');
-		const r = Math.max(0, parseInt(hex.substr(0, 2), 16) - percent);
-		const g = Math.max(0, parseInt(hex.substr(2, 2), 16) - percent);
-		const b = Math.max(0, parseInt(hex.substr(4, 2), 16) - percent);
+		const r = Math.max(0, parseInt(hex.substring(0, 2), 16) - percent);
+		const g = Math.max(0, parseInt(hex.substring(2, 4), 16) - percent);
+		const b = Math.max(0, parseInt(hex.substring(4, 6), 16) - percent);
 		return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
 	}
 
@@ -166,1237 +172,11 @@ export class UIBuilder {
 
 	createContainer(): HTMLElement {
 		const container = document.createElement("div");
-		container.style.fontFamily = "sans-serif";
-		container.style.maxWidth = "1200px";
-		container.style.margin = "0 auto";
-		container.style.padding = "20px";
-		container.style.boxSizing = "border-box";
+		container.className = "tf-container";
 		return container;
 	}
 
-	injectStyles(): void {
-		const styleId = 'timeflow-styles';
-		if (document.getElementById(styleId)) return;
-
-		const style = document.createElement('style');
-		style.id = styleId;
-		style.textContent = `
-			/* timeflow Dashboard Styles */
-			.timeflow-dashboard {
-				font-family: var(--font-text);
-				padding: 20px;
-				width: 100%;
-			}
-
-			.timeflow-error, .timeflow-warning {
-				padding: 15px;
-				border-radius: 5px;
-				margin: 10px 0;
-			}
-
-			.timeflow-error {
-				background: var(--background-modifier-error);
-				color: var(--text-error);
-			}
-
-			.timeflow-warning {
-				background: var(--background-modifier-warning);
-				color: var(--text-warning);
-			}
-
-			/* Pulse animation for active entry indicator */
-			@keyframes pulse {
-				0%, 100% {
-					opacity: 1;
-					transform: scale(1);
-				}
-				50% {
-					opacity: 0.6;
-					transform: scale(1.1);
-				}
-			}
-
-			.tf-badge-section {
-				display: flex;
-				align-items: stretch;
-				gap: 12px;
-				margin: 16px 0;
-				flex-wrap: wrap;
-			}
-
-			/* Default flex behavior for all badges */
-			.tf-compliance-badge {
-				flex: 0 0 auto;
-				margin-left: auto;
-			}
-			.tf-timer-badge {
-				flex: 0 1 auto;
-			}
-
-			/* At narrower widths: badges split into 2 rows */
-			@container dashboard (max-width: 650px) {
-				/* Row 1: Timesaldo (50%) and Clock (50%) */
-				.tf-badge {
-					flex: 1 1 calc(50% - 6px);
-				}
-				.tf-clock {
-					flex: 1 1 calc(50% - 6px);
-				}
-
-				/* Row 2: Compliance badge and timer button move down together */
-				.tf-compliance-badge {
-					margin-left: 0;
-					flex: 0 0 auto;
-				}
-				.tf-timer-badge {
-					flex: 1 1 0;
-				}
-			}
-
-			.tf-badge {
-				padding: 10px 18px;
-				border-radius: 12px;
-				display: inline-flex;
-				align-items: center;
-				justify-content: center;
-				white-space: normal;
-				text-align: center;
-				max-width: 100%;
-				min-height: 44px;
-				font-weight: bold;
-				box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-			}
-
-			/* Light theme - Clock badge uses the same gradient as other light elements */
-			.tf-clock {
-				padding: 10px 18px;
-				border-radius: 12px;
-				display: inline-flex;
-				align-items: center;
-				justify-content: center;
-				white-space: normal;
-				text-align: center;
-				max-width: 100%;
-				min-height: 44px;
-				background: var(--background-primary-alt);
-				color: var(--text-normal);
-				font-weight: bold;
-				font-variant-numeric: tabular-nums;
-				box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-				border: 1px solid var(--background-modifier-border);
-			}
-
-			.tf-timer-badge {
-				padding: 10px 18px;
-				border-radius: 12px;
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				gap: 8px;
-				white-space: normal;
-				text-align: center;
-				min-height: 44px;
-				min-width: 0;
-				cursor: pointer;
-				transition: all 0.2s;
-				border: none;
-				font-family: inherit;
-				font-size: inherit;
-				font-weight: bold;
-				box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-				/* Background colors are set dynamically based on timer state */
-			}
-
-			.tf-timer-badge:hover {
-				transform: translateY(-1px);
-				box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-			}
-
-			.tf-timer-badge:active {
-				transform: translateY(0);
-			}
-
-			/* Child elements inside timer badge should fill space */
-			.tf-timer-badge > div:first-child {
-				flex: 1;
-			}
-
-			.tf-compliance-badge {
-				padding: 10px 14px;
-				border-radius: 12px;
-				display: inline-flex;
-				align-items: center;
-				justify-content: center;
-				min-height: 44px;
-				font-weight: bold;
-				font-size: inherit;
-				box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-				cursor: pointer;
-			}
-
-			/* Enable container queries on the dashboard container */
-			.timeflow-dashboard {
-				container-type: inline-size;
-				container-name: dashboard;
-			}
-
-			/* Main cards container - wraps summary cards AND stats card for responsive layout */
-			.tf-main-cards-wrapper {
-				display: grid;
-				gap: 15px;
-				margin-bottom: 20px;
-				width: 100%;
-				box-sizing: border-box;
-			}
-
-			/* Mobile default: everything stacked */
-			.tf-main-cards-wrapper {
-				grid-template-columns: 1fr;
-			}
-			.tf-card-day { grid-column: 1; grid-row: 1; }
-			.tf-card-week { grid-column: 1; grid-row: 2; }
-			.tf-card-month { grid-column: 1; grid-row: 3; }
-			.tf-card-stats { grid-column: 1; grid-row: 4; }
-
-			/* Reduce gap and padding on very narrow containers */
-			@container dashboard (max-width: 500px) {
-				.tf-main-cards-wrapper { gap: 12px; }
-				.tf-card { padding: 16px; }
-			}
-
-			/* Reduce side padding on mobile */
-			@container dashboard (max-width: 400px) {
-				.timeflow-dashboard {
-					padding: 12px 8px;
-				}
-				.tf-card {
-					padding: 12px;
-				}
-				.tf-badge-section {
-					gap: 8px;
-					margin: 12px 0;
-				}
-				.tf-badge, .tf-clock, .tf-timer-badge {
-					padding: 8px 12px;
-					min-height: 40px;
-				}
-			}
-
-			/* Medium width: Day/Week side by side, Month and Stats stacked full width */
-			@container dashboard (min-width: 400px) {
-				.tf-main-cards-wrapper {
-					grid-template-columns: repeat(2, minmax(0, 1fr));
-				}
-				.tf-card-day { grid-column: 1; grid-row: 1; }
-				.tf-card-week { grid-column: 2; grid-row: 1; }
-				.tf-card-month { grid-column: 1 / -1; grid-row: 2; }
-				.tf-card-stats { grid-column: 1 / -1; grid-row: 3; }
-			}
-
-			/* Wide layout: 2x2 grid - Day/Week top, Month/Stats side by side bottom */
-			@container dashboard (min-width: 750px) {
-				.tf-main-cards-wrapper {
-					align-items: stretch;
-				}
-				.tf-card-month { grid-column: 1; grid-row: 2; }
-				.tf-card-stats {
-					grid-column: 2;
-					grid-row: 2;
-					display: flex;
-					flex-direction: column;
-				}
-				/* In wide layout, content wrapper expands to fill card and push chart to bottom */
-				.tf-card-stats .tf-collapsible-content.open {
-					flex: 1;
-				}
-			}
-
-			/* Default card styling - used for month card */
-			.tf-card {
-				padding: 20px;
-				border-radius: 12px;
-				background: var(--background-primary-alt);
-				color: var(--text-normal);
-				box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-				box-sizing: border-box;
-				min-width: 0;
-				overflow: hidden;
-				border: 1px solid var(--background-modifier-border);
-			}
-
-			.tf-card-spaced {
-				margin-top: 24px;
-			}
-
-			.tf-card h3 {
-				margin-top: 0;
-				margin-bottom: 15px;
-				font-size: 18px;
-				color: var(--text-normal);
-			}
-
-			/* Daily and Weekly cards use dynamic backgrounds set in updateDayCard/updateWeekCard */
-			.tf-card-day,
-			.tf-card-week {
-				/* Background and color set dynamically based on progress */
-				position: relative;
-			}
-
-			/* Stats and history cards */
-			.tf-card-stats,
-			.tf-card-history {
-				background: var(--background-primary-alt);
-				color: var(--text-normal);
-			}
-
-			.tf-card-stats h3,
-			.tf-card-history h3 {
-				color: var(--text-normal);
-			}
-
-			.tf-stat-item {
-				background: var(--background-secondary);
-				color: var(--text-normal);
-			}
-
-			.tf-stat-label,
-			.tf-stat-value {
-				color: var(--text-normal);
-			}
-
-			.tf-stat-item div,
-			.tf-stat-item .tf-stat-label {
-				color: var(--text-normal);
-			}
-
-			.tf-card-stats .tf-stat-label {
-				color: var(--text-normal);
-			}
-
-			/* Colored stat items should always have white text */
-			.tf-stat-colored,
-			.tf-stat-colored div,
-			.tf-stat-colored .tf-stat-label,
-			.tf-stat-colored .tf-stat-value {
-				color: white !important;
-			}
-
-			/* Progress bar */
-			.tf-progress-bar {
-				width: 100%;
-				height: 12px;
-				background: var(--background-secondary);
-				border-radius: 6px;
-				margin: 10px 0;
-				position: relative;
-				overflow: hidden;
-			}
-
-			/* Progress fill */
-			.tf-progress-fill {
-				height: 100%;
-				transition: width 0.3s ease;
-				border-radius: 6px 0 0 6px;
-				margin-left: -0.5px;
-				min-width: 0.5px;
-			}
-
-			.tf-month-grid {
-				display: grid;
-				grid-template-columns: repeat(7, minmax(0, 1fr));
-				gap: 12px;
-				margin-top: 15px;
-				width: 100%;
-				box-sizing: border-box;
-				min-width: 0;
-			}
-
-			/* Week number column in calendar */
-			.tf-month-grid.with-week-numbers {
-				grid-template-columns: clamp(16px, 5cqw, 28px) repeat(7, minmax(0, 1fr));
-			}
-
-			.tf-week-number-cell {
-				font-size: clamp(9px, 2cqw, 11px);
-				color: var(--text-normal);
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				min-width: 0;
-				border-radius: 4px;
-				font-weight: 500;
-			}
-
-			/* Week compliance colors */
-			.tf-week-number-cell.week-ok {
-				background: linear-gradient(135deg, #c8e6c9, #a5d6a7);
-				color: #ffffff;
-			}
-			.tf-week-number-cell.week-over {
-				background: linear-gradient(135deg, #ffcdd2, #ef9a9a);
-				color: #ffffff;
-			}
-			.tf-week-number-cell.week-under {
-				background: linear-gradient(135deg, #ffe0b2, #ffcc80);
-				color: #000000;
-			}
-			.tf-week-number-cell.week-partial {
-				background: linear-gradient(135deg, #e0e0e0, #bdbdbd);
-				color: #000000;
-			}
-			.tf-week-number-cell.week-future {
-				background: transparent;
-				color: var(--text-muted);
-				opacity: 0.5;
-			}
-
-			.tf-week-number-header {
-				font-size: clamp(8px, 2cqw, 10px);
-				color: var(--text-muted);
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				font-weight: bold;
-				min-width: 0;
-			}
-
-			/* Week number badge in week card */
-			.tf-week-badge {
-				position: absolute;
-				top: 12px;
-				right: 12px;
-				font-size: 12px;
-				padding: 2px 8px;
-				border-radius: 10px;
-				background: rgba(255, 255, 255, 0.2);
-				color: inherit;
-				font-weight: normal;
-			}
-
-			/* Reduce gap linearly on narrow containers (below 450px) */
-			@container dashboard (max-width: 450px) {
-				.tf-month-grid {
-					gap: clamp(2px, 2cqw, 8px);
-				}
-				.tf-week-badge {
-					font-size: 10px;
-					padding: 2px 8px;
-					top: 12px;
-					right: 12px;
-				}
-			}
-
-			/* Day cells - consistent text colors across all themes since backgrounds are always the same */
-			.tf-day-cell {
-				aspect-ratio: 1;
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				border-radius: 6px;
-				font-size: clamp(10px, 2.5vw, 16px);
-				font-weight: bold;
-				cursor: pointer;
-				transition: transform 0.2s, box-shadow 0.2s;
-				position: relative;
-				border: 2px solid transparent;
-				text-shadow: 0 1px 2px rgba(255, 255, 255, 0.5);
-				min-width: 0;
-				overflow: hidden;
-				backface-visibility: hidden;
-				-webkit-font-smoothing: subpixel-antialiased;
-			}
-
-			/* Days with entries - text color set dynamically based on special day */
-			.tf-day-cell.has-entry {
-				color: var(--text-normal);
-			}
-
-			/* Days without entries */
-			.tf-day-cell.no-entry {
-				color: var(--text-muted);
-			}
-
-			.tf-day-cell:hover {
-				transform: scale(1.05);
-				box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-			}
-
-			.tf-day-cell.today {
-				border-color: var(--interactive-accent);
-				font-weight: bold;
-			}
-
-			.tf-day-cell .secondary-type-stripe {
-				position: absolute;
-				bottom: 0;
-				left: 0;
-				right: 0;
-				height: 4px;
-				border-radius: 0 0 4px 4px;
-			}
-
-			.tf-stats-grid {
-				display: grid;
-				grid-template-columns: 1fr;
-				gap: 15px;
-				margin-top: 15px;
-			}
-
-			/* Stats grid 2 columns at same breakpoint as day/week cards */
-			@container dashboard (min-width: 400px) {
-				.tf-stats-grid {
-					grid-template-columns: repeat(2, 1fr);
-				}
-			}
-
-			/* Future planned days list - only shown in wide layout */
-			.tf-future-days-list {
-				display: none;
-			}
-
-			@container dashboard (min-width: 750px) {
-				.tf-future-days-list {
-					display: block;
-					margin-top: 20px;
-					padding-top: 15px;
-					border-top: 1px solid var(--background-modifier-border);
-				}
-
-				.tf-future-days-list h4 {
-					margin: 0 0 10px 0;
-					font-size: 14px;
-					font-weight: 600;
-					opacity: 0.8;
-				}
-
-				.tf-future-days-inner {
-					position: relative;
-				}
-
-				/* Fade overlay at bottom - only shown when there are more items */
-				.tf-future-days-inner.has-more::after {
-					content: '';
-					position: absolute;
-					bottom: 0;
-					left: 0;
-					right: 0;
-					height: 30px;
-					background: linear-gradient(to bottom, transparent, var(--background-primary-alt));
-					pointer-events: none;
-				}
-
-				.tf-future-day-item {
-					display: flex;
-					justify-content: space-between;
-					align-items: center;
-					padding: 6px 0;
-					font-size: 13px;
-					border-bottom: 1px solid var(--background-modifier-border);
-				}
-
-				.tf-future-day-item:last-child {
-					border-bottom: none;
-				}
-
-				.tf-future-day-date {
-					font-weight: 500;
-				}
-
-				.tf-future-day-type {
-					padding: 2px 8px;
-					border-radius: 4px;
-					font-size: 12px;
-					color: white;
-				}
-			}
-
-			/* Stat items */
-			.tf-stat-item {
-				padding: 15px;
-				background: var(--background-secondary);
-				border-radius: 8px;
-				color: var(--text-normal);
-			}
-
-			.tf-stat-label {
-				font-size: 12px;
-				margin-bottom: 5px;
-				color: var(--text-muted);
-			}
-
-			.tf-stat-value {
-				font-size: 20px;
-				font-weight: bold;
-				color: var(--text-normal);
-			}
-
-			/* Hours bar chart */
-			.tf-hours-chart {
-				margin-top: auto;
-				padding-top: 20px;
-				border-top: 1px solid var(--background-modifier-border);
-			}
-
-			.tf-hours-chart-title {
-				font-size: 12px;
-				color: var(--text-muted);
-				margin-bottom: 12px;
-			}
-
-			.tf-hours-chart-container {
-				position: relative;
-				height: 120px;
-			}
-
-			.tf-hours-bars-area {
-				display: flex;
-				gap: 6px;
-				height: 100%;
-				position: relative;
-				align-items: flex-end;
-			}
-
-			.tf-hours-bar-wrapper {
-				flex: 1;
-				display: flex;
-				flex-direction: column;
-				align-items: center;
-				min-width: 0;
-			}
-
-			.tf-hours-bar-container {
-				width: 100%;
-				flex: 1;
-				display: flex;
-				align-items: flex-end;
-			}
-
-			.tf-hours-bar {
-				width: 100%;
-				background: var(--interactive-accent);
-				border-radius: 3px 3px 0 0;
-				min-height: 2px;
-				transition: height 0.3s ease;
-			}
-
-			.tf-hours-bar.empty {
-				background: var(--background-modifier-border);
-			}
-
-			.tf-hours-bar-label {
-				font-size: 10px;
-				color: var(--text-muted);
-				margin-top: 6px;
-				text-align: center;
-				white-space: nowrap;
-			}
-
-			.tf-hours-bar-value {
-				font-size: 10px;
-				color: var(--text-normal);
-				text-align: center;
-				white-space: nowrap;
-				font-weight: 500;
-				height: 16px;
-				line-height: 16px;
-			}
-
-			.tf-hours-target-line {
-				position: absolute;
-				left: 0;
-				right: 0;
-				height: 1px;
-				background: var(--text-muted);
-				opacity: 0.6;
-				z-index: 10;
-				pointer-events: none;
-			}
-
-			.tf-hours-target-label {
-				position: absolute;
-				right: 4px;
-				top: -12px;
-				font-size: 9px;
-				color: var(--text-muted);
-				font-weight: 500;
-			}
-
-			.tf-hours-target-label-left {
-				position: absolute;
-				left: 4px;
-				top: -12px;
-				font-size: 9px;
-				color: var(--text-muted);
-				font-weight: 500;
-			}
-
-			/* Timeframe label styling */
-			.tf-timeframe-label {
-				color: var(--text-normal);
-			}
-
-			.tf-tabs {
-				display: flex;
-				gap: 8px;
-				margin-bottom: 15px;
-				border-bottom: 2px solid var(--background-modifier-border);
-			}
-
-			.tf-tab {
-				padding: 6px 12px;
-				cursor: pointer;
-				border: none;
-				background: var(--background-secondary);
-				color: var(--text-normal);
-				font-size: 0.9em;
-				border-radius: 6px;
-				transition: all 0.2s;
-				font-weight: 500;
-			}
-
-			.tf-tab.active {
-				background: var(--interactive-accent);
-				color: var(--text-on-accent);
-				font-weight: bold;
-			}
-
-			.tf-tab:hover {
-				background: var(--background-modifier-hover);
-				color: var(--text-normal);
-			}
-
-			.tf-button {
-				padding: clamp(3px, 1.5cqw, 8px) clamp(6px, 3cqw, 16px);
-				border-radius: 4px;
-				border: 1px solid var(--background-modifier-border);
-				background: var(--interactive-normal);
-				color: var(--text-normal);
-				cursor: pointer;
-				font-size: clamp(10px, 3cqw, 14px);
-				transition: all 0.2s;
-				white-space: nowrap;
-				min-width: 0;
-				flex-shrink: 1;
-			}
-
-			.tf-button:hover {
-				background: var(--interactive-hover);
-			}
-
-			/* Make buttons smaller on mobile */
-			@media (max-width: 500px) {
-				.tf-button {
-					padding: 4px 8px;
-					font-size: 11px;
-					min-width: unset;
-				}
-			}
-
-			.tf-heatmap {
-				display: grid;
-				gap: 2px;
-				margin-top: 15px;
-				padding-right: 1px;
-			}
-
-			.tf-heatmap-cell {
-				width: 100%;
-				aspect-ratio: 1;
-				border-radius: 4px;
-				cursor: pointer;
-				transition: opacity 0.2s, box-shadow 0.2s;
-			}
-
-			.tf-heatmap-cell:hover {
-				opacity: 0.8;
-				box-shadow: inset 0 0 0 2px var(--text-accent);
-			}
-
-			/* Make heatmap cells larger on mobile */
-			@media (max-width: 600px) {
-				.tf-heatmap {
-					grid-template-columns: repeat(20, 1fr) !important;
-				}
-			}
-
-			/* Context menu - uses same styling as submenu for consistency */
-			/* Context menu - uses Obsidian native styling for all themes */
-			.tf-context-menu {
-				position: fixed;
-				background: var(--background-primary);
-				border: 1px solid var(--background-modifier-border);
-				border-radius: 8px;
-				box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-				padding: 4px;
-				z-index: 1000;
-				min-width: 200px;
-				max-width: calc(100vw - 20px);
-				display: flex;
-				gap: 0;
-				box-sizing: border-box;
-			}
-
-			.tf-context-menu-main {
-				flex: 0 0 auto;
-				min-width: 200px;
-				box-sizing: border-box;
-			}
-
-			.tf-context-menu-info {
-				flex: 0 0 auto;
-				width: 250px;
-				padding: 12px;
-				border-left: 1px solid var(--background-modifier-border);
-				background: var(--background-secondary);
-				font-size: 0.85em;
-				line-height: 1.4;
-				box-sizing: border-box;
-			}
-
-			/* On mobile, stack menu vertically and make it full width */
-			@media (max-width: 500px) {
-				.tf-context-menu {
-					flex-direction: column;
-					width: calc(100vw - 20px);
-					max-height: calc(100vh - 40px);
-					overflow-y: auto;
-				}
-
-				.tf-context-menu-main {
-					width: 100%;
-				}
-
-				.tf-context-menu-info {
-					width: 100%;
-					border-left: none;
-					border-top: 1px solid var(--background-modifier-border);
-				}
-			}
-
-			.tf-context-menu-info h4 {
-				margin: 0 0 8px 0;
-				font-size: 0.95em;
-				color: var(--text-normal);
-			}
-
-			.tf-context-menu-info p {
-				margin: 4px 0;
-				color: var(--text-muted);
-			}
-
-			.tf-context-menu-info strong {
-				color: var(--text-normal);
-			}
-
-			/* Compliance info panel */
-			.tf-compliance-info-panel {
-				position: fixed;
-				background: var(--background-primary);
-				border: 1px solid var(--background-modifier-border);
-				border-radius: 8px;
-				box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-				padding: 12px 16px;
-				z-index: 1000;
-				min-width: 220px;
-				max-width: 300px;
-			}
-
-			.tf-compliance-info-panel h4 {
-				margin: 0 0 10px 0;
-				font-size: 0.95em;
-				color: var(--text-normal);
-			}
-
-			.tf-compliance-info-panel p {
-				margin: 6px 0;
-				color: var(--text-muted);
-				font-size: 0.9em;
-			}
-
-			.tf-compliance-info-panel strong {
-				color: var(--text-normal);
-			}
-
-			.tf-menu-item {
-				padding: 8px 16px;
-				cursor: pointer;
-				transition: background 0.2s;
-				display: flex;
-				align-items: center;
-				gap: 10px;
-				color: var(--text-normal);
-			}
-
-			.tf-menu-item:hover {
-				background: var(--background-modifier-hover);
-			}
-
-			.tf-menu-separator {
-				height: 1px;
-				background: var(--background-modifier-border);
-				margin: 4px 0;
-			}
-
-			/* Submenu styles */
-			.tf-menu-item-with-submenu {
-				position: relative;
-				display: flex;
-				justify-content: space-between;
-				align-items: center;
-			}
-
-			.tf-submenu {
-				display: none;
-				position: absolute;
-				left: 100%;
-				top: 0;
-				background: var(--background-primary);
-				border: 1px solid var(--background-modifier-border);
-				border-radius: 8px;
-				box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-				padding: 4px;
-				min-width: 180px;
-				z-index: 1001;
-			}
-
-			.tf-menu-item-with-submenu:hover .tf-submenu {
-				display: block;
-			}
-
-			.tf-submenu-arrow {
-				font-size: 0.8em;
-				opacity: 0.7;
-			}
-
-			.tf-status-bar {
-				margin-top: 20px;
-				padding: 15px;
-				background: var(--background-secondary-alt);
-				border-radius: 6px;
-				border-left: 4px solid var(--interactive-accent);
-			}
-
-			.tf-collapsible {
-				cursor: pointer;
-				user-select: none;
-			}
-
-			.tf-collapsible-content {
-				max-height: 0;
-				overflow: hidden;
-				transition: max-height 0.3s ease;
-			}
-
-			.tf-collapsible-content.open {
-				max-height: none;
-				overflow: visible;
-			}
-
-			/* Stats card content wrapper - base styling */
-			.tf-card-stats .tf-collapsible-content.open {
-				display: flex;
-				flex-direction: column;
-			}
-
-			/* Info section two-column grid */
-			.tf-info-grid {
-				display: grid;
-				grid-template-columns: 1fr;
-				gap: 20px;
-				margin-top: 15px;
-			}
-
-			.tf-info-column {
-				display: flex;
-				flex-direction: column;
-				gap: 15px;
-			}
-
-			.tf-info-box {
-				padding: 12px;
-				background: var(--background-primary);
-				border-radius: 8px;
-			}
-
-			.tf-info-box h4 {
-				margin: 0 0 10px 0;
-				font-size: 0.95em;
-			}
-
-			/* Two columns when dashboard is wide enough */
-			@container dashboard (min-width: 500px) {
-				.tf-info-grid {
-					grid-template-columns: 1fr 1fr;
-				}
-			}
-
-			/* History header layout */
-			.tf-history-header {
-				display: flex;
-				justify-content: space-between;
-				align-items: center;
-				gap: 10px;
-			}
-
-			.tf-history-controls {
-				display: flex;
-				align-items: center;
-				gap: 10px;
-				flex: 0 0 auto;
-			}
-
-			/* History filter chips */
-			.tf-history-filters {
-				display: flex;
-				flex-wrap: wrap;
-				gap: 8px;
-				padding: 10px 0;
-				border-bottom: 1px solid var(--background-modifier-border);
-				margin-bottom: 10px;
-			}
-
-			.tf-filter-chip {
-				padding: 4px 12px;
-				border-radius: 16px;
-				border: 1px solid var(--background-modifier-border);
-				background: var(--background-primary);
-				color: var(--text-normal);
-				cursor: pointer;
-				font-size: 0.85em;
-				transition: all 0.15s ease;
-			}
-
-			.tf-filter-chip:hover {
-				background: var(--background-secondary);
-			}
-
-			.tf-filter-chip.active {
-				background: var(--interactive-accent);
-				color: var(--text-on-accent);
-				border-color: var(--interactive-accent);
-			}
-
-			/* History table - shared styles for consistent column widths */
-			.tf-history-table-wide,
-			.tf-history-table-narrow {
-				width: 100%;
-				border-collapse: collapse;
-				margin-bottom: 15px;
-				table-layout: fixed;
-			}
-
-			.tf-history-table-wide th,
-			.tf-history-table-wide td,
-			.tf-history-table-narrow th,
-			.tf-history-table-narrow td {
-				padding: 8px;
-				color: var(--text-normal);
-				border-bottom: 1px solid var(--background-modifier-border);
-				overflow: hidden;
-				text-overflow: ellipsis;
-				white-space: nowrap;
-			}
-
-			.tf-history-table-wide thead tr,
-			.tf-history-table-narrow thead tr {
-				background: var(--background-secondary);
-			}
-
-			/* Fixed column widths for wide table */
-			.tf-history-table-wide th:nth-child(1),
-			.tf-history-table-wide td:nth-child(1) { width: 100px; } /* Dato */
-			.tf-history-table-wide th:nth-child(2),
-			.tf-history-table-wide td:nth-child(2) { width: 120px; } /* Type */
-			.tf-history-table-wide th:nth-child(3),
-			.tf-history-table-wide td:nth-child(3) { width: 80px; } /* Start */
-			.tf-history-table-wide th:nth-child(4),
-			.tf-history-table-wide td:nth-child(4) { width: 80px; } /* Slutt */
-			.tf-history-table-wide th:nth-child(5),
-			.tf-history-table-wide td:nth-child(5) { width: 70px; } /* Timer */
-			.tf-history-table-wide th:nth-child(6),
-			.tf-history-table-wide td:nth-child(6) { width: 80px; } /* Fleksitid */
-			.tf-history-table-wide th:nth-child(7),
-			.tf-history-table-wide td:nth-child(7) { width: 40px; } /* Delete */
-
-			/* Fixed column widths for narrow table */
-			.tf-history-table-narrow th:nth-child(1),
-			.tf-history-table-narrow td:nth-child(1) { width: 100px; } /* Dato */
-			.tf-history-table-narrow th:nth-child(2),
-			.tf-history-table-narrow td:nth-child(2) { width: auto; } /* Type */
-			.tf-history-table-narrow th:nth-child(3),
-			.tf-history-table-narrow td:nth-child(3) { width: 70px; } /* Timer */
-			.tf-history-table-narrow th:nth-child(4),
-			.tf-history-table-narrow td:nth-child(4) { width: 80px; } /* Fleksitid */
-			.tf-history-table-narrow th:nth-child(5),
-			.tf-history-table-narrow td:nth-child(5) { width: 50px; } /* Handling */
-
-			.tf-history-table-wide input[type="time"],
-			.tf-time-input {
-				padding: 4px 6px;
-				border: 1px solid var(--background-modifier-border);
-				border-radius: 4px;
-				background: var(--background-primary);
-				color: var(--text-normal);
-				font-size: 0.9em;
-				width: 100%;
-				box-sizing: border-box;
-			}
-
-			.tf-time-input {
-				text-align: center;
-				font-family: var(--font-monospace);
-			}
-
-			.tf-history-table-wide select {
-				padding: 4px 6px;
-				border: 1px solid var(--background-modifier-border);
-				border-radius: 4px;
-				background: var(--background-primary);
-				color: var(--text-normal);
-				font-size: 0.9em;
-				width: 100%;
-				box-sizing: border-box;
-			}
-
-			.tf-history-table-wide input:focus,
-			.tf-history-table-wide select:focus {
-				outline: none;
-				border-color: var(--interactive-accent);
-			}
-
-			.tf-history-edit-btn {
-				padding: 4px 10px;
-				border-radius: 4px;
-				border: 1px solid var(--background-modifier-border);
-				background: var(--background-primary);
-				color: var(--text-normal);
-				cursor: pointer;
-				font-size: 0.85em;
-				white-space: nowrap;
-				min-width: 80px;
-			}
-
-			.tf-history-edit-btn:hover {
-				background: var(--background-secondary);
-			}
-
-			.tf-history-edit-btn.active {
-				background: var(--interactive-accent);
-				color: var(--text-on-accent);
-				border-color: var(--interactive-accent);
-			}
-
-			/* Hide edit button in narrow mode */
-			.tf-history-edit-btn.tf-hide-narrow {
-				display: none;
-			}
-
-			.tf-history-delete-btn {
-				padding: 4px 8px;
-				border: none;
-				background: transparent;
-				color: var(--text-muted);
-				cursor: pointer;
-				font-size: 1em;
-				opacity: 0.7;
-				transition: opacity 0.15s ease;
-			}
-
-			.tf-history-delete-btn:hover {
-				opacity: 1;
-				color: #f44336;
-			}
-
-			.tf-history-add-row {
-				cursor: pointer;
-			}
-
-			.tf-history-add-row td {
-				text-align: center;
-				color: var(--text-muted);
-				padding: 8px;
-			}
-
-			.tf-history-add-row:hover td {
-				background: var(--background-secondary);
-				color: var(--text-normal);
-			}
-
-			/* Delete confirmation dialog */
-			.tf-confirm-overlay {
-				position: fixed;
-				top: 0;
-				left: 0;
-				right: 0;
-				bottom: 0;
-				background: rgba(0, 0, 0, 0.5);
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				z-index: 10000;
-			}
-
-			.tf-confirm-dialog {
-				background: var(--background-primary);
-				border-radius: 8px;
-				padding: 20px;
-				max-width: 400px;
-				width: 90%;
-				box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-			}
-
-			.tf-confirm-title {
-				font-size: 16px;
-				font-weight: bold;
-				margin-bottom: 12px;
-				color: var(--text-normal);
-			}
-
-			.tf-confirm-message {
-				font-size: 14px;
-				color: var(--text-muted);
-				margin-bottom: 8px;
-			}
-
-			.tf-confirm-details {
-				background: var(--background-secondary);
-				padding: 10px;
-				border-radius: 4px;
-				margin-bottom: 16px;
-				font-size: 13px;
-			}
-
-			.tf-confirm-buttons {
-				display: flex;
-				gap: 10px;
-				justify-content: flex-end;
-			}
-
-			.tf-confirm-cancel {
-				padding: 8px 16px;
-				border-radius: 4px;
-				border: 1px solid var(--background-modifier-border);
-				background: var(--background-secondary);
-				color: var(--text-normal);
-				cursor: pointer;
-			}
-
-			.tf-confirm-delete {
-				padding: 8px 16px;
-				border-radius: 4px;
-				border: none;
-				background: #f44336;
-				color: white;
-				cursor: pointer;
-				font-weight: bold;
-			}
-
-			.tf-confirm-delete:hover {
-				background: #d32f2f;
-			}
-		`;
-		document.head.appendChild(style);
-	}
+	// Note: Styles are now in styles.css instead of being injected dynamically
 
 	buildBadgeSection(): HTMLElement {
 		const section = document.createElement("div");
@@ -1422,8 +202,8 @@ export class UIBuilder {
 
 		// Hide goal-related badges in simple tracking mode, but keep clock and timer
 		if (!this.settings.enableGoalTracking) {
-			badge.style.display = 'none';
-			complianceBadge.style.display = 'none';
+			badge.addClass('tf-hidden');
+			complianceBadge.addClass('tf-hidden');
 		}
 
 		section.appendChild(badge);
@@ -1447,32 +227,13 @@ export class UIBuilder {
 		if (activeTimers.length === 0) {
 			// Segmented start button: main part starts "jobb", arrow opens menu
 			this.elements.timerBadge.empty();
-			this.elements.timerBadge.style.background = "transparent";
-			this.elements.timerBadge.style.display = "inline-flex";
-			this.elements.timerBadge.style.alignItems = "stretch";
-			this.elements.timerBadge.style.gap = "0";
-			this.elements.timerBadge.style.padding = "0";
-			this.elements.timerBadge.style.position = "relative";
+			this.elements.timerBadge.className = "tf-timer-badge tf-bg-transparent tf-inline-flex tf-items-stretch tf-gap-0 tf-p-0 tf-relative";
 			this.elements.timerBadge.onclick = null;
 
 			// Main "Start" button (starts jobb)
 			const startBtn = document.createElement("div");
 			startBtn.textContent = "Start";
-			startBtn.style.background = "#4caf50";
-			startBtn.style.color = "white";
-			startBtn.style.padding = "8px 12px";
-			startBtn.style.cursor = "pointer";
-			startBtn.style.borderRadius = "12px 0 0 12px";
-			startBtn.style.display = "flex";
-			startBtn.style.alignItems = "center";
-			startBtn.style.justifyContent = "center";
-			startBtn.style.transition = "filter 0.2s";
-			startBtn.onmouseover = () => {
-				startBtn.style.filter = "brightness(1.1)";
-			};
-			startBtn.onmouseout = () => {
-				startBtn.style.filter = "";
-			};
+			startBtn.className = "tf-timer-start-btn";
 			startBtn.onclick = async (e) => {
 				e.stopPropagation();
 				// Use first work type from settings, fallback to 'jobb'
@@ -1485,22 +246,7 @@ export class UIBuilder {
 			// Arrow dropdown button
 			const arrowBtn = document.createElement("div");
 			arrowBtn.textContent = "▼";
-			arrowBtn.style.background = "#388e3c";
-			arrowBtn.style.color = "white";
-			arrowBtn.style.padding = "8px 8px";
-			arrowBtn.style.cursor = "pointer";
-			arrowBtn.style.borderRadius = "0 12px 12px 0";
-			arrowBtn.style.fontSize = "0.8em";
-			arrowBtn.style.display = "flex";
-			arrowBtn.style.alignItems = "center";
-			arrowBtn.style.borderLeft = "1px solid rgba(255,255,255,0.3)";
-			arrowBtn.style.transition = "filter 0.2s";
-			arrowBtn.onmouseover = () => {
-				arrowBtn.style.filter = "brightness(1.1)";
-			};
-			arrowBtn.onmouseout = () => {
-				arrowBtn.style.filter = "";
-			};
+			arrowBtn.className = "tf-timer-dropdown-btn";
 			arrowBtn.onclick = (e) => {
 				e.stopPropagation();
 				this.showTimerTypeMenu(arrowBtn);
@@ -1512,12 +258,7 @@ export class UIBuilder {
 			// Stop button badge (active timer)
 			this.elements.timerBadge.empty();
 			this.elements.timerBadge.textContent = t('buttons.stop');
-			this.elements.timerBadge.style.background = "#f44336";
-			this.elements.timerBadge.style.color = "white";
-			this.elements.timerBadge.style.display = "inline-flex";
-			this.elements.timerBadge.style.alignItems = "center";
-			this.elements.timerBadge.style.justifyContent = "center";
-			this.elements.timerBadge.style.padding = "";
+			this.elements.timerBadge.className = "tf-timer-badge tf-timer-stop-btn";
 			this.elements.timerBadge.onclick = async () => {
 				// Stop all active timers
 				for (const timer of activeTimers) {
@@ -1538,14 +279,6 @@ export class UIBuilder {
 
 		const menu = document.createElement('div');
 		menu.className = 'tf-timer-type-menu';
-		menu.style.position = 'fixed';
-		menu.style.background = 'var(--background-primary)';
-		menu.style.border = '1px solid var(--background-modifier-border)';
-		menu.style.borderRadius = '8px';
-		menu.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
-		menu.style.zIndex = '1000';
-		menu.style.minWidth = '150px';
-		menu.style.overflow = 'hidden';
 
 		// Build timer types from settings - filter by showInTimerDropdown
 		// Default to true for jobb, studie, kurs if not explicitly set
@@ -1560,21 +293,9 @@ export class UIBuilder {
 
 		timerTypes.forEach(type => {
 			const item = document.createElement('div');
-			item.style.padding = '10px 15px';
-			item.style.cursor = 'pointer';
-			item.style.display = 'flex';
-			item.style.alignItems = 'center';
-			item.style.gap = '8px';
-			item.style.transition = 'background 0.2s';
+			item.className = 'tf-menu-item';
 			item.createSpan({ text: type.icon });
 			item.createSpan({ text: type.label });
-
-			item.onmouseover = () => {
-				item.style.background = 'var(--background-modifier-hover)';
-			};
-			item.onmouseout = () => {
-				item.style.background = '';
-			};
 
 			item.onclick = async () => {
 				await this.timerManager.startTimer(type.name);
@@ -1664,23 +385,14 @@ export class UIBuilder {
 		card.className = "tf-card tf-card-month";
 
 		const header = document.createElement("div");
-		header.style.display = "flex";
-		header.style.justifyContent = "space-between";
-		header.style.alignItems = "center";
-		header.style.marginBottom = "15px";
-		header.style.flexWrap = "wrap";
-		header.style.gap = "8px";
+		header.className = "tf-card-header";
 
 		const title = document.createElement("h3");
 		title.textContent = t('ui.calendar');
-		title.style.margin = "0";
-		title.style.flexShrink = "1";
-		title.style.minWidth = "0";
+		title.className = "tf-card-title";
 
 		const controls = document.createElement("div");
-		controls.style.display = "flex";
-		controls.style.gap = "5px";
-		controls.style.flexShrink = "0";
+		controls.className = "tf-card-controls";
 
 		const prevBtn = document.createElement("button");
 		prevBtn.textContent = "◄";
@@ -1738,22 +450,15 @@ export class UIBuilder {
 
 		// Header with title and tabs (collapsible)
 		const headerRow = document.createElement("div");
-		headerRow.className = "tf-collapsible";
-		headerRow.style.display = "flex";
-		headerRow.style.justifyContent = "space-between";
-		headerRow.style.alignItems = "center";
-		headerRow.style.flexWrap = "wrap";
-		headerRow.style.gap = "10px";
+		headerRow.className = "tf-collapsible tf-stats-header";
 
 		const header = document.createElement("h3");
 		header.textContent = t('ui.statistics');
-		header.style.margin = "0";
+		header.className = "tf-m-0";
 		headerRow.appendChild(header);
 
 		const tabs = document.createElement("div");
-		tabs.className = "tf-tabs";
-		tabs.style.marginBottom = "0";
-		tabs.style.borderBottom = "none";
+		tabs.className = "tf-tabs tf-tabs-inline";
 
 		const timeframes = ["month", "year", "total"];
 		const labels = { month: t('timeframes.month'), year: t('timeframes.year'), total: t('timeframes.total') };
@@ -1782,12 +487,6 @@ export class UIBuilder {
 		// Timeframe selector container
 		const timeframeSelectorContainer = document.createElement("div");
 		timeframeSelectorContainer.className = "tf-timeframe-selector";
-		timeframeSelectorContainer.style.marginTop = "12px"; // Add gap between tabs and dropdowns on mobile
-		timeframeSelectorContainer.style.marginBottom = "12px";
-		timeframeSelectorContainer.style.display = "flex";
-		timeframeSelectorContainer.style.gap = "10px";
-		timeframeSelectorContainer.style.alignItems = "center";
-		timeframeSelectorContainer.style.flexWrap = "wrap";
 		contentWrapper.appendChild(timeframeSelectorContainer);
 
 		const statsContainer = document.createElement("div");
@@ -1801,7 +500,7 @@ export class UIBuilder {
 		header.onclick = () => {
 			contentWrapper.classList.toggle('open');
 		};
-		header.style.cursor = 'pointer';
+		header.addClass('tf-cursor-pointer');
 
 		this.updateStatsCard();
 
@@ -1815,7 +514,7 @@ export class UIBuilder {
 		const header = document.createElement("div");
 		header.className = "tf-collapsible";
 		const h3 = header.createEl('h3', { text: t('ui.information') });
-		h3.style.margin = '0';
+		h3.className = 'tf-m-0';
 
 		const content = document.createElement("div");
 		content.className = "tf-collapsible-content";
@@ -1842,27 +541,17 @@ export class UIBuilder {
 		const specialDaysBox = leftColumn.createDiv({ cls: 'tf-info-box' });
 		specialDaysBox.createEl('h4', { text: t('info.specialDayTypes') });
 		const specialDaysList = specialDaysBox.createEl('ul');
-		specialDaysList.style.listStyle = 'none';
-		specialDaysList.style.paddingLeft = '0';
-		specialDaysList.style.margin = '0';
+		specialDaysList.className = 'tf-legend-list';
 
 		specialDayInfo.forEach(item => {
 			const color = getSpecialDayColors(this.settings)[item.key] || "transparent";
 			const label = translateSpecialDayName(item.key);
 			const li = specialDaysList.createEl('li');
-			li.style.display = 'flex';
-			li.style.alignItems = 'center';
-			li.style.marginBottom = '8px';
-			li.style.fontSize = '0.9em';
+			li.className = 'tf-legend-item';
 
 			const colorBox = li.createDiv();
-			colorBox.style.width = '16px';
-			colorBox.style.height = '16px';
-			colorBox.style.background = color;
-			colorBox.style.borderRadius = '3px';
-			colorBox.style.border = '1px solid var(--background-modifier-border)';
-			colorBox.style.marginRight = '8px';
-			colorBox.style.flexShrink = '0';
+			colorBox.className = 'tf-legend-color-dynamic';
+			colorBox.setCssProps({ '--tf-bg': color });
 
 			const textSpan = li.createSpan({ text: item.emoji + ' ' });
 			textSpan.createEl('strong', { text: label });
@@ -1874,23 +563,15 @@ export class UIBuilder {
 			const gradientBox = leftColumn.createDiv({ cls: 'tf-info-box' });
 			gradientBox.createEl('h4', { text: t('info.workDaysGradient') });
 			const gradientP = gradientBox.createEl('p', { text: t('info.colorShowsFlextime') + ' (' + this.settings.baseWorkday + 'h):' });
-			gradientP.style.margin = '0 0 10px 0';
-			gradientP.style.fontSize = '0.9em';
+			gradientP.className = 'tf-info-text';
 
 			// Positive gradient
 			const posGradient = gradientBox.createDiv();
-			posGradient.style.height = '16px';
-			posGradient.style.borderRadius = '8px';
-			posGradient.style.background = `linear-gradient(to right, ${this.flextimeColor(0)}, ${this.flextimeColor(1.5)}, ${this.flextimeColor(3)})`;
-			posGradient.style.margin = '4px 0';
-			posGradient.style.border = '1px solid var(--background-modifier-border)';
+			posGradient.className = 'tf-gradient-dynamic';
+			posGradient.setCssProps({ '--tf-gradient': `linear-gradient(to right, ${this.flextimeColor(0)}, ${this.flextimeColor(1.5)}, ${this.flextimeColor(3)})` });
 
 			const posLabels = gradientBox.createDiv();
-			posLabels.style.display = 'flex';
-			posLabels.style.justifyContent = 'space-between';
-			posLabels.style.fontSize = '0.8em';
-			posLabels.style.color = 'var(--text-muted)';
-			posLabels.style.marginBottom = '10px';
+			posLabels.className = 'tf-gradient-labels';
 			posLabels.createSpan({ text: '0h' });
 			posLabels.createSpan({ text: '+1.5h' });
 			posLabels.createSpan({ text: '+3h' });
@@ -1899,17 +580,11 @@ export class UIBuilder {
 			const workBehavior = this.settings.specialDayBehaviors?.find(b => b.isWorkType);
 			const negBaseColor = workBehavior?.negativeColor || '#64b5f6';
 			const negGradient = gradientBox.createDiv();
-			negGradient.style.height = '16px';
-			negGradient.style.borderRadius = '8px';
-			negGradient.style.background = `linear-gradient(to right, ${this.flextimeColor(-3)}, ${this.flextimeColor(-1.5)}, ${negBaseColor})`;
-			negGradient.style.margin = '4px 0';
-			negGradient.style.border = '1px solid var(--background-modifier-border)';
+			negGradient.className = 'tf-gradient-dynamic';
+			negGradient.setCssProps({ '--tf-gradient': `linear-gradient(to right, ${this.flextimeColor(-3)}, ${this.flextimeColor(-1.5)}, ${negBaseColor})` });
 
 			const negLabels = gradientBox.createDiv();
-			negLabels.style.display = 'flex';
-			negLabels.style.justifyContent = 'space-between';
-			negLabels.style.fontSize = '0.8em';
-			negLabels.style.color = 'var(--text-muted)';
+			negLabels.className = 'tf-gradient-labels';
 			negLabels.createSpan({ text: '-3h' });
 			negLabels.createSpan({ text: '-1.5h' });
 			negLabels.createSpan({ text: '0h' });
@@ -1922,13 +597,9 @@ export class UIBuilder {
 		const calendarBox = rightColumn.createDiv({ cls: 'tf-info-box' });
 		calendarBox.createEl('h4', { text: t('info.calendarContextMenu') });
 		const calendarP = calendarBox.createEl('p', { text: t('info.clickDayFor') });
-		calendarP.style.margin = '0 0 8px 0';
-		calendarP.style.fontSize = '0.9em';
+		calendarP.className = 'tf-info-text-small';
 		const calendarList = calendarBox.createEl('ul');
-		calendarList.style.margin = '0 0 0 16px';
-		calendarList.style.fontSize = '0.9em';
-		calendarList.style.paddingLeft = '0';
-		calendarList.style.listStylePosition = 'inside';
+		calendarList.className = 'tf-info-list';
 		calendarList.createEl('li', { text: t('info.createDailyNote') });
 		calendarList.createEl('li', { text: t('info.editFlextimeManually') });
 		calendarList.createEl('li', { text: t('info.registerSpecialDays') });
@@ -1936,16 +607,10 @@ export class UIBuilder {
 		// Helper to create color indicator rows
 		const createColorRow = (container: HTMLElement, color: string, label: string, desc: string) => {
 			const row = container.createDiv();
-			row.style.display = 'flex';
-			row.style.alignItems = 'center';
-			row.style.gap = '8px';
+			row.className = 'tf-color-row';
 			const colorSpan = row.createSpan();
-			colorSpan.style.display = 'inline-block';
-			colorSpan.style.width = '16px';
-			colorSpan.style.height = '16px';
-			colorSpan.style.borderRadius = '3px';
-			colorSpan.style.background = color;
-			colorSpan.style.flexShrink = '0';
+			colorSpan.className = 'tf-color-indicator tf-dynamic-bg';
+			colorSpan.setCssProps({ '--tf-bg': color });
 			const textSpan = row.createSpan();
 			textSpan.createEl('strong', { text: label + ':' });
 			textSpan.appendText(' ' + desc);
@@ -1956,10 +621,7 @@ export class UIBuilder {
 			const balanceBox = rightColumn.createDiv({ cls: 'tf-info-box' });
 			balanceBox.createEl('h4', { text: t('info.flextimeBalanceZones') });
 			const balanceContainer = balanceBox.createDiv();
-			balanceContainer.style.display = 'flex';
-			balanceContainer.style.flexDirection = 'column';
-			balanceContainer.style.gap = '6px';
-			balanceContainer.style.fontSize = '0.9em';
+			balanceContainer.className = 'tf-balance-container';
 			createColorRow(balanceContainer, this.settings.customColors?.balanceOk || '#4caf50', t('info.green'), this.settings.balanceThresholds.warningLow + 'h ' + t('info.to') + ' +' + this.settings.balanceThresholds.warningHigh + 'h');
 			createColorRow(balanceContainer, this.settings.customColors?.balanceWarning || '#ff9800', t('info.yellow'), this.settings.balanceThresholds.criticalLow + 'h ' + t('info.to') + ' ' + (this.settings.balanceThresholds.warningLow - 1) + 'h / +' + this.settings.balanceThresholds.warningHigh + 'h ' + t('info.to') + ' +' + this.settings.balanceThresholds.criticalHigh + 'h');
 			createColorRow(balanceContainer, this.settings.customColors?.balanceCritical || '#f44336', t('info.red'), '<' + this.settings.balanceThresholds.criticalLow + 'h / >+' + this.settings.balanceThresholds.criticalHigh + 'h');
@@ -1968,18 +630,13 @@ export class UIBuilder {
 			const weekBox = rightColumn.createDiv({ cls: 'tf-info-box' });
 			weekBox.createEl('h4', { text: t('info.weekNumberCompliance') });
 			const weekContainer = weekBox.createDiv();
-			weekContainer.style.display = 'flex';
-			weekContainer.style.flexDirection = 'column';
-			weekContainer.style.gap = '6px';
-			weekContainer.style.fontSize = '0.9em';
+			weekContainer.className = 'tf-balance-container';
 			createColorRow(weekContainer, 'linear-gradient(135deg, #c8e6c9, #a5d6a7)', t('info.green'), t('info.reachedGoal') + ' (±0.5h)');
 			createColorRow(weekContainer, 'linear-gradient(135deg, #ffcdd2, #ef9a9a)', t('info.red'), t('info.overGoal'));
 			createColorRow(weekContainer, 'linear-gradient(135deg, #ffe0b2, #ffcc80)', t('info.orange'), t('info.underGoal'));
 			createColorRow(weekContainer, 'linear-gradient(135deg, #e0e0e0, #bdbdbd)', t('info.gray'), t('info.weekInProgress'));
 			const weekTip = weekBox.createEl('p');
-			weekTip.style.margin = '8px 0 0 0';
-			weekTip.style.fontSize = '0.8em';
-			weekTip.style.opacity = '0.8';
+			weekTip.className = 'tf-tip-text';
 			weekTip.createEl('em', { text: t('info.clickWeekForDetails') });
 		}
 
@@ -2004,8 +661,7 @@ export class UIBuilder {
 		// Left side: title
 		const title = document.createElement("h3");
 		title.textContent = t('ui.history');
-		title.style.margin = "0";
-		title.style.flex = "1 1 auto";
+		title.className = 'tf-history-title';
 		header.appendChild(title);
 
 		// Right side container for edit button and tabs
@@ -2035,9 +691,7 @@ export class UIBuilder {
 
 		// View tabs in header (matching stats card style)
 		const tabs = document.createElement("div");
-		tabs.className = "tf-tabs";
-		tabs.style.marginBottom = "0";
-		tabs.style.borderBottom = "none";
+		tabs.className = "tf-tabs tf-tabs-inline";
 
 		const views = [
 			{ id: "list", label: t('buttons.list') },
@@ -2080,7 +734,7 @@ export class UIBuilder {
 		header.onclick = () => {
 			content.classList.toggle('open');
 		};
-		header.style.cursor = 'pointer';
+		header.addClass('tf-cursor-pointer');
 
 		card.appendChild(header);
 		card.appendChild(content);
@@ -2113,38 +767,38 @@ export class UIBuilder {
 
 				if (errors.length > 0) {
 					const errorHeader = container.createDiv();
-					errorHeader.style.marginTop = '8px';
+					errorHeader.className = 'tf-status-error';
 					const errorStrong = errorHeader.createEl('strong');
-					errorStrong.style.color = '#f44336';
+					errorStrong.className = 'tf-status-error-label';
 					errorStrong.textContent = `Feil (${errors.length}):`;
 
-					errors.slice(0, 5).forEach((err: any) => {
+					errors.slice(0, 5).forEach((err: ValidationIssue) => {
 						const errorItem = container.createDiv();
-						errorItem.style.cssText = 'font-size: 12px; margin-left: 12px; color: #f44336;';
+						errorItem.className = 'tf-status-error-item';
 						errorItem.textContent = `• ${err.type}: ${err.description}${err.date ? ` (${err.date})` : ''}`;
 					});
 					if (errors.length > 5) {
 						const moreErrors = container.createDiv();
-						moreErrors.style.cssText = 'font-size: 11px; margin-left: 12px; color: var(--text-muted);';
+						moreErrors.className = 'tf-status-more';
 						moreErrors.textContent = `...og ${errors.length - 5} flere feil`;
 					}
 				}
 
 				if (warnings.length > 0) {
 					const warningHeader = container.createDiv();
-					warningHeader.style.marginTop = '8px';
+					warningHeader.className = 'tf-status-error';
 					const warningStrong = warningHeader.createEl('strong');
-					warningStrong.style.color = '#ff9800';
+					warningStrong.className = 'tf-status-warning-label';
 					warningStrong.textContent = `Advarsler (${warnings.length}):`;
 
-					warnings.slice(0, 5).forEach((warn: any) => {
+					warnings.slice(0, 5).forEach((warn: ValidationIssue) => {
 						const warningItem = container.createDiv();
-						warningItem.style.cssText = 'font-size: 12px; margin-left: 12px; color: #ff9800;';
+						warningItem.className = 'tf-status-warning-item';
 						warningItem.textContent = `• ${warn.type}: ${warn.description}${warn.date ? ` (${warn.date})` : ''}`;
 					});
 					if (warnings.length > 5) {
 						const moreWarnings = container.createDiv();
-						moreWarnings.style.cssText = 'font-size: 11px; margin-left: 12px; color: var(--text-muted);';
+						moreWarnings.className = 'tf-status-more';
 						moreWarnings.textContent = `...og ${warnings.length - 5} flere advarsler`;
 					}
 				}
@@ -2153,33 +807,31 @@ export class UIBuilder {
 
 		// Create header using DOM API
 		const header = document.createElement("div");
-		header.style.cssText = "display: flex; align-items: center; gap: 10px; cursor: pointer;";
+		header.className = "tf-status-header";
 
 		header.createSpan({ text: statusIcon });
 
 		const headerContent = header.createDiv();
-		headerContent.style.flex = '1';
+		headerContent.className = "tf-status-content";
 
 		const titleRow = headerContent.createDiv();
 		titleRow.createEl('strong', { text: t('status.systemStatus') });
 		if (hasIssues) {
-			const clickHint = titleRow.createSpan({ text: ` (${t('status.clickForDetails')})` });
-			clickHint.style.cssText = 'font-size: 11px; opacity: 0.7;';
+			const clickHint = titleRow.createSpan({ text: ` (${t('status.clickForDetails')})`, cls: 'tf-status-hint' });
 		}
 
 		const statusRow = headerContent.createDiv();
-		statusRow.style.cssText = 'font-size: 12px; color: var(--text-muted); display: flex; justify-content: space-between; align-items: center;';
+		statusRow.className = "tf-status-row";
 
 		const statusText = statusRow.createSpan();
 		statusText.textContent = `${status.holiday?.message || t('status.holidayNotLoaded')} • ${status.activeTimers || 0} ${t('status.activeTimers')} • ${status.validation?.issues?.stats?.totalEntries || 0} ${t('status.entriesChecked')}`;
 
 		const versionText = statusRow.createSpan();
-		versionText.style.cssText = 'font-size: 11px; opacity: 0.6;';
+		versionText.className = "tf-status-version";
 		versionText.textContent = `v${this.plugin.manifest.version}`;
 
 		if (hasIssues) {
-			const toggle = header.createSpan({ cls: 'tf-status-toggle', text: '▶' });
-			toggle.style.cssText = 'font-size: 10px; transition: transform 0.2s;';
+			header.createSpan({ cls: 'tf-status-toggle', text: '▶' });
 		}
 
 		bar.appendChild(header);
@@ -2188,10 +840,9 @@ export class UIBuilder {
 		if (hasIssues) {
 			const details = document.createElement("div");
 			details.className = "tf-status-details";
-			details.style.cssText = "max-height: 0; overflow: hidden; transition: max-height 0.3s ease-out; opacity: 0;";
 
 			const detailsInner = details.createDiv();
-			detailsInner.style.cssText = 'padding-top: 10px; border-top: 1px solid var(--background-modifier-border); margin-top: 10px;';
+			detailsInner.className = "tf-status-details-inner";
 			buildIssuesContent(detailsInner);
 
 			bar.appendChild(details);
@@ -2219,39 +870,15 @@ export class UIBuilder {
 
 	buildViewToggle(): HTMLElement {
 		const container = document.createElement("div");
-		container.style.cssText = "display: flex; justify-content: flex-end; margin-top: 8px;";
+		container.className = "tf-view-toggle-container";
 
 		const viewToggle = document.createElement("button");
 		const isInSidebar = this.isViewInSidebar();
-		viewToggle.className = "tf-view-toggle";
-		viewToggle.style.cssText = `
-			background: var(--background-secondary);
-			border: 1px solid var(--background-modifier-border);
-			border-radius: 4px;
-			padding: 6px 10px;
-			cursor: pointer;
-			font-size: 12px;
-			display: flex;
-			align-items: center;
-			gap: 6px;
-			color: var(--text-normal);
-			transition: background 0.2s, border-color 0.2s;
-			font-weight: 500;
-		`;
-		const iconSpan = viewToggle.createSpan();
-		iconSpan.style.fontSize = '14px';
+		viewToggle.className = "tf-view-toggle-btn";
+		const iconSpan = viewToggle.createSpan({ cls: 'tf-view-toggle-icon' });
 		iconSpan.textContent = isInSidebar ? '⊞' : '◧';
 		viewToggle.appendText(' ' + (isInSidebar ? t('buttons.moveToMain') : t('buttons.moveToSidebar')));
 		viewToggle.title = isInSidebar ? t('buttons.moveToMain') : t('buttons.moveToSidebar');
-
-		viewToggle.onmouseenter = () => {
-			viewToggle.style.background = "var(--background-modifier-hover)";
-			viewToggle.style.borderColor = "var(--interactive-accent)";
-		};
-		viewToggle.onmouseleave = () => {
-			viewToggle.style.background = "var(--background-secondary)";
-			viewToggle.style.borderColor = "var(--background-modifier-border)";
-		};
 
 		viewToggle.onclick = (e) => {
 			e.stopPropagation();
@@ -2281,8 +908,7 @@ export class UIBuilder {
 
 		const color = this.getBalanceColor(balance);
 
-		this.elements.badge.style.background = color;
-		this.elements.badge.style.color = "white";
+		this.elements.badge.setCssProps({ '--tf-bg': color, '--tf-color': 'white' });
 		this.elements.badge.textContent = `${t('ui.flextimeBalance')}: ${sign}${formatted}`;
 	}
 
@@ -2365,26 +991,23 @@ export class UIBuilder {
 		if (!this.elements.complianceBadge) return;
 
 		if (!this.settings.complianceSettings?.enableWarnings) {
-			this.elements.complianceBadge.style.display = 'none';
+			this.elements.complianceBadge.addClass('tf-hidden');
 			return;
 		}
 
 		const { status } = this.getComplianceStatus();
 
-		this.elements.complianceBadge.style.display = '';
-		this.elements.complianceBadge.style.cursor = 'pointer';
+		this.elements.complianceBadge.removeClass('tf-hidden');
+		this.elements.complianceBadge.removeClass('tf-compliance-ok', 'tf-compliance-approaching', 'tf-compliance-over');
 
 		if (status === 'ok') {
-			this.elements.complianceBadge.style.background = 'rgba(76, 175, 80, 0.2)';
-			this.elements.complianceBadge.style.border = '1px solid rgba(76, 175, 80, 0.4)';
+			this.elements.complianceBadge.addClass('tf-compliance-ok');
 			this.elements.complianceBadge.textContent = `🟩 ${t('compliance.ok')}`;
 		} else if (status === 'approaching') {
-			this.elements.complianceBadge.style.background = 'rgba(255, 152, 0, 0.2)';
-			this.elements.complianceBadge.style.border = '1px solid rgba(255, 152, 0, 0.4)';
+			this.elements.complianceBadge.addClass('tf-compliance-approaching');
 			this.elements.complianceBadge.textContent = `🟨 ${t('compliance.near')}`;
 		} else {
-			this.elements.complianceBadge.style.background = 'rgba(244, 67, 54, 0.2)';
-			this.elements.complianceBadge.style.border = '1px solid rgba(244, 67, 54, 0.4)';
+			this.elements.complianceBadge.addClass('tf-compliance-over');
 			this.elements.complianceBadge.textContent = `🟥 ${t('compliance.over')}`;
 		}
 
@@ -2451,8 +1074,7 @@ export class UIBuilder {
 		}
 
 		// Add status explanation
-		const hr = panel.createEl('hr');
-		hr.style.cssText = 'margin: 10px 0; border: none; border-top: 1px solid var(--background-modifier-border);';
+		panel.createEl('hr');
 
 		let statusText: string;
 		if (dailyStatus === 'exceeded' || weeklyStatus === 'exceeded' || restCheck.violated) {
@@ -2462,8 +1084,7 @@ export class UIBuilder {
 		} else {
 			statusText = t('status.allLimitsOk');
 		}
-		const statusP = panel.createEl('p', { text: statusText });
-		statusP.style.cssText = 'font-size: 12px; color: var(--text-muted);';
+		panel.createEl('p', { text: statusText, cls: 'tf-compliance-status-text' });
 
 		// Position panel near the badge, ensuring it stays on screen
 		const badgeRect = this.elements.complianceBadge!.getBoundingClientRect();
@@ -2540,18 +1161,14 @@ export class UIBuilder {
 
 		// NEW: Simple tracking mode
 		if (!this.settings.enableGoalTracking) {
-			this.elements.dayCard.style.background = "var(--background-secondary)";
-			this.elements.dayCard.style.color = "var(--text-normal)";
+			this.elements.dayCard.setCssProps({ '--tf-bg': 'var(--background-secondary)', '--tf-color': 'var(--text-normal)' });
 			this.elements.dayCard.empty();
 
-			const h3 = this.elements.dayCard.createEl('h3', { text: 'I dag' });
-			h3.style.color = 'inherit';
+			this.elements.dayCard.createEl('h3', { text: 'I dag' });
 
-			const hoursDiv = this.elements.dayCard.createDiv({ text: Utils.formatHoursToHM(todayHours, this.settings.hourUnit) });
-			hoursDiv.style.cssText = 'font-size: 32px; font-weight: bold; margin: 10px 0;';
+			this.elements.dayCard.createDiv({ text: Utils.formatHoursToHM(todayHours, this.settings.hourUnit), cls: 'tf-card-big-number' });
 
-			const labelDiv = this.elements.dayCard.createDiv({ text: t('ui.hoursWorked') });
-			labelDiv.style.cssText = 'font-size: 14px; opacity: 0.9; margin-top: 10px;';
+			this.elements.dayCard.createDiv({ text: t('ui.hoursWorked'), cls: 'tf-card-label' });
 			return;
 		}
 
@@ -2573,18 +1190,14 @@ export class UIBuilder {
 			textColor = "white";
 		}
 
-		this.elements.dayCard.style.background = bgColor;
-		this.elements.dayCard.style.color = textColor;
+		this.elements.dayCard.setCssProps({ '--tf-bg': bgColor, '--tf-color': textColor });
 		this.elements.dayCard.empty();
 
-		const h3 = this.elements.dayCard.createEl('h3', { text: t('ui.today') });
-		h3.style.color = textColor;
+		this.elements.dayCard.createEl('h3', { text: t('ui.today') });
 
-		const hoursDiv = this.elements.dayCard.createDiv({ text: Utils.formatHoursToHM(todayHours, this.settings.hourUnit) });
-		hoursDiv.style.cssText = 'font-size: 32px; font-weight: bold; margin: 10px 0;';
+		this.elements.dayCard.createDiv({ text: Utils.formatHoursToHM(todayHours, this.settings.hourUnit), cls: 'tf-card-big-number' });
 
-		const goalDiv = this.elements.dayCard.createDiv({ text: `${t('ui.goal')}: ${Utils.formatHoursToHM(goal, this.settings.hourUnit)}` });
-		goalDiv.style.cssText = 'font-size: 14px; opacity: 0.9; margin-bottom: 10px;';
+		this.elements.dayCard.createDiv({ text: `${t('ui.goal')}: ${Utils.formatHoursToHM(goal, this.settings.hourUnit)}`, cls: 'tf-card-goal' });
 
 		const progressBar = this.elements.dayCard.createDiv({ cls: 'tf-progress-bar' });
 		const progressFill = progressBar.createDiv({ cls: 'tf-progress-fill' });
@@ -2607,20 +1220,16 @@ export class UIBuilder {
 
 		// NEW: Simple tracking mode
 		if (!this.settings.enableGoalTracking) {
-			this.elements.weekCard.style.background = "var(--background-secondary)";
-			this.elements.weekCard.style.color = "var(--text-normal)";
+			this.elements.weekCard.setCssProps({ '--tf-bg': 'var(--background-secondary)', '--tf-color': 'var(--text-normal)' });
 			this.elements.weekCard.empty();
 
 			addWeekBadge(this.elements.weekCard);
 
-			const h3 = this.elements.weekCard.createEl('h3', { text: t('ui.thisWeek') });
-			h3.style.color = 'inherit';
+			this.elements.weekCard.createEl('h3', { text: t('ui.thisWeek') });
 
-			const hoursDiv = this.elements.weekCard.createDiv({ text: Utils.formatHoursToHM(weekHours, this.settings.hourUnit) });
-			hoursDiv.style.cssText = 'font-size: 32px; font-weight: bold; margin: 10px 0;';
+			this.elements.weekCard.createDiv({ text: Utils.formatHoursToHM(weekHours, this.settings.hourUnit), cls: 'tf-card-big-number' });
 
-			const labelDiv = this.elements.weekCard.createDiv({ text: t('ui.hoursWorked') });
-			labelDiv.style.cssText = 'font-size: 14px; opacity: 0.9; margin-top: 10px;';
+			this.elements.weekCard.createDiv({ text: t('ui.hoursWorked'), cls: 'tf-card-label' });
 			return;
 		}
 
@@ -2661,22 +1270,18 @@ export class UIBuilder {
 			textColor = "white";
 		}
 
-		this.elements.weekCard.style.background = bgColor;
-		this.elements.weekCard.style.color = textColor;
+		this.elements.weekCard.setCssProps({ '--tf-bg': bgColor, '--tf-color': textColor });
 		this.elements.weekCard.empty();
 
 		addWeekBadge(this.elements.weekCard);
 
-		const h3 = this.elements.weekCard.createEl('h3', { text: t('ui.thisWeek') });
-		h3.style.color = textColor;
+		this.elements.weekCard.createEl('h3', { text: t('ui.thisWeek') });
 
-		const hoursDiv = this.elements.weekCard.createDiv({ text: Utils.formatHoursToHM(weekHours, this.settings.hourUnit) });
-		hoursDiv.style.cssText = 'font-size: 32px; font-weight: bold; margin: 10px 0;';
+		this.elements.weekCard.createDiv({ text: Utils.formatHoursToHM(weekHours, this.settings.hourUnit), cls: 'tf-card-big-number' });
 
 		// Conditionally show goal and progress bar based on settings
 		if (this.settings.enableWeeklyGoals) {
-			const goalDiv = this.elements.weekCard.createDiv({ text: `${t('ui.goal')}: ${Utils.formatHoursToHM(adjustedGoal, this.settings.hourUnit)}` });
-			goalDiv.style.cssText = 'font-size: 14px; opacity: 0.9; margin-bottom: 10px;';
+			this.elements.weekCard.createDiv({ text: `${t('ui.goal')}: ${Utils.formatHoursToHM(adjustedGoal, this.settings.hourUnit)}`, cls: 'tf-card-goal' });
 
 			const progressBar = this.elements.weekCard.createDiv({ cls: 'tf-progress-bar' });
 			const progressFill = progressBar.createDiv({ cls: 'tf-progress-fill' });
@@ -2705,14 +1310,7 @@ export class UIBuilder {
 				const availableYears = this.data.getAvailableYears();
 				if (availableYears.length > 0) {
 					const yearSelect = document.createElement("select");
-					yearSelect.style.padding = "4px 8px";
-					yearSelect.style.fontSize = "1em";
-					yearSelect.style.fontWeight = "bold";
-					yearSelect.style.border = "1px solid var(--background-modifier-border)";
-					yearSelect.style.borderRadius = "4px";
-					yearSelect.style.background = "var(--background-primary)";
-					yearSelect.style.color = "var(--text-normal)";
-					yearSelect.style.cursor = "pointer";
+					yearSelect.className = "tf-select";
 
 					availableYears.forEach(year => {
 						const option = document.createElement("option");
@@ -2734,14 +1332,7 @@ export class UIBuilder {
 				const availableYears = this.data.getAvailableYears();
 				if (availableYears.length > 0) {
 					const yearSelect = document.createElement("select");
-					yearSelect.style.padding = "4px 8px";
-					yearSelect.style.fontSize = "1em";
-					yearSelect.style.fontWeight = "bold";
-					yearSelect.style.border = "1px solid var(--background-modifier-border)";
-					yearSelect.style.borderRadius = "4px";
-					yearSelect.style.background = "var(--background-primary)";
-					yearSelect.style.color = "var(--text-normal)";
-					yearSelect.style.cursor = "pointer";
+					yearSelect.className = "tf-select";
 
 					availableYears.forEach(year => {
 						const option = document.createElement("option");
@@ -2767,14 +1358,7 @@ export class UIBuilder {
 					const availableMonths = this.data.getAvailableMonthsForYear(this.selectedYear);
 					if (availableMonths.length > 0) {
 						const monthSelect = document.createElement("select");
-						monthSelect.style.padding = "4px 8px";
-						monthSelect.style.fontSize = "1em";
-						monthSelect.style.fontWeight = "bold";
-						monthSelect.style.border = "1px solid var(--background-modifier-border)";
-						monthSelect.style.borderRadius = "4px";
-						monthSelect.style.background = "var(--background-primary)";
-						monthSelect.style.color = "var(--text-normal)";
-						monthSelect.style.cursor = "pointer";
+						monthSelect.className = "tf-select";
 
 						const monthNames = ["Januar", "Februar", "Mars", "April", "Mai", "Juni",
 							"Juli", "August", "September", "Oktober", "November", "Desember"];
@@ -2798,8 +1382,7 @@ export class UIBuilder {
 			} else {
 				// Total - just show label
 				const label = document.createElement("div");
-				label.style.fontSize = "1.1em";
-				label.style.fontWeight = "bold";
+				label.className = "tf-text-lg tf-font-bold";
 				label.textContent = t('ui.total');
 				selectorContainer.appendChild(label);
 			}
@@ -2814,7 +1397,7 @@ export class UIBuilder {
 
 		// Ferie display
 		let ferieDisplay = `${stats.ferie.count} ${t('ui.days')}`;
-		if (this.statsTimeframe === "year" && stats.ferie.max > 0) {
+		if (this.statsTimeframe === "year" && stats.ferie.max && stats.ferie.max > 0) {
 			const feriePercent = ((stats.ferie.count / stats.ferie.max) * 100).toFixed(0);
 			ferieDisplay = `${stats.ferie.count}/${stats.ferie.max} ${t('ui.days')} (${feriePercent}%)`;
 		}
@@ -2843,8 +1426,7 @@ export class UIBuilder {
 			item.createDiv({ cls: 'tf-stat-label', text: label });
 			const valueDiv = item.createDiv({ cls: 'tf-stat-value', text: value });
 			if (subtitle !== undefined) {
-				const subDiv = item.createDiv({ text: subtitle });
-				subDiv.style.cssText = 'font-size: 0.75em; margin-top: 4px;';
+				item.createDiv({ text: subtitle, cls: 'tf-stat-subtitle' });
 			}
 			return { item, valueDiv };
 		};
@@ -2875,8 +1457,7 @@ export class UIBuilder {
 				if (Math.abs(diff) > 2) {
 					const arrow = diff > 0 ? "📈" : "📉";
 					const signDiff = diff > 0 ? "+" : "";
-					const compDiv = weekItem.createDiv({ text: `${t('ui.vsLastWeek')}: ${signDiff}${diff.toFixed(1)}t ${arrow}` });
-					compDiv.style.cssText = 'font-size: 0.75em; margin-top: 4px;';
+					const compDiv = weekItem.createDiv({ text: `${t('ui.vsLastWeek')}: ${signDiff}${diff.toFixed(1)}t ${arrow}`, cls: 'tf-comp-small' });
 				}
 			}
 		}
@@ -2905,10 +1486,9 @@ export class UIBuilder {
 		if (!this.settings.hideEmptyStats || stats.ferie.count > 0) {
 			const vacationItem = this.elements.statsCard.createDiv({ cls: 'tf-stat-item' });
 			vacationItem.createDiv({ cls: 'tf-stat-label', text: `🏖️ ${t('stats.vacation')}` });
-			const vacationValue = vacationItem.createDiv({ cls: 'tf-stat-value', text: ferieDisplay });
-			vacationValue.style.fontSize = this.statsTimeframe === 'year' ? '0.9em' : '1.3em';
-			const vacationSub = vacationItem.createDiv();
-			vacationSub.style.cssText = 'font-size: 0.75em; margin-top: 4px;';
+			const sizeClass = this.statsTimeframe === 'year' ? 'tf-text-year-size' : 'tf-text-default-size';
+			const vacationValue = vacationItem.createDiv({ cls: `tf-stat-value ${sizeClass}`, text: ferieDisplay });
+			vacationItem.createDiv({ cls: 'tf-stat-subtitle' });
 		}
 
 		// Welfare leave
@@ -2920,10 +1500,9 @@ export class UIBuilder {
 		if (!this.settings.hideEmptyStats || stats.egenmelding.count > 0) {
 			const sickItem = this.elements.statsCard.createDiv({ cls: 'tf-stat-item' });
 			sickItem.createDiv({ cls: 'tf-stat-label', text: `🤒 ${t('stats.selfReportedSick')}` });
-			const sickValue = sickItem.createDiv({ cls: 'tf-stat-value', text: egenmeldingDisplay });
-			sickValue.style.fontSize = this.statsTimeframe === 'year' ? '0.9em' : '1.3em';
-			const sickSub = sickItem.createDiv({ text: egenmeldingPeriodLabel });
-			sickSub.style.cssText = 'font-size: 0.75em; margin-top: 4px;';
+			const sickSizeClass = this.statsTimeframe === 'year' ? 'tf-text-year-size' : 'tf-text-default-size';
+			const sickValue = sickItem.createDiv({ cls: `tf-stat-value ${sickSizeClass}`, text: egenmeldingDisplay });
+			sickItem.createDiv({ text: egenmeldingPeriodLabel, cls: 'tf-stat-subtitle' });
 		}
 
 		// Doctor sick
@@ -3158,9 +1737,8 @@ export class UIBuilder {
 			const dateStr = formatDate(date, 'long');
 			const itemDiv = innerContainer.createDiv({ cls: 'tf-future-day-item' });
 			itemDiv.createSpan({ cls: 'tf-future-day-date', text: dateStr });
-			const typeSpan = itemDiv.createSpan({ cls: 'tf-future-day-type', text: day.label });
-			typeSpan.style.backgroundColor = day.color;
-			typeSpan.style.color = day.textColor;
+			const typeSpan = itemDiv.createSpan({ cls: 'tf-future-day-type tf-dynamic-bg-color', text: day.label });
+			typeSpan.setCssProps({ '--tf-bg': day.color, '--tf-color': day.textColor });
 		});
 	}
 
@@ -3174,9 +1752,7 @@ export class UIBuilder {
 
 		const monthTitle = document.createElement("div");
 		monthTitle.textContent = monthName;
-		monthTitle.style.textAlign = "left";
-		monthTitle.style.fontWeight = "bold";
-		monthTitle.style.marginBottom = "10px";
+		monthTitle.className = 'tf-month-title';
 		container.appendChild(monthTitle);
 
 		const grid = document.createElement("div");
@@ -3195,10 +1771,7 @@ export class UIBuilder {
 		dayNames.forEach(name => {
 			const header = document.createElement("div");
 			header.textContent = name;
-			header.style.textAlign = "center";
-			header.style.fontWeight = "bold";
-			header.style.fontSize = "12px";
-			header.style.color = "var(--text-muted)";
+			header.className = 'tf-day-header';
 			grid.appendChild(header);
 		});
 
@@ -3222,7 +1795,7 @@ export class UIBuilder {
 
 			// Add click handler if compliance is enabled and class is set
 			if (complianceClass && complianceClass !== 'week-future') {
-				weekNumCell.style.cursor = 'pointer';
+				weekNumCell.addClass('tf-cursor-pointer');
 				const monday = new Date(mondayOfWeek); // Capture for closure
 				weekNumCell.onclick = (e) => {
 					e.stopPropagation();
@@ -3243,9 +1816,6 @@ export class UIBuilder {
 		const daysInMonth = new Date(year, month + 1, 0).getDate();
 		const todayKey = Utils.toLocalDateStr(new Date());
 
-		// Track position in grid for week number insertion
-		let gridPosition = firstDayOfWeek; // Start after empty cells
-
 		for (let day = 1; day <= daysInMonth; day++) {
 			const date = new Date(year, month, day);
 			const dateKey = Utils.toLocalDateStr(date);
@@ -3261,7 +1831,7 @@ export class UIBuilder {
 
 				// Add click handler if compliance is enabled and class is set
 				if (complianceClass && complianceClass !== 'week-future') {
-					weekNumCell.style.cursor = 'pointer';
+					weekNumCell.addClass('tf-cursor-pointer');
 					const monday = new Date(date); // Capture for closure
 					weekNumCell.onclick = (e) => {
 						e.stopPropagation();
@@ -3342,20 +1912,26 @@ export class UIBuilder {
 			if (holidayInfo) {
 				// Holiday from holidays file
 				const colorKey = holidayInfo.halfDay ? 'halfday' : holidayInfo.type;
-				cell.style.background = specialDayColors[colorKey] || specialDayColors[holidayInfo.type] || "var(--background-secondary)";
-				cell.style.color = specialDayTextColors[colorKey] || specialDayTextColors[holidayInfo.type] || "var(--text-normal)";
+				cell.setCssProps({
+					'--tf-bg': specialDayColors[colorKey] || specialDayColors[holidayInfo.type] || "var(--background-secondary)",
+					'--tf-color': specialDayTextColors[colorKey] || specialDayTextColors[holidayInfo.type] || "var(--text-normal)"
+				});
 			} else if (hasMixedTypes && !workIsDominant && dominantSpecialType) {
 				// Special day has more hours - use special day color as main background
 				const behavior = this.settings.specialDayBehaviors.find(b => b.id === dominantSpecialType);
 				const bgColor = behavior?.color || specialDayColors[dominantSpecialType];
-				cell.style.background = bgColor;
-				cell.style.color = behavior?.textColor || specialDayTextColors[dominantSpecialType] || "var(--text-normal)";
+				cell.setCssProps({
+					'--tf-bg': bgColor,
+					'--tf-color': behavior?.textColor || specialDayTextColors[dominantSpecialType] || "var(--text-normal)"
+				});
 			} else if (specialEntry && !hasMixedTypes) {
 				// Special day ONLY (no work entries) - use special day color for whole cell
 				const entryKey = specialEntry.name.toLowerCase();
 				const behavior = this.settings.specialDayBehaviors.find(b => b.id === entryKey);
-				cell.style.background = behavior?.color || specialDayColors[entryKey];
-				cell.style.color = behavior?.textColor || specialDayTextColors[entryKey] || "var(--text-normal)";
+				cell.setCssProps({
+					'--tf-bg': behavior?.color || specialDayColors[entryKey],
+					'--tf-color': behavior?.textColor || specialDayTextColors[entryKey] || "var(--text-normal)"
+				});
 			} else if (dayEntries) {
 				// Work is dominant or only work entries - show flextime color or simple color
 				const isWeekendDay = Utils.isWeekend(date, this.settings);
@@ -3364,8 +1940,10 @@ export class UIBuilder {
 
 				if (isMinimalWeekendWork) {
 					// Weekend with less than half workday - show gray base with work stripe
-					cell.style.background = "var(--background-modifier-border)";
-					cell.style.color = "var(--text-muted)";
+					cell.setCssProps({
+						'--tf-bg': "var(--background-modifier-border)",
+						'--tf-color': "var(--text-muted)"
+					});
 
 					// Add work stripe at bottom
 					const dayFlextime = dayEntries.reduce((sum, e) => sum + (e.flextime || 0), 0);
@@ -3375,29 +1953,26 @@ export class UIBuilder {
 
 					const stripe = document.createElement("div");
 					stripe.className = "secondary-type-stripe";
-					stripe.style.position = "absolute";
-					stripe.style.bottom = "0";
-					stripe.style.left = "0";
-					stripe.style.right = "0";
-					stripe.style.height = "4px";
-					stripe.style.borderRadius = "0 0 4px 4px";
-					stripe.style.background = stripeColor;
-					stripe.style.zIndex = "1";
+					stripe.setCssProps({ '--tf-bg': stripeColor });
 					cell.appendChild(stripe);
 				} else if (!this.settings.enableGoalTracking) {
 					// Simple tracking mode - use work type's simpleColor
 					const workType = this.settings.specialDayBehaviors.find(b => b.isWorkType);
-					cell.style.background = workType?.simpleColor || '#90caf9';
-					cell.style.color = workType?.simpleTextColor || '#000000';
+					cell.setCssProps({
+						'--tf-bg': workType?.simpleColor || '#90caf9',
+						'--tf-color': workType?.simpleTextColor || '#000000'
+					});
 				} else {
 					// Goal-based mode - show flextime color gradient
 					const dayFlextime = dayEntries.reduce((sum, e) => sum + (e.flextime || 0), 0);
-					cell.style.background = this.flextimeColor(dayFlextime);
-					cell.style.color = this.flextimeTextColor(dayFlextime);
+					cell.setCssProps({
+						'--tf-bg': this.flextimeColor(dayFlextime),
+						'--tf-color': this.flextimeTextColor(dayFlextime)
+					});
 				}
 			} else if (Utils.isWeekend(date, this.settings)) {
 				// Gray for weekends with no data
-				cell.style.background = "var(--background-modifier-border)";
+				cell.setCssProps({ '--tf-bg': "var(--background-modifier-border)" });
 			} else {
 				// Check if date is in the past
 				const today = new Date();
@@ -3407,10 +1982,10 @@ export class UIBuilder {
 
 				if (cellDate < today) {
 					// Secondary background for past empty weekdays
-					cell.style.background = "var(--background-secondary)";
+					cell.setCssProps({ '--tf-bg': "var(--background-secondary)" });
 				} else {
 					// Transparent for future empty weekdays
-					cell.style.background = "transparent";
+					cell.setCssProps({ '--tf-bg': "transparent" });
 				}
 			}
 
@@ -3435,14 +2010,7 @@ export class UIBuilder {
 				if (stripeColor) {
 					const stripe = document.createElement("div");
 					stripe.className = "secondary-type-stripe";
-					stripe.style.position = "absolute";
-					stripe.style.bottom = "0";
-					stripe.style.left = "0";
-					stripe.style.right = "0";
-					stripe.style.height = "4px";
-					stripe.style.borderRadius = "0 0 4px 4px";
-					stripe.style.background = stripeColor;
-					stripe.style.zIndex = "1";
+					stripe.setCssProps({ '--tf-bg': stripeColor });
 					cell.appendChild(stripe);
 				}
 			}
@@ -3453,7 +2021,7 @@ export class UIBuilder {
 			} else {
 				cell.classList.add("no-entry");
 				// Use normal text color for empty cells
-				cell.style.color = "var(--text-muted)";
+				cell.setCssProps({ '--tf-color': "var(--text-muted)" });
 			}
 
 			// Highlight today
@@ -3465,18 +2033,8 @@ export class UIBuilder {
 			const hasActiveEntry = dayEntries?.some(e => !e.endTime);
 			if (hasActiveEntry) {
 				// Add pulsing indicator for active entry
-				// Use white with dark border for visibility on any background
 				const indicator = document.createElement("div");
-				indicator.style.position = "absolute";
-				indicator.style.top = "4px";
-				indicator.style.right = "4px";
-				indicator.style.width = "8px";
-				indicator.style.height = "8px";
-				indicator.style.borderRadius = "50%";
-				indicator.style.background = "#ffffff";
-				indicator.style.border = "2px solid #333333";
-				indicator.style.animation = "pulse 2s infinite";
-				indicator.style.boxShadow = "0 0 4px rgba(0, 0, 0, 0.4)";
+				indicator.className = "tf-active-entry-indicator";
 				cell.appendChild(indicator);
 			}
 
@@ -3789,17 +2347,6 @@ export class UIBuilder {
 		const panel = document.createElement('div');
 		panel.className = 'tf-week-compliance-panel';
 		panel.dataset.weekMonday = Utils.toLocalDateStr(mondayOfWeek); // Store for toggle detection
-		panel.style.cssText = `
-			position: fixed;
-			background: var(--background-primary);
-			border: 1px solid var(--background-modifier-border);
-			border-radius: 8px;
-			padding: 16px;
-			box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-			z-index: 1000;
-			min-width: 220px;
-			max-width: 300px;
-		`;
 
 		// Status icon and color
 		let statusIcon = '🟩';
@@ -3823,39 +2370,32 @@ export class UIBuilder {
 		const diffText = diff >= 0 ? `+${diff.toFixed(1)}` : diff.toFixed(1);
 
 		// Build panel content using DOM API
-		const headerRow = panel.createDiv();
-		headerRow.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;';
-		const weekTitle = headerRow.createEl('strong', { text: `${t('ui.week')} ${data.weekNumber}` });
-		weekTitle.style.fontSize = '1.1em';
-		const statusSpan = headerRow.createSpan({ text: `${statusIcon} ${statusText}` });
-		statusSpan.style.cssText = `color: ${statusColor}; font-weight: bold;`;
+		const headerRow = panel.createDiv({ cls: 'tf-panel-header-row' });
+		const weekTitle = headerRow.createEl('strong', { text: `${t('ui.week')} ${data.weekNumber}`, cls: 'tf-week-title' });
+		const statusSpan = headerRow.createSpan({ text: `${statusIcon} ${statusText}`, cls: 'tf-font-bold tf-dynamic-color' });
+		statusSpan.setCssProps({ '--tf-color': statusColor });
 
-		const contentDiv = panel.createDiv();
-		contentDiv.style.cssText = 'display: flex; flex-direction: column; gap: 8px; font-size: 0.9em;';
+		const contentDiv = panel.createDiv({ cls: 'tf-panel-content-col' });
 
 		// Hours logged row
-		const hoursRow = contentDiv.createDiv();
-		hoursRow.style.cssText = 'display: flex; justify-content: space-between;';
+		const hoursRow = contentDiv.createDiv({ cls: 'tf-panel-row' });
 		hoursRow.createSpan({ text: `${t('ui.hoursLogged')}:` });
 		hoursRow.createEl('strong', { text: `${data.totalHours.toFixed(1)}t` });
 
 		// Expected row
-		const expectedRow = contentDiv.createDiv();
-		expectedRow.style.cssText = 'display: flex; justify-content: space-between;';
+		const expectedRow = contentDiv.createDiv({ cls: 'tf-panel-row' });
 		expectedRow.createSpan({ text: `${t('ui.expected')}:` });
 		expectedRow.createSpan({ text: `${data.expectedHours.toFixed(1)}t (${data.workDaysPassed}/${data.workDaysInWeek} ${t('ui.days')})` });
 
 		// Difference row
-		const diffRow = contentDiv.createDiv();
-		diffRow.style.cssText = 'display: flex; justify-content: space-between; border-top: 1px solid var(--background-modifier-border); padding-top: 8px;';
+		const diffRow = contentDiv.createDiv({ cls: 'tf-panel-row-border' });
 		diffRow.createSpan({ text: `${t('ui.difference')}:` });
-		const diffValue = diffRow.createEl('strong', { text: `${diffText}t` });
-		diffValue.style.color = statusColor;
+		const diffValue = diffRow.createEl('strong', { text: `${diffText}t`, cls: 'tf-dynamic-color' });
+		diffValue.setCssProps({ '--tf-color': statusColor });
 
 		// Warning if over limit
 		if (data.totalHours > data.weeklyLimit) {
-			const warningDiv = contentDiv.createDiv({ text: `⚠️ ${t('ui.overWeekLimit')} (${data.weeklyLimit}t)` });
-			warningDiv.style.cssText = 'color: #f44336; margin-top: 4px;';
+			contentDiv.createDiv({ text: `⚠️ ${t('ui.overWeekLimit')} (${data.weeklyLimit}t)`, cls: 'tf-warning-text' });
 		}
 
 		// Position panel near the clicked cell
@@ -4102,8 +2642,7 @@ export class UIBuilder {
 				const startTimeStr = `${startTime.getHours().toString().padStart(2, '0')}:${startTime.getMinutes().toString().padStart(2, '0')}`;
 				const now = new Date();
 				const elapsed = ((now.getTime() - startTime.getTime()) / (1000 * 60 * 60)).toFixed(1);
-				const timerP = menuInfo.createEl('p', { text: '⏱️ ' + timer.name + ': ' + startTimeStr + ' - Pågår (' + elapsed + 't)' });
-				timerP.style.marginLeft = '8px';
+				menuInfo.createEl('p', { text: '⏱️ ' + timer.name + ': ' + startTimeStr + ' - Pågår (' + elapsed + 't)', cls: 'tf-ml-8' });
 			});
 		}
 
@@ -4127,20 +2666,17 @@ export class UIBuilder {
 				const durationText = (e.duration && e.duration > 0)
 					? `: ${e.duration.toFixed(1)}${this.settings.hourUnit}`
 					: isFullDayReduceGoal ? ` (${t('ui.fullDay')})` : '';
-				const entryP = menuInfo.createEl('p', { text: emoji + ' ' + translateSpecialDayName(e.name.toLowerCase(), e.name) + durationText });
-				entryP.style.marginLeft = '8px';
+				const entryP = menuInfo.createEl('p', { text: emoji + ' ' + translateSpecialDayName(e.name.toLowerCase(), e.name) + durationText, cls: 'tf-ml-8' });
 			});
 
 			// Add balance information for past days
 			if (!isFutureDay) {
-				const totalHours = allEntries.reduce((sum, e) => sum + (e.duration || 0), 0);
 				const dayGoal = this.data.getDailyGoal(dateStr);
 				// Use actual flextime from entries (accounts for accumulate/withdraw behaviors)
 				const dailyDelta = allEntries.reduce((sum, e) => sum + (e.flextime || 0), 0);
 				const runningBalance = this.data.getBalanceUpToDate(dateStr);
 
-				const goalP = menuInfo.createEl('p');
-				goalP.style.marginTop = '8px';
+				const goalP = menuInfo.createEl('p', { cls: 'tf-menu-goal' });
 				goalP.createEl('strong', { text: t('ui.goal') + ':' });
 				goalP.appendText(' ' + dayGoal.toFixed(1) + 't');
 
@@ -4153,8 +2689,7 @@ export class UIBuilder {
 				balanceP.appendText(' ' + (runningBalance >= 0 ? '+' : '') + Utils.formatHoursToHM(runningBalance, this.settings.hourUnit));
 			}
 		} else if (isPastDay && !isPlannedDay && runningTimersForDate.length === 0) {
-			const noRegP = menuInfo.createEl('p', { text: t('ui.noRegistration') });
-			noRegP.style.color = 'var(--text-muted)';
+			menuInfo.createEl('p', { text: t('ui.noRegistration'), cls: 'tf-text-muted' });
 		}
 
 		// Check for rest period violation
@@ -4169,12 +2704,7 @@ export class UIBuilder {
 		}
 
 		// Add helpful tip
-		const tipP = menuInfo.createEl('p', { text: `💡 ${t('menu.selectOption')}` });
-		tipP.style.marginTop = '12px';
-		tipP.style.fontSize = '0.8em';
-		tipP.style.color = 'var(--text-muted)';
-		tipP.style.borderTop = '1px solid var(--background-modifier-border)';
-		tipP.style.paddingTop = '8px';
+		menuInfo.createEl('p', { text: `💡 ${t('menu.selectOption')}`, cls: 'tf-tip-paragraph' });
 		menu.appendChild(menuInfo);
 
 		// Close menu on click outside
@@ -4194,8 +2724,7 @@ export class UIBuilder {
 	 */
 	private showOvernightShiftConfirmation(onConfirm: () => void): void {
 		const modal = document.createElement('div');
-		modal.className = 'modal-container mod-dim';
-		modal.style.zIndex = '1001';
+		modal.className = 'modal-container mod-dim tf-modal-z1001';
 
 		const modalBg = document.createElement('div');
 		modalBg.className = 'modal-bg';
@@ -4203,8 +2732,7 @@ export class UIBuilder {
 		modal.appendChild(modalBg);
 
 		const modalContent = document.createElement('div');
-		modalContent.className = 'modal';
-		modalContent.style.width = '350px';
+		modalContent.className = 'modal tf-modal-content-350';
 
 		const title = document.createElement('div');
 		title.className = 'modal-title';
@@ -4212,18 +2740,14 @@ export class UIBuilder {
 		modalContent.appendChild(title);
 
 		const content = document.createElement('div');
-		content.className = 'modal-content';
-		content.style.padding = '20px';
+		content.className = 'modal-content tf-modal-content-padded';
 
 		const message = document.createElement('p');
 		message.textContent = t('confirm.overnightShift');
 		content.appendChild(message);
 
 		const buttonDiv = document.createElement('div');
-		buttonDiv.style.display = 'flex';
-		buttonDiv.style.gap = '10px';
-		buttonDiv.style.justifyContent = 'flex-end';
-		buttonDiv.style.marginTop = '15px';
+		buttonDiv.className = 'tf-btn-row-end-mt';
 
 		const cancelBtn = document.createElement('button');
 		cancelBtn.textContent = t('buttons.cancel');
@@ -4233,6 +2757,59 @@ export class UIBuilder {
 		const confirmBtn = document.createElement('button');
 		confirmBtn.textContent = t('buttons.confirm');
 		confirmBtn.className = 'mod-cta';
+		confirmBtn.onclick = () => {
+			modal.remove();
+			onConfirm();
+		};
+		buttonDiv.appendChild(confirmBtn);
+
+		content.appendChild(buttonDiv);
+		modalContent.appendChild(content);
+		modal.appendChild(modalContent);
+		document.body.appendChild(modal);
+	}
+
+	/**
+	 * Show a generic confirmation dialog that replaces browser confirm().
+	 * @param message The message to display
+	 * @param onConfirm Callback when user confirms
+	 * @param title Optional title (defaults to "Confirm")
+	 */
+	private showConfirmDialog(message: string, onConfirm: () => void, title?: string): void {
+		const modal = document.createElement('div');
+		modal.className = 'modal-container mod-dim tf-modal-z1001';
+
+		const modalBg = document.createElement('div');
+		modalBg.className = 'modal-bg';
+		modalBg.onclick = () => modal.remove();
+		modal.appendChild(modalBg);
+
+		const modalContent = document.createElement('div');
+		modalContent.className = 'modal tf-modal-content-350';
+
+		const titleEl = document.createElement('div');
+		titleEl.className = 'modal-title';
+		titleEl.textContent = title || t('buttons.confirm');
+		modalContent.appendChild(titleEl);
+
+		const content = document.createElement('div');
+		content.className = 'modal-content tf-modal-content-padded';
+
+		const messageEl = document.createElement('p');
+		messageEl.textContent = message;
+		content.appendChild(messageEl);
+
+		const buttonDiv = document.createElement('div');
+		buttonDiv.className = 'tf-btn-row-end-mt';
+
+		const cancelBtn = document.createElement('button');
+		cancelBtn.textContent = t('buttons.cancel');
+		cancelBtn.onclick = () => modal.remove();
+		buttonDiv.appendChild(cancelBtn);
+
+		const confirmBtn = document.createElement('button');
+		confirmBtn.textContent = t('buttons.confirm');
+		confirmBtn.className = 'mod-cta mod-warning';
 		confirmBtn.onclick = () => {
 			modal.remove();
 			onConfirm();
@@ -4289,8 +2866,7 @@ export class UIBuilder {
 
 		// Create modal
 		const modal = document.createElement('div');
-		modal.className = 'modal-container mod-dim';
-		modal.style.zIndex = '1000';
+		modal.className = 'modal-container mod-dim tf-modal-z';
 
 		const modalBg = document.createElement('div');
 		modalBg.className = 'modal-bg';
@@ -4298,8 +2874,7 @@ export class UIBuilder {
 		modal.appendChild(modalBg);
 
 		const modalContent = document.createElement('div');
-		modalContent.className = 'modal';
-		modalContent.style.width = '400px';
+		modalContent.className = 'modal tf-modal-w-400';
 
 		// Prevent Obsidian from capturing keyboard events in modal inputs
 		modalContent.addEventListener('keydown', (e) => e.stopPropagation());
@@ -4316,48 +2891,37 @@ export class UIBuilder {
 
 		// Content
 		const content = document.createElement('div');
-		content.className = 'modal-content';
-		content.style.padding = '20px';
+		content.className = 'modal-content tf-modal-content-padded';
 
 		// Start time
 		const startLabel = document.createElement('div');
 		startLabel.textContent = t('modals.startTimeFormat');
-		startLabel.style.marginBottom = '5px';
-		startLabel.style.fontWeight = 'bold';
+		startLabel.className = 'tf-form-label-bold';
 		content.appendChild(startLabel);
 
 		const startInput = document.createElement('input');
 		startInput.type = 'text';
 		startInput.value = '08:00';
 		startInput.placeholder = 'HH:MM';
-		startInput.style.width = '100%';
-		startInput.style.marginBottom = '15px';
-		startInput.style.padding = '8px';
-		startInput.style.fontSize = '14px';
+		startInput.className = 'tf-form-input-full tf-form-input-mb';
 		content.appendChild(startInput);
 
 		// End time
 		const endLabel = document.createElement('div');
 		endLabel.textContent = t('modals.endTimeFormat');
-		endLabel.style.marginBottom = '5px';
-		endLabel.style.fontWeight = 'bold';
+		endLabel.className = 'tf-form-label-bold';
 		content.appendChild(endLabel);
 
 		const endInput = document.createElement('input');
 		endInput.type = 'text';
 		endInput.value = '15:30';
 		endInput.placeholder = 'HH:MM';
-		endInput.style.width = '100%';
-		endInput.style.marginBottom = '20px';
-		endInput.style.padding = '8px';
-		endInput.style.fontSize = '14px';
+		endInput.className = 'tf-form-input-full tf-form-input-mb-lg';
 		content.appendChild(endInput);
 
 		// Buttons
 		const buttonDiv = document.createElement('div');
-		buttonDiv.style.display = 'flex';
-		buttonDiv.style.gap = '10px';
-		buttonDiv.style.justifyContent = 'flex-end';
+		buttonDiv.className = 'tf-btn-row-end';
 
 		const cancelBtn = document.createElement('button');
 		cancelBtn.textContent = t('buttons.cancel');
@@ -4488,8 +3052,7 @@ export class UIBuilder {
 
 		// Create modal
 		const modal = document.createElement('div');
-		modal.className = 'modal-container mod-dim';
-		modal.style.zIndex = '1000';
+		modal.className = 'modal-container mod-dim tf-modal-z';
 
 		const modalBg = document.createElement('div');
 		modalBg.className = 'modal-bg';
@@ -4497,10 +3060,7 @@ export class UIBuilder {
 		modal.appendChild(modalBg);
 
 		const modalContent = document.createElement('div');
-		modalContent.className = 'modal';
-		modalContent.style.width = '500px';
-		modalContent.style.maxHeight = '80vh';
-		modalContent.style.overflow = 'auto';
+		modalContent.className = 'modal tf-modal-w-500';
 
 		// Prevent Obsidian from capturing keyboard events in modal inputs
 		modalContent.addEventListener('keydown', (e) => e.stopPropagation());
@@ -4517,18 +3077,13 @@ export class UIBuilder {
 
 		// Content
 		const content = document.createElement('div');
-		content.className = 'modal-content';
-		content.style.padding = '20px';
+		content.className = 'modal-content tf-modal-content-padded';
 
 		// List all entries with edit/delete options
 		workEntries.forEach((item, index) => {
 			const entry = item.entry;
 			const entryDiv = document.createElement('div');
-			entryDiv.style.padding = '15px';
-			entryDiv.style.marginBottom = '10px';
-			entryDiv.style.background = 'var(--background-secondary)';
-			entryDiv.style.borderRadius = '8px';
-			entryDiv.style.border = '1px solid var(--background-modifier-border)';
+			entryDiv.className = 'tf-entry-card';
 
 			const startDate = new Date(entry.startTime!);
 			const endDate = entry.endTime ? new Date(entry.endTime) : null;
@@ -4545,12 +3100,11 @@ export class UIBuilder {
 
 			// Entry info
 			const infoDiv = document.createElement('div');
-			infoDiv.style.marginBottom = '10px';
+			infoDiv.className = 'tf-info-mb';
 
 			// Show entry name for subEntries, or just number for regular entries
 			const entryLabel = item.parent ? `${item.parent.name} - ${entry.name}` : `Oppføring ${index + 1}`;
-			const titleDiv = infoDiv.createDiv({ text: entryLabel });
-			titleDiv.style.cssText = 'font-weight: bold; margin-bottom: 5px;';
+			const titleDiv = infoDiv.createDiv({ text: entryLabel, cls: 'tf-title-bold' });
 
 			// Show time with date indicator for multi-day entries
 			const timeDisplay = isMultiDay
@@ -4563,31 +3117,25 @@ export class UIBuilder {
 
 			// Edit fields (initially hidden)
 			const editDiv = document.createElement('div');
-			editDiv.style.display = 'none';
-			editDiv.style.marginTop = '10px';
+			editDiv.className = 'tf-edit-section tf-hidden';
 
 			// Start date + time row
 			const startLabel = document.createElement('div');
 			startLabel.textContent = `${t('modals.startTime')}:`;
-			startLabel.style.marginBottom = '5px';
-			startLabel.style.fontWeight = 'bold';
+			startLabel.className = 'tf-label-bold-mb';
 			editDiv.appendChild(startLabel);
 
 			const startRow = document.createElement('div');
-			startRow.style.display = 'flex';
-			startRow.style.gap = '8px';
-			startRow.style.marginBottom = '10px';
+			startRow.className = 'tf-datetime-row';
 
 			const startDateInput = document.createElement('input');
 			startDateInput.type = 'date';
 			startDateInput.value = startDateStr;
-			startDateInput.style.flex = '1';
-			startDateInput.style.padding = '6px';
+			startDateInput.className = 'tf-input-flex-p';
 			startRow.appendChild(startDateInput);
 
 			const startTimeInput = this.createTimeInput(startTimeStr, () => {});
-			startTimeInput.style.flex = '1';
-			startTimeInput.style.padding = '6px';
+			startTimeInput.className = 'tf-input-flex-p';
 			startRow.appendChild(startTimeInput);
 
 			editDiv.appendChild(startRow);
@@ -4595,25 +3143,20 @@ export class UIBuilder {
 			// End date + time row
 			const endLabel = document.createElement('div');
 			endLabel.textContent = `${t('modals.endTime')}:`;
-			endLabel.style.marginBottom = '5px';
-			endLabel.style.fontWeight = 'bold';
+			endLabel.className = 'tf-label-bold-mb';
 			editDiv.appendChild(endLabel);
 
 			const endRow = document.createElement('div');
-			endRow.style.display = 'flex';
-			endRow.style.gap = '8px';
-			endRow.style.marginBottom = '10px';
+			endRow.className = 'tf-datetime-row';
 
 			const endDateInput = document.createElement('input');
 			endDateInput.type = 'date';
 			endDateInput.value = endDateStr || startDateStr;
-			endDateInput.style.flex = '1';
-			endDateInput.style.padding = '6px';
+			endDateInput.className = 'tf-input-flex-p';
 			endRow.appendChild(endDateInput);
 
 			const endTimeInput = this.createTimeInput(endTimeStr !== t('ui.ongoing') ? endTimeStr : '', () => {});
-			endTimeInput.style.flex = '1';
-			endTimeInput.style.padding = '6px';
+			endTimeInput.className = 'tf-input-flex-p';
 			endRow.appendChild(endTimeInput);
 
 			editDiv.appendChild(endRow);
@@ -4622,16 +3165,13 @@ export class UIBuilder {
 
 			// Buttons
 			const buttonDiv = document.createElement('div');
-			buttonDiv.style.display = 'flex';
-			buttonDiv.style.gap = '8px';
-			buttonDiv.style.marginTop = '10px';
+			buttonDiv.className = "tf-modal-btn-row";
 
 			const editBtn = document.createElement('button');
 			editBtn.textContent = `✏️ ${t('buttons.edit')}`;
-			editBtn.style.flex = '1';
 			editBtn.onclick = () => {
-				if (editDiv.style.display === 'none') {
-					editDiv.style.display = 'block';
+				if (editDiv.hasClass('tf-hidden')) {
+					editDiv.removeClass('tf-hidden');
 					editBtn.textContent = `💾 ${t('buttons.save')}`;
 				} else {
 					// Save changes - use date+time inputs
@@ -4709,7 +3249,6 @@ export class UIBuilder {
 
 			const deleteBtn = document.createElement('button');
 			deleteBtn.textContent = `🗑️ ${t('buttons.delete')}`;
-			deleteBtn.style.flex = '1';
 			deleteBtn.onclick = () => {
 				// Show confirmation dialog
 				this.showDeleteConfirmation(entry, dateObj, async () => {
@@ -4764,9 +3303,7 @@ export class UIBuilder {
 
 		// Close button
 		const closeDiv = document.createElement('div');
-		closeDiv.style.marginTop = '20px';
-		closeDiv.style.display = 'flex';
-		closeDiv.style.justifyContent = 'flex-end';
+		closeDiv.className = "tf-modal-close-row";
 
 		const closeBtn = document.createElement('button');
 		closeBtn.textContent = t('buttons.close');
@@ -4786,8 +3323,7 @@ export class UIBuilder {
 
 		// Create modal
 		const modal = document.createElement('div');
-		modal.className = 'modal-container mod-dim';
-		modal.style.zIndex = '1000';
+		modal.className = 'modal-container mod-dim tf-modal-z';
 
 		const modalBg = document.createElement('div');
 		modalBg.className = 'modal-bg';
@@ -4795,8 +3331,7 @@ export class UIBuilder {
 		modal.appendChild(modalBg);
 
 		const modalContent = document.createElement('div');
-		modalContent.className = 'modal';
-		modalContent.style.width = '400px';
+		modalContent.className = 'modal tf-modal-w-400';
 
 		// Prevent Obsidian from capturing keyboard events in modal inputs
 		modalContent.addEventListener('keydown', (e) => e.stopPropagation());
@@ -4813,27 +3348,21 @@ export class UIBuilder {
 
 		// Content
 		const content = document.createElement('div');
-		content.className = 'modal-content';
-		content.style.padding = '20px';
+		content.className = 'modal-content tf-modal-content-padded';
 
 		// Date display (single day mode)
 		const dateDisplay = document.createElement('div');
 		dateDisplay.textContent = `${t('ui.date')}: ${dateStr}`;
-		dateDisplay.style.marginBottom = '15px';
-		dateDisplay.style.fontSize = '16px';
-		dateDisplay.style.fontWeight = 'bold';
+		dateDisplay.className = 'tf-date-display';
 		content.appendChild(dateDisplay);
 
 		// Multi-day toggle container
 		const multiDayContainer = document.createElement('div');
-		multiDayContainer.style.marginBottom = '15px';
+		multiDayContainer.className = 'tf-mb-15';
 
 		// Multiple days checkbox row
 		const multiDayRow = document.createElement('div');
-		multiDayRow.style.display = 'flex';
-		multiDayRow.style.alignItems = 'center';
-		multiDayRow.style.gap = '8px';
-		multiDayRow.style.marginBottom = '10px';
+		multiDayRow.className = 'tf-checkbox-row';
 
 		const multiDayCheckbox = document.createElement('input');
 		multiDayCheckbox.type = 'checkbox';
@@ -4843,62 +3372,52 @@ export class UIBuilder {
 		const multiDayLabel = document.createElement('label');
 		multiDayLabel.htmlFor = 'multiDayCheckbox';
 		multiDayLabel.textContent = t('ui.multipleDays');
-		multiDayLabel.style.cursor = 'pointer';
+		multiDayLabel.className = 'tf-cursor-pointer';
 		multiDayRow.appendChild(multiDayLabel);
 
 		multiDayContainer.appendChild(multiDayRow);
 
 		// Date range inputs (hidden by default)
 		const dateRangeContainer = document.createElement('div');
-		dateRangeContainer.style.display = 'none';
-		dateRangeContainer.style.gap = '10px';
+		dateRangeContainer.className = 'tf-hidden';
 
 		// Start date row
 		const startDateRow = document.createElement('div');
-		startDateRow.style.display = 'flex';
-		startDateRow.style.alignItems = 'center';
-		startDateRow.style.gap = '8px';
-		startDateRow.style.marginBottom = '8px';
+		startDateRow.className = 'tf-date-row';
 
 		const startDateLabel = document.createElement('span');
 		startDateLabel.textContent = t('ui.startDate') + ':';
-		startDateLabel.style.minWidth = '80px';
+		startDateLabel.className = 'tf-date-label';
 		startDateRow.appendChild(startDateLabel);
 
 		const startDateInput = document.createElement('input');
 		startDateInput.type = 'date';
 		startDateInput.value = dateStr;
-		startDateInput.style.flex = '1';
-		startDateInput.style.padding = '6px';
+		startDateInput.className = 'tf-input-grow';
 		startDateRow.appendChild(startDateInput);
 
 		dateRangeContainer.appendChild(startDateRow);
 
 		// End date row
 		const endDateRow = document.createElement('div');
-		endDateRow.style.display = 'flex';
-		endDateRow.style.alignItems = 'center';
-		endDateRow.style.gap = '8px';
+		endDateRow.className = 'tf-date-row tf-mb-0';
 
 		const endDateLabel = document.createElement('span');
 		endDateLabel.textContent = t('ui.endDate') + ':';
-		endDateLabel.style.minWidth = '80px';
+		endDateLabel.className = 'tf-date-label';
 		endDateRow.appendChild(endDateLabel);
 
 		const endDateInput = document.createElement('input');
 		endDateInput.type = 'date';
 		endDateInput.value = dateStr;
-		endDateInput.style.flex = '1';
-		endDateInput.style.padding = '6px';
+		endDateInput.className = 'tf-input-grow';
 		endDateRow.appendChild(endDateInput);
 
 		dateRangeContainer.appendChild(endDateRow);
 
 		// Days count display
 		const daysCountDisplay = document.createElement('div');
-		daysCountDisplay.style.fontSize = '12px';
-		daysCountDisplay.style.color = 'var(--text-muted)';
-		daysCountDisplay.style.marginTop = '8px';
+		daysCountDisplay.className = 'tf-days-count';
 
 		const updateDaysCount = () => {
 			const start = new Date(startDateInput.value);
@@ -4920,8 +3439,13 @@ export class UIBuilder {
 		// Toggle date range inputs based on multi-day checkbox
 		const updateMultiDayVisibility = () => {
 			const isMultiDay = multiDayCheckbox.checked;
-			dateDisplay.style.display = isMultiDay ? 'none' : 'block';
-			dateRangeContainer.style.display = isMultiDay ? 'block' : 'none';
+			if (isMultiDay) {
+				dateDisplay.addClass('tf-hidden');
+				dateRangeContainer.removeClass('tf-hidden');
+			} else {
+				dateDisplay.removeClass('tf-hidden');
+				dateRangeContainer.addClass('tf-hidden');
+			}
 		};
 		multiDayCheckbox.addEventListener('change', updateMultiDayVisibility);
 
@@ -4930,8 +3454,7 @@ export class UIBuilder {
 		// Day type selection
 		const typeLabel = document.createElement('div');
 		typeLabel.textContent = t('modals.dayType');
-		typeLabel.style.marginBottom = '5px';
-		typeLabel.style.fontWeight = 'bold';
+		typeLabel.className = 'tf-label-bold-mb';
 		content.appendChild(typeLabel);
 
 		// Build day types from special day behaviors (exclude work types like 'jobb')
@@ -4943,10 +3466,7 @@ export class UIBuilder {
 			}));
 
 		const typeSelect = document.createElement('select');
-		typeSelect.style.width = '100%';
-		typeSelect.style.marginBottom = '15px';
-		typeSelect.style.padding = '8px';
-		typeSelect.style.fontSize = '14px';
+		typeSelect.className = 'tf-select-full';
 
 		dayTypes.forEach(({ type, label }) => {
 			const option = document.createElement('option');
@@ -4964,20 +3484,16 @@ export class UIBuilder {
 
 		// Time range fields (for avspasering)
 		const timeContainer = document.createElement('div');
-		timeContainer.style.marginBottom = '15px';
-		timeContainer.style.display = 'none'; // Hidden by default
+		timeContainer.className = 'tf-mb-15 tf-hidden';
 
 		const timeLabel = document.createElement('div');
 		timeLabel.textContent = 'Tidsperiode:';
-		timeLabel.style.marginBottom = '5px';
-		timeLabel.style.fontWeight = 'bold';
+		timeLabel.className = 'tf-label-bold-mb';
 		timeContainer.appendChild(timeLabel);
 
 		// Time inputs row
 		const timeInputRow = document.createElement('div');
-		timeInputRow.style.display = 'flex';
-		timeInputRow.style.gap = '10px';
-		timeInputRow.style.alignItems = 'center';
+		timeInputRow.className = 'tf-time-input-row';
 
 		const fromLabel = document.createElement('span');
 		fromLabel.textContent = 'Fra:';
@@ -4991,8 +3507,7 @@ export class UIBuilder {
 		const defaultEndTime = `${endH.toString().padStart(2, '0')}:${endM.toString().padStart(2, '0')}`;
 
 		const fromTimeInput = this.createTimeInput('08:00', () => {});
-		fromTimeInput.style.padding = '8px';
-		fromTimeInput.style.fontSize = '14px';
+		fromTimeInput.className = 'tf-time-input-styled';
 		timeInputRow.appendChild(fromTimeInput);
 
 		const toLabel = document.createElement('span');
@@ -5000,17 +3515,14 @@ export class UIBuilder {
 		timeInputRow.appendChild(toLabel);
 
 		const toTimeInput = this.createTimeInput(defaultEndTime, () => {});
-		toTimeInput.style.padding = '8px';
-		toTimeInput.style.fontSize = '14px';
+		toTimeInput.className = 'tf-time-input-styled';
 		timeInputRow.appendChild(toTimeInput);
 
 		timeContainer.appendChild(timeInputRow);
 
 		// Duration display for avspasering
 		const durationDisplay = document.createElement('div');
-		durationDisplay.style.fontSize = '12px';
-		durationDisplay.style.color = 'var(--text-muted)';
-		durationDisplay.style.marginTop = '8px';
+		durationDisplay.className = 'tf-duration-display';
 
 		const updateDuration = () => {
 			const from = fromTimeInput.value;
@@ -5035,20 +3547,16 @@ export class UIBuilder {
 
 		// Time range container (for reduce_goal types like sick days)
 		const sickTimeContainer = document.createElement('div');
-		sickTimeContainer.style.marginBottom = '15px';
-		sickTimeContainer.style.display = 'none';
+		sickTimeContainer.className = 'tf-mb-15 tf-hidden';
 
 		const sickTimeLabel = document.createElement('div');
 		sickTimeLabel.textContent = t('modals.timePeriod') || 'Tidsperiode:';
-		sickTimeLabel.style.marginBottom = '5px';
-		sickTimeLabel.style.fontWeight = 'bold';
+		sickTimeLabel.className = 'tf-label-bold-mb';
 		sickTimeContainer.appendChild(sickTimeLabel);
 
 		// Time inputs row for sick days
 		const sickTimeInputRow = document.createElement('div');
-		sickTimeInputRow.style.display = 'flex';
-		sickTimeInputRow.style.gap = '10px';
-		sickTimeInputRow.style.alignItems = 'center';
+		sickTimeInputRow.className = 'tf-time-input-row';
 
 		const sickFromLabel = document.createElement('span');
 		sickFromLabel.textContent = t('modals.from') || 'Fra:';
@@ -5107,8 +3615,7 @@ export class UIBuilder {
 		}
 
 		const sickFromTimeInput = this.createTimeInput(autoSickFromTime, () => {});
-		sickFromTimeInput.style.padding = '8px';
-		sickFromTimeInput.style.fontSize = '14px';
+		sickFromTimeInput.className = 'tf-time-input-styled';
 		sickTimeInputRow.appendChild(sickFromTimeInput);
 
 		const sickToLabel = document.createElement('span');
@@ -5116,17 +3623,14 @@ export class UIBuilder {
 		sickTimeInputRow.appendChild(sickToLabel);
 
 		const sickToTimeInput = this.createTimeInput(autoSickToTime, () => {});
-		sickToTimeInput.style.padding = '8px';
-		sickToTimeInput.style.fontSize = '14px';
+		sickToTimeInput.className = 'tf-time-input-styled';
 		sickTimeInputRow.appendChild(sickToTimeInput);
 
 		sickTimeContainer.appendChild(sickTimeInputRow);
 
 		// Duration display for sick days
 		const sickDurationDisplay = document.createElement('div');
-		sickDurationDisplay.style.fontSize = '12px';
-		sickDurationDisplay.style.color = 'var(--text-muted)';
-		sickDurationDisplay.style.marginTop = '8px';
+		sickDurationDisplay.className = 'tf-duration-display';
 
 		const updateSickDuration = () => {
 			const from = sickFromTimeInput.value;
@@ -5152,10 +3656,7 @@ export class UIBuilder {
 
 		// Full day checkbox
 		const fullDayRow = document.createElement('div');
-		fullDayRow.style.marginTop = '10px';
-		fullDayRow.style.display = 'flex';
-		fullDayRow.style.alignItems = 'center';
-		fullDayRow.style.gap = '8px';
+		fullDayRow.className = 'tf-checkbox-row-mt';
 
 		const fullDayCheckbox = document.createElement('input');
 		fullDayCheckbox.type = 'checkbox';
@@ -5167,7 +3668,7 @@ export class UIBuilder {
 		const fullDayLabel = document.createElement('label');
 		fullDayLabel.htmlFor = 'fullDayCheckbox';
 		fullDayLabel.textContent = t('ui.fullDay') || 'Hel dag';
-		fullDayLabel.style.cursor = 'pointer';
+		fullDayLabel.className = 'tf-cursor-pointer';
 		fullDayRow.appendChild(fullDayLabel);
 
 		sickTimeContainer.appendChild(fullDayRow);
@@ -5175,8 +3676,13 @@ export class UIBuilder {
 		// Toggle time inputs based on full day checkbox
 		const updateSickTimeInputs = () => {
 			const isFullDay = fullDayCheckbox.checked;
-			sickTimeInputRow.style.display = isFullDay ? 'none' : 'flex';
-			sickDurationDisplay.style.display = isFullDay ? 'none' : 'block';
+			if (isFullDay) {
+				sickTimeInputRow.addClass('tf-hidden');
+				sickDurationDisplay.addClass('tf-hidden');
+			} else {
+				sickTimeInputRow.removeClass('tf-hidden');
+				sickDurationDisplay.removeClass('tf-hidden');
+			}
 		};
 		fullDayCheckbox.addEventListener('change', updateSickTimeInputs);
 		updateSickTimeInputs();
@@ -5185,22 +3691,17 @@ export class UIBuilder {
 
 		// Annet (Other) container - shown only when annet type is selected
 		const annetContainer = document.createElement('div');
-		annetContainer.style.marginBottom = '15px';
-		annetContainer.style.display = 'none';
+		annetContainer.className = 'tf-mb-15 tf-hidden';
 
 		// Template selector
 		const annetTemplateLabel = document.createElement('div');
 		annetTemplateLabel.textContent = t('annet.selectTemplate');
-		annetTemplateLabel.style.marginBottom = '8px';
-		annetTemplateLabel.style.fontWeight = 'bold';
+		annetTemplateLabel.className = 'tf-label-bold-mb-8';
 		annetContainer.appendChild(annetTemplateLabel);
 
 		// Template buttons container
 		const annetTemplateButtons = document.createElement('div');
-		annetTemplateButtons.style.display = 'flex';
-		annetTemplateButtons.style.flexWrap = 'wrap';
-		annetTemplateButtons.style.gap = '8px';
-		annetTemplateButtons.style.marginBottom = '12px';
+		annetTemplateButtons.className = 'tf-template-btn-container';
 
 		let selectedAnnetTemplate: string | null = null;
 
@@ -5211,9 +3712,7 @@ export class UIBuilder {
 		annetTemplates.forEach(template => {
 			const btn = document.createElement('button');
 			btn.textContent = `${template.icon} ${translateAnnetTemplateName(template.id, template.label)}`;
-			btn.style.padding = '8px 12px';
-			btn.style.borderRadius = '4px';
-			btn.style.cursor = 'pointer';
+			btn.className = 'tf-template-btn';
 			btn.dataset.templateId = template.id;
 			templateButtonRefs.push(btn);
 			annetTemplateButtons.appendChild(btn);
@@ -5222,21 +3721,17 @@ export class UIBuilder {
 		// Custom/Egendefinert button
 		const customBtn = document.createElement('button');
 		customBtn.textContent = `📋 ${t('annet.custom')}`;
-		customBtn.style.padding = '8px 12px';
-		customBtn.style.borderRadius = '4px';
-		customBtn.style.cursor = 'pointer';
+		customBtn.className = 'tf-template-btn';
 		customBtn.onclick = () => {
 			// Deselect all buttons
 			annetTemplateButtons.querySelectorAll('button').forEach(b => {
-				b.style.backgroundColor = '';
 				b.classList.remove('mod-cta');
 			});
 			// Select this button
-			customBtn.style.backgroundColor = 'var(--interactive-accent)';
 			customBtn.classList.add('mod-cta');
 			selectedAnnetTemplate = null; // Custom entry
 			// Show save as template section
-			saveAsTemplateContainer.style.display = 'block';
+			saveAsTemplateContainer.removeClass('tf-hidden');
 		};
 		annetTemplateButtons.appendChild(customBtn);
 
@@ -5244,28 +3739,20 @@ export class UIBuilder {
 
 		// Custom entry section (shown only when custom is selected)
 		const saveAsTemplateContainer = document.createElement('div');
-		saveAsTemplateContainer.style.display = 'none';
-		saveAsTemplateContainer.style.marginBottom = '12px';
-		saveAsTemplateContainer.style.padding = '10px';
-		saveAsTemplateContainer.style.backgroundColor = 'var(--background-secondary)';
-		saveAsTemplateContainer.style.borderRadius = '4px';
+		saveAsTemplateContainer.className = 'tf-save-template-container tf-hidden';
 
 		// Name row (always visible when custom is selected)
 		const templateNameRow = document.createElement('div');
-		templateNameRow.style.display = 'flex';
-		templateNameRow.style.alignItems = 'center';
-		templateNameRow.style.gap = '8px';
-		templateNameRow.style.marginBottom = '8px';
+		templateNameRow.className = 'tf-flex-input-row';
 
 		const templateNameLabel = document.createElement('span');
 		templateNameLabel.textContent = t('annet.templateName') + ':';
-		templateNameLabel.style.minWidth = '80px';
+		templateNameLabel.className = 'tf-date-label';
 		templateNameRow.appendChild(templateNameLabel);
 
 		const templateNameInput = document.createElement('input');
 		templateNameInput.type = 'text';
-		templateNameInput.style.flex = '1';
-		templateNameInput.style.padding = '6px';
+		templateNameInput.className = 'tf-input-grow';
 		templateNameInput.placeholder = t('annet.labelPlaceholder');
 		templateNameRow.appendChild(templateNameInput);
 
@@ -5273,20 +3760,16 @@ export class UIBuilder {
 
 		// Icon row (always visible when custom is selected)
 		const templateIconRow = document.createElement('div');
-		templateIconRow.style.display = 'flex';
-		templateIconRow.style.alignItems = 'center';
-		templateIconRow.style.gap = '8px';
-		templateIconRow.style.marginBottom = '8px';
+		templateIconRow.className = 'tf-flex-input-row';
 
 		const templateIconLabel = document.createElement('span');
 		templateIconLabel.textContent = t('annet.templateIcon') + ':';
-		templateIconLabel.style.minWidth = '80px';
+		templateIconLabel.className = 'tf-date-label';
 		templateIconRow.appendChild(templateIconLabel);
 
 		const templateIconInput = document.createElement('input');
 		templateIconInput.type = 'text';
-		templateIconInput.style.width = '60px';
-		templateIconInput.style.padding = '6px';
+		templateIconInput.className = 'tf-icon-input';
 		templateIconInput.placeholder = '🏥';
 		templateIconRow.appendChild(templateIconInput);
 
@@ -5294,12 +3777,7 @@ export class UIBuilder {
 
 		// Save as template checkbox row
 		const saveAsTemplateRow = document.createElement('div');
-		saveAsTemplateRow.style.display = 'flex';
-		saveAsTemplateRow.style.alignItems = 'center';
-		saveAsTemplateRow.style.gap = '8px';
-		saveAsTemplateRow.style.marginTop = '8px';
-		saveAsTemplateRow.style.paddingTop = '8px';
-		saveAsTemplateRow.style.borderTop = '1px solid var(--background-modifier-border)';
+		saveAsTemplateRow.className = 'tf-save-template-row';
 
 		const saveAsTemplateCheckbox = document.createElement('input');
 		saveAsTemplateCheckbox.type = 'checkbox';
@@ -5309,7 +3787,7 @@ export class UIBuilder {
 		const saveAsTemplateLabel = document.createElement('label');
 		saveAsTemplateLabel.htmlFor = 'saveAsTemplateCheckbox';
 		saveAsTemplateLabel.textContent = t('annet.saveAsTemplate');
-		saveAsTemplateLabel.style.cursor = 'pointer';
+		saveAsTemplateLabel.className = 'tf-cursor-pointer';
 		saveAsTemplateRow.appendChild(saveAsTemplateLabel);
 
 		saveAsTemplateContainer.appendChild(saveAsTemplateRow);
@@ -5322,15 +3800,13 @@ export class UIBuilder {
 			btn.onclick = () => {
 				// Deselect all buttons
 				annetTemplateButtons.querySelectorAll('button').forEach(b => {
-					(b as HTMLElement).style.backgroundColor = '';
 					b.classList.remove('mod-cta');
 				});
 				// Select this button
-				btn.style.backgroundColor = 'var(--interactive-accent)';
 				btn.classList.add('mod-cta');
 				selectedAnnetTemplate = templateId || null;
 				// Hide custom entry section
-				saveAsTemplateContainer.style.display = 'none';
+				saveAsTemplateContainer.addClass('tf-hidden');
 				saveAsTemplateCheckbox.checked = false;
 				// Clear custom fields
 				templateNameInput.value = '';
@@ -5340,10 +3816,7 @@ export class UIBuilder {
 
 		// Full day toggle for annet
 		const annetFullDayRow = document.createElement('div');
-		annetFullDayRow.style.display = 'flex';
-		annetFullDayRow.style.alignItems = 'center';
-		annetFullDayRow.style.gap = '8px';
-		annetFullDayRow.style.marginBottom = '12px';
+		annetFullDayRow.className = 'tf-checkbox-row-mb';
 
 		const annetFullDayCheckbox = document.createElement('input');
 		annetFullDayCheckbox.type = 'checkbox';
@@ -5354,25 +3827,21 @@ export class UIBuilder {
 		const annetFullDayLabel = document.createElement('label');
 		annetFullDayLabel.htmlFor = 'annetFullDayCheckbox';
 		annetFullDayLabel.textContent = t('annet.fullDay');
-		annetFullDayLabel.style.cursor = 'pointer';
+		annetFullDayLabel.className = 'tf-cursor-pointer';
 		annetFullDayRow.appendChild(annetFullDayLabel);
 
 		annetContainer.appendChild(annetFullDayRow);
 
 		// Time inputs for partial day annet
 		const annetTimeInputRow = document.createElement('div');
-		annetTimeInputRow.style.display = 'none';
-		annetTimeInputRow.style.gap = '10px';
-		annetTimeInputRow.style.alignItems = 'center';
-		annetTimeInputRow.style.marginBottom = '12px';
+		annetTimeInputRow.className = 'tf-time-input-row tf-mb-12 tf-hidden';
 
 		const annetFromLabel = document.createElement('span');
 		annetFromLabel.textContent = t('annet.fromTime') + ':';
 		annetTimeInputRow.appendChild(annetFromLabel);
 
 		const annetFromTimeInput = this.createTimeInput('09:00', () => {});
-		annetFromTimeInput.style.padding = '8px';
-		annetFromTimeInput.style.fontSize = '14px';
+		annetFromTimeInput.className = 'tf-time-input-styled';
 		annetTimeInputRow.appendChild(annetFromTimeInput);
 
 		const annetToLabel = document.createElement('span');
@@ -5380,18 +3849,14 @@ export class UIBuilder {
 		annetTimeInputRow.appendChild(annetToLabel);
 
 		const annetToTimeInput = this.createTimeInput('11:00', () => {});
-		annetToTimeInput.style.padding = '8px';
-		annetToTimeInput.style.fontSize = '14px';
+		annetToTimeInput.className = 'tf-time-input-styled';
 		annetTimeInputRow.appendChild(annetToTimeInput);
 
 		annetContainer.appendChild(annetTimeInputRow);
 
 		// Duration display for annet
 		const annetDurationDisplay = document.createElement('div');
-		annetDurationDisplay.style.fontSize = '12px';
-		annetDurationDisplay.style.color = 'var(--text-muted)';
-		annetDurationDisplay.style.marginBottom = '12px';
-		annetDurationDisplay.style.display = 'none';
+		annetDurationDisplay.className = 'tf-duration-display-mb tf-hidden';
 
 		const updateAnnetDuration = () => {
 			const from = annetFromTimeInput.value;
@@ -5416,8 +3881,13 @@ export class UIBuilder {
 		// Toggle time inputs based on full day checkbox
 		const updateAnnetTimeInputs = () => {
 			const isFullDay = annetFullDayCheckbox.checked;
-			annetTimeInputRow.style.display = isFullDay ? 'none' : 'flex';
-			annetDurationDisplay.style.display = isFullDay ? 'none' : 'block';
+			if (isFullDay) {
+				annetTimeInputRow.addClass('tf-hidden');
+				annetDurationDisplay.addClass('tf-hidden');
+			} else {
+				annetTimeInputRow.removeClass('tf-hidden');
+				annetDurationDisplay.removeClass('tf-hidden');
+			}
 		};
 		annetFullDayCheckbox.addEventListener('change', updateAnnetTimeInputs);
 		updateAnnetTimeInputs();
@@ -5427,16 +3897,12 @@ export class UIBuilder {
 		// Note/comment field
 		const noteLabel = document.createElement('div');
 		noteLabel.textContent = t('modals.commentOptional');
-		noteLabel.style.marginBottom = '5px';
-		noteLabel.style.fontWeight = 'bold';
+		noteLabel.className = 'tf-label-bold-mb';
 		content.appendChild(noteLabel);
 
 		const noteInput = document.createElement('input');
 		noteInput.type = 'text';
-		noteInput.style.width = '100%';
-		noteInput.style.marginBottom = '20px';
-		noteInput.style.padding = '8px';
-		noteInput.style.fontSize = '14px';
+		noteInput.className = 'tf-text-input-full';
 		content.appendChild(noteInput);
 
 		// Helper to get placeholder for absence type
@@ -5448,12 +3914,29 @@ export class UIBuilder {
 		// Show/hide time fields and update placeholder based on type selection
 		const updateFieldVisibility = () => {
 			const selectedType = typeSelect.value;
-			timeContainer.style.display = selectedType === 'avspasering' ? 'block' : 'none';
+			// Toggle visibility of containers
+			if (selectedType === 'avspasering') {
+				timeContainer.removeClass('tf-hidden');
+			} else {
+				timeContainer.addClass('tf-hidden');
+			}
 			// Exclude annet from sick time container - annet has its own UI
-			sickTimeContainer.style.display = (isReduceGoalType(selectedType) && selectedType !== 'annet') ? 'block' : 'none';
-			annetContainer.style.display = selectedType === 'annet' ? 'block' : 'none';
+			if (isReduceGoalType(selectedType) && selectedType !== 'annet') {
+				sickTimeContainer.removeClass('tf-hidden');
+			} else {
+				sickTimeContainer.addClass('tf-hidden');
+			}
+			if (selectedType === 'annet') {
+				annetContainer.removeClass('tf-hidden');
+			} else {
+				annetContainer.addClass('tf-hidden');
+			}
 			// Hide multi-day option for annet (Other) type - it has its own single-day UI
-			multiDayContainer.style.display = selectedType === 'annet' ? 'none' : 'block';
+			if (selectedType === 'annet') {
+				multiDayContainer.addClass('tf-hidden');
+			} else {
+				multiDayContainer.removeClass('tf-hidden');
+			}
 			// Reset multi-day checkbox when switching to annet
 			if (selectedType === 'annet') {
 				multiDayCheckbox.checked = false;
@@ -5466,9 +3949,7 @@ export class UIBuilder {
 
 		// Buttons
 		const buttonDiv = document.createElement('div');
-		buttonDiv.style.display = 'flex';
-		buttonDiv.style.gap = '10px';
-		buttonDiv.style.justifyContent = 'flex-end';
+		buttonDiv.className = 'tf-btn-container';
 
 		const cancelBtn = document.createElement('button');
 		cancelBtn.textContent = t('buttons.cancel');
@@ -5636,7 +4117,7 @@ export class UIBuilder {
 			const filePath = this.settings.holidaysFilePath;
 			const file = this.app.vault.getAbstractFileByPath(normalizePath(filePath));
 
-			if (!file) {
+			if (!file || !(file instanceof TFile)) {
 				new Notice(`❌ ${t('notifications.fileNotFound').replace('{path}', filePath)}`);
 				return;
 			}
@@ -5648,7 +4129,7 @@ export class UIBuilder {
 			const dateStr = `${year}-${month}-${day}`;
 
 			// Read the file content
-			let content = await this.app.vault.read(file as TFile);
+			let content = await this.app.vault.read(file);
 
 			// Find the "Planlagte egne fridager" section
 			const sectionMarker = '## Planlagte egne fridager';
@@ -5685,7 +4166,7 @@ export class UIBuilder {
 			content = beforeClosing + (needsNewline ? '\n' : '') + newEntry + '\n' + afterClosing;
 
 			// Write back to file
-			await this.app.vault.modify(file as TFile, content);
+			await this.app.vault.modify(file, content);
 
 			// Get the label for the day type
 			const label = translateSpecialDayName(dayType);
@@ -5714,7 +4195,7 @@ export class UIBuilder {
 			const filePath = this.settings.holidaysFilePath;
 			const file = this.app.vault.getAbstractFileByPath(normalizePath(filePath));
 
-			if (!file) {
+			if (!file || !(file instanceof TFile)) {
 				new Notice(`❌ ${t('notifications.fileNotFound').replace('{path}', filePath)}`);
 				return;
 			}
@@ -5726,7 +4207,7 @@ export class UIBuilder {
 			const dateStr = `${year}-${month}-${day}`;
 
 			// Read the file content
-			let content = await this.app.vault.read(file as TFile);
+			let content = await this.app.vault.read(file);
 
 			// Find the "Planlagte egne fridager" section
 			const sectionMarker = '## Planlagte egne fridager';
@@ -5767,7 +4248,7 @@ export class UIBuilder {
 			content = beforeClosing + (needsNewline ? '\n' : '') + newEntry + '\n' + afterClosing;
 
 			// Write back to file
-			await this.app.vault.modify(file as TFile, content);
+			await this.app.vault.modify(file, content);
 
 			// Get the label for display
 			let label = t('annet.title');
@@ -5804,8 +4285,7 @@ export class UIBuilder {
 
 		// Create modal
 		const modal = document.createElement('div');
-		modal.className = 'modal-container mod-dim';
-		modal.style.zIndex = '1000';
+		modal.className = 'modal-container mod-dim tf-modal-z1000';
 
 		const modalBg = document.createElement('div');
 		modalBg.className = 'modal-bg';
@@ -5813,8 +4293,7 @@ export class UIBuilder {
 		modal.appendChild(modalBg);
 
 		const modalContent = document.createElement('div');
-		modalContent.className = 'modal';
-		modalContent.style.width = '400px';
+		modalContent.className = 'modal tf-modal-content-400';
 
 		// Prevent Obsidian from capturing keyboard events
 		modalContent.addEventListener('keydown', (e) => e.stopPropagation());
@@ -5839,83 +4318,75 @@ export class UIBuilder {
 
 		// Content
 		const content = document.createElement('div');
-		content.className = 'modal-content';
-		content.style.padding = '20px';
+		content.className = 'modal-content tf-modal-content-padded';
 
 		// Date display
 		const dateDisplay = document.createElement('div');
 		dateDisplay.textContent = `${t('ui.date')}: ${dateStr}`;
-		dateDisplay.style.marginBottom = '15px';
-		dateDisplay.style.fontSize = '16px';
-		dateDisplay.style.fontWeight = 'bold';
+		dateDisplay.className = 'tf-date-display';
 		content.appendChild(dateDisplay);
 
 		// Type display (read-only)
 		const typeDisplay = document.createElement('div');
-		typeDisplay.style.marginBottom = '15px';
-		typeDisplay.style.padding = '10px';
-		typeDisplay.style.backgroundColor = 'var(--background-secondary)';
-		typeDisplay.style.borderRadius = '4px';
-		typeDisplay.innerHTML = `<strong>${t('ui.type')}:</strong> ${emoji} ${typeName}`;
+		typeDisplay.className = 'tf-type-display';
+		const typeLabel = document.createElement('strong');
+		typeLabel.textContent = `${t('ui.type')}:`;
+		typeDisplay.appendChild(typeLabel);
+		typeDisplay.appendText(` ${emoji} ${typeName}`);
 		if (plannedInfo.halfDay) {
-			typeDisplay.innerHTML += ' (½)';
+			typeDisplay.appendText(' (½)');
 		}
 		content.appendChild(typeDisplay);
 
 		// Time display (if applicable)
 		if (plannedInfo.startTime && plannedInfo.endTime) {
 			const timeDisplay = document.createElement('div');
-			timeDisplay.style.marginBottom = '15px';
-			timeDisplay.innerHTML = `<strong>${t('ui.start')} - ${t('ui.end')}:</strong> ${plannedInfo.startTime} - ${plannedInfo.endTime}`;
+			timeDisplay.className = 'tf-mb-15';
+			const timeLabel = document.createElement('strong');
+			timeLabel.textContent = `${t('ui.start')} - ${t('ui.end')}:`;
+			timeDisplay.appendChild(timeLabel);
+			timeDisplay.appendText(` ${plannedInfo.startTime} - ${plannedInfo.endTime}`);
 			content.appendChild(timeDisplay);
 		}
 
 		// Description input
 		const descRow = document.createElement('div');
-		descRow.style.marginBottom = '15px';
+		descRow.className = 'tf-desc-row';
 
 		const descLabel = document.createElement('label');
 		descLabel.textContent = `${t('ui.comment')} (${t('ui.optional')}):`;
-		descLabel.style.display = 'block';
-		descLabel.style.marginBottom = '5px';
+		descLabel.className = 'tf-label-block';
 		descRow.appendChild(descLabel);
 
 		const descInput = document.createElement('input');
 		descInput.type = 'text';
 		descInput.value = plannedInfo.description || '';
-		descInput.style.width = '100%';
-		descInput.style.padding = '8px';
-		descInput.style.boxSizing = 'border-box';
+		descInput.className = 'tf-input-full';
 		descRow.appendChild(descInput);
 
 		content.appendChild(descRow);
 
 		// Button container
 		const buttonDiv = document.createElement('div');
-		buttonDiv.style.display = 'flex';
-		buttonDiv.style.justifyContent = 'space-between';
-		buttonDiv.style.marginTop = '20px';
+		buttonDiv.className = 'tf-btn-space-between';
 
 		// Delete button (left side)
 		const deleteBtn = document.createElement('button');
 		deleteBtn.textContent = `🗑️ ${t('buttons.delete')}`;
-		deleteBtn.className = 'mod-warning';
-		deleteBtn.style.backgroundColor = 'var(--text-error)';
-		deleteBtn.style.color = 'white';
-		deleteBtn.onclick = async () => {
+		deleteBtn.className = 'mod-warning tf-delete-btn';
+		deleteBtn.onclick = () => {
 			// Confirm deletion
-			if (confirm(t('confirm.deleteEntry'))) {
+			this.showConfirmDialog(t('confirm.deleteEntry'), async () => {
 				await this.deletePlannedDay(dateStr);
 				this.isModalOpen = false;
 				modal.remove();
-			}
+			});
 		};
 		buttonDiv.appendChild(deleteBtn);
 
 		// Right side buttons
 		const rightButtons = document.createElement('div');
-		rightButtons.style.display = 'flex';
-		rightButtons.style.gap = '10px';
+		rightButtons.className = "tf-flex tf-gap-10";
 
 		// Cancel button
 		const cancelBtn = document.createElement('button');
@@ -5956,12 +4427,12 @@ export class UIBuilder {
 			const filePath = this.settings.holidaysFilePath;
 			const file = this.app.vault.getAbstractFileByPath(normalizePath(filePath));
 
-			if (!file) {
+			if (!file || !(file instanceof TFile)) {
 				new Notice(`❌ ${t('notifications.fileNotFound').replace('{path}', filePath)}`);
 				return;
 			}
 
-			let content = await this.app.vault.read(file as TFile);
+			let content = await this.app.vault.read(file);
 
 			// Find the "Planlagte egne fridager" section
 			const sectionMarker = '## Planlagte egne fridager';
@@ -5998,7 +4469,7 @@ export class UIBuilder {
 			const newCodeBlock = filteredLines.join('\n');
 			content = content.substring(0, codeBlockStart) + newCodeBlock + content.substring(codeBlockEnd + 3);
 
-			await this.app.vault.modify(file as TFile, content);
+			await this.app.vault.modify(file, content);
 			new Notice(`✅ ${t('notifications.deleted')} ${dateStr}`);
 
 			// Reload holidays and refresh all UI
@@ -6022,12 +4493,12 @@ export class UIBuilder {
 			const filePath = this.settings.holidaysFilePath;
 			const file = this.app.vault.getAbstractFileByPath(normalizePath(filePath));
 
-			if (!file) {
+			if (!file || !(file instanceof TFile)) {
 				new Notice(`❌ ${t('notifications.fileNotFound').replace('{path}', filePath)}`);
 				return;
 			}
 
-			let content = await this.app.vault.read(file as TFile);
+			let content = await this.app.vault.read(file);
 
 			// Find the "Planlagte egne fridager" section
 			const sectionMarker = '## Planlagte egne fridager';
@@ -6077,7 +4548,7 @@ export class UIBuilder {
 			const newCodeBlock = updatedLines.join('\n');
 			content = content.substring(0, codeBlockStart) + newCodeBlock + content.substring(codeBlockEnd + 3);
 
-			await this.app.vault.modify(file as TFile, content);
+			await this.app.vault.modify(file, content);
 			new Notice(`✅ ${t('notifications.updated')} ${dateStr}`);
 
 			// Reload holidays and refresh all UI
@@ -6093,7 +4564,7 @@ export class UIBuilder {
 		}
 	}
 
-	async createNoteFromType(dateObj: Date, noteType: any): Promise<void> {
+	async createNoteFromType(dateObj: Date, noteType: NoteType): Promise<void> {
 		try {
 			const dateStr = Utils.toLocalDateStr(dateObj);
 			const weekNum = Utils.getWeekNumber(dateObj);
@@ -6108,8 +4579,8 @@ export class UIBuilder {
 
 			// Check if file exists
 			const existingFile = this.app.vault.getAbstractFileByPath(filePath);
-			if (existingFile) {
-				await this.app.workspace.getLeaf(false).openFile(existingFile as TFile);
+			if (existingFile instanceof TFile) {
+				await this.app.workspace.getLeaf(false).openFile(existingFile);
 				new Notice(t('notifications.openedExistingNote').replace('{filename}', filename));
 				return;
 			}
@@ -6143,8 +4614,8 @@ export class UIBuilder {
 			await this.app.workspace.getLeaf(false).openFile(file);
 			new Notice(t('notifications.createdNote').replace('{filename}', filename));
 
-		} catch (error: any) {
-			new Notice(t('notifications.errorCreatingNote').replace('{error}', error.message));
+		} catch (error) {
+			new Notice(t('notifications.errorCreatingNote').replace('{error}', error instanceof Error ? error.message : String(error)));
 			console.error('Error creating note:', error);
 		}
 	}
@@ -6153,10 +4624,10 @@ export class UIBuilder {
 		container.empty();
 
 		// Collect active entries separately for display at top
-		const activeEntries: any[] = [];
+		const activeEntries: TimeEntry[] = [];
 
 		// Build years data structure from daily entries
-		const years: Record<string, Record<string, any[]>> = {};
+		const years: Record<string, Record<string, TimeEntry[]>> = {};
 		Object.keys(this.data.daily).sort().reverse().forEach(dateKey => {
 			const year = dateKey.split('-')[0];
 			if (!years[year]) years[year] = {};
@@ -6218,14 +4689,18 @@ export class UIBuilder {
 		const isWide = container.offsetWidth >= 450;
 		const isListView = this.historyView === 'list';
 
-		editToggle.style.display = (isWide && isListView) ? 'block' : 'none';
+		if (isWide && isListView) {
+			editToggle.removeClass('tf-hidden');
+		} else {
+			editToggle.addClass('tf-hidden');
+		}
 
 		// Update button text based on current mode
 		editToggle.textContent = this.inlineEditMode ? `✓ ${t('buttons.done')}` : `✏️ ${t('buttons.edit')}`;
 		editToggle.classList.toggle('active', this.inlineEditMode);
 	}
 
-	renderListView(container: HTMLElement, years: Record<string, Record<string, any[]>>, activeEntries: any[] = []): void {
+	renderListView(container: HTMLElement, years: Record<string, Record<string, TimeEntry[]>>, activeEntries: TimeEntry[] = []): void {
 		// Add filter bar at the top
 		this.renderFilterBar(container);
 
@@ -6302,27 +4777,17 @@ export class UIBuilder {
 		container.appendChild(filterBar);
 	}
 
-	renderActiveEntriesSection(container: HTMLElement, activeEntries: any[]): void {
+	renderActiveEntriesSection(container: HTMLElement, activeEntries: TimeEntry[]): void {
 		const section = this.createActiveEntriesSection(activeEntries, container);
 		container.appendChild(section);
 	}
 
-	createActiveEntriesSection(activeEntries: any[], containerForWidth?: HTMLElement): HTMLElement {
+	createActiveEntriesSection(activeEntries: TimeEntry[], containerForWidth?: HTMLElement): HTMLElement {
 		const section = document.createElement('div');
-		section.className = 'tf-active-entries-section';
-		section.style.marginBottom = '16px';
-		section.style.padding = '12px';
-		section.style.backgroundColor = 'var(--background-secondary)';
-		section.style.borderRadius = '8px';
-		section.style.border = '2px solid var(--interactive-accent)';
+		section.className = 'tf-active-entries-section tf-active-section-container';
 
 		const header = document.createElement('div');
-		header.style.display = 'flex';
-		header.style.alignItems = 'center';
-		header.style.gap = '8px';
-		header.style.marginBottom = '10px';
-		header.style.fontWeight = 'bold';
-		header.style.color = 'var(--text-normal)';
+		header.className = 'tf-active-section-header';
 		header.textContent = `⏱️ ${t('ui.activeTimers')} (${activeEntries.length})`;
 		section.appendChild(header);
 
@@ -6331,8 +4796,7 @@ export class UIBuilder {
 
 		// Create table for active entries
 		const table = document.createElement('table');
-		table.className = isWide ? 'tf-history-table-wide' : 'tf-history-table-narrow';
-		table.style.width = '100%';
+		table.className = isWide ? 'tf-history-table-wide tf-w-full' : 'tf-history-table-narrow tf-w-full';
 
 		// Get raw timer entries for matching (needed for inline editing)
 		const rawEntries = this.timerManager.data.entries;
@@ -6369,10 +4833,9 @@ export class UIBuilder {
 		const tbody = document.createElement('tbody');
 		activeEntries.forEach(e => {
 			const row = document.createElement('tr');
-			row.style.fontStyle = 'italic';
-			row.style.opacity = '0.8';
+			row.className = 'tf-history-row-active';
 
-			const dateStr = Utils.toLocalDateStr(e.date);
+			const dateStr = e.date ? Utils.toLocalDateStr(e.date) : '';
 
 			// Find matching raw entry for this active entry
 			const matchingItem = flatRawEntries.find(item =>
@@ -6387,7 +4850,7 @@ export class UIBuilder {
 			const activeIcon = document.createElement('span');
 			activeIcon.textContent = '⏱️ ';
 			activeIcon.title = t('ui.activeTimer');
-			activeIcon.style.cursor = 'help';
+			activeIcon.className = 'tf-cursor-help';
 			dateCell.appendChild(activeIcon);
 			dateCell.appendChild(document.createTextNode(dateStr));
 			row.appendChild(dateCell);
@@ -6464,8 +4927,8 @@ export class UIBuilder {
 					deleteBtn.className = 'tf-history-delete-btn';
 					deleteBtn.textContent = '🗑️';
 					deleteBtn.title = t('menu.deleteEntry');
-					deleteBtn.onclick = async () => {
-						if (confirm(`${t('confirm.deleteEntryFor')} ${dateStr}?`)) {
+					deleteBtn.onclick = () => {
+						this.showConfirmDialog(`${t('confirm.deleteEntryFor')} ${dateStr}?`, async () => {
 							if (matchingItem.parent && matchingItem.subIndex !== undefined) {
 								if (matchingItem.parent.subEntries) {
 									matchingItem.parent.subEntries.splice(matchingItem.subIndex, 1);
@@ -6484,7 +4947,7 @@ export class UIBuilder {
 							}
 							await this.saveWithErrorHandling();
 							this.softRefreshHistory();
-						}
+						});
 					};
 					actionCell.appendChild(deleteBtn);
 				}
@@ -6494,11 +4957,12 @@ export class UIBuilder {
 				const actionCell = document.createElement('td');
 				const editBtn = document.createElement('button');
 				editBtn.textContent = '✏️';
-				editBtn.style.padding = '4px 8px';
-				editBtn.style.cursor = 'pointer';
+				editBtn.className = 'tf-edit-btn';
 				editBtn.title = t('menu.editWork');
 				editBtn.onclick = () => {
-					this.showEditEntriesModal(e.date);
+					if (e.date) {
+						this.showEditEntriesModal(e.date);
+					}
 				};
 				actionCell.appendChild(editBtn);
 				row.appendChild(actionCell);
@@ -6523,14 +4987,9 @@ export class UIBuilder {
 			yearSection.open = (year === currentYear) || (index === 0 && !years[currentYear]);
 
 			const summary = document.createElement('summary');
-			summary.style.cursor = 'pointer';
-			summary.style.padding = '8px 0';
-			summary.style.fontWeight = 'bold';
-			summary.style.fontSize = '1.1em';
-			summary.style.color = 'var(--text-normal)';
-			summary.style.listStyle = 'none';
+			summary.className = 'tf-year-summary';
 			const arrow = document.createElement('span');
-			arrow.style.marginRight = '8px';
+			arrow.className = 'tf-mr-8';
 			arrow.textContent = yearSection.open ? '▼' : '▶';
 			summary.appendChild(arrow);
 			summary.appendChild(document.createTextNode(year.toString()));
@@ -6542,7 +5001,7 @@ export class UIBuilder {
 			});
 
 			const yearDiv = document.createElement('div');
-			yearDiv.style.paddingLeft = '8px';
+			yearDiv.className = 'tf-year-content';
 
 			// Sort months descending (newest first)
 			Object.keys(years[year]).sort().reverse().forEach(month => {
@@ -6551,10 +5010,7 @@ export class UIBuilder {
 				// Add month name header
 				const monthHeader = document.createElement('h5');
 				monthHeader.textContent = getMonthName(new Date(parseInt(year), parseInt(month) - 1, 1));
-				monthHeader.style.color = 'var(--text-muted)';
-				monthHeader.style.marginTop = '12px';
-				monthHeader.style.marginBottom = '8px';
-				monthHeader.style.fontSize = '0.95em';
+				monthHeader.className = 'tf-month-header';
 				yearDiv.appendChild(monthHeader);
 
 				const table = document.createElement('table');
@@ -6573,19 +5029,18 @@ export class UIBuilder {
 
 				// Create tbody
 				const tbody = document.createElement('tbody');
-				monthEntries.forEach((e: any) => {
+				monthEntries.forEach((e: TimeEntry) => {
 					const row = document.createElement('tr');
 
 					// Style active entries differently
 					if (e.isActive) {
-						row.style.fontStyle = 'italic';
-						row.style.opacity = '0.8';
+						row.className = 'tf-history-row-active';
 					}
 
 					// Date cell
 					const dateCell = document.createElement('td');
-					const dateStr = Utils.toLocalDateStr(e.date);
-					const holidayInfo = this.data.getHolidayInfo(dateStr);
+					const dateStr = e.date ? Utils.toLocalDateStr(e.date) : '';
+					const holidayInfo = dateStr ? this.data.getHolidayInfo(dateStr) : null;
 					// Only show warning on work entries (jobb, kurs, studie) on special days
 					const entryBehavior = this.settings.specialDayBehaviors.find(
 						b => b.id === e.name.toLowerCase()
@@ -6601,13 +5056,13 @@ export class UIBuilder {
 						const activeIcon = document.createElement('span');
 						activeIcon.textContent = '⏱️ ';
 						activeIcon.title = t('ui.activeTimer');
-						activeIcon.style.cursor = 'help';
+						activeIcon.className = 'tf-cursor-help';
 						dateCell.appendChild(activeIcon);
 					} else if (hasConflict) {
 						const flagIcon = document.createElement('span');
 						flagIcon.textContent = '⚠️ ';
 						flagIcon.title = t('info.workRegisteredOnSpecialDay').replace('{dayType}', translateSpecialDayName(holidayInfo!.type));
-						flagIcon.style.cursor = 'help';
+						flagIcon.className = 'tf-cursor-help';
 						dateCell.appendChild(flagIcon);
 					}
 					dateCell.appendChild(document.createTextNode(dateStr));
@@ -6634,11 +5089,12 @@ export class UIBuilder {
 					const actionCell = document.createElement('td');
 					const editBtn = document.createElement('button');
 					editBtn.textContent = '✏️';
-					editBtn.style.padding = '4px 8px';
-					editBtn.style.cursor = 'pointer';
+					editBtn.className = 'tf-edit-btn';
 					editBtn.title = t('menu.editWork');
 					editBtn.onclick = () => {
-						this.showEditEntriesModal(e.date);
+						if (e.date) {
+							this.showEditEntriesModal(e.date);
+						}
 					};
 					actionCell.appendChild(editBtn);
 					row.appendChild(actionCell);
@@ -6666,14 +5122,9 @@ export class UIBuilder {
 			yearSection.open = (year === currentYear) || (index === 0 && !years[currentYear]);
 
 			const summary = document.createElement('summary');
-			summary.style.cursor = 'pointer';
-			summary.style.padding = '8px 0';
-			summary.style.fontWeight = 'bold';
-			summary.style.fontSize = '1.1em';
-			summary.style.color = 'var(--text-normal)';
-			summary.style.listStyle = 'none';
+			summary.className = 'tf-year-summary';
 			const arrow = document.createElement('span');
-			arrow.style.marginRight = '8px';
+			arrow.className = 'tf-mr-8';
 			arrow.textContent = yearSection.open ? '▼' : '▶';
 			summary.appendChild(arrow);
 			summary.appendChild(document.createTextNode(year.toString()));
@@ -6685,7 +5136,7 @@ export class UIBuilder {
 			});
 
 			const yearDiv = document.createElement('div');
-			yearDiv.style.paddingLeft = '8px';
+			yearDiv.className = 'tf-year-content';
 
 			// Sort months descending (newest first)
 			Object.keys(years[year]).sort().reverse().forEach(month => {
@@ -6694,10 +5145,7 @@ export class UIBuilder {
 				// Add month name header
 				const monthHeader = document.createElement('h5');
 				monthHeader.textContent = getMonthName(new Date(parseInt(year), parseInt(month) - 1, 1));
-				monthHeader.style.color = 'var(--text-muted)';
-				monthHeader.style.marginTop = '12px';
-				monthHeader.style.marginBottom = '8px';
-				monthHeader.style.fontSize = '0.95em';
+				monthHeader.className = 'tf-month-header';
 				yearDiv.appendChild(monthHeader);
 
 				const table = document.createElement('table');
@@ -6723,11 +5171,13 @@ export class UIBuilder {
 				const tbody = document.createElement('tbody');
 
 				// Group entries by date to match with raw timer entries
-				const entriesByDate: Record<string, any[]> = {};
-				monthEntries.forEach((e: any) => {
-					const dateStr = Utils.toLocalDateStr(e.date);
-					if (!entriesByDate[dateStr]) entriesByDate[dateStr] = [];
-					entriesByDate[dateStr].push(e);
+				const entriesByDate: Record<string, TimeEntry[]> = {};
+				monthEntries.forEach((e: TimeEntry) => {
+					const dateStr = e.date ? Utils.toLocalDateStr(e.date) : '';
+					if (dateStr) {
+						if (!entriesByDate[dateStr]) entriesByDate[dateStr] = [];
+						entriesByDate[dateStr].push(e);
+					}
 				});
 
 				// Get raw timer entries for start/end times
@@ -6756,15 +5206,14 @@ export class UIBuilder {
 					});
 
 					// Track which raw entries have been matched to avoid duplicates
-					const usedRawEntries = new Set<any>();
+					const usedRawEntries = new Set<Timer>();
 
-					dayEntries.forEach((e: any, idx: number) => {
+					dayEntries.forEach((e: TimeEntry, idx: number) => {
 						const row = document.createElement('tr');
 
 						// Style active entries differently
 						if (e.isActive) {
-							row.style.fontStyle = 'italic';
-							row.style.opacity = '0.8';
+							row.className = 'tf-history-row-active';
 						}
 
 						// Find matching raw entry for this processed entry (exclude already used ones)
@@ -6825,19 +5274,19 @@ export class UIBuilder {
 							const activeIcon = document.createElement('span');
 							activeIcon.textContent = '⏱️ ';
 							activeIcon.title = t('ui.activeTimer');
-							activeIcon.style.cursor = 'help';
+							activeIcon.className = 'tf-cursor-help';
 							dateCell.appendChild(activeIcon);
 						} else if (hasTimeOverlap) {
 							const overlapIcon = document.createElement('span');
 							overlapIcon.textContent = '🔴 ';
 							overlapIcon.title = `Overlapper med: ${overlapDetails}`;
-							overlapIcon.style.cursor = 'help';
+							overlapIcon.className = 'tf-cursor-help';
 							dateCell.appendChild(overlapIcon);
 						} else if (hasSpecialDayConflict) {
 							const flagIcon = document.createElement('span');
 							flagIcon.textContent = '⚠️ ';
 							flagIcon.title = t('info.workRegisteredOnSpecialDay').replace('{dayType}', translateSpecialDayName(holidayInfo!.type));
-							flagIcon.style.cursor = 'help';
+							flagIcon.className = 'tf-cursor-help';
 							dateCell.appendChild(flagIcon);
 						}
 						dateCell.appendChild(document.createTextNode(dateStr));
@@ -6881,16 +5330,14 @@ export class UIBuilder {
 
 							if (this.inlineEditMode) {
 								const container = document.createElement('div');
-								container.style.display = 'flex';
-								container.style.flexDirection = 'column';
-								container.style.gap = '4px';
+								container.className = 'tf-inline-edit-container';
 
 								// Show date input for multi-day entries
 								if (isMultiDay) {
 									const dateInput = document.createElement('input');
 									dateInput.type = 'date';
 									dateInput.value = startDateStr;
-									dateInput.style.fontSize = '12px';
+									dateInput.className = 'tf-text-12px';
 									dateInput.onchange = async () => {
 										const newStart = new Date(`${dateInput.value}T${timeInput.value}:00`);
 										matchingRaw.startTime = Utils.toLocalISOString(newStart);
@@ -6937,16 +5384,14 @@ export class UIBuilder {
 
 							if (this.inlineEditMode) {
 								const container = document.createElement('div');
-								container.style.display = 'flex';
-								container.style.flexDirection = 'column';
-								container.style.gap = '4px';
+								container.className = "tf-time-input-container";
 
 								// Show date input for multi-day entries
 								if (isMultiDay) {
 									const dateInput = document.createElement('input');
 									dateInput.type = 'date';
 									dateInput.value = endDateStr;
-									dateInput.style.fontSize = '12px';
+									dateInput.className = "tf-date-input-sm";
 									dateInput.onchange = async () => {
 										const newEnd = new Date(`${dateInput.value}T${timeInput.value}:00`);
 										matchingRaw.endTime = Utils.toLocalISOString(newEnd);
@@ -6976,9 +5421,7 @@ export class UIBuilder {
 							const startDate = matchingRaw.startTime ? new Date(matchingRaw.startTime) : new Date();
 
 							const container = document.createElement('div');
-							container.style.display = 'flex';
-							container.style.flexDirection = 'column';
-							container.style.gap = '4px';
+							container.className = "tf-time-input-container";
 
 							const timeInput = this.createTimeInput('', async (newValue) => {
 								const parsed = this.parseTimeInput(newValue);
@@ -7021,8 +5464,8 @@ export class UIBuilder {
 								deleteBtn.className = 'tf-history-delete-btn';
 								deleteBtn.textContent = '🗑️';
 								deleteBtn.title = t('menu.deleteEntry');
-								deleteBtn.onclick = async () => {
-									if (confirm(`${t('confirm.deleteEntryFor')} ${dateStr}?`)) {
+								deleteBtn.onclick = () => {
+									this.showConfirmDialog(`${t('confirm.deleteEntryFor')} ${dateStr}?`, async () => {
 										if (matchingItem.parent && matchingItem.subIndex !== undefined) {
 											// This is a subEntry - remove from parent's subEntries array
 											if (matchingItem.parent.subEntries) {
@@ -7044,7 +5487,7 @@ export class UIBuilder {
 										}
 										await this.saveWithErrorHandling();
 										this.softRefreshHistory();
-									}
+									});
 								};
 								actionCell.appendChild(deleteBtn);
 							}
@@ -7087,8 +5530,7 @@ export class UIBuilder {
 
 		// Create modal
 		const modal = document.createElement('div');
-		modal.className = 'modal-container mod-dim';
-		modal.style.zIndex = '1000';
+		modal.className = 'modal-container mod-dim tf-modal-z1000';
 
 		const modalBg = document.createElement('div');
 		modalBg.className = 'modal-bg';
@@ -7096,8 +5538,7 @@ export class UIBuilder {
 		modal.appendChild(modalBg);
 
 		const modalContent = document.createElement('div');
-		modalContent.className = 'modal';
-		modalContent.style.width = '400px';
+		modalContent.className = 'modal tf-modal-content-400';
 
 		// Prevent Obsidian from capturing keyboard events in modal inputs
 		modalContent.addEventListener('keydown', (e) => e.stopPropagation());
@@ -7114,20 +5555,16 @@ export class UIBuilder {
 
 		// Content
 		const content = document.createElement('div');
-		content.className = 'modal-content';
-		content.style.padding = '20px';
+		content.className = 'modal-content tf-p-20';
 
 		// Type selector
 		const typeLabel = document.createElement('div');
 		typeLabel.textContent = t('ui.type') + ':';
-		typeLabel.style.fontWeight = 'bold';
-		typeLabel.style.marginBottom = '5px';
+		typeLabel.className = 'tf-form-label';
 		content.appendChild(typeLabel);
 
 		const typeSelect = document.createElement('select');
-		typeSelect.style.width = '100%';
-		typeSelect.style.marginBottom = '15px';
-		typeSelect.style.padding = '8px';
+		typeSelect.className = 'tf-form-input-mb';
 		this.settings.specialDayBehaviors.forEach(behavior => {
 			const option = document.createElement('option');
 			option.value = behavior.id;
@@ -7139,38 +5576,30 @@ export class UIBuilder {
 		// Start time (for regular entries)
 		const startLabel = document.createElement('div');
 		startLabel.textContent = `${t('modals.startTime')}:`;
-		startLabel.style.fontWeight = 'bold';
-		startLabel.style.marginBottom = '5px';
+		startLabel.className = 'tf-form-label';
 		content.appendChild(startLabel);
 
 		const startInput = this.createTimeInput('08:00', () => {});
-		startInput.style.width = '100%';
-		startInput.style.marginBottom = '15px';
-		startInput.style.padding = '8px';
+		startInput.className = 'tf-form-input-mb';
 		content.appendChild(startInput);
 
 		// End time (for regular entries)
 		const endLabel = document.createElement('div');
 		endLabel.textContent = `${t('modals.endTime')}:`;
-		endLabel.style.fontWeight = 'bold';
-		endLabel.style.marginBottom = '5px';
+		endLabel.className = 'tf-form-label';
 		content.appendChild(endLabel);
 
 		const endInput = this.createTimeInput('16:00', () => {});
-		endInput.style.width = '100%';
-		endInput.style.marginBottom = '20px';
-		endInput.style.padding = '8px';
+		endInput.className = 'tf-form-input-mb-lg';
 		content.appendChild(endInput);
 
 		// Duration input (for reduce_goal types like sick days)
 		const durationContainer = document.createElement('div');
-		durationContainer.style.display = 'none';
-		durationContainer.style.marginBottom = '20px';
+		durationContainer.className = 'tf-duration-container tf-hidden';
 
 		const durationLabel = document.createElement('div');
 		durationLabel.textContent = t('ui.duration') + ':';
-		durationLabel.style.fontWeight = 'bold';
-		durationLabel.style.marginBottom = '5px';
+		durationLabel.className = 'tf-form-label';
 		durationContainer.appendChild(durationLabel);
 
 		const durationInput = document.createElement('input');
@@ -7179,14 +5608,11 @@ export class UIBuilder {
 		durationInput.min = '0.5';
 		durationInput.max = '24';
 		durationInput.value = '3.5';
-		durationInput.style.width = '100%';
-		durationInput.style.padding = '8px';
+		durationInput.className = 'tf-form-input';
 		durationContainer.appendChild(durationInput);
 
 		const durationHint = document.createElement('div');
-		durationHint.style.fontSize = '12px';
-		durationHint.style.color = 'var(--text-muted)';
-		durationHint.style.marginTop = '5px';
+		durationHint.className = 'tf-duration-hint';
 		durationHint.textContent = t('modals.durationHint') || 'Antall timer (f.eks. 3.5 for resten av dagen etter sykdom)';
 		durationContainer.appendChild(durationHint);
 
@@ -7201,11 +5627,19 @@ export class UIBuilder {
 		// Toggle between time inputs and duration input based on type
 		const updateInputVisibility = () => {
 			const showDuration = isReduceGoalType(typeSelect.value);
-			startLabel.style.display = showDuration ? 'none' : 'block';
-			startInput.style.display = showDuration ? 'none' : 'block';
-			endLabel.style.display = showDuration ? 'none' : 'block';
-			endInput.style.display = showDuration ? 'none' : 'block';
-			durationContainer.style.display = showDuration ? 'block' : 'none';
+			if (showDuration) {
+				startLabel.addClass('tf-hidden');
+				startInput.addClass('tf-hidden');
+				endLabel.addClass('tf-hidden');
+				endInput.addClass('tf-hidden');
+				durationContainer.removeClass('tf-hidden');
+			} else {
+				startLabel.removeClass('tf-hidden');
+				startInput.removeClass('tf-hidden');
+				endLabel.removeClass('tf-hidden');
+				endInput.removeClass('tf-hidden');
+				durationContainer.addClass('tf-hidden');
+			}
 		};
 
 		typeSelect.onchange = updateInputVisibility;
@@ -7213,9 +5647,7 @@ export class UIBuilder {
 
 		// Buttons
 		const buttonContainer = document.createElement('div');
-		buttonContainer.style.display = 'flex';
-		buttonContainer.style.gap = '10px';
-		buttonContainer.style.justifyContent = 'flex-end';
+		buttonContainer.className = 'tf-btn-container';
 
 		const cancelBtn = document.createElement('button');
 		cancelBtn.textContent = t('buttons.cancel');
@@ -7293,8 +5725,7 @@ export class UIBuilder {
 	renderWeeklyView(container: HTMLElement, years: Record<string, any>): void {
 		container.empty();
 		const div = container.createDiv();
-		div.style.padding = '20px';
-		div.style.textAlign = 'center';
+		div.className = 'tf-heatmap-no-data';
 		div.textContent = 'Weekly view - Coming soon';
 	}
 
@@ -7346,36 +5777,41 @@ export class UIBuilder {
 				}
 
 				if (specialDayBehavior) {
-					cell.style.background = specialDayBehavior.color;
+					cell.setCssProps({ '--tf-bg': specialDayBehavior.color, '--tf-color': specialDayBehavior.textColor || '#000000' });
+					cell.addClass('tf-dynamic-bg-color');
 					cell.title = `${dateKey} - ${specialDayBehavior.icon} ${specialDayBehavior.label}`;
 				} else if (dayEntries) {
 					// Has entries but no special day - show flextime or simple color
 					if (!this.settings.enableGoalTracking) {
 						// Simple tracking mode - use work type's simpleColor
 						const workType = this.settings.specialDayBehaviors.find(b => b.isWorkType);
-						cell.style.background = workType?.simpleColor || '#90caf9';
-						cell.style.color = workType?.simpleTextColor || '#000000';
+						cell.setCssProps({ '--tf-bg': workType?.simpleColor || '#90caf9', '--tf-color': workType?.simpleTextColor || '#000000' });
+						cell.addClass('tf-dynamic-bg-color');
 					} else {
 						const dayFlextime = dayEntries.reduce((sum, e) => sum + (e.flextime || 0), 0);
-						cell.style.background = this.flextimeColor(dayFlextime);
+						cell.setCssProps({ '--tf-bg': this.flextimeColor(dayFlextime), '--tf-color': this.flextimeTextColor(dayFlextime) });
+						cell.addClass('tf-dynamic-bg-color');
 					}
 				} else {
-					cell.style.background = 'var(--background-modifier-border)';
+					cell.setCssProps({ '--tf-bg': 'var(--background-modifier-border)' });
+					cell.addClass('tf-dynamic-bg');
 				}
 			} else if (dayEntries) {
 				// Regular work day - show flextime color or simple color
 				if (!this.settings.enableGoalTracking) {
 					// Simple tracking mode - use work type's simpleColor
 					const workType = this.settings.specialDayBehaviors.find(b => b.isWorkType);
-					cell.style.background = workType?.simpleColor || '#90caf9';
-					cell.style.color = workType?.simpleTextColor || '#000000';
+					cell.setCssProps({ '--tf-bg': workType?.simpleColor || '#90caf9', '--tf-color': workType?.simpleTextColor || '#000000' });
+					cell.addClass('tf-dynamic-bg-color');
 				} else {
 					// Goal-based mode - show flextime color gradient
 					const dayFlextime = dayEntries.reduce((sum, e) => sum + (e.flextime || 0), 0);
-					cell.style.background = this.flextimeColor(dayFlextime);
+					cell.setCssProps({ '--tf-bg': this.flextimeColor(dayFlextime), '--tf-color': this.flextimeTextColor(dayFlextime) });
+					cell.addClass('tf-dynamic-bg-color');
 				}
 			} else {
-				cell.style.background = 'var(--background-modifier-border)';
+				cell.setCssProps({ '--tf-bg': 'var(--background-modifier-border)' });
+				cell.addClass('tf-dynamic-bg');
 			}
 
 			heatmap.appendChild(cell);
@@ -7528,7 +5964,7 @@ export class UIBuilder {
 		this.updateStatsCard();
 	}
 
-	showDeleteConfirmation(entry: any, dateObj: Date, onConfirm: () => void): void {
+	showDeleteConfirmation(entry: TimeEntry | Timer, dateObj: Date, onConfirm: () => void): void {
 		// Create overlay
 		const overlay = document.createElement('div');
 		overlay.className = 'tf-confirm-overlay';
@@ -7553,7 +5989,7 @@ export class UIBuilder {
 		const details = document.createElement('div');
 		details.className = 'tf-confirm-details';
 
-		const startDate = new Date(entry.startTime);
+		const startDate = entry.startTime ? new Date(entry.startTime) : new Date();
 		const endDate = entry.endTime ? new Date(entry.endTime) : null;
 		const duration = endDate
 			? ((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60)).toFixed(2)
@@ -7621,8 +6057,6 @@ export class UIBuilder {
 	}
 
 	build(): HTMLElement {
-		this.injectStyles();
-
 		this.container.appendChild(this.buildBadgeSection());
 
 		// Create wrapper for responsive layout (summary cards + stats card)

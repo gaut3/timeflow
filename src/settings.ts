@@ -3,6 +3,7 @@ import TimeFlowPlugin from './main';
 import { Utils } from './utils';
 import { ImportModal } from './importModal';
 import { setLanguage, t, translateAnnetTemplateName } from './i18n';
+import type { TimeEntry } from './dataManager';
 
 export interface TimeFlowSettings {
 	version: string;
@@ -377,6 +378,47 @@ export const DEFAULT_SETTINGS: TimeFlowSettings = {
 	hasTimestampMigration: false
 };
 
+/**
+ * Generic confirmation modal that replaces browser confirm().
+ */
+export class ConfirmModal extends Modal {
+	message: string;
+	onConfirm: () => void;
+	title: string;
+
+	constructor(app: App, message: string, onConfirm: () => void, title?: string) {
+		super(app);
+		this.message = message;
+		this.onConfirm = onConfirm;
+		this.title = title || t('buttons.confirm');
+	}
+
+	onOpen() {
+		const { contentEl } = this;
+		contentEl.empty();
+		contentEl.addClass('tf-confirm-modal');
+
+		contentEl.createEl('h3', { text: this.title });
+		contentEl.createEl('p', { text: this.message });
+
+		const buttonDiv = contentEl.createDiv({ cls: 'tf-btn-container' });
+
+		const cancelBtn = buttonDiv.createEl('button', { text: t('buttons.cancel') });
+		cancelBtn.onclick = () => this.close();
+
+		const confirmBtn = buttonDiv.createEl('button', { text: t('buttons.confirm'), cls: 'mod-cta mod-warning' });
+		confirmBtn.onclick = () => {
+			this.close();
+			this.onConfirm();
+		};
+	}
+
+	onClose() {
+		const { contentEl } = this;
+		contentEl.empty();
+	}
+}
+
 export class SpecialDayBehaviorModal extends Modal {
 	behavior: SpecialDayBehavior | null;
 	index: number;
@@ -415,24 +457,14 @@ export class SpecialDayBehaviorModal extends Modal {
 
 			const explanation = norwegianTerms[this.behavior.id];
 			if (explanation) {
-				const infoBox = contentEl.createDiv({ cls: 'setting-item-description' });
-				infoBox.style.padding = '10px';
-				infoBox.style.marginBottom = '15px';
-				infoBox.style.background = 'var(--background-secondary)';
-				infoBox.style.borderRadius = '5px';
-				infoBox.style.fontSize = '0.9em';
+				const infoBox = contentEl.createDiv({ cls: 'setting-item-description tf-settings-info-box' });
 				infoBox.createSpan({ text: 'ℹ️ ' + explanation });
 			}
 		}
 
 		// For work types, show a simpler info message
 		if (isWorkType) {
-			const infoBox = contentEl.createDiv({ cls: 'setting-item-description' });
-			infoBox.style.padding = '10px';
-			infoBox.style.marginBottom = '15px';
-			infoBox.style.background = 'var(--background-secondary)';
-			infoBox.style.borderRadius = '5px';
-			infoBox.style.fontSize = '0.9em';
+			const infoBox = contentEl.createDiv({ cls: 'setting-item-description tf-settings-info-box' });
 			infoBox.createSpan({ text: '💼 This is your regular work entry type. Customize its appearance in the calendar.' });
 		}
 
@@ -526,9 +558,9 @@ export class SpecialDayBehaviorModal extends Modal {
 			// Separator for simple tracking mode colors
 			contentEl.createEl('h4', { text: 'Simple tracking mode colors' });
 			contentEl.createDiv({
-				cls: 'setting-item-description',
+				cls: 'setting-item-description tf-settings-info-box mb-10',
 				text: 'These colors are used when goal tracking is disabled.'
-			}).style.marginBottom = '10px';
+			});
 
 			new Setting(contentEl)
 				.setName('Work day color')
@@ -623,11 +655,7 @@ export class SpecialDayBehaviorModal extends Modal {
 				.onChange(value => formData.showInTimerDropdown = value));
 
 		// Buttons
-		const buttonDiv = contentEl.createDiv();
-		buttonDiv.style.display = 'flex';
-		buttonDiv.style.gap = '10px';
-		buttonDiv.style.justifyContent = 'flex-end';
-		buttonDiv.style.marginTop = '20px';
+		const buttonDiv = contentEl.createDiv({ cls: 'tf-settings-button-row' });
 
 		const cancelBtn = buttonDiv.createEl('button', { text: 'Cancel' });
 		cancelBtn.onclick = () => this.close();
@@ -717,12 +745,7 @@ export class AnnetTemplateModal extends Modal {
 		contentEl.createEl('h2', { text: this.template ? t('annet.editTemplate') : t('annet.addTemplate') });
 
 		// Info box explaining annet templates
-		const infoBox = contentEl.createDiv({ cls: 'setting-item-description' });
-		infoBox.style.padding = '10px';
-		infoBox.style.marginBottom = '15px';
-		infoBox.style.background = 'var(--background-secondary)';
-		infoBox.style.borderRadius = '5px';
-		infoBox.style.fontSize = '0.9em';
+		const infoBox = contentEl.createDiv({ cls: 'setting-item-description tf-settings-info-box' });
 		infoBox.createSpan({ text: t('annet.templateDescription') });
 
 		// Store form values
@@ -765,11 +788,7 @@ export class AnnetTemplateModal extends Modal {
 				.onChange(value => formData.icon = value));
 
 		// Buttons
-		const buttonDiv = contentEl.createDiv();
-		buttonDiv.style.display = 'flex';
-		buttonDiv.style.gap = '10px';
-		buttonDiv.style.justifyContent = 'flex-end';
-		buttonDiv.style.marginTop = '20px';
+		const buttonDiv = contentEl.createDiv({ cls: 'tf-settings-button-row' });
 
 		const cancelBtn = buttonDiv.createEl('button', { text: t('common.cancel') });
 		cancelBtn.onclick = () => this.close();
@@ -846,12 +865,7 @@ export class WorkSchedulePeriodModal extends Modal {
 		contentEl.createEl('h2', { text: this.period ? 'Edit work schedule period' : 'Add work schedule period' });
 
 		// Info box
-		const infoBox = contentEl.createDiv({ cls: 'setting-item-description' });
-		infoBox.style.padding = '10px';
-		infoBox.style.marginBottom = '15px';
-		infoBox.style.background = 'var(--background-secondary)';
-		infoBox.style.borderRadius = '5px';
-		infoBox.style.fontSize = '0.9em';
+		const infoBox = contentEl.createDiv({ cls: 'setting-item-description tf-settings-info-box' });
 		infoBox.createSpan({ text: 'Define a work schedule period. Historical time entries will use the schedule that was active on their date.' });
 
 		// Store form values
@@ -940,25 +954,14 @@ export class WorkSchedulePeriodModal extends Modal {
 			.setDesc('Select which days are part of this work week');
 
 		const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-		const workDaysContainer = contentEl.createDiv();
-		workDaysContainer.style.display = 'flex';
-		workDaysContainer.style.flexWrap = 'wrap';
-		workDaysContainer.style.gap = '8px';
-		workDaysContainer.style.marginBottom = '15px';
+		const workDaysContainer = contentEl.createDiv({ cls: 'tf-settings-workdays-container' });
 
 		dayNames.forEach((dayName, dayIndex) => {
-			const dayButton = workDaysContainer.createEl('button');
+			const dayButton = workDaysContainer.createEl('button', { cls: 'tf-settings-day-button' });
 			dayButton.textContent = dayName;
-			dayButton.style.padding = '8px 12px';
-			dayButton.style.border = '1px solid var(--background-modifier-border)';
-			dayButton.style.borderRadius = '4px';
-			dayButton.style.cursor = 'pointer';
-			dayButton.style.background = formData.workDays.includes(dayIndex)
-				? 'var(--interactive-accent)'
-				: 'var(--background-secondary)';
-			dayButton.style.color = formData.workDays.includes(dayIndex)
-				? 'var(--text-on-accent)'
-				: 'var(--text-normal)';
+			if (formData.workDays.includes(dayIndex)) {
+				dayButton.addClass('is-selected');
+			}
 
 			dayButton.onclick = () => {
 				const index = formData.workDays.indexOf(dayIndex);
@@ -969,25 +972,14 @@ export class WorkSchedulePeriodModal extends Modal {
 					formData.workDays.sort((a, b) => a - b);
 				}
 				// Update button style
-				dayButton.style.background = formData.workDays.includes(dayIndex)
-					? 'var(--interactive-accent)'
-					: 'var(--background-secondary)';
-				dayButton.style.color = formData.workDays.includes(dayIndex)
-					? 'var(--text-on-accent)'
-					: 'var(--text-normal)';
+				dayButton.toggleClass('is-selected', formData.workDays.includes(dayIndex));
 				// Update impact preview
 				updateImpactPreview();
 			};
 		});
 
 		// Impact preview box
-		const impactPreview = contentEl.createDiv();
-		impactPreview.style.marginTop = '15px';
-		impactPreview.style.marginBottom = '15px';
-		impactPreview.style.padding = '12px';
-		impactPreview.style.background = 'var(--background-secondary)';
-		impactPreview.style.borderRadius = '5px';
-		impactPreview.style.border = '1px solid var(--background-modifier-border)';
+		const impactPreview = contentEl.createDiv({ cls: 'tf-settings-impact-preview' });
 
 		// Assign the actual implementation
 		updateImpactPreview = () => {
@@ -1027,7 +1019,7 @@ export class WorkSchedulePeriodModal extends Modal {
 			}
 
 			// Count entries in this period's date range
-			entries.forEach((entry: any) => {
+			entries.forEach((entry: TimeEntry) => {
 				if (!entry.startTime) return;
 				const entryDate = Utils.toLocalDateStr(new Date(entry.startTime));
 				if (entryDate >= periodDate && (!nextPeriodDate || entryDate < nextPeriodDate)) {
@@ -1053,18 +1045,14 @@ export class WorkSchedulePeriodModal extends Modal {
 			});
 
 			// Build preview
-			const title = impactPreview.createEl('div');
-			title.style.fontWeight = 'bold';
-			title.style.marginBottom = '8px';
+			const title = impactPreview.createEl('div', { cls: 'tf-settings-impact-title' });
 			title.textContent = `Impact Preview`;
 
-			const affectedText = impactPreview.createEl('div');
-			affectedText.style.marginBottom = '4px';
+			const affectedText = impactPreview.createEl('div', { cls: 'tf-settings-impact-item' });
 			affectedText.textContent = `• Affects ${affectedDays.size} days with existing data`;
 
 			if (affectedDays.size > 0) {
-				const workdayChange = impactPreview.createEl('div');
-				workdayChange.style.marginBottom = '4px';
+				const workdayChange = impactPreview.createEl('div', { cls: 'tf-settings-impact-item' });
 				if (oldWorkdays !== newWorkdays) {
 					workdayChange.textContent = `• Workdays in period: ${oldWorkdays} → ${newWorkdays}`;
 				} else {
@@ -1072,8 +1060,7 @@ export class WorkSchedulePeriodModal extends Modal {
 				}
 
 				if (Math.abs(goalDifference) > 0.1) {
-					const goalChange = impactPreview.createEl('div');
-					goalChange.style.marginBottom = '4px';
+					const goalChange = impactPreview.createEl('div', { cls: 'tf-settings-impact-item' });
 					const sign = goalDifference > 0 ? '+' : '';
 					goalChange.textContent = `• Daily goal: ${currentDailyGoal.toFixed(1)}h → ${newDailyGoal.toFixed(1)}h (${sign}${goalDifference.toFixed(1)}h)`;
 				}
@@ -1081,25 +1068,22 @@ export class WorkSchedulePeriodModal extends Modal {
 				// Change in required hours (positive = more hours required, negative = fewer)
 				const requiredHoursChange = (newWorkdays - oldWorkdays) * newDailyGoal + oldWorkdays * goalDifference;
 				if (Math.abs(requiredHoursChange) > 0.5) {
-					const changeEl = impactPreview.createEl('div');
-					changeEl.style.marginBottom = '4px';
+					const changeEl = impactPreview.createEl('div', { cls: 'tf-settings-impact-item' });
 					const sign = requiredHoursChange > 0 ? '+' : '';
 					changeEl.textContent = `• Required hours change: ${sign}${requiredHoursChange.toFixed(1)}h`;
 
 					// Flextime balance impact (inverse of required hours change)
 					const balanceImpact = -requiredHoursChange;
-					const balanceEl = impactPreview.createEl('div');
-					balanceEl.style.color = balanceImpact > 0 ? 'var(--text-success)' : 'var(--text-error)';
+					const balanceEl = impactPreview.createEl('div', {
+						cls: balanceImpact > 0 ? 'tf-settings-impact-balance-positive' : 'tf-settings-impact-balance-negative'
+					});
 					const balanceSign = balanceImpact > 0 ? '+' : '';
 					balanceEl.textContent = `• Flextime balance impact: ${balanceSign}${balanceImpact.toFixed(1)}h`;
 				}
 			}
 
 			if (periodDate > today) {
-				const futureNote = impactPreview.createEl('div');
-				futureNote.style.marginTop = '8px';
-				futureNote.style.fontStyle = 'italic';
-				futureNote.style.color = 'var(--text-muted)';
+				const futureNote = impactPreview.createEl('div', { cls: 'tf-settings-future-note' });
 				futureNote.textContent = 'This is a future period - will apply from ' + periodDate;
 			}
 		};
@@ -1108,11 +1092,7 @@ export class WorkSchedulePeriodModal extends Modal {
 		updateImpactPreview();
 
 		// Buttons
-		const buttonDiv = contentEl.createDiv();
-		buttonDiv.style.display = 'flex';
-		buttonDiv.style.gap = '10px';
-		buttonDiv.style.justifyContent = 'flex-end';
-		buttonDiv.style.marginTop = '20px';
+		const buttonDiv = contentEl.createDiv({ cls: 'tf-settings-button-row' });
 
 		const cancelBtn = buttonDiv.createEl('button', { text: 'Cancel' });
 		cancelBtn.onclick = () => this.close();
@@ -1225,12 +1205,12 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 		}
 	}
 
-	private addResetButton(setting: Setting, settingKey: keyof TimeFlowSettings, defaultValue: any, refreshCallback?: () => void): void {
+	private addResetButton<K extends keyof TimeFlowSettings>(setting: Setting, settingKey: K, defaultValue: TimeFlowSettings[K], refreshCallback?: () => void): void {
 		setting.addExtraButton(button => button
 			.setIcon("reset")
 			.setTooltip("Reset to default")
 			.onClick(async () => {
-				(this.plugin.settings as any)[settingKey] = defaultValue;
+				this.plugin.settings[settingKey] = defaultValue;
 				await this.plugin.saveSettings();
 				this.display(); // Refresh settings UI
 				if (refreshCallback) {
@@ -1328,9 +1308,9 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 				const desc = setting.querySelector(".setting-item-description")?.textContent?.toLowerCase() || "";
 
 				if (name.includes(query) || desc.includes(query)) {
-					setting.style.display = "";
+					setting.removeClass('tf-hidden');
 				} else {
-					setting.style.display = "none";
+					setting.addClass('tf-hidden');
 				}
 			});
 		});
@@ -1344,12 +1324,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 			.setHeading();
 
 		// Settings sync info
-		const syncInfo = settingsContainer.createDiv();
-		syncInfo.style.marginBottom = '15px';
-		syncInfo.style.padding = '10px';
-		syncInfo.style.background = 'var(--background-secondary)';
-		syncInfo.style.borderRadius = '5px';
-		syncInfo.style.fontSize = '0.9em';
+		const syncInfo = settingsContainer.createDiv({ cls: 'tf-settings-info-box' });
 		syncInfo.createEl('strong', { text: '📱 Cross-device settings sync' });
 		syncInfo.createEl('br');
 		syncInfo.appendText('Settings are automatically saved to ');
@@ -1499,30 +1474,18 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 
 			// Work days selector
 			const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-			const workDaysSetting = new Setting(settingsContainer)
+			new Setting(settingsContainer)
 				.setName('Work days')
 				.setDesc('Select which days are part of your work week');
 
-			const workDaysContainer = settingsContainer.createDiv();
-			workDaysContainer.style.display = 'flex';
-			workDaysContainer.style.flexWrap = 'wrap';
-			workDaysContainer.style.gap = '8px';
-			workDaysContainer.style.marginBottom = '15px';
+			const workDaysContainer = settingsContainer.createDiv({ cls: 'tf-settings-workdays-container' });
 
 			dayNames.forEach((dayName, dayIndex) => {
-				const dayButton = workDaysContainer.createEl('button');
+				const dayButton = workDaysContainer.createEl('button', { cls: 'tf-settings-day-button' });
 				dayButton.textContent = dayName.substring(0, 3); // Mon, Tue, etc.
-				dayButton.className = 'tf-day-button';
-				dayButton.style.padding = '8px 12px';
-				dayButton.style.border = '1px solid var(--background-modifier-border)';
-				dayButton.style.borderRadius = '4px';
-				dayButton.style.cursor = 'pointer';
-				dayButton.style.background = this.plugin.settings.workDays.includes(dayIndex)
-					? 'var(--interactive-accent)'
-					: 'var(--background-secondary)';
-				dayButton.style.color = this.plugin.settings.workDays.includes(dayIndex)
-					? 'var(--text-on-accent)'
-					: 'var(--text-normal)';
+				if (this.plugin.settings.workDays.includes(dayIndex)) {
+					dayButton.addClass('is-selected');
+				}
 
 				dayButton.onclick = async () => {
 					const currentWorkDays = [...this.plugin.settings.workDays];
@@ -1540,13 +1503,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 
 					// Update button style directly instead of refreshing entire page
-					const isSelected = currentWorkDays.includes(dayIndex);
-					dayButton.style.background = isSelected
-						? 'var(--interactive-accent)'
-						: 'var(--background-secondary)';
-					dayButton.style.color = isSelected
-						? 'var(--text-on-accent)'
-						: 'var(--text-normal)';
+					dayButton.toggleClass('is-selected', currentWorkDays.includes(dayIndex));
 				};
 			});
 
@@ -1564,30 +1521,18 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 
 			// Alternating week work days (only show if enabled)
 			if (this.plugin.settings.enableAlternatingWeeks) {
-				const altWorkDaysSetting = new Setting(settingsContainer)
+				new Setting(settingsContainer)
 					.setName('Alternating week work days')
 					.setDesc('Select which days are work days in the alternating week');
 
-				const altWorkDaysContainer = settingsContainer.createDiv();
-				altWorkDaysContainer.style.display = 'flex';
-				altWorkDaysContainer.style.flexWrap = 'wrap';
-				altWorkDaysContainer.style.gap = '8px';
-				altWorkDaysContainer.style.marginBottom = '15px';
+				const altWorkDaysContainer = settingsContainer.createDiv({ cls: 'tf-settings-workdays-container' });
 
 				dayNames.forEach((dayName, dayIndex) => {
-					const dayButton = altWorkDaysContainer.createEl('button');
+					const dayButton = altWorkDaysContainer.createEl('button', { cls: 'tf-settings-day-button' });
 					dayButton.textContent = dayName.substring(0, 3);
-					dayButton.className = 'tf-day-button';
-					dayButton.style.padding = '8px 12px';
-					dayButton.style.border = '1px solid var(--background-modifier-border)';
-					dayButton.style.borderRadius = '4px';
-					dayButton.style.cursor = 'pointer';
-					dayButton.style.background = this.plugin.settings.alternatingWeekWorkDays.includes(dayIndex)
-						? 'var(--interactive-accent)'
-						: 'var(--background-secondary)';
-					dayButton.style.color = this.plugin.settings.alternatingWeekWorkDays.includes(dayIndex)
-						? 'var(--text-on-accent)'
-						: 'var(--text-normal)';
+					if (this.plugin.settings.alternatingWeekWorkDays.includes(dayIndex)) {
+						dayButton.addClass('is-selected');
+					}
 
 					dayButton.onclick = async () => {
 						const currentAltWorkDays = [...this.plugin.settings.alternatingWeekWorkDays];
@@ -1604,13 +1549,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 
 						// Update button style directly instead of refreshing entire page
-						const isSelected = currentAltWorkDays.includes(dayIndex);
-						dayButton.style.background = isSelected
-							? 'var(--interactive-accent)'
-							: 'var(--background-secondary)';
-						dayButton.style.color = isSelected
-							? 'var(--text-on-accent)'
-							: 'var(--text-normal)';
+						dayButton.toggleClass('is-selected', currentAltWorkDays.includes(dayIndex));
 					};
 				});
 			}
@@ -1623,12 +1562,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 			false
 		);
 
-		const scheduleHistoryInfo = scheduleHistorySection.content.createDiv();
-		scheduleHistoryInfo.style.marginBottom = '15px';
-		scheduleHistoryInfo.style.padding = '10px';
-		scheduleHistoryInfo.style.background = 'var(--background-secondary)';
-		scheduleHistoryInfo.style.borderRadius = '5px';
-		scheduleHistoryInfo.style.fontSize = '0.9em';
+		const scheduleHistoryInfo = scheduleHistorySection.content.createDiv({ cls: 'tf-settings-info-box' });
 		scheduleHistoryInfo.createEl('strong', { text: 'Track changes to your work schedule' });
 		scheduleHistoryInfo.createEl('br');
 		scheduleHistoryInfo.appendText('If you change roles or work hours, add a new period to preserve accurate historical calculations. ');
@@ -1639,20 +1573,12 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 		scheduleHistory.sort((a, b) => b.effectiveFrom.localeCompare(a.effectiveFrom));
 
 		// Display current settings as the active period
-		const currentSettingsInfo = scheduleHistorySection.content.createDiv();
-		currentSettingsInfo.style.marginBottom = '10px';
-		currentSettingsInfo.style.padding = '10px';
-		currentSettingsInfo.style.background = 'var(--background-modifier-success-rgb, rgba(76, 175, 80, 0.2))';
-		currentSettingsInfo.style.borderRadius = '5px';
-		currentSettingsInfo.style.border = '1px solid var(--text-success)';
+		const currentSettingsInfo = scheduleHistorySection.content.createDiv({ cls: 'tf-settings-current-info' });
 
-		const currentLabel = currentSettingsInfo.createEl('div');
-		currentLabel.style.fontWeight = 'bold';
-		currentLabel.style.marginBottom = '5px';
+		const currentLabel = currentSettingsInfo.createEl('div', { cls: 'tf-settings-current-label' });
 		currentLabel.textContent = 'Current settings (active)';
 
-		const currentDetails = currentSettingsInfo.createEl('div');
-		currentDetails.style.fontSize = '0.9em';
+		const currentDetails = currentSettingsInfo.createEl('div', { cls: 'tf-settings-current-details' });
 		const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 		const currentWorkDaysStr = this.plugin.settings.workDays.map(d => dayNames[d]).join(', ');
 		currentDetails.textContent = `${(this.plugin.settings.workPercent * 100).toFixed(0)}% · ${this.plugin.settings.baseWorkday}h/day · ${this.plugin.settings.baseWorkweek}h/week · ${currentWorkDaysStr}`;
@@ -1665,29 +1591,17 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 					p => p.effectiveFrom === period.effectiveFrom
 				);
 
-				const periodDiv = scheduleHistorySection.content.createDiv();
-				periodDiv.style.marginBottom = '10px';
-				periodDiv.style.padding = '10px';
-				periodDiv.style.background = 'var(--background-secondary)';
-				periodDiv.style.borderRadius = '5px';
-				periodDiv.style.display = 'flex';
-				periodDiv.style.justifyContent = 'space-between';
-				periodDiv.style.alignItems = 'center';
+				const periodDiv = scheduleHistorySection.content.createDiv({ cls: 'tf-settings-period-item' });
 
 				const infoDiv = periodDiv.createDiv();
-				const dateLabel = infoDiv.createEl('div');
-				dateLabel.style.fontWeight = 'bold';
+				const dateLabel = infoDiv.createEl('div', { cls: 'tf-settings-period-date' });
 				dateLabel.textContent = `From ${period.effectiveFrom}`;
 
-				const details = infoDiv.createEl('div');
-				details.style.fontSize = '0.9em';
-				details.style.color = 'var(--text-muted)';
+				const details = infoDiv.createEl('div', { cls: 'tf-settings-period-details' });
 				const workDaysStr = period.workDays.map(d => dayNames[d]).join(', ');
 				details.textContent = `${(period.workPercent * 100).toFixed(0)}% · ${period.baseWorkday}h/day · ${period.baseWorkweek}h/week · ${workDaysStr}`;
 
-				const buttonsDiv = periodDiv.createDiv();
-				buttonsDiv.style.display = 'flex';
-				buttonsDiv.style.gap = '5px';
+				const buttonsDiv = periodDiv.createDiv({ cls: 'tf-settings-period-buttons' });
 
 				const editBtn = buttonsDiv.createEl('button', { text: 'Edit' });
 				editBtn.onclick = () => {
@@ -1709,24 +1623,19 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 
 				// Only show delete button if there's more than one period
 				if (scheduleHistory.length > 1) {
-					const deleteBtn = buttonsDiv.createEl('button', { text: 'Delete' });
-					deleteBtn.style.color = 'var(--text-error)';
-					deleteBtn.onclick = async () => {
-						const confirmation = confirm(`Delete schedule period from ${period.effectiveFrom}?`);
-						if (confirmation) {
+					const deleteBtn = buttonsDiv.createEl('button', { text: 'Delete', cls: 'tf-settings-delete-btn' });
+					deleteBtn.onclick = () => {
+						new ConfirmModal(this.app, `Delete schedule period from ${period.effectiveFrom}?`, async () => {
 							this.plugin.settings.workScheduleHistory!.splice(originalIndex, 1);
 							await this.plugin.saveSettings();
 							await this.refreshView();
 							this.display();
-						}
+						}).open();
 					};
 				}
 			});
 		} else {
-			const noPeriods = scheduleHistorySection.content.createDiv();
-			noPeriods.style.color = 'var(--text-muted)';
-			noPeriods.style.fontStyle = 'italic';
-			noPeriods.style.marginBottom = '10px';
+			const noPeriods = scheduleHistorySection.content.createDiv({ cls: 'tf-settings-no-periods' });
 			noPeriods.textContent = 'No historical periods defined. Add a period when your schedule changes.';
 		}
 
@@ -1951,18 +1860,19 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 				.addButton(btn => btn
 					.setButtonText('Delete')
 					.setWarning()
-					.onClick(async () => {
+					.onClick(() => {
 						// Warn if deleting a behavior with ID that might have historical data
-						const confirmation = confirm(
+						new ConfirmModal(
+							this.app,
 							`Are you sure you want to delete "${behavior.label}"?\n\n` +
-							`Note: Historical data in your holidays file using "${behavior.id}" will no longer be recognized.`
-						);
-						if (confirmation) {
-							this.plugin.settings.specialDayBehaviors.splice(index, 1);
-							await this.plugin.saveSettings();
-							await this.refreshView();
-							this.display(); // Refresh settings panel
-						}
+							`Note: Historical data in your holidays file using "${behavior.id}" will no longer be recognized.`,
+							async () => {
+								this.plugin.settings.specialDayBehaviors.splice(index, 1);
+								await this.plugin.saveSettings();
+								await this.refreshView();
+								this.display(); // Refresh settings panel
+							}
+						).open();
 					}));
 		});
 
@@ -2018,17 +1928,18 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 				.addButton(btn => btn
 					.setButtonText(t('common.delete'))
 					.setWarning()
-					.onClick(async () => {
-						const confirmation = confirm(
+					.onClick(() => {
+						new ConfirmModal(
+							this.app,
 							`Are you sure you want to delete "${translatedName}"?\n\n` +
-							`Note: Historical data using "annet:${template.id}" will still work but show a generic icon.`
-						);
-						if (confirmation) {
-							this.plugin.settings.annetTemplates.splice(index, 1);
-							await this.plugin.saveSettings();
-							await this.refreshView();
-							this.display(); // Refresh settings panel
-						}
+							`Note: Historical data using "annet:${template.id}" will still work but show a generic icon.`,
+							async () => {
+								this.plugin.settings.annetTemplates.splice(index, 1);
+								await this.plugin.saveSettings();
+								await this.refreshView();
+								this.display(); // Refresh settings panel
+							}
+						).open();
 					}));
 		});
 
@@ -2244,7 +2155,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 			.addButton(button => button
 				.setButtonText('Export CSV')
 				.setCta()
-				.onClick(async () => {
+				.onClick(() => {
 					this.exportToCSV();
 				}));
 
@@ -2254,7 +2165,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 			.addButton(button => button
 				.setButtonText(t('settings.importData'))
 				.setCta()
-				.onClick(async () => {
+				.onClick(() => {
 					this.showImportModal();
 				}));
 
@@ -2262,16 +2173,11 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 		// SECTION 7: ADVANCED SETTINGS
 		// ============================================================
 		new Setting(settingsContainer)
-			.setName('Advanced settings')
+			.setName('Advanced')
 			.setDesc('Fine-tune balance calculations, thresholds, and visual customization')
 			.setHeading();
 
-		const advancedInfo = settingsContainer.createDiv();
-		advancedInfo.style.marginBottom = '15px';
-		advancedInfo.style.padding = '10px';
-		advancedInfo.style.background = 'var(--background-secondary)';
-		advancedInfo.style.borderRadius = '5px';
-		advancedInfo.style.fontSize = '0.9em';
+		const advancedInfo = settingsContainer.createDiv({ cls: 'tf-settings-info-box' });
 		advancedInfo.createEl('strong', { text: '⚙️ Advanced settings' });
 		advancedInfo.createEl('br');
 		advancedInfo.appendText('These settings affect balance calculations and visual indicators. Settings sync across devices via your data file.');
@@ -2596,7 +2502,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 		const entries = this.plugin.timerManager.convertToTimeEntries();
 		const rows: string[][] = [['Name', 'Start Time', 'End Time', 'Duration (hours)']];
 
-		entries.forEach((entry: any) => {
+		entries.forEach((entry: TimeEntry) => {
 			if (entry.startTime && entry.endTime) {
 				const start = new Date(entry.startTime);
 				const end = new Date(entry.endTime);
@@ -2729,15 +2635,9 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 				}));
 
 		// Info section
-		const infoDiv = contentEl.createDiv();
-		infoDiv.style.marginTop = '15px';
-		infoDiv.style.padding = '10px';
-		infoDiv.style.background = 'var(--background-secondary)';
-		infoDiv.style.borderRadius = '5px';
-		infoDiv.style.fontSize = '0.9em';
+		const infoDiv = contentEl.createDiv({ cls: 'tf-settings-info-box' });
 		infoDiv.createEl('strong', { text: '📋 Pattern Variables:' });
-		const ul = infoDiv.createEl('ul');
-		ul.style.margin = '8px 0 0 20px';
+		const ul = infoDiv.createEl('ul', { cls: 'tf-settings-info-list' });
 		const patterns = [
 			['{YYYY}', 'Four-digit year (e.g., 2025)'],
 			['{MM}', 'Two-digit month (e.g., 01)'],
@@ -2751,11 +2651,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 		});
 
 		// Buttons
-		const buttonDiv = contentEl.createDiv();
-		buttonDiv.style.display = 'flex';
-		buttonDiv.style.gap = '10px';
-		buttonDiv.style.justifyContent = 'flex-end';
-		buttonDiv.style.marginTop = '20px';
+		const buttonDiv = contentEl.createDiv({ cls: 'tf-settings-button-row' });
 
 		const cancelBtn = buttonDiv.createEl('button', { text: 'Cancel' });
 		cancelBtn.onclick = () => modal.close();

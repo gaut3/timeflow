@@ -135,11 +135,11 @@ export const Utils = {
 		);
 	},
 
-	getEmoji: (entry: any): string => {
+	getEmoji: (entry: { name: string; endTime?: string | null; date?: Date }): string => {
 		const name = entry.name.toLowerCase();
 		if (EMOJI_MAP[name]) return EMOJI_MAP[name];
 		if (!entry.endTime) return "⏳";
-		if (Utils.isWeekend(entry.date)) return "🌙";
+		if (entry.date && Utils.isWeekend(entry.date)) return "🌙";
 		return "";
 	},
 

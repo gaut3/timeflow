@@ -1,12 +1,1244 @@
-/* timeflow Plugin - Additional Styles */
+/* timeflow Plugin Styles */
 
-/* These styles are already injected by UIBuilder, but this file is required by Obsidian */
+/* ========================================
+   Dashboard Core Styles
+   ======================================== */
 
 .timeflow-dashboard {
-	/* Main dashboard container */
+	font-family: var(--font-text);
+	padding: 20px;
+	width: 100%;
+	container-type: inline-size;
+	container-name: dashboard;
 }
 
-/* Settings Search */
+.timeflow-error, .timeflow-warning {
+	padding: 15px;
+	border-radius: 5px;
+	margin: 10px 0;
+}
+
+.timeflow-error {
+	background: var(--background-modifier-error);
+	color: var(--text-error);
+}
+
+.timeflow-warning {
+	background: var(--background-modifier-warning);
+	color: var(--text-warning);
+}
+
+/* Pulse animation for active entry indicator */
+@keyframes pulse {
+	0%, 100% {
+		opacity: 1;
+		transform: scale(1);
+	}
+	50% {
+		opacity: 0.6;
+		transform: scale(1.1);
+	}
+}
+
+/* ========================================
+   Badge Section
+   ======================================== */
+
+.tf-badge-section {
+	display: flex;
+	align-items: stretch;
+	gap: 12px;
+	margin: 16px 0;
+	flex-wrap: wrap;
+}
+
+/* Default flex behavior for all badges */
+.tf-compliance-badge {
+	flex: 0 0 auto;
+	margin-left: auto;
+	padding: 10px 14px;
+	border-radius: 12px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 44px;
+	font-weight: bold;
+	font-size: inherit;
+	box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+	cursor: pointer;
+}
+
+.tf-timer-badge {
+	flex: 0 1 auto;
+	padding: 10px 18px;
+	border-radius: 12px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	white-space: normal;
+	text-align: center;
+	min-height: 44px;
+	min-width: 0;
+	cursor: pointer;
+	transition: all 0.2s;
+	border: none;
+	font-family: inherit;
+	font-size: inherit;
+	font-weight: bold;
+	box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.tf-timer-badge:hover {
+	transform: translateY(-1px);
+	box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.tf-timer-badge:active {
+	transform: translateY(0);
+}
+
+.tf-timer-badge > div:first-child {
+	flex: 1;
+}
+
+/* At narrower widths: badges split into 2 rows */
+@container dashboard (max-width: 650px) {
+	.tf-badge {
+		flex: 1 1 calc(50% - 6px);
+	}
+	.tf-clock {
+		flex: 1 1 calc(50% - 6px);
+	}
+	.tf-compliance-badge {
+		margin-left: 0;
+		flex: 0 0 auto;
+	}
+	.tf-timer-badge {
+		flex: 1 1 0;
+	}
+}
+
+.tf-badge {
+	padding: 10px 18px;
+	border-radius: 12px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	white-space: normal;
+	text-align: center;
+	max-width: 100%;
+	min-height: 44px;
+	font-weight: bold;
+	box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+	background: var(--tf-bg, var(--interactive-accent));
+	color: var(--tf-color, white);
+}
+
+.tf-clock {
+	padding: 10px 18px;
+	border-radius: 12px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	white-space: normal;
+	text-align: center;
+	max-width: 100%;
+	min-height: 44px;
+	background: var(--background-primary-alt);
+	color: var(--text-normal);
+	font-weight: bold;
+	font-variant-numeric: tabular-nums;
+	box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+	border: 1px solid var(--background-modifier-border);
+}
+
+/* ========================================
+   Card Layout
+   ======================================== */
+
+.tf-main-cards-wrapper {
+	display: grid;
+	gap: 15px;
+	margin-bottom: 20px;
+	width: 100%;
+	box-sizing: border-box;
+	grid-template-columns: 1fr;
+}
+
+.tf-card-day { grid-column: 1; grid-row: 1; }
+.tf-card-week { grid-column: 1; grid-row: 2; }
+.tf-card-month { grid-column: 1; grid-row: 3; }
+.tf-card-stats { grid-column: 1; grid-row: 4; }
+
+/* Reduce gap and padding on very narrow containers */
+@container dashboard (max-width: 500px) {
+	.tf-main-cards-wrapper { gap: 12px; }
+	.tf-card { padding: 16px; }
+}
+
+/* Reduce side padding on mobile */
+@container dashboard (max-width: 400px) {
+	.timeflow-dashboard {
+		padding: 12px 8px;
+	}
+	.tf-card {
+		padding: 12px;
+	}
+	.tf-badge-section {
+		gap: 8px;
+		margin: 12px 0;
+	}
+	.tf-badge, .tf-clock, .tf-timer-badge {
+		padding: 8px 12px;
+		min-height: 40px;
+	}
+}
+
+/* Medium width: Day/Week side by side, Month and Stats stacked full width */
+@container dashboard (min-width: 400px) {
+	.tf-main-cards-wrapper {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+	.tf-card-day { grid-column: 1; grid-row: 1; }
+	.tf-card-week { grid-column: 2; grid-row: 1; }
+	.tf-card-month { grid-column: 1 / -1; grid-row: 2; }
+	.tf-card-stats { grid-column: 1 / -1; grid-row: 3; }
+}
+
+/* Wide layout: 2x2 grid - Day/Week top, Month/Stats side by side bottom */
+@container dashboard (min-width: 750px) {
+	.tf-main-cards-wrapper {
+		align-items: stretch;
+	}
+	.tf-card-month { grid-column: 1; grid-row: 2; }
+	.tf-card-stats {
+		grid-column: 2;
+		grid-row: 2;
+		display: flex;
+		flex-direction: column;
+	}
+	.tf-card-stats .tf-collapsible-content.open {
+		flex: 1;
+	}
+}
+
+/* Default card styling */
+.tf-card {
+	padding: 20px;
+	border-radius: 12px;
+	background: var(--background-primary-alt);
+	color: var(--text-normal);
+	box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+	box-sizing: border-box;
+	min-width: 0;
+	overflow: hidden;
+	border: 1px solid var(--background-modifier-border);
+}
+
+.tf-card-spaced {
+	margin-top: 24px;
+}
+
+.tf-card h3 {
+	margin-top: 0;
+	margin-bottom: 15px;
+	font-size: 18px;
+	color: var(--text-normal);
+}
+
+.tf-card-day,
+.tf-card-week {
+	position: relative;
+	background: var(--tf-bg, var(--background-primary-alt));
+	color: var(--tf-color, var(--text-normal));
+}
+
+.tf-card-stats,
+.tf-card-history {
+	background: var(--background-primary-alt);
+	color: var(--text-normal);
+}
+
+.tf-card-stats h3,
+.tf-card-history h3 {
+	color: var(--text-normal);
+}
+
+/* ========================================
+   Stats Items
+   ======================================== */
+
+.tf-stat-item {
+	padding: 15px;
+	background: var(--background-secondary);
+	border-radius: 8px;
+	color: var(--text-normal);
+}
+
+.tf-stat-label {
+	font-size: 12px;
+	margin-bottom: 5px;
+	color: var(--text-muted);
+}
+
+.tf-stat-value {
+	font-size: 20px;
+	font-weight: bold;
+	color: var(--text-normal);
+}
+
+.tf-stat-item div,
+.tf-stat-item .tf-stat-label {
+	color: var(--text-normal);
+}
+
+.tf-card-stats .tf-stat-label {
+	color: var(--text-normal);
+}
+
+/* Colored stat items should always have white text */
+.tf-stat-colored,
+.tf-stat-colored div,
+.tf-stat-colored .tf-stat-label,
+.tf-stat-colored .tf-stat-value {
+	color: white !important;
+}
+
+/* ========================================
+   Progress Bar
+   ======================================== */
+
+.tf-progress-bar {
+	width: 100%;
+	height: 12px;
+	background: var(--background-secondary);
+	border-radius: 6px;
+	margin: 10px 0;
+	position: relative;
+	overflow: hidden;
+}
+
+.tf-progress-fill {
+	height: 100%;
+	transition: width 0.3s ease;
+	border-radius: 6px 0 0 6px;
+	margin-left: -0.5px;
+	min-width: 0.5px;
+}
+
+/* ========================================
+   Month Grid / Calendar
+   ======================================== */
+
+.tf-month-grid {
+	display: grid;
+	grid-template-columns: repeat(7, minmax(0, 1fr));
+	gap: 12px;
+	margin-top: 15px;
+	width: 100%;
+	box-sizing: border-box;
+	min-width: 0;
+}
+
+.tf-month-grid.with-week-numbers {
+	grid-template-columns: clamp(16px, 5cqw, 28px) repeat(7, minmax(0, 1fr));
+}
+
+.tf-week-number-cell {
+	font-size: clamp(9px, 2cqw, 11px);
+	color: var(--text-normal);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 0;
+	border-radius: 4px;
+	font-weight: 500;
+}
+
+/* Week compliance colors */
+.tf-week-number-cell.week-ok {
+	background: linear-gradient(135deg, #c8e6c9, #a5d6a7);
+	color: #ffffff;
+}
+.tf-week-number-cell.week-over {
+	background: linear-gradient(135deg, #ffcdd2, #ef9a9a);
+	color: #ffffff;
+}
+.tf-week-number-cell.week-under {
+	background: linear-gradient(135deg, #ffe0b2, #ffcc80);
+	color: #000000;
+}
+.tf-week-number-cell.week-partial {
+	background: linear-gradient(135deg, #e0e0e0, #bdbdbd);
+	color: #000000;
+}
+.tf-week-number-cell.week-future {
+	background: transparent;
+	color: var(--text-muted);
+	opacity: 0.5;
+}
+
+.tf-week-number-header {
+	font-size: clamp(8px, 2cqw, 10px);
+	color: var(--text-muted);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-weight: bold;
+	min-width: 0;
+}
+
+.tf-week-badge {
+	position: absolute;
+	top: 12px;
+	right: 12px;
+	font-size: 12px;
+	padding: 2px 8px;
+	border-radius: 10px;
+	background: rgba(255, 255, 255, 0.2);
+	color: inherit;
+	font-weight: normal;
+}
+
+@container dashboard (max-width: 450px) {
+	.tf-month-grid {
+		gap: clamp(2px, 2cqw, 8px);
+	}
+	.tf-week-badge {
+		font-size: 10px;
+		padding: 2px 8px;
+		top: 12px;
+		right: 12px;
+	}
+}
+
+/* ========================================
+   Day Cells
+   ======================================== */
+
+.tf-day-cell {
+	aspect-ratio: 1;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 6px;
+	font-size: clamp(10px, 2.5vw, 16px);
+	font-weight: bold;
+	cursor: pointer;
+	transition: transform 0.2s, box-shadow 0.2s;
+	position: relative;
+	border: 2px solid transparent;
+	text-shadow: 0 1px 2px rgba(255, 255, 255, 0.5);
+	min-width: 0;
+	overflow: hidden;
+	backface-visibility: hidden;
+	background: var(--tf-bg, transparent);
+	color: var(--tf-color, var(--text-normal));
+	-webkit-font-smoothing: subpixel-antialiased;
+}
+
+.tf-day-cell.has-entry {
+	color: var(--tf-color, var(--text-normal));
+}
+
+.tf-day-cell.no-entry {
+	color: var(--tf-color, var(--text-muted));
+}
+
+.tf-day-cell:hover {
+	transform: scale(1.05);
+	box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+.tf-day-cell.today {
+	border-color: var(--interactive-accent);
+	font-weight: bold;
+}
+
+.tf-day-cell .secondary-type-stripe {
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	height: 4px;
+	border-radius: 0 0 4px 4px;
+}
+
+/* ========================================
+   Stats Grid
+   ======================================== */
+
+.tf-stats-grid {
+	display: grid;
+	grid-template-columns: 1fr;
+	gap: 15px;
+	margin-top: 15px;
+}
+
+@container dashboard (min-width: 400px) {
+	.tf-stats-grid {
+		grid-template-columns: repeat(2, 1fr);
+	}
+}
+
+/* ========================================
+   Future Days List
+   ======================================== */
+
+.tf-future-days-list {
+	display: none;
+}
+
+@container dashboard (min-width: 750px) {
+	.tf-future-days-list {
+		display: block;
+		margin-top: 20px;
+		padding-top: 15px;
+		border-top: 1px solid var(--background-modifier-border);
+	}
+
+	.tf-future-days-list h4 {
+		margin: 0 0 10px 0;
+		font-size: 14px;
+		font-weight: 600;
+		opacity: 0.8;
+	}
+
+	.tf-future-days-inner {
+		position: relative;
+	}
+
+	.tf-future-days-inner.has-more::after {
+		content: '';
+		position: absolute;
+		bottom: 0;
+		left: 0;
+		right: 0;
+		height: 30px;
+		background: linear-gradient(to bottom, transparent, var(--background-primary-alt));
+		pointer-events: none;
+	}
+
+	.tf-future-day-item {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 6px 0;
+		font-size: 13px;
+		border-bottom: 1px solid var(--background-modifier-border);
+	}
+
+	.tf-future-day-item:last-child {
+		border-bottom: none;
+	}
+
+	.tf-future-day-date {
+		font-weight: 500;
+	}
+
+	.tf-future-day-type {
+		padding: 2px 8px;
+		border-radius: 4px;
+		font-size: 12px;
+		color: white;
+	}
+}
+
+/* ========================================
+   Hours Chart
+   ======================================== */
+
+.tf-hours-chart {
+	margin-top: auto;
+	padding-top: 20px;
+	border-top: 1px solid var(--background-modifier-border);
+}
+
+.tf-hours-chart-title {
+	font-size: 12px;
+	color: var(--text-muted);
+	margin-bottom: 12px;
+}
+
+.tf-hours-chart-container {
+	position: relative;
+	height: 120px;
+}
+
+.tf-hours-bars-area {
+	display: flex;
+	gap: 6px;
+	height: 100%;
+	position: relative;
+	align-items: flex-end;
+}
+
+.tf-hours-bar-wrapper {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	min-width: 0;
+}
+
+.tf-hours-bar-container {
+	width: 100%;
+	flex: 1;
+	display: flex;
+	align-items: flex-end;
+}
+
+.tf-hours-bar {
+	width: 100%;
+	background: var(--interactive-accent);
+	border-radius: 3px 3px 0 0;
+	min-height: 2px;
+	transition: height 0.3s ease;
+}
+
+.tf-hours-bar.empty {
+	background: var(--background-modifier-border);
+}
+
+.tf-hours-bar-label {
+	font-size: 10px;
+	color: var(--text-muted);
+	margin-top: 6px;
+	text-align: center;
+	white-space: nowrap;
+}
+
+.tf-hours-bar-value {
+	font-size: 10px;
+	color: var(--text-normal);
+	text-align: center;
+	white-space: nowrap;
+	font-weight: 500;
+	height: 16px;
+	line-height: 16px;
+}
+
+.tf-hours-target-line {
+	position: absolute;
+	left: 0;
+	right: 0;
+	height: 1px;
+	background: var(--text-muted);
+	opacity: 0.6;
+	z-index: 10;
+	pointer-events: none;
+}
+
+.tf-hours-target-label {
+	position: absolute;
+	right: 4px;
+	top: -12px;
+	font-size: 9px;
+	color: var(--text-muted);
+	font-weight: 500;
+}
+
+.tf-hours-target-label-left {
+	position: absolute;
+	left: 4px;
+	top: -12px;
+	font-size: 9px;
+	color: var(--text-muted);
+	font-weight: 500;
+}
+
+/* ========================================
+   Tabs & Buttons
+   ======================================== */
+
+.tf-timeframe-label {
+	color: var(--text-normal);
+}
+
+.tf-tabs {
+	display: flex;
+	gap: 8px;
+	margin-bottom: 15px;
+	border-bottom: 2px solid var(--background-modifier-border);
+}
+
+.tf-tab {
+	padding: 6px 12px;
+	cursor: pointer;
+	border: none;
+	background: var(--background-secondary);
+	color: var(--text-normal);
+	font-size: 0.9em;
+	border-radius: 6px;
+	transition: all 0.2s;
+	font-weight: 500;
+}
+
+.tf-tab.active {
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+	font-weight: bold;
+}
+
+.tf-tab:hover {
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+
+.tf-button {
+	padding: clamp(3px, 1.5cqw, 8px) clamp(6px, 3cqw, 16px);
+	border-radius: 4px;
+	border: 1px solid var(--background-modifier-border);
+	background: var(--interactive-normal);
+	color: var(--text-normal);
+	cursor: pointer;
+	font-size: clamp(10px, 3cqw, 14px);
+	transition: all 0.2s;
+	white-space: nowrap;
+	min-width: 0;
+	flex-shrink: 1;
+}
+
+.tf-button:hover {
+	background: var(--interactive-hover);
+}
+
+@media (max-width: 500px) {
+	.tf-button {
+		padding: 4px 8px;
+		font-size: 11px;
+		min-width: unset;
+	}
+}
+
+/* ========================================
+   Heatmap
+   ======================================== */
+
+.tf-heatmap {
+	display: grid;
+	gap: 2px;
+	margin-top: 15px;
+	padding-right: 1px;
+}
+
+.tf-heatmap-cell {
+	width: 100%;
+	aspect-ratio: 1;
+	border-radius: 4px;
+	cursor: pointer;
+	transition: opacity 0.2s, box-shadow 0.2s;
+}
+
+.tf-heatmap-cell:hover {
+	opacity: 0.8;
+	box-shadow: inset 0 0 0 2px var(--text-accent);
+}
+
+@media (max-width: 600px) {
+	.tf-heatmap {
+		grid-template-columns: repeat(20, 1fr) !important;
+	}
+}
+
+/* ========================================
+   Context Menu
+   ======================================== */
+
+.tf-context-menu {
+	position: fixed;
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+	padding: 4px;
+	z-index: 1000;
+	min-width: 200px;
+	max-width: calc(100vw - 20px);
+	display: flex;
+	gap: 0;
+	box-sizing: border-box;
+}
+
+.tf-context-menu-main {
+	flex: 0 0 auto;
+	min-width: 200px;
+	box-sizing: border-box;
+}
+
+.tf-context-menu-info {
+	flex: 0 0 auto;
+	width: 250px;
+	padding: 12px;
+	border-left: 1px solid var(--background-modifier-border);
+	background: var(--background-secondary);
+	font-size: 0.85em;
+	line-height: 1.4;
+	box-sizing: border-box;
+}
+
+@media (max-width: 500px) {
+	.tf-context-menu {
+		flex-direction: column;
+		width: calc(100vw - 20px);
+		max-height: calc(100vh - 40px);
+		overflow-y: auto;
+	}
+
+	.tf-context-menu-main {
+		width: 100%;
+	}
+
+	.tf-context-menu-info {
+		width: 100%;
+		border-left: none;
+		border-top: 1px solid var(--background-modifier-border);
+	}
+}
+
+.tf-context-menu-info h4 {
+	margin: 0 0 8px 0;
+	font-size: 0.95em;
+	color: var(--text-normal);
+}
+
+.tf-context-menu-info p {
+	margin: 4px 0;
+	color: var(--text-muted);
+}
+
+.tf-context-menu-info strong {
+	color: var(--text-normal);
+}
+
+/* ========================================
+   Compliance Info Panel
+   ======================================== */
+
+.tf-compliance-info-panel {
+	position: fixed;
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+	padding: 12px 16px;
+	z-index: 1000;
+	min-width: 220px;
+	max-width: 300px;
+}
+
+.tf-compliance-info-panel h4 {
+	margin: 0 0 10px 0;
+	font-size: 0.95em;
+	color: var(--text-normal);
+}
+
+.tf-compliance-info-panel p {
+	margin: 6px 0;
+	color: var(--text-muted);
+	font-size: 0.9em;
+}
+
+.tf-compliance-info-panel strong {
+	color: var(--text-normal);
+}
+
+/* ========================================
+   Menu Items
+   ======================================== */
+
+.tf-menu-item {
+	padding: 8px 16px;
+	cursor: pointer;
+	transition: background 0.2s;
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	color: var(--text-normal);
+}
+
+.tf-menu-item:hover {
+	background: var(--background-modifier-hover);
+}
+
+.tf-menu-separator {
+	height: 1px;
+	background: var(--background-modifier-border);
+	margin: 4px 0;
+}
+
+/* Submenu styles */
+.tf-menu-item-with-submenu {
+	position: relative;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+
+.tf-submenu {
+	display: none;
+	position: absolute;
+	left: 100%;
+	top: 0;
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+	padding: 4px;
+	min-width: 180px;
+	z-index: 1001;
+}
+
+.tf-menu-item-with-submenu:hover .tf-submenu {
+	display: block;
+}
+
+.tf-submenu-arrow {
+	font-size: 0.8em;
+	opacity: 0.7;
+}
+
+/* ========================================
+   Status Bar & Collapsible
+   ======================================== */
+
+.tf-status-bar {
+	margin-top: 20px;
+	padding: 15px;
+	background: var(--background-secondary-alt);
+	border-radius: 6px;
+	border-left: 4px solid var(--interactive-accent);
+}
+
+.tf-collapsible {
+	cursor: pointer;
+	user-select: none;
+}
+
+.tf-collapsible-content {
+	max-height: 0;
+	overflow: hidden;
+	transition: max-height 0.3s ease;
+}
+
+.tf-collapsible-content.open {
+	max-height: none;
+	overflow: visible;
+}
+
+.tf-card-stats .tf-collapsible-content.open {
+	display: flex;
+	flex-direction: column;
+}
+
+/* ========================================
+   Info Grid
+   ======================================== */
+
+.tf-info-grid {
+	display: grid;
+	grid-template-columns: 1fr;
+	gap: 20px;
+	margin-top: 15px;
+}
+
+.tf-info-column {
+	display: flex;
+	flex-direction: column;
+	gap: 15px;
+}
+
+.tf-info-box {
+	padding: 12px;
+	background: var(--background-primary);
+	border-radius: 8px;
+}
+
+.tf-info-box h4 {
+	margin: 0 0 10px 0;
+	font-size: 0.95em;
+}
+
+@container dashboard (min-width: 500px) {
+	.tf-info-grid {
+		grid-template-columns: 1fr 1fr;
+	}
+}
+
+/* ========================================
+   History Section
+   ======================================== */
+
+.tf-history-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 10px;
+}
+
+.tf-history-controls {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	flex: 0 0 auto;
+}
+
+.tf-history-filters {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	padding: 10px 0;
+	border-bottom: 1px solid var(--background-modifier-border);
+	margin-bottom: 10px;
+}
+
+.tf-filter-chip {
+	padding: 4px 12px;
+	border-radius: 16px;
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-primary);
+	color: var(--text-normal);
+	cursor: pointer;
+	font-size: 0.85em;
+	transition: all 0.15s ease;
+}
+
+.tf-filter-chip:hover {
+	background: var(--background-secondary);
+}
+
+.tf-filter-chip.active {
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+	border-color: var(--interactive-accent);
+}
+
+/* History table styles */
+.tf-history-table-wide,
+.tf-history-table-narrow {
+	width: 100%;
+	border-collapse: collapse;
+	margin-bottom: 15px;
+	table-layout: fixed;
+}
+
+.tf-history-table-wide th,
+.tf-history-table-wide td,
+.tf-history-table-narrow th,
+.tf-history-table-narrow td {
+	padding: 8px;
+	color: var(--text-normal);
+	border-bottom: 1px solid var(--background-modifier-border);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.tf-history-table-wide thead tr,
+.tf-history-table-narrow thead tr {
+	background: var(--background-secondary);
+}
+
+/* Fixed column widths for wide table */
+.tf-history-table-wide th:nth-child(1),
+.tf-history-table-wide td:nth-child(1) { width: 100px; }
+.tf-history-table-wide th:nth-child(2),
+.tf-history-table-wide td:nth-child(2) { width: 120px; }
+.tf-history-table-wide th:nth-child(3),
+.tf-history-table-wide td:nth-child(3) { width: 80px; }
+.tf-history-table-wide th:nth-child(4),
+.tf-history-table-wide td:nth-child(4) { width: 80px; }
+.tf-history-table-wide th:nth-child(5),
+.tf-history-table-wide td:nth-child(5) { width: 70px; }
+.tf-history-table-wide th:nth-child(6),
+.tf-history-table-wide td:nth-child(6) { width: 80px; }
+.tf-history-table-wide th:nth-child(7),
+.tf-history-table-wide td:nth-child(7) { width: 40px; }
+
+/* Fixed column widths for narrow table */
+.tf-history-table-narrow th:nth-child(1),
+.tf-history-table-narrow td:nth-child(1) { width: 100px; }
+.tf-history-table-narrow th:nth-child(2),
+.tf-history-table-narrow td:nth-child(2) { width: auto; }
+.tf-history-table-narrow th:nth-child(3),
+.tf-history-table-narrow td:nth-child(3) { width: 70px; }
+.tf-history-table-narrow th:nth-child(4),
+.tf-history-table-narrow td:nth-child(4) { width: 80px; }
+.tf-history-table-narrow th:nth-child(5),
+.tf-history-table-narrow td:nth-child(5) { width: 50px; }
+
+.tf-history-table-wide input[type="time"],
+.tf-time-input {
+	padding: 4px 6px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	background: var(--background-primary);
+	color: var(--text-normal);
+	font-size: 0.9em;
+	width: 100%;
+	box-sizing: border-box;
+}
+
+.tf-time-input {
+	text-align: center;
+	font-family: var(--font-monospace);
+}
+
+.tf-history-table-wide select {
+	padding: 4px 6px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	background: var(--background-primary);
+	color: var(--text-normal);
+	font-size: 0.9em;
+	width: 100%;
+	box-sizing: border-box;
+}
+
+.tf-history-table-wide input:focus,
+.tf-history-table-wide select:focus {
+	outline: none;
+	border-color: var(--interactive-accent);
+}
+
+.tf-history-edit-btn {
+	padding: 4px 10px;
+	border-radius: 4px;
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-primary);
+	color: var(--text-normal);
+	cursor: pointer;
+	font-size: 0.85em;
+	white-space: nowrap;
+	min-width: 80px;
+}
+
+.tf-history-edit-btn:hover {
+	background: var(--background-secondary);
+}
+
+.tf-history-edit-btn.active {
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+	border-color: var(--interactive-accent);
+}
+
+.tf-history-edit-btn.tf-hide-narrow {
+	display: none;
+}
+
+.tf-history-delete-btn {
+	padding: 4px 8px;
+	border: none;
+	background: transparent;
+	color: var(--text-muted);
+	cursor: pointer;
+	font-size: 1em;
+	opacity: 0.7;
+	transition: opacity 0.15s ease;
+}
+
+.tf-history-delete-btn:hover {
+	opacity: 1;
+	color: #f44336;
+}
+
+.tf-history-add-row {
+	cursor: pointer;
+}
+
+.tf-history-add-row td {
+	text-align: center;
+	color: var(--text-muted);
+	padding: 8px;
+}
+
+.tf-history-add-row:hover td {
+	background: var(--background-secondary);
+	color: var(--text-normal);
+}
+
+/* ========================================
+   Delete Confirmation Dialog
+   ======================================== */
+
+.tf-confirm-overlay {
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: rgba(0, 0, 0, 0.5);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 10000;
+}
+
+.tf-confirm-dialog {
+	background: var(--background-primary);
+	border-radius: 8px;
+	padding: 20px;
+	max-width: 400px;
+	width: 90%;
+	box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.tf-confirm-title {
+	font-size: 16px;
+	font-weight: bold;
+	margin-bottom: 12px;
+	color: var(--text-normal);
+}
+
+.tf-confirm-message {
+	font-size: 14px;
+	color: var(--text-muted);
+	margin-bottom: 8px;
+}
+
+.tf-confirm-details {
+	background: var(--background-secondary);
+	padding: 10px;
+	border-radius: 4px;
+	margin-bottom: 16px;
+	font-size: 13px;
+}
+
+.tf-confirm-buttons {
+	display: flex;
+	gap: 10px;
+	justify-content: flex-end;
+}
+
+.tf-confirm-cancel {
+	padding: 8px 16px;
+	border-radius: 4px;
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-secondary);
+	color: var(--text-normal);
+	cursor: pointer;
+}
+
+.tf-confirm-delete {
+	padding: 8px 16px;
+	border-radius: 4px;
+	border: none;
+	background: #f44336;
+	color: white;
+	cursor: pointer;
+	font-weight: bold;
+}
+
+.tf-confirm-delete:hover {
+	background: #d32f2f;
+}
+
+/* ========================================
+   Settings Styles
+   ======================================== */
+
 .tf-settings-search {
 	margin-bottom: 20px;
 	position: sticky;
@@ -65,19 +1297,6 @@
 
 .tf-collapsible-subsection.open::before {
 	transform: rotate(90deg);
-}
-
-.tf-collapsible-content {
-	max-height: 0;
-	overflow: hidden;
-	transition: max-height 0.3s ease-out, opacity 0.3s ease-out;
-	opacity: 0;
-}
-
-.tf-collapsible-content.open {
-	max-height: 2000px;
-	opacity: 1;
-	transition: max-height 0.3s ease-in, opacity 0.3s ease-in;
 }
 
 /* Compliance Warning Indicators */
@@ -148,4 +1367,2658 @@
 	width: 60px;
 	text-align: center;
 	padding: 6px 10px;
+}
+
+/* ==================== */
+/* Import Modal Styles  */
+/* ==================== */
+
+.timeflow-import-modal .tf-import-format-div {
+	margin-bottom: 15px;
+}
+
+.timeflow-import-modal .tf-import-label {
+	font-weight: bold;
+	margin-right: 10px;
+}
+
+.timeflow-import-modal .tf-import-select {
+	padding: 5px 10px;
+	border-radius: 4px;
+}
+
+.timeflow-import-modal .tf-import-upload-div {
+	margin-bottom: 15px;
+}
+
+.timeflow-import-modal .tf-import-file-input {
+	display: none;
+}
+
+.timeflow-import-modal .tf-import-upload-btn {
+	margin-right: 10px;
+}
+
+.timeflow-import-modal .tf-import-file-name {
+	color: var(--text-muted);
+	font-size: 12px;
+}
+
+.timeflow-import-modal .tf-import-textarea-label {
+	font-weight: bold;
+	margin-bottom: 5px;
+}
+
+.timeflow-import-modal .tf-import-textarea {
+	width: 100%;
+	font-family: monospace;
+	font-size: 12px;
+	margin-bottom: 15px;
+	resize: vertical;
+}
+
+.timeflow-import-modal .tf-import-preview {
+	margin-bottom: 15px;
+	padding: 10px;
+	background: var(--background-secondary);
+	border-radius: 5px;
+	display: none;
+}
+
+.timeflow-import-modal .tf-import-preview.is-visible {
+	display: block;
+}
+
+.timeflow-import-modal .tf-import-parse-btn {
+	margin-bottom: 15px;
+}
+
+.timeflow-import-modal .tf-import-info {
+	margin-bottom: 15px;
+	padding: 10px;
+	background: var(--background-secondary);
+	border-radius: 5px;
+}
+
+.timeflow-import-modal .tf-import-info ul {
+	margin-bottom: 0;
+}
+
+.timeflow-import-modal .tf-import-buttons {
+	display: flex;
+	gap: 10px;
+	justify-content: flex-end;
+}
+
+.timeflow-import-modal .tf-import-format-info {
+	margin-bottom: 10px;
+}
+
+.timeflow-import-modal .tf-import-error {
+	color: var(--text-error);
+	margin-bottom: 10px;
+}
+
+.timeflow-import-modal .tf-import-error ul {
+	margin: 5px 0;
+}
+
+.timeflow-import-modal .tf-import-warning {
+	color: var(--text-warning);
+	margin-bottom: 10px;
+}
+
+.timeflow-import-modal .tf-import-warning ul {
+	margin: 5px 0;
+}
+
+.timeflow-import-modal .tf-import-success {
+	color: var(--text-success);
+}
+
+.timeflow-import-modal .tf-import-preview-table {
+	width: 100%;
+	margin-top: 10px;
+	font-size: 12px;
+	border-collapse: collapse;
+}
+
+.timeflow-import-modal .tf-import-preview-table th {
+	text-align: left;
+	padding: 4px;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.timeflow-import-modal .tf-import-preview-table td {
+	padding: 4px;
+}
+
+.timeflow-import-modal .tf-import-more-row {
+	font-style: italic;
+	color: var(--text-muted);
+}
+
+/* ==================== */
+/* Settings Styles      */
+/* ==================== */
+
+.tf-settings-info-box {
+	padding: 10px;
+	margin-bottom: 15px;
+	background: var(--background-secondary);
+	border-radius: 5px;
+	font-size: 0.9em;
+}
+
+.tf-settings-info-box.mb-10 {
+	margin-bottom: 10px;
+}
+
+.tf-settings-button-row {
+	display: flex;
+	gap: 10px;
+	justify-content: flex-end;
+	margin-top: 20px;
+}
+
+.tf-settings-workdays-container {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-bottom: 15px;
+}
+
+.tf-settings-day-button {
+	padding: 8px 12px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	cursor: pointer;
+}
+
+.tf-settings-day-button.is-selected {
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+
+.tf-settings-day-button:not(.is-selected) {
+	background: var(--background-secondary);
+	color: var(--text-normal);
+}
+
+.tf-settings-impact-preview {
+	margin-top: 15px;
+	margin-bottom: 15px;
+	padding: 12px;
+	background: var(--background-secondary);
+	border-radius: 5px;
+	border: 1px solid var(--background-modifier-border);
+}
+
+.tf-settings-impact-title {
+	font-weight: bold;
+	margin-bottom: 8px;
+}
+
+.tf-settings-impact-item {
+	margin-bottom: 4px;
+}
+
+.tf-settings-impact-balance-positive {
+	color: var(--text-success);
+}
+
+.tf-settings-impact-balance-negative {
+	color: var(--text-error);
+}
+
+.tf-settings-future-note {
+	margin-top: 8px;
+	font-style: italic;
+	color: var(--text-muted);
+}
+
+.tf-settings-current-info {
+	margin-bottom: 10px;
+	padding: 10px;
+	background: var(--background-modifier-success-rgb, rgba(76, 175, 80, 0.2));
+	border-radius: 5px;
+	border: 1px solid var(--text-success);
+}
+
+.tf-settings-current-label {
+	font-weight: bold;
+	margin-bottom: 5px;
+}
+
+.tf-settings-current-details {
+	font-size: 0.9em;
+}
+
+.tf-settings-period-item {
+	margin-bottom: 10px;
+	padding: 10px;
+	background: var(--background-secondary);
+	border-radius: 5px;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+
+.tf-settings-period-date {
+	font-weight: bold;
+}
+
+.tf-settings-period-details {
+	font-size: 0.9em;
+	color: var(--text-muted);
+}
+
+.tf-settings-period-buttons {
+	display: flex;
+	gap: 5px;
+}
+
+.tf-settings-delete-btn {
+	color: var(--text-error);
+}
+
+.tf-settings-no-periods {
+	color: var(--text-muted);
+	font-style: italic;
+	margin-bottom: 10px;
+}
+
+.tf-settings-info-list {
+	margin: 8px 0 0 20px;
+}
+
+/* ==================== */
+/* UIBuilder Utilities  */
+/* ==================== */
+
+/* Layout utilities */
+.tf-flex {
+	display: flex;
+}
+
+.tf-flex-col {
+	display: flex;
+	flex-direction: column;
+}
+
+.tf-flex-wrap {
+	flex-wrap: wrap;
+}
+
+.tf-flex-1 {
+	flex: 1;
+}
+
+.tf-flex-shrink-0 {
+	flex-shrink: 0;
+}
+
+.tf-items-center {
+	align-items: center;
+}
+
+.tf-items-start {
+	align-items: flex-start;
+}
+
+.tf-items-stretch {
+	align-items: stretch;
+}
+
+.tf-justify-center {
+	justify-content: center;
+}
+
+.tf-justify-between {
+	justify-content: space-between;
+}
+
+.tf-justify-end {
+	justify-content: flex-end;
+}
+
+.tf-gap-0 {
+	gap: 0;
+}
+
+.tf-gap-4 {
+	gap: 4px;
+}
+
+.tf-gap-5 {
+	gap: 5px;
+}
+
+.tf-gap-6 {
+	gap: 6px;
+}
+
+.tf-gap-8 {
+	gap: 8px;
+}
+
+.tf-gap-10 {
+	gap: 10px;
+}
+
+.tf-gap-12 {
+	gap: 12px;
+}
+
+.tf-gap-15 {
+	gap: 15px;
+}
+
+.tf-gap-20 {
+	gap: 20px;
+}
+
+/* Display utilities */
+.tf-hidden {
+	display: none;
+}
+
+.tf-block {
+	display: block;
+}
+
+.tf-inline-flex {
+	display: inline-flex;
+}
+
+.tf-grid {
+	display: grid;
+}
+
+/* Spacing - Margin */
+.tf-m-0 {
+	margin: 0;
+}
+
+.tf-mb-0 {
+	margin-bottom: 0;
+}
+
+.tf-mb-4 {
+	margin-bottom: 4px;
+}
+
+.tf-mb-5 {
+	margin-bottom: 5px;
+}
+
+.tf-mb-6 {
+	margin-bottom: 6px;
+}
+
+.tf-mb-8 {
+	margin-bottom: 8px;
+}
+
+.tf-mb-10 {
+	margin-bottom: 10px;
+}
+
+.tf-mb-12 {
+	margin-bottom: 12px;
+}
+
+.tf-mb-15 {
+	margin-bottom: 15px;
+}
+
+.tf-mb-16 {
+	margin-bottom: 16px;
+}
+
+.tf-mb-20 {
+	margin-bottom: 20px;
+}
+
+.tf-mt-5 {
+	margin-top: 5px;
+}
+
+.tf-mt-8 {
+	margin-top: 8px;
+}
+
+.tf-mt-10 {
+	margin-top: 10px;
+}
+
+.tf-mt-15 {
+	margin-top: 15px;
+}
+
+.tf-mt-20 {
+	margin-top: 20px;
+}
+
+.tf-mr-5 {
+	margin-right: 5px;
+}
+
+.tf-mr-8 {
+	margin-right: 8px;
+}
+
+.tf-mr-10 {
+	margin-right: 10px;
+}
+
+.tf-ml-8 {
+	margin-left: 8px;
+}
+
+.tf-ml-12 {
+	margin-left: 12px;
+}
+
+/* Spacing - Padding */
+.tf-p-0 {
+	padding: 0;
+}
+
+.tf-p-4 {
+	padding: 4px;
+}
+
+.tf-p-5 {
+	padding: 5px;
+}
+
+.tf-p-6 {
+	padding: 6px;
+}
+
+.tf-p-8 {
+	padding: 8px;
+}
+
+.tf-p-10 {
+	padding: 10px;
+}
+
+.tf-p-12 {
+	padding: 12px;
+}
+
+.tf-p-15 {
+	padding: 15px;
+}
+
+.tf-p-20 {
+	padding: 20px;
+}
+
+.tf-px-8 {
+	padding-left: 8px;
+	padding-right: 8px;
+}
+
+.tf-px-10 {
+	padding-left: 10px;
+	padding-right: 10px;
+}
+
+.tf-px-12 {
+	padding-left: 12px;
+	padding-right: 12px;
+}
+
+.tf-py-4 {
+	padding-top: 4px;
+	padding-bottom: 4px;
+}
+
+.tf-py-6 {
+	padding-top: 6px;
+	padding-bottom: 6px;
+}
+
+.tf-py-8 {
+	padding-top: 8px;
+	padding-bottom: 8px;
+}
+
+.tf-pl-8 {
+	padding-left: 8px;
+}
+
+.tf-pl-12 {
+	padding-left: 12px;
+}
+
+.tf-pt-10 {
+	padding-top: 10px;
+}
+
+/* Typography */
+.tf-text-xs {
+	font-size: 10px;
+}
+
+.tf-text-sm {
+	font-size: 12px;
+}
+
+.tf-text-base {
+	font-size: 14px;
+}
+
+.tf-text-lg {
+	font-size: 16px;
+}
+
+.tf-text-xl {
+	font-size: 18px;
+}
+
+.tf-text-2xl {
+	font-size: 20px;
+}
+
+.tf-text-3xl {
+	font-size: 24px;
+}
+
+.tf-font-bold {
+	font-weight: bold;
+}
+
+.tf-font-semibold {
+	font-weight: 600;
+}
+
+.tf-font-normal {
+	font-weight: normal;
+}
+
+.tf-italic {
+	font-style: italic;
+}
+
+.tf-text-center {
+	text-align: center;
+}
+
+.tf-text-left {
+	text-align: left;
+}
+
+.tf-text-right {
+	text-align: right;
+}
+
+.tf-text-muted {
+	color: var(--text-muted);
+}
+
+.tf-text-normal {
+	color: var(--text-normal);
+}
+
+.tf-text-white {
+	color: white;
+}
+
+.tf-text-success {
+	color: var(--text-success, #4caf50);
+}
+
+.tf-text-warning {
+	color: var(--text-warning, #ff9800);
+}
+
+.tf-text-error {
+	color: var(--text-error, #f44336);
+}
+
+/* Background colors */
+.tf-bg-transparent {
+	background: transparent;
+}
+
+.tf-bg-primary {
+	background: var(--background-primary);
+}
+
+.tf-bg-secondary {
+	background: var(--background-secondary);
+}
+
+.tf-bg-success {
+	background: #4caf50;
+}
+
+.tf-bg-success-dark {
+	background: #388e3c;
+}
+
+.tf-bg-warning {
+	background: #ff9800;
+}
+
+.tf-bg-error {
+	background: #f44336;
+}
+
+/* Border utilities */
+.tf-rounded {
+	border-radius: 4px;
+}
+
+.tf-rounded-md {
+	border-radius: 6px;
+}
+
+.tf-rounded-lg {
+	border-radius: 8px;
+}
+
+.tf-rounded-xl {
+	border-radius: 12px;
+}
+
+.tf-rounded-full {
+	border-radius: 50%;
+}
+
+.tf-rounded-l-xl {
+	border-radius: 12px 0 0 12px;
+}
+
+.tf-rounded-r-xl {
+	border-radius: 0 12px 12px 0;
+}
+
+.tf-border {
+	border: 1px solid var(--background-modifier-border);
+}
+
+.tf-border-t {
+	border-top: 1px solid var(--background-modifier-border);
+}
+
+.tf-border-b {
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.tf-border-l {
+	border-left: 1px solid var(--background-modifier-border);
+}
+
+.tf-border-none {
+	border: none;
+}
+
+/* Size utilities */
+.tf-w-full {
+	width: 100%;
+}
+
+.tf-w-auto {
+	width: auto;
+}
+
+.tf-h-full {
+	height: 100%;
+}
+
+.tf-min-w-0 {
+	min-width: 0;
+}
+
+.tf-min-w-120 {
+	min-width: 120px;
+}
+
+.tf-min-w-150 {
+	min-width: 150px;
+}
+
+.tf-max-w-200 {
+	max-width: 200px;
+}
+
+/* Cursor */
+.tf-cursor-pointer {
+	cursor: pointer;
+}
+
+.tf-cursor-default {
+	cursor: default;
+}
+
+.tf-cursor-grab {
+	cursor: grab;
+}
+
+/* Position */
+.tf-relative {
+	position: relative;
+}
+
+.tf-absolute {
+	position: absolute;
+}
+
+.tf-fixed {
+	position: fixed;
+}
+
+/* Z-index */
+.tf-z-100 {
+	z-index: 100;
+}
+
+.tf-z-1000 {
+	z-index: 1000;
+}
+
+.tf-z-10000 {
+	z-index: 10000;
+}
+
+/* Overflow */
+.tf-overflow-hidden {
+	overflow: hidden;
+}
+
+.tf-overflow-auto {
+	overflow: auto;
+}
+
+.tf-overflow-y-auto {
+	overflow-y: auto;
+}
+
+/* Opacity */
+.tf-opacity-50 {
+	opacity: 0.5;
+}
+
+.tf-opacity-60 {
+	opacity: 0.6;
+}
+
+.tf-opacity-70 {
+	opacity: 0.7;
+}
+
+.tf-opacity-80 {
+	opacity: 0.8;
+}
+
+/* Transitions */
+.tf-transition {
+	transition: all 0.2s ease;
+}
+
+.tf-transition-colors {
+	transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.tf-transition-transform {
+	transition: transform 0.2s;
+}
+
+.tf-transition-filter {
+	transition: filter 0.2s;
+}
+
+/* Shadow */
+.tf-shadow {
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.tf-shadow-lg {
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* List styles */
+.tf-list-none {
+	list-style: none;
+}
+
+.tf-list-inside {
+	list-style-position: inside;
+}
+
+/* UIBuilder specific components */
+.tf-container {
+	font-family: sans-serif;
+	max-width: 1200px;
+	margin: 0 auto;
+	padding: 20px;
+	box-sizing: border-box;
+}
+
+.tf-day-header {
+	text-align: center;
+	font-weight: bold;
+	font-size: 12px;
+	color: var(--text-muted);
+}
+
+.tf-timer-start-btn {
+	background: #4caf50;
+	color: white;
+	padding: 8px 12px;
+	cursor: pointer;
+	border-radius: 12px 0 0 12px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	transition: filter 0.2s;
+}
+
+.tf-timer-start-btn:hover {
+	filter: brightness(1.1);
+}
+
+.tf-timer-dropdown-btn {
+	background: #388e3c;
+	color: white;
+	padding: 8px 8px;
+	cursor: pointer;
+	border-radius: 0 12px 12px 0;
+	font-size: 0.8em;
+	display: flex;
+	align-items: center;
+	border-left: 1px solid rgba(255, 255, 255, 0.3);
+	transition: filter 0.2s;
+}
+
+.tf-timer-dropdown-btn:hover {
+	filter: brightness(1.1);
+}
+
+.tf-timer-stop-btn {
+	background: #f44336;
+	color: white;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.tf-timer-type-menu {
+	position: fixed;
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+	z-index: 1000;
+	min-width: 150px;
+	overflow: hidden;
+}
+
+.tf-menu-item {
+	padding: 10px 15px;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	transition: background 0.2s;
+}
+
+.tf-menu-item:hover {
+	background: var(--background-modifier-hover);
+}
+
+.tf-section-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 10px;
+}
+
+.tf-section-title {
+	font-size: 14px;
+	font-weight: 600;
+	color: var(--text-normal);
+	margin: 0;
+}
+
+.tf-entry-row {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 8px 0;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.tf-entry-row:last-child {
+	border-bottom: none;
+}
+
+.tf-entry-left {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex: 1;
+	min-width: 0;
+}
+
+.tf-entry-right {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	flex-shrink: 0;
+}
+
+.tf-entry-icon {
+	font-size: 16px;
+	flex-shrink: 0;
+}
+
+.tf-entry-name {
+	font-weight: 500;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.tf-entry-time {
+	font-size: 12px;
+	color: var(--text-muted);
+}
+
+.tf-entry-duration {
+	font-weight: 600;
+	min-width: 50px;
+	text-align: right;
+}
+
+.tf-entry-flextime {
+	font-size: 12px;
+	min-width: 50px;
+	text-align: right;
+}
+
+.tf-action-btn {
+	background: transparent;
+	border: none;
+	cursor: pointer;
+	padding: 4px 8px;
+	border-radius: 4px;
+	font-size: 14px;
+	transition: background 0.2s;
+}
+
+.tf-action-btn:hover {
+	background: var(--background-modifier-hover);
+}
+
+.tf-delete-btn {
+	color: var(--text-error, #f44336);
+}
+
+.tf-edit-btn {
+	color: var(--text-muted);
+}
+
+.tf-modal-overlay {
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: rgba(0, 0, 0, 0.5);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 10000;
+}
+
+.tf-modal-content {
+	background: var(--background-primary);
+	padding: 20px;
+	border-radius: 8px;
+	min-width: 300px;
+	max-width: 90%;
+	box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.tf-modal-title {
+	font-size: 18px;
+	font-weight: bold;
+	margin-bottom: 15px;
+}
+
+.tf-form-group {
+	margin-bottom: 15px;
+}
+
+.tf-form-label {
+	display: block;
+	font-weight: 500;
+	margin-bottom: 5px;
+}
+
+.tf-form-row {
+	display: flex;
+	gap: 10px;
+	align-items: center;
+}
+
+.tf-form-input {
+	padding: 8px 12px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	background: var(--background-primary);
+	color: var(--text-normal);
+}
+
+.tf-form-select {
+	padding: 8px 12px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	background: var(--background-primary);
+	color: var(--text-normal);
+}
+
+.tf-button-row {
+	display: flex;
+	gap: 10px;
+	justify-content: flex-end;
+	margin-top: 20px;
+}
+
+.tf-btn-primary {
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+	padding: 8px 16px;
+	border: none;
+	border-radius: 4px;
+	cursor: pointer;
+	font-weight: 500;
+}
+
+.tf-btn-primary:hover {
+	filter: brightness(1.1);
+}
+
+.tf-btn-secondary {
+	background: var(--background-secondary);
+	color: var(--text-normal);
+	padding: 8px 16px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	cursor: pointer;
+}
+
+.tf-btn-secondary:hover {
+	background: var(--background-modifier-hover);
+}
+
+.tf-btn-danger {
+	background: #f44336;
+	color: white;
+	padding: 8px 16px;
+	border: none;
+	border-radius: 4px;
+	cursor: pointer;
+}
+
+.tf-btn-danger:hover {
+	filter: brightness(1.1);
+}
+
+.tf-tooltip {
+	position: fixed;
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	padding: 10px;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+	z-index: 10000;
+	max-width: 300px;
+}
+
+.tf-tooltip-header {
+	font-weight: bold;
+	margin-bottom: 8px;
+	padding-bottom: 8px;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.tf-divider {
+	height: 1px;
+	background: var(--background-modifier-border);
+	margin: 10px 0;
+}
+
+.tf-stat-value {
+	font-size: 24px;
+	font-weight: bold;
+}
+
+.tf-stat-label {
+	font-size: 12px;
+	color: var(--text-muted);
+}
+
+.tf-empty-state {
+	text-align: center;
+	padding: 20px;
+	color: var(--text-muted);
+	font-style: italic;
+}
+
+.tf-heatmap-cell {
+	border-radius: 2px;
+	cursor: pointer;
+	transition: transform 0.1s;
+}
+
+.tf-heatmap-cell:hover {
+	transform: scale(1.2);
+}
+
+.tf-calendar-day {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	padding: 4px;
+	border-radius: 4px;
+	cursor: pointer;
+	transition: background 0.2s;
+	min-height: 40px;
+}
+
+.tf-calendar-day:hover {
+	background: var(--background-modifier-hover);
+}
+
+.tf-calendar-day.today {
+	border: 2px solid var(--interactive-accent);
+}
+
+.tf-calendar-day.other-month {
+	opacity: 0.4;
+}
+
+.tf-calendar-day-number {
+	font-size: 12px;
+	font-weight: 500;
+}
+
+.tf-calendar-day-indicator {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	margin-top: 2px;
+}
+
+.tf-summary-row {
+	display: flex;
+	justify-content: space-between;
+	padding: 6px 0;
+}
+
+.tf-summary-label {
+	color: var(--text-muted);
+}
+
+.tf-summary-value {
+	font-weight: 600;
+}
+
+.tf-progress-bar {
+	height: 8px;
+	background: var(--background-modifier-border);
+	border-radius: 4px;
+	overflow: hidden;
+}
+
+.tf-progress-fill {
+	height: 100%;
+	border-radius: 4px;
+	transition: width 0.3s ease;
+}
+
+.tf-inline-edit-input {
+	padding: 4px 8px;
+	border: 1px solid var(--interactive-accent);
+	border-radius: 4px;
+	background: var(--background-primary);
+	color: var(--text-normal);
+	font-size: inherit;
+	width: 100%;
+}
+
+/* Card header styles */
+.tf-card-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 15px;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.tf-card-title {
+	margin: 0;
+	flex-shrink: 1;
+	min-width: 0;
+}
+
+.tf-card-controls {
+	display: flex;
+	gap: 5px;
+	flex-shrink: 0;
+}
+
+.tf-stats-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 10px;
+}
+
+.tf-tabs-inline {
+	margin-bottom: 0;
+	border-bottom: none;
+}
+
+.tf-timeframe-selector {
+	margin-top: 12px;
+	margin-bottom: 12px;
+	display: flex;
+	gap: 10px;
+	align-items: center;
+	flex-wrap: wrap;
+}
+
+.tf-legend-list {
+	list-style: none;
+	padding-left: 0;
+	margin: 0;
+}
+
+.tf-legend-item {
+	display: flex;
+	align-items: center;
+	margin-bottom: 8px;
+	font-size: 0.9em;
+}
+
+.tf-legend-color {
+	width: 16px;
+	height: 16px;
+	border-radius: 3px;
+	border: 1px solid var(--background-modifier-border);
+	margin-right: 8px;
+	flex-shrink: 0;
+}
+
+.tf-gradient-bar {
+	height: 16px;
+	border-radius: 8px;
+	margin: 4px 0;
+	border: 1px solid var(--background-modifier-border);
+}
+
+.tf-gradient-labels {
+	display: flex;
+	justify-content: space-between;
+	font-size: 0.8em;
+	color: var(--text-muted);
+	margin-bottom: 10px;
+}
+
+.tf-info-text {
+	margin: 0 0 10px 0;
+	font-size: 0.9em;
+}
+
+.tf-info-text-small {
+	margin: 0 0 8px 0;
+	font-size: 0.9em;
+}
+
+.tf-info-list {
+	margin: 0 0 0 16px;
+	font-size: 0.9em;
+	padding-left: 0;
+	list-style-position: inside;
+}
+
+.tf-color-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.tf-color-indicator {
+	display: inline-block;
+	width: 16px;
+	height: 16px;
+	border-radius: 3px;
+	flex-shrink: 0;
+}
+
+.tf-balance-container {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	font-size: 0.9em;
+}
+
+.tf-tip-text {
+	margin: 8px 0 0 0;
+	font-size: 0.8em;
+	opacity: 0.8;
+}
+
+.tf-history-title {
+	margin: 0;
+	flex: 1 1 auto;
+}
+
+.tf-status-error {
+	margin-top: 8px;
+}
+
+.tf-status-error-label {
+	color: #f44336;
+}
+
+.tf-status-error-item {
+	font-size: 12px;
+	margin-left: 12px;
+	color: #f44336;
+}
+
+.tf-status-more {
+	font-size: 11px;
+	margin-left: 12px;
+	color: var(--text-muted);
+}
+
+.tf-status-warning-label {
+	color: #ff9800;
+}
+
+.tf-status-warning-item {
+	font-size: 12px;
+	margin-left: 12px;
+	color: #ff9800;
+}
+
+.tf-status-header {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	cursor: pointer;
+}
+
+.tf-status-content {
+	flex: 1;
+}
+
+.tf-status-hint {
+	font-size: 11px;
+	opacity: 0.7;
+}
+
+.tf-status-row {
+	font-size: 12px;
+	color: var(--text-muted);
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+
+.tf-status-version {
+	font-size: 11px;
+	opacity: 0.6;
+}
+
+.tf-status-toggle {
+	font-size: 10px;
+	transition: transform 0.2s;
+}
+
+.tf-status-details {
+	max-height: 0;
+	overflow: hidden;
+	transition: max-height 0.3s ease-out;
+	opacity: 0;
+}
+
+.tf-status-details-inner {
+	padding-top: 10px;
+	border-top: 1px solid var(--background-modifier-border);
+	margin-top: 10px;
+}
+
+/* View toggle button */
+.tf-view-toggle-container {
+	display: flex;
+	justify-content: flex-end;
+	margin-top: 8px;
+}
+
+.tf-view-toggle-btn {
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	padding: 6px 10px;
+	cursor: pointer;
+	font-size: 12px;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	color: var(--text-normal);
+	transition: background 0.2s, border-color 0.2s;
+	font-weight: 500;
+}
+
+.tf-view-toggle-btn:hover {
+	background: var(--background-modifier-hover);
+	border-color: var(--interactive-accent);
+}
+
+.tf-view-toggle-icon {
+	font-size: 14px;
+}
+
+/* Status bar open state */
+.tf-status-details.is-open {
+	opacity: 1;
+}
+
+.tf-status-toggle.is-open {
+	transform: rotate(90deg);
+}
+
+/* Compliance info panel */
+.tf-compliance-info-panel hr {
+	margin: 10px 0;
+	border: none;
+	border-top: 1px solid var(--background-modifier-border);
+}
+
+.tf-compliance-status-text {
+	font-size: 12px;
+	color: var(--text-muted);
+}
+
+/* Card big numbers */
+.tf-card-big-number {
+	font-size: 32px;
+	font-weight: bold;
+	margin: 10px 0;
+}
+
+.tf-card-label {
+	font-size: 14px;
+	opacity: 0.9;
+	margin-top: 10px;
+}
+
+.tf-card-goal {
+	font-size: 14px;
+	opacity: 0.9;
+	margin-bottom: 10px;
+}
+
+/* Card headings inherit color */
+.tf-card h3 {
+	color: inherit;
+}
+
+/* Select dropdown styling */
+.tf-select {
+	padding: 4px 8px;
+	font-size: 1em;
+	font-weight: bold;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	background: var(--background-primary);
+	color: var(--text-normal);
+	cursor: pointer;
+}
+
+.tf-select-normal {
+	padding: 4px 8px;
+	font-size: 1em;
+	font-weight: normal;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	background: var(--background-primary);
+	color: var(--text-normal);
+	cursor: pointer;
+}
+
+/* Stat subtitle */
+.tf-stat-subtitle {
+	font-size: 0.75em;
+	margin-top: 4px;
+}
+
+/* Modal button row */
+.tf-modal-btn-row {
+	display: flex;
+	gap: 8px;
+	margin-top: 10px;
+}
+
+.tf-modal-btn-row > button {
+	flex: 1;
+}
+
+/* Modal close row */
+.tf-modal-close-row {
+	margin-top: 20px;
+	display: flex;
+	justify-content: flex-end;
+}
+
+/* Input styles */
+.tf-input-flex {
+	flex: 1;
+	padding: 6px;
+}
+
+.tf-time-input-container {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.tf-date-input-sm {
+	font-size: 12px;
+}
+
+/* Modal z-index */
+.tf-modal-z {
+	z-index: 1000;
+}
+
+/* Modal width */
+.tf-modal-w-400 {
+	width: 400px;
+}
+
+/* Modal content padding */
+.tf-modal-content-padded {
+	padding: 20px;
+}
+
+/* Form label styling */
+.tf-form-label-bold {
+	margin-bottom: 5px;
+	font-weight: bold;
+}
+
+/* Form input full width */
+.tf-form-input-full {
+	width: 100%;
+	padding: 8px;
+	font-size: 14px;
+}
+
+.tf-form-input-mb {
+	margin-bottom: 15px;
+}
+
+.tf-form-input-mb-lg {
+	margin-bottom: 20px;
+}
+
+/* Button row end-aligned */
+.tf-btn-row-end {
+	display: flex;
+	gap: 10px;
+	justify-content: flex-end;
+}
+
+.tf-btn-row-end-mt {
+	display: flex;
+	gap: 10px;
+	justify-content: flex-end;
+	margin-top: 15px;
+}
+
+/* Form date display */
+.tf-date-display {
+	margin-bottom: 15px;
+	font-size: 16px;
+	font-weight: bold;
+}
+
+/* Checkbox row */
+.tf-checkbox-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 10px;
+}
+
+/* Date row */
+.tf-date-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 8px;
+}
+
+.tf-date-label {
+	min-width: 80px;
+}
+
+/* Days count */
+.tf-days-count {
+	font-size: 12px;
+	color: var(--text-muted);
+	margin-top: 8px;
+}
+
+/* Time input row - flex with gap and aligned center */
+.tf-time-input-row {
+	display: flex;
+	gap: 10px;
+	align-items: center;
+}
+
+/* Time input styling */
+.tf-time-input-styled {
+	padding: 8px;
+	font-size: 14px;
+}
+
+/* Container with margin bottom variants */
+.tf-mb-15 {
+	margin-bottom: 15px;
+}
+
+.tf-mb-12 {
+	margin-bottom: 12px;
+}
+
+.tf-mb-10 {
+	margin-bottom: 10px;
+}
+
+.tf-mb-8 {
+	margin-bottom: 8px;
+}
+
+.tf-mb-0 {
+	margin-bottom: 0;
+}
+
+.tf-mt-10 {
+	margin-top: 10px;
+}
+
+/* Full width select */
+.tf-select-full {
+	width: 100%;
+	margin-bottom: 15px;
+	padding: 8px;
+	font-size: 14px;
+}
+
+/* Template button */
+.tf-template-btn {
+	padding: 8px 12px;
+	border-radius: 4px;
+	cursor: pointer;
+}
+
+/* Template button container */
+.tf-template-btn-container {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-bottom: 12px;
+}
+
+/* Save as template container */
+.tf-save-template-container {
+	margin-bottom: 12px;
+	padding: 10px;
+	background-color: var(--background-secondary);
+	border-radius: 4px;
+}
+
+/* Flex input row */
+.tf-flex-input-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 8px;
+}
+
+/* Input flex grow */
+.tf-input-grow {
+	flex: 1;
+	padding: 6px;
+}
+
+/* Cursor pointer for labels */
+.tf-cursor-pointer {
+	cursor: pointer;
+}
+
+/* Font weight bold */
+.tf-font-bold {
+	font-weight: bold;
+}
+
+/* Label with margin bottom and bold */
+.tf-label-bold-mb {
+	margin-bottom: 5px;
+	font-weight: bold;
+}
+
+/* Duration display */
+.tf-duration-display {
+	font-size: 12px;
+	color: var(--text-muted);
+	margin-top: 8px;
+}
+
+/* Checkbox row with margin top */
+.tf-checkbox-row-mt {
+	margin-top: 10px;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+/* Label bold with margin bottom 8px */
+.tf-label-bold-mb-8 {
+	margin-bottom: 8px;
+	font-weight: bold;
+}
+
+/* Small icon input */
+.tf-icon-input {
+	width: 60px;
+	padding: 6px;
+}
+
+/* Save as template checkbox row */
+.tf-save-template-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-top: 8px;
+	padding-top: 8px;
+	border-top: 1px solid var(--background-modifier-border);
+}
+
+/* Checkbox row with margin bottom 12 */
+.tf-checkbox-row-mb {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 12px;
+}
+
+/* Duration display with margin bottom */
+.tf-duration-display-mb {
+	font-size: 12px;
+	color: var(--text-muted);
+	margin-bottom: 12px;
+}
+
+/* Full width text input */
+.tf-text-input-full {
+	width: 100%;
+	margin-bottom: 20px;
+	padding: 8px;
+	font-size: 14px;
+}
+
+/* Modal width 500px */
+.tf-modal-w-500 {
+	width: 500px;
+	max-height: 80vh;
+	overflow: auto;
+}
+
+/* Entry card styling */
+.tf-entry-card {
+	padding: 15px;
+	margin-bottom: 10px;
+	background: var(--background-secondary);
+	border-radius: 8px;
+	border: 1px solid var(--background-modifier-border);
+}
+
+/* Edit section hidden */
+.tf-edit-section {
+	margin-top: 10px;
+}
+
+/* Date/time input row */
+.tf-datetime-row {
+	display: flex;
+	gap: 8px;
+	margin-bottom: 10px;
+}
+
+/* Flex input with padding */
+.tf-input-flex-p {
+	flex: 1;
+	padding: 6px;
+}
+
+/* Info div with margin bottom */
+.tf-info-mb {
+	margin-bottom: 10px;
+}
+
+/* Title bold with margin */
+.tf-title-bold {
+	font-weight: bold;
+	margin-bottom: 5px;
+}
+
+/* Month title styling */
+.tf-month-title {
+	text-align: left;
+	font-weight: bold;
+	margin-bottom: 10px;
+}
+
+/* Day header cell */
+.tf-day-header {
+	text-align: center;
+	font-weight: bold;
+	font-size: 12px;
+	color: var(--text-muted);
+}
+
+/* Menu goal paragraph */
+.tf-menu-goal {
+	margin-top: 8px;
+}
+
+/* Muted text paragraph */
+.tf-text-muted {
+	color: var(--text-muted);
+}
+
+/* Tip paragraph styling */
+.tf-tip-paragraph {
+	margin-top: 12px;
+	font-size: 0.8em;
+	color: var(--text-muted);
+	border-top: 1px solid var(--background-modifier-border);
+	padding-top: 8px;
+}
+
+/* History title styling */
+.tf-history-title {
+	margin: 0;
+	flex: 1 1 auto;
+}
+
+/* Week title styling */
+.tf-week-title {
+	font-size: 1.1em;
+}
+
+/* Modal 350px width */
+.tf-modal-w-350 {
+	width: 350px;
+}
+
+/* Button gap */
+.tf-btn-gap {
+	gap: 10px;
+}
+
+/* Entry indent */
+.tf-entry-indent {
+	margin-left: 8px;
+}
+
+/* Summary section styling */
+.tf-summary-section {
+	margin-bottom: 16px;
+	padding: 12px;
+}
+
+/* Summary header */
+.tf-summary-header {
+	gap: 8px;
+	margin-bottom: 10px;
+	font-weight: bold;
+}
+
+/* Summary table */
+.tf-summary-table {
+	width: 100%;
+}
+
+/* Italic row */
+.tf-row-italic {
+	font-style: italic;
+}
+
+/* Edit button small */
+.tf-edit-btn-sm {
+	padding: 4px 8px;
+}
+
+/* Year/Month summary styling */
+.tf-year-summary {
+	padding: 8px 0;
+	font-weight: bold;
+	font-size: 1.1em;
+}
+
+/* Arrow margin */
+.tf-arrow-mr {
+	margin-right: 8px;
+}
+
+/* Year content indent */
+.tf-year-content {
+	padding-left: 8px;
+}
+
+/* Month header styling */
+.tf-month-header {
+	margin-top: 12px;
+	margin-bottom: 8px;
+	font-size: 0.95em;
+}
+
+/* Type display box */
+.tf-type-display {
+	margin-bottom: 15px;
+	padding: 10px;
+	background-color: var(--background-secondary);
+	border-radius: 4px;
+}
+
+/* Description row */
+.tf-desc-row {
+	margin-bottom: 15px;
+}
+
+/* Block label */
+.tf-label-block {
+	display: block;
+	margin-bottom: 5px;
+}
+
+/* Full width input with box sizing */
+.tf-input-full {
+	width: 100%;
+	padding: 8px;
+	box-sizing: border-box;
+}
+
+/* Button container space between */
+.tf-btn-space-between {
+	display: flex;
+	justify-content: space-between;
+	margin-top: 20px;
+}
+
+/* Delete button styling */
+.tf-delete-btn {
+	background-color: var(--text-error);
+	color: white;
+}
+
+/* Week compliance panel */
+.tf-week-compliance-panel {
+	position: fixed;
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	padding: 16px;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+	z-index: 1000;
+	min-width: 220px;
+	max-width: 300px;
+}
+
+/* Panel header row */
+.tf-panel-header-row {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 12px;
+}
+
+/* Panel content column */
+.tf-panel-content-col {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	font-size: 0.9em;
+}
+
+/* Panel row */
+.tf-panel-row {
+	display: flex;
+	justify-content: space-between;
+}
+
+/* Panel row with border top */
+.tf-panel-row-border {
+	display: flex;
+	justify-content: space-between;
+	border-top: 1px solid var(--background-modifier-border);
+	padding-top: 8px;
+}
+
+/* Warning text */
+.tf-warning-text {
+	color: #f44336;
+	margin-top: 4px;
+}
+
+/* ========================================
+   Dynamic Styles using CSS Custom Properties
+   Used with setCssProps() for Obsidian review compliance
+   ======================================== */
+
+/* Dynamic background and color using custom properties */
+.tf-dynamic-bg {
+	background: var(--tf-bg, transparent);
+}
+
+.tf-dynamic-color {
+	color: var(--tf-color, inherit);
+}
+
+.tf-dynamic-bg-color {
+	background: var(--tf-bg, transparent);
+	color: var(--tf-color, inherit);
+}
+
+/* Legend color box - uses custom property for dynamic color */
+.tf-legend-color-dynamic {
+	width: 16px;
+	height: 16px;
+	border-radius: 4px;
+	display: inline-block;
+	margin-right: 8px;
+	vertical-align: middle;
+	background: var(--tf-bg, #ccc);
+}
+
+/* Gradient bar - uses custom property for dynamic gradient */
+.tf-gradient-dynamic {
+	height: 20px;
+	border-radius: 4px;
+	margin: 8px 0;
+	background: var(--tf-gradient, linear-gradient(to right, #ccc, #999));
+}
+
+/* Timer badge - uses custom properties for dynamic colors */
+.tf-timer-badge-dynamic {
+	flex: 0 1 auto;
+	padding: 10px 18px;
+	border-radius: 12px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	white-space: normal;
+	text-align: center;
+	min-height: 44px;
+	min-width: 0;
+	cursor: pointer;
+	transition: all 0.2s;
+	border: none;
+	font-family: inherit;
+	font-size: inherit;
+	font-weight: bold;
+	box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+	background: var(--tf-bg, var(--interactive-accent));
+	color: var(--tf-color, white);
+}
+
+.tf-timer-badge-dynamic:hover {
+	transform: translateY(-1px);
+	box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+/* Compliance badge - uses custom properties */
+.tf-compliance-badge-dynamic {
+	flex: 0 0 auto;
+	margin-left: auto;
+	padding: 10px 14px;
+	border-radius: 12px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 44px;
+	font-weight: bold;
+	font-size: inherit;
+	box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+	cursor: pointer;
+	background: var(--tf-bg, rgba(76, 175, 80, 0.2));
+}
+
+/* Calendar cell - uses custom properties for dynamic styling */
+.tf-calendar-cell-dynamic {
+	background: var(--tf-bg, var(--background-secondary));
+	color: var(--tf-color, var(--text-normal));
+}
+
+/* Type span badge - uses custom properties */
+.tf-type-badge-dynamic {
+	padding: 2px 6px;
+	border-radius: 4px;
+	font-size: 0.8em;
+	white-space: nowrap;
+	background: var(--tf-bg, #ccc);
+	color: var(--tf-color, #000);
+}
+
+/* Card with dynamic colors (day/week cards) */
+.tf-card-dynamic {
+	background: var(--tf-bg, var(--background-secondary));
+	color: var(--tf-color, var(--text-normal));
+}
+
+/* Progress bar with dynamic height */
+.tf-progress-bar-dynamic {
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	background: var(--tf-bg, var(--interactive-accent));
+	transition: height 0.2s ease-out;
+	height: var(--tf-height, 0);
+}
+
+/* Status text with dynamic color */
+.tf-status-dynamic {
+	color: var(--tf-color, inherit);
+}
+
+/* Stripe indicator for calendar cells */
+.tf-stripe-indicator {
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	height: 4px;
+	background: var(--tf-bg, transparent);
+}
+
+/* Active entry indicator */
+.tf-active-indicator {
+	position: absolute;
+	top: 4px;
+	right: 4px;
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	animation: pulse 1.5s ease-in-out infinite;
+	background: var(--tf-bg, #ffffff);
+}
+
+/* Menu positioning - uses custom properties */
+.tf-positioned-menu {
+	position: fixed;
+	top: var(--tf-top, 0);
+	left: var(--tf-left, 0);
+	z-index: 1000;
+}
+
+/* Panel positioning - uses custom properties */
+.tf-positioned-panel {
+	position: fixed;
+	top: var(--tf-top, 0);
+	right: var(--tf-right, 0);
+	z-index: 1000;
+}
+
+/* Info panel (flextime/week details) */
+.tf-info-panel-dynamic {
+	position: fixed;
+	top: var(--tf-top, 0);
+	left: var(--tf-left, 0);
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	padding: 12px;
+	z-index: 1000;
+	box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+	min-width: 200px;
+	max-width: 300px;
+}
+
+/* Toggle rotation - uses custom property */
+.tf-toggle-icon {
+	transition: transform 0.2s ease-in-out;
+	transform: rotate(var(--tf-rotate, 0deg));
+}
+
+/* Opacity animation */
+.tf-fade-opacity {
+	transition: opacity 0.2s ease-in-out;
+	opacity: var(--tf-opacity, 1);
+}
+
+/* Row with dynamic opacity (for inactive/completed entries) */
+.tf-row-inactive {
+	opacity: 0.8;
+}
+
+/* Hidden element - display none */
+.tf-hidden {
+	display: none !important;
+}
+
+/* Block display */
+.tf-display-block {
+	display: block;
+}
+
+/* Flex display */
+.tf-display-flex {
+	display: flex;
+}
+
+/* Button with dynamic active state */
+.tf-button-active {
+	background-color: var(--interactive-accent);
+}
+
+/* Modal with fixed width - uses custom property */
+.tf-modal-dynamic-width {
+	width: var(--tf-width, 350px);
+}
+
+/* Compliance badge status variants */
+.tf-compliance-ok {
+	background: rgba(76, 175, 80, 0.2);
+	border: 1px solid rgba(76, 175, 80, 0.4);
+}
+
+.tf-compliance-approaching {
+	background: rgba(255, 152, 0, 0.2);
+	border: 1px solid rgba(255, 152, 0, 0.4);
+}
+
+.tf-compliance-over {
+	background: rgba(244, 67, 54, 0.2);
+	border: 1px solid rgba(244, 67, 54, 0.4);
+}
+
+/* Secondary type stripe - positioned at bottom of calendar cell */
+.secondary-type-stripe {
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	height: 4px;
+	border-radius: 0 0 4px 4px;
+	background: var(--tf-bg, transparent);
+	z-index: 1;
+}
+
+/* Active entry indicator - pulsing dot */
+.tf-active-entry-indicator {
+	position: absolute;
+	top: 4px;
+	right: 4px;
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: #ffffff;
+	border: 2px solid #333333;
+	animation: pulse 2s infinite;
+	box-shadow: 0 0 4px rgba(0, 0, 0, 0.4);
+}
+
+/* Calendar cell base with dynamic bg/color */
+.tf-calendar-cell {
+	background: var(--tf-bg, transparent);
+	color: var(--tf-color, var(--text-normal));
+}
+
+/* ============================================
+   Additional utility classes for inline style removal
+   ============================================ */
+
+/* Cursor styles */
+.tf-cursor-help {
+	cursor: help;
+}
+
+/* Text styles */
+.tf-text-italic {
+	font-style: italic;
+}
+
+.tf-opacity-80 {
+	opacity: 0.8;
+}
+
+.tf-text-muted-color {
+	color: var(--text-muted);
+}
+
+.tf-text-normal-color {
+	color: var(--text-normal);
+}
+
+/* Font sizes */
+.tf-text-small {
+	font-size: 0.9em;
+}
+
+.tf-text-xs {
+	font-size: 0.75em;
+}
+
+.tf-text-medium {
+	font-size: 0.95em;
+}
+
+.tf-text-lg {
+	font-size: 1.1em;
+}
+
+.tf-text-12px {
+	font-size: 12px;
+}
+
+/* Font weights */
+.tf-font-bold {
+	font-weight: bold;
+}
+
+/* Margins */
+.tf-mb-4 {
+	margin-bottom: 4px;
+}
+
+.tf-mb-5 {
+	margin-bottom: 5px;
+}
+
+.tf-mb-8 {
+	margin-bottom: 8px;
+}
+
+.tf-mb-10 {
+	margin-bottom: 10px;
+}
+
+.tf-mb-15 {
+	margin-bottom: 15px;
+}
+
+.tf-mb-16 {
+	margin-bottom: 16px;
+}
+
+.tf-mb-20 {
+	margin-bottom: 20px;
+}
+
+.tf-mt-4 {
+	margin-top: 4px;
+}
+
+.tf-mt-5 {
+	margin-top: 5px;
+}
+
+.tf-mt-12 {
+	margin-top: 12px;
+}
+
+.tf-ml-8 {
+	margin-left: 8px;
+}
+
+.tf-mr-8 {
+	margin-right: 8px;
+}
+
+/* Padding */
+.tf-p-8 {
+	padding: 8px;
+}
+
+.tf-p-12 {
+	padding: 12px;
+}
+
+.tf-p-20 {
+	padding: 20px;
+}
+
+.tf-py-8 {
+	padding: 8px 0;
+}
+
+.tf-px-8 {
+	padding: 4px 8px;
+}
+
+.tf-pl-8 {
+	padding-left: 8px;
+}
+
+/* Width */
+.tf-w-full {
+	width: 100%;
+}
+
+.tf-w-350 {
+	width: 350px;
+}
+
+.tf-w-400 {
+	width: 400px;
+}
+
+/* Flexbox */
+.tf-flex {
+	display: flex;
+}
+
+.tf-flex-col {
+	flex-direction: column;
+}
+
+.tf-items-center {
+	align-items: center;
+}
+
+.tf-justify-end {
+	justify-content: flex-end;
+}
+
+.tf-gap-4 {
+	gap: 4px;
+}
+
+.tf-gap-8 {
+	gap: 8px;
+}
+
+.tf-gap-10 {
+	gap: 10px;
+}
+
+/* Borders and backgrounds */
+.tf-bg-secondary {
+	background-color: var(--background-secondary);
+}
+
+.tf-border-accent {
+	border: 2px solid var(--interactive-accent);
+}
+
+.tf-rounded-8 {
+	border-radius: 8px;
+}
+
+/* Text alignment */
+.tf-text-center {
+	text-align: center;
+}
+
+/* List styles */
+.tf-list-none {
+	list-style: none;
+}
+
+/* Active entries section */
+.tf-active-section-container {
+	margin-bottom: 16px;
+	padding: 12px;
+	background-color: var(--background-secondary);
+	border-radius: 8px;
+	border: 2px solid var(--interactive-accent);
+}
+
+.tf-active-section-header {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 10px;
+	font-weight: bold;
+	color: var(--text-normal);
+}
+
+/* History entry styling */
+.tf-history-row-active {
+	font-style: italic;
+	opacity: 0.8;
+}
+
+/* Details/summary styling */
+.tf-year-summary {
+	cursor: pointer;
+	padding: 8px 0;
+	font-weight: bold;
+	font-size: 1.1em;
+	color: var(--text-normal);
+	list-style: none;
+}
+
+.tf-year-content {
+	padding-left: 8px;
+}
+
+.tf-month-header {
+	color: var(--text-muted);
+	margin-top: 12px;
+	margin-bottom: 8px;
+	font-size: 0.95em;
+}
+
+/* Modal content width */
+.tf-modal-content-350 {
+	width: 350px;
+}
+
+.tf-modal-content-400 {
+	width: 400px;
+}
+
+/* Edit entry modal form controls */
+.tf-form-label {
+	font-weight: bold;
+	margin-bottom: 5px;
+}
+
+.tf-form-input {
+	width: 100%;
+	padding: 8px;
+}
+
+.tf-form-input-mb {
+	width: 100%;
+	padding: 8px;
+	margin-bottom: 15px;
+}
+
+.tf-form-input-mb-lg {
+	width: 100%;
+	padding: 8px;
+	margin-bottom: 20px;
+}
+
+/* Duration container */
+.tf-duration-container {
+	margin-bottom: 20px;
+}
+
+.tf-duration-hint {
+	font-size: 12px;
+	color: var(--text-muted);
+	margin-top: 5px;
+}
+
+/* Button container */
+.tf-btn-container {
+	display: flex;
+	gap: 10px;
+	justify-content: flex-end;
+}
+
+/* Edit button */
+.tf-edit-btn {
+	padding: 4px 8px;
+	cursor: pointer;
+}
+
+/* Small compliance div */
+.tf-comp-small {
+	font-size: 0.75em;
+	margin-top: 4px;
+}
+
+/* Inline edit container */
+.tf-inline-edit-container {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+/* Heatmap no data placeholder */
+.tf-heatmap-no-data {
+	padding: 20px;
+	text-align: center;
+}
+
+/* Modal z-index */
+.tf-modal-z1000 {
+	z-index: 1000;
+}
+
+.tf-modal-z1001 {
+	z-index: 1001;
+}
+
+/* Dynamic text sizes for stats */
+.tf-text-year-size {
+	font-size: 0.9em;
+}
+
+.tf-text-default-size {
+	font-size: 1.3em;
 }

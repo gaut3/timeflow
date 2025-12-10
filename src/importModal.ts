@@ -29,16 +29,11 @@ export class ImportModal extends Modal {
 		});
 
 		// Format selector
-		const formatDiv = contentEl.createDiv();
-		formatDiv.style.marginBottom = '15px';
+		const formatDiv = contentEl.createDiv({ cls: 'tf-import-format-div' });
 
-		const formatLabel = formatDiv.createEl('label', { text: t('import.format') + ' ' });
-		formatLabel.style.fontWeight = 'bold';
-		formatLabel.style.marginRight = '10px';
+		formatDiv.createEl('label', { text: t('import.format') + ' ', cls: 'tf-import-label' });
 
-		const formatSelect = formatDiv.createEl('select');
-		formatSelect.style.padding = '5px 10px';
-		formatSelect.style.borderRadius = '4px';
+		const formatSelect = formatDiv.createEl('select', { cls: 'tf-import-select' });
 
 		const formats = [
 			{ value: 'auto', label: t('import.autoDetect') },
@@ -57,39 +52,29 @@ export class ImportModal extends Modal {
 		};
 
 		// File upload button
-		const uploadDiv = contentEl.createDiv();
-		uploadDiv.style.marginBottom = '15px';
+		const uploadDiv = contentEl.createDiv({ cls: 'tf-import-upload-div' });
 
 		const fileInput = uploadDiv.createEl('input', {
 			type: 'file',
+			cls: 'tf-import-file-input',
 			attr: { accept: '.json,.csv,.txt' }
 		});
-		fileInput.style.display = 'none';
 
-		const uploadBtn = uploadDiv.createEl('button', { text: '📁 ' + t('import.selectFile') });
-		uploadBtn.style.marginRight = '10px';
+		const uploadBtn = uploadDiv.createEl('button', { text: '📁 ' + t('import.selectFile'), cls: 'tf-import-upload-btn' });
 		uploadBtn.onclick = () => fileInput.click();
 
-		const fileNameSpan = uploadDiv.createEl('span', { text: t('import.noFile') });
-		fileNameSpan.style.color = 'var(--text-muted)';
-		fileNameSpan.style.fontSize = '12px';
+		const fileNameSpan = uploadDiv.createEl('span', { text: t('import.noFile'), cls: 'tf-import-file-name' });
 
 		// Text area for manual input
-		const textAreaLabel = contentEl.createEl('div', { text: t('import.orPasteData') });
-		textAreaLabel.style.fontWeight = 'bold';
-		textAreaLabel.style.marginBottom = '5px';
+		const textAreaLabel = contentEl.createEl('div', { text: t('import.orPasteData'), cls: 'tf-import-textarea-label' });
 
 		const textArea = contentEl.createEl('textarea', {
+			cls: 'tf-import-textarea',
 			attr: {
 				rows: '12',
 				placeholder: t('import.placeholder')
 			}
 		});
-		textArea.style.width = '100%';
-		textArea.style.fontFamily = 'monospace';
-		textArea.style.fontSize = '12px';
-		textArea.style.marginBottom = '15px';
-		textArea.style.resize = 'vertical';
 
 		// Handle file selection
 		fileInput.onchange = () => {
@@ -106,16 +91,10 @@ export class ImportModal extends Modal {
 		};
 
 		// Preview section
-		const previewDiv = contentEl.createDiv();
-		previewDiv.style.marginBottom = '15px';
-		previewDiv.style.padding = '10px';
-		previewDiv.style.background = 'var(--background-secondary)';
-		previewDiv.style.borderRadius = '5px';
-		previewDiv.style.display = 'none';
+		const previewDiv = contentEl.createDiv({ cls: 'tf-import-preview' });
 
 		// Parse button
-		const parseBtn = contentEl.createEl('button', { text: '🔍 ' + t('buttons.preview') });
-		parseBtn.style.marginBottom = '15px';
+		const parseBtn = contentEl.createEl('button', { text: '🔍 ' + t('buttons.preview'), cls: 'tf-import-parse-btn' });
 		parseBtn.onclick = () => {
 			this.updatePreview(textArea.value, previewDiv, importBtn);
 		};
@@ -132,24 +111,16 @@ export class ImportModal extends Modal {
 		};
 
 		// Info section
-		const infoDiv = contentEl.createDiv();
-		infoDiv.style.marginBottom = '15px';
-		infoDiv.style.padding = '10px';
-		infoDiv.style.background = 'var(--background-secondary)';
-		infoDiv.style.borderRadius = '5px';
+		const infoDiv = contentEl.createDiv({ cls: 'tf-import-info' });
 
 		infoDiv.createEl('strong', { text: '📋 ' + t('import.supportedFormats') });
 		const list = infoDiv.createEl('ul');
-		list.style.marginBottom = '0';
 		list.createEl('li', { text: 'Timekeep JSON: {"entries": [...]}' });
 		list.createEl('li', { text: `CSV: ${t('import.tableHeaders.date')};${t('import.tableHeaders.start')};${t('import.tableHeaders.end')};Type` });
 		list.createEl('li', { text: 'JSON Array: [{"date": "...", "start": "...", ...}]' });
 
 		// Buttons
-		const buttonDiv = contentEl.createDiv();
-		buttonDiv.style.display = 'flex';
-		buttonDiv.style.gap = '10px';
-		buttonDiv.style.justifyContent = 'flex-end';
+		const buttonDiv = contentEl.createDiv({ cls: 'tf-import-buttons' });
 
 		const cancelBtn = buttonDiv.createEl('button', { text: t('buttons.cancel') });
 		cancelBtn.onclick = () => this.close();
@@ -195,8 +166,8 @@ export class ImportModal extends Modal {
 
 				this.close();
 				this.onSuccess();
-			} catch (error: any) {
-				new Notice(`❌ ${t('import.errors_label')}: ${error.message}`);
+			} catch (error) {
+				new Notice(`❌ ${t('import.errors_label')}: ${error instanceof Error ? error.message : String(error)}`);
 				console.error('Import error:', error);
 			}
 		};
@@ -208,7 +179,7 @@ export class ImportModal extends Modal {
 		this.parseWarnings = [];
 
 		if (!content.trim()) {
-			previewDiv.style.display = 'none';
+			previewDiv.removeClass('is-visible');
 			importBtn.disabled = true;
 			return;
 		}
@@ -236,33 +207,26 @@ export class ImportModal extends Modal {
 			result = { ...parser.parse(content), format: parser.name };
 		}
 
-		previewDiv.style.display = 'block';
+		previewDiv.addClass('is-visible');
 
 		// Show format detected
-		const formatInfo = previewDiv.createEl('div');
-		formatInfo.style.marginBottom = '10px';
+		const formatInfo = previewDiv.createEl('div', { cls: 'tf-import-format-info' });
 		formatInfo.createEl('strong', { text: t('import.format') });
 		formatInfo.appendText(' ' + (result.format || '?'));
 
 		// Show errors
 		if (result.errors.length > 0) {
-			const errorDiv = previewDiv.createEl('div');
-			errorDiv.style.color = 'var(--text-error)';
-			errorDiv.style.marginBottom = '10px';
+			const errorDiv = previewDiv.createEl('div', { cls: 'tf-import-error' });
 			errorDiv.createEl('strong', { text: '❌ ' + t('import.errors_label') + ':' });
 			const errorList = errorDiv.createEl('ul');
-			errorList.style.margin = '5px 0';
 			result.errors.forEach(err => errorList.createEl('li', { text: err }));
 		}
 
 		// Show warnings
 		if (result.warnings.length > 0) {
-			const warnDiv = previewDiv.createEl('div');
-			warnDiv.style.color = 'var(--text-warning)';
-			warnDiv.style.marginBottom = '10px';
+			const warnDiv = previewDiv.createEl('div', { cls: 'tf-import-warning' });
 			warnDiv.createEl('strong', { text: '⚠️ ' + t('import.warnings') + ':' });
 			const warnList = warnDiv.createEl('ul');
-			warnList.style.margin = '5px 0';
 			// Show max 5 warnings
 			result.warnings.slice(0, 5).forEach(warn => warnList.createEl('li', { text: warn }));
 			if (result.warnings.length > 5) {
@@ -275,24 +239,16 @@ export class ImportModal extends Modal {
 			this.parsedEntries = result.entries;
 			importBtn.disabled = false;
 
-			const successDiv = previewDiv.createEl('div');
-			successDiv.style.color = 'var(--text-success)';
+			const successDiv = previewDiv.createEl('div', { cls: 'tf-import-success' });
 			successDiv.createEl('strong', { text: '✅ ' + result.entries.length + ' ' + t('import.entriesFound') });
 
 			// Show first 5 entries as preview
-			const previewTable = previewDiv.createEl('table');
-			previewTable.style.width = '100%';
-			previewTable.style.marginTop = '10px';
-			previewTable.style.fontSize = '12px';
-			previewTable.style.borderCollapse = 'collapse';
+			const previewTable = previewDiv.createEl('table', { cls: 'tf-import-preview-table' });
 
 			const thead = previewTable.createEl('thead');
 			const headerRow = thead.createEl('tr');
 			[t('import.tableHeaders.date'), t('import.tableHeaders.start'), t('import.tableHeaders.end'), t('import.tableHeaders.type')].forEach(h => {
-				const th = headerRow.createEl('th', { text: h });
-				th.style.textAlign = 'left';
-				th.style.padding = '4px';
-				th.style.borderBottom = '1px solid var(--background-modifier-border)';
+				headerRow.createEl('th', { text: h });
 			});
 
 			const tbody = previewTable.createEl('tbody');
@@ -307,20 +263,16 @@ export class ImportModal extends Modal {
 				const endStr = endDate ? formatTime(endDate) : '-';
 
 				[dateStr, startStr, endStr, entry.name].forEach(val => {
-					const td = row.createEl('td', { text: val });
-					td.style.padding = '4px';
+					row.createEl('td', { text: val });
 				});
 			});
 
 			if (result.entries.length > 5) {
-				const moreRow = tbody.createEl('tr');
-				const moreCell = moreRow.createEl('td', {
+				const moreRow = tbody.createEl('tr', { cls: 'tf-import-more-row' });
+				moreRow.createEl('td', {
 					text: `... ${t('import.andMore')} ${result.entries.length - 5} ${t('import.more')}`,
 					attr: { colspan: '4' }
 				});
-				moreCell.style.padding = '4px';
-				moreCell.style.fontStyle = 'italic';
-				moreCell.style.color = 'var(--text-muted)';
 			}
 		} else {
 			importBtn.disabled = true;

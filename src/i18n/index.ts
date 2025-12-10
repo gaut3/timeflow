@@ -22,11 +22,17 @@ export function getLocale(): string {
  */
 export function t(key: string): string {
 	const keys = key.split('.');
-	let value: any = translations[currentLanguage];
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	let value: unknown = translations[currentLanguage];
 	for (const k of keys) {
-		value = value?.[k];
+		if (typeof value === 'object' && value !== null && k in value) {
+			value = (value as Record<string, unknown>)[k];
+		} else {
+			value = undefined;
+			break;
+		}
 	}
-	return value ?? key; // Fallback to key if not found
+	return (typeof value === 'string' ? value : key); // Fallback to key if not found
 }
 
 /**
@@ -68,7 +74,7 @@ export function formatTime(date: Date, includeSeconds = false): string {
  * Get short day names for the current language
  */
 export function getDayNamesShort(): string[] {
-	return t('dates.dayNamesShort') as unknown as string[];
+	return translations[currentLanguage].dates.dayNamesShort;
 }
 
 /**
