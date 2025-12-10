@@ -9111,9 +9111,11 @@ var UIBuilder = class {
           const currentDate = new Date(startDate);
           let daysAdded = 0;
           while (currentDate <= endDate) {
-            await this.addSpecialDay(new Date(currentDate), dayType, note, startTime, endTime);
+            if (!Utils.isWeekend(currentDate, this.settings)) {
+              await this.addSpecialDay(new Date(currentDate), dayType, note, startTime, endTime);
+              daysAdded++;
+            }
             currentDate.setDate(currentDate.getDate() + 1);
-            daysAdded++;
           }
           const behavior = this.settings.specialDayBehaviors.find((b) => b.id === dayType);
           const typeName = behavior ? translateSpecialDayName(behavior.id, behavior.label) : dayType;
@@ -11104,7 +11106,6 @@ ${timekeepBlock}${settingsBlock}
   // Convert past planned days (from holidays.md) to timer entries
   // This ensures planned days like ferie, avspasering appear in Historikk
   async convertPastPlannedDays(holidays, settings) {
-    var _a;
     const today = /* @__PURE__ */ new Date();
     today.setHours(0, 0, 0, 0);
     let converted = 0;
@@ -11117,7 +11118,7 @@ ${timekeepBlock}${settingsBlock}
         shouldConvert = true;
       } else {
         const behavior2 = settings.specialDayBehaviors.find((b) => b.id === info.type);
-        shouldConvert = (_a = behavior2 == null ? void 0 : behavior2.noHoursRequired) != null ? _a : false;
+        shouldConvert = (behavior2 == null ? void 0 : behavior2.noHoursRequired) || (behavior2 == null ? void 0 : behavior2.flextimeEffect) === "reduce_goal";
       }
       if (!shouldConvert)
         continue;

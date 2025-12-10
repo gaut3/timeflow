@@ -5597,12 +5597,16 @@ export class UIBuilder {
 					}
 
 					// Loop through each day in the range and create entries
+					// Skip weekends (unless they are configured as work days)
 					const currentDate = new Date(startDate);
 					let daysAdded = 0;
 					while (currentDate <= endDate) {
-						await this.addSpecialDay(new Date(currentDate), dayType, note, startTime, endTime);
+						// Only add if it's a work day (not a weekend)
+						if (!Utils.isWeekend(currentDate, this.settings)) {
+							await this.addSpecialDay(new Date(currentDate), dayType, note, startTime, endTime);
+							daysAdded++;
+						}
 						currentDate.setDate(currentDate.getDate() + 1);
-						daysAdded++;
 					}
 
 					const behavior = this.settings.specialDayBehaviors.find(b => b.id === dayType);

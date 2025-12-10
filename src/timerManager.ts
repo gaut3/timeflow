@@ -490,7 +490,8 @@ ${timekeepBlock}${settingsBlock}
 				shouldConvert = true;
 			} else {
 				const behavior = settings.specialDayBehaviors.find(b => b.id === info.type);
-				shouldConvert = behavior?.noHoursRequired ?? false;
+				// Convert if noHoursRequired (ferie, avspasering, helligdag) OR reduce_goal (egenmelding, sykemelding, velferdspermisjon)
+				shouldConvert = behavior?.noHoursRequired || behavior?.flextimeEffect === 'reduce_goal';
 			}
 			if (!shouldConvert) continue; // studie, kurs don't convert
 			if (info.type === 'helligdag') continue; // System holiday
