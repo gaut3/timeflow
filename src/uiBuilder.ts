@@ -103,7 +103,7 @@ export class UIBuilder {
 	 * Create a text-based time input with validation (HH:MM format).
 	 * Uses a regular text input instead of type="time" to avoid clock pickers on mobile.
 	 */
-	private createTimeInput(initialValue: string, onChange: (value: string) => void): HTMLInputElement {
+	private createTimeInput(initialValue: string, onChange: (value: string) => void | Promise<void>): HTMLInputElement {
 		const input = document.createElement('input');
 		input.type = 'text';
 		input.value = initialValue;
@@ -724,9 +724,8 @@ export class UIBuilder {
 		rightControls.appendChild(tabs);
 		header.appendChild(rightControls);
 
-		// Store references for width detection
-		(card as any)._editToggle = editToggle;
-		(card as any)._detailsElement = detailsElement;
+		// Add class to editToggle for easy querying
+		editToggle.addClass('tf-history-edit-toggle');
 
 		content.appendChild(detailsElement);
 
@@ -2328,7 +2327,7 @@ export class UIBuilder {
 	 */
 	showWeekCompliancePanel(cellRect: DOMRect, mondayOfWeek: Date): void {
 		// Remove existing panel - toggle behavior if clicking the same week
-		const existingPanel = document.querySelector('.tf-week-compliance-panel') as HTMLElement | null;
+		const existingPanel = document.querySelector<HTMLElement>('.tf-week-compliance-panel');
 		if (existingPanel) {
 			const existingWeek = existingPanel.dataset.weekMonday;
 			existingPanel.remove();
@@ -2421,7 +2420,7 @@ export class UIBuilder {
 
 	showNoteTypeMenu(cellRect: DOMRect, dateObj: Date): void {
 		// Remove existing menu - toggle behavior if clicking the same date
-		const existingMenu = document.querySelector('.tf-context-menu') as HTMLElement | null;
+		const existingMenu = document.querySelector<HTMLElement>('.tf-context-menu');
 		if (existingMenu) {
 			const existingDate = existingMenu.dataset.menuDate;
 			existingMenu.remove();
@@ -2769,7 +2768,7 @@ export class UIBuilder {
 	 * @param onConfirm Callback when user confirms
 	 * @param title Optional title (defaults to "Confirm")
 	 */
-	private showConfirmDialog(message: string, onConfirm: () => void, title?: string): void {
+	private showConfirmDialog(message: string, onConfirm: () => void | Promise<void>, title?: string): void {
 		const modal = document.createElement('div');
 		modal.className = 'modal-container mod-dim tf-modal-z1001';
 
@@ -4475,7 +4474,7 @@ export class UIBuilder {
 			this.updateDayCard();
 		} catch (error) {
 			console.error('Failed to delete planned day:', error);
-			new Notice(`❌ Error deleting entry`);
+			new Notice(`❌ ${t('notifications.errorDeletingEntry')}`);
 		}
 	}
 
@@ -4554,7 +4553,7 @@ export class UIBuilder {
 			this.updateDayCard();
 		} catch (error) {
 			console.error('Failed to update planned day:', error);
-			new Notice(`❌ Error updating entry`);
+			new Notice(`❌ ${t('notifications.errorUpdatingEntry')}`);
 		}
 	}
 
@@ -4676,7 +4675,7 @@ export class UIBuilder {
 		const historyCard = container.closest('.tf-card-history');
 		if (!historyCard) return;
 
-		const editToggle = (historyCard as any)._editToggle as HTMLElement;
+		const editToggle = historyCard.querySelector<HTMLElement>('.tf-history-edit-toggle');
 		if (!editToggle) return;
 
 		// Only show edit toggle in list view and when wide enough
@@ -4970,7 +4969,7 @@ export class UIBuilder {
 		return section;
 	}
 
-	renderNarrowListView(container: HTMLElement, years: Record<string, Record<string, any[]>>): void {
+	renderNarrowListView(container: HTMLElement, years: Record<string, Record<string, TimeEntry[]>>): void {
 		const currentYear = new Date().getFullYear().toString();
 
 		// Sort years descending (newest first)
@@ -5052,10 +5051,10 @@ export class UIBuilder {
 						activeIcon.title = t('ui.activeTimer');
 						activeIcon.className = 'tf-cursor-help';
 						dateCell.appendChild(activeIcon);
-					} else if (hasConflict) {
+					} else if (hasConflict && holidayInfo) {
 						const flagIcon = document.createElement('span');
 						flagIcon.textContent = '⚠️ ';
-						flagIcon.title = t('info.workRegisteredOnSpecialDay').replace('{dayType}', translateSpecialDayName(holidayInfo!.type));
+						flagIcon.title = t('info.workRegisteredOnSpecialDay').replace('{dayType}', translateSpecialDayName(holidayInfo.type));
 						flagIcon.className = 'tf-cursor-help';
 						dateCell.appendChild(flagIcon);
 					}
@@ -5105,7 +5104,7 @@ export class UIBuilder {
 		});
 	}
 
-	renderWideListView(container: HTMLElement, years: Record<string, Record<string, any[]>>): void {
+	renderWideListView(container: HTMLElement, years: Record<string, Record<string, TimeEntry[]>>): void {
 		const currentYear = new Date().getFullYear().toString();
 
 		// Sort years descending (newest first)
@@ -5276,10 +5275,10 @@ export class UIBuilder {
 							overlapIcon.title = `Overlapper med: ${overlapDetails}`;
 							overlapIcon.className = 'tf-cursor-help';
 							dateCell.appendChild(overlapIcon);
-						} else if (hasSpecialDayConflict) {
+						} else if (hasSpecialDayConflict && holidayInfo) {
 							const flagIcon = document.createElement('span');
 							flagIcon.textContent = '⚠️ ';
-							flagIcon.title = t('info.workRegisteredOnSpecialDay').replace('{dayType}', translateSpecialDayName(holidayInfo!.type));
+							flagIcon.title = t('info.workRegisteredOnSpecialDay').replace('{dayType}', translateSpecialDayName(holidayInfo.type));
 							flagIcon.className = 'tf-cursor-help';
 							dateCell.appendChild(flagIcon);
 						}
@@ -5716,14 +5715,14 @@ export class UIBuilder {
 		document.body.appendChild(modal);
 	}
 
-	renderWeeklyView(container: HTMLElement, years: Record<string, any>): void {
+	renderWeeklyView(container: HTMLElement, years: Record<string, Record<string, TimeEntry[]>>): void {
 		container.empty();
 		const div = container.createDiv();
 		div.className = 'tf-heatmap-no-data';
-		div.textContent = 'Weekly view - Coming soon';
+		div.textContent = t('ui.weeklyViewComingSoon');
 	}
 
-	renderHeatmapView(container: HTMLElement, years: Record<string, any>): void {
+	renderHeatmapView(container: HTMLElement, years: Record<string, Record<string, TimeEntry[]>>): void {
 		const heatmap = document.createElement('div');
 		heatmap.className = 'tf-heatmap';
 		heatmap.style.gridTemplateColumns = `repeat(${this.settings.heatmapColumns}, 1fr)`;
@@ -5958,7 +5957,7 @@ export class UIBuilder {
 		this.updateStatsCard();
 	}
 
-	showDeleteConfirmation(entry: TimeEntry | Timer, dateObj: Date, onConfirm: () => void): void {
+	showDeleteConfirmation(entry: TimeEntry | Timer, dateObj: Date, onConfirm: () => void | Promise<void>): void {
 		// Create overlay
 		const overlay = document.createElement('div');
 		overlay.className = 'tf-confirm-overlay';
@@ -5970,13 +5969,13 @@ export class UIBuilder {
 		// Title
 		const title = document.createElement('div');
 		title.className = 'tf-confirm-title';
-		title.textContent = '🗑️ Slett oppføring';
+		title.textContent = '🗑️ ' + t('modals.deleteEntryTitle');
 		dialog.appendChild(title);
 
 		// Message
 		const message = document.createElement('div');
 		message.className = 'tf-confirm-message';
-		message.textContent = 'Er du sikker på at du vil slette denne oppføringen?';
+		message.textContent = t('confirm.deleteEntry');
 		dialog.appendChild(message);
 
 		// Entry details

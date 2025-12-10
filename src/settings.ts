@@ -409,7 +409,7 @@ export class ConfirmModal extends Modal {
 		const confirmBtn = buttonDiv.createEl('button', { text: t('buttons.confirm'), cls: 'mod-cta mod-warning' });
 		confirmBtn.onclick = () => {
 			this.close();
-			this.onConfirm();
+			void this.onConfirm();
 		};
 	}
 
@@ -483,7 +483,7 @@ export class SpecialDayBehaviorModal extends Modal {
 			flextimeEffect: this.behavior?.flextimeEffect || 'none',
 			includeInStats: this.behavior?.includeInStats ?? true,
 			maxDaysPerYear: this.behavior?.maxDaysPerYear || undefined,
-			countingPeriod: (this.behavior?.countingPeriod || 'calendar') as 'calendar' | 'rolling365',
+			countingPeriod: this.behavior?.countingPeriod || 'calendar',
 			isWorkType: isWorkType,
 			// Default to true for jobb, studie, kurs if not explicitly set
 			showInTimerDropdown: this.behavior?.showInTimerDropdown ?? ['jobb', 'studie', 'kurs'].includes(this.behavior?.id || '')
@@ -707,7 +707,7 @@ export class SpecialDayBehaviorModal extends Modal {
 				showInTimerDropdown: formData.showInTimerDropdown
 			};
 
-			this.onSave(behavior, this.index);
+			void this.onSave(behavior, this.index);
 			this.close();
 		};
 	}
@@ -827,7 +827,7 @@ export class AnnetTemplateModal extends Modal {
 				icon: formData.icon,
 			};
 
-			this.onSave(template, this.index);
+			void this.onSave(template, this.index);
 			this.close();
 		};
 	}
@@ -996,7 +996,7 @@ export class WorkSchedulePeriodModal extends Modal {
 
 			const periodDate = formData.effectiveFrom;
 			const history = this.plugin.settings.workScheduleHistory || [];
-			const timerManager = (this.plugin as any).timerManager;
+			const timerManager = this.plugin.timerManager;
 
 			if (!timerManager || !timerManager.data || !timerManager.data.entries) {
 				impactPreview.createEl('div', { text: 'Loading data...' });
@@ -1019,7 +1019,7 @@ export class WorkSchedulePeriodModal extends Modal {
 			}
 
 			// Count entries in this period's date range
-			entries.forEach((entry: TimeEntry) => {
+			entries.forEach((entry) => {
 				if (!entry.startTime) return;
 				const entryDate = Utils.toLocalDateStr(new Date(entry.startTime));
 				if (entryDate >= periodDate && (!nextPeriodDate || entryDate < nextPeriodDate)) {
@@ -1134,7 +1134,7 @@ export class WorkSchedulePeriodModal extends Modal {
 				halfDayHours: formData.halfDayHours
 			};
 
-			this.onSave(period, this.index);
+			void this.onSave(period, this.index);
 			this.close();
 		};
 	}
@@ -1156,7 +1156,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 	async refreshView() {
 		const leaves = this.plugin.app.workspace.getLeavesOfType('timeflow-view');
 		for (const leaf of leaves) {
-			const view = leaf.view as any;
+			const view = leaf.view as { refresh?: () => Promise<void> };
 			if (view && typeof view.refresh === 'function') {
 				await view.refresh();
 			}
@@ -1285,7 +1285,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 		const { containerEl } = this;
 		containerEl.empty();
 
-		new Setting(containerEl).setName("Timeflow settings").setHeading();
+		// Settings heading removed per Obsidian guidelines (should not include plugin name or "settings")
 
 		// NEW: Search box
 		const searchContainer = containerEl.createDiv({ cls: "tf-settings-search" });

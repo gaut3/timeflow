@@ -209,6 +209,7 @@ const translations: Record<Language, TranslationStrings> = {
 			multipleDays: 'Flere dager',
 			startDate: 'Startdato',
 			endDate: 'Sluttdato',
+			weeklyViewComingSoon: 'Ukesvisning - kommer snart',
 		},
 		status: {
 			ok: 'OK',
@@ -328,6 +329,8 @@ const translations: Record<Language, TranslationStrings> = {
 			addedHours: 'Lagt til {duration} timer for {date}',
 			errorLoadingDashboard: 'Feil ved lasting av dashboard: {error}',
 			errorImporting: 'Feil ved importering av data',
+			errorDeletingEntry: 'Feil ved sletting av oppføring',
+			errorUpdatingEntry: 'Feil ved oppdatering av oppføring',
 		},
 		confirm: {
 			deleteEntry: 'Er du sikker på at du vil slette denne oppføringen?',
@@ -579,6 +582,7 @@ const translations: Record<Language, TranslationStrings> = {
 			multipleDays: 'Multiple days',
 			startDate: 'Start date',
 			endDate: 'End date',
+			weeklyViewComingSoon: 'Weekly view - coming soon',
 		},
 		status: {
 			ok: 'OK',
@@ -698,6 +702,8 @@ const translations: Record<Language, TranslationStrings> = {
 			addedHours: 'Added {duration} hours for {date}',
 			errorLoadingDashboard: 'Error loading dashboard: {error}',
 			errorImporting: 'Error importing data',
+			errorDeletingEntry: 'Error deleting entry',
+			errorUpdatingEntry: 'Error updating entry',
 		},
 		confirm: {
 			deleteEntry: 'Are you sure you want to delete this entry?',
@@ -951,6 +957,7 @@ interface TranslationStrings {
 		multipleDays: string;
 		startDate: string;
 		endDate: string;
+		weeklyViewComingSoon: string;
 	};
 	status: {
 		ok: string;
@@ -1070,6 +1077,8 @@ interface TranslationStrings {
 		addedHours: string;
 		errorLoadingDashboard: string;
 		errorImporting: string;
+		errorDeletingEntry: string;
+		errorUpdatingEntry: string;
 	};
 	confirm: {
 		deleteEntry: string;

@@ -42,7 +42,7 @@ export default class TimeFlowPlugin extends Plugin {
 		);
 
 		// Add ribbon icon to open timeflow
-		this.addRibbonIcon('calendar-clock', 'Open Timeflow', () => {
+		this.addRibbonIcon('calendar-clock', 'Open timeflow', () => {
 			void this.activateView();
 		});
 

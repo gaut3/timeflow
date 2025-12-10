@@ -5,12 +5,12 @@ import { t, formatDate, formatTime } from './i18n';
 
 export class ImportModal extends Modal {
 	timerManager: TimerManager;
-	onSuccess: () => void;
+	onSuccess: () => void | Promise<void>;
 	selectedFormat: string = 'auto';
 	parsedEntries: Timer[] = [];
 	parseWarnings: string[] = [];
 
-	constructor(app: App, timerManager: TimerManager, onSuccess: () => void) {
+	constructor(app: App, timerManager: TimerManager, onSuccess: () => void | Promise<void>) {
 		super(app);
 		this.timerManager = timerManager;
 		this.onSuccess = onSuccess;

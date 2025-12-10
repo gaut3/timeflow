@@ -289,7 +289,8 @@ var translations = {
       minimum: "minimum",
       multipleDays: "Flere dager",
       startDate: "Startdato",
-      endDate: "Sluttdato"
+      endDate: "Sluttdato",
+      weeklyViewComingSoon: "Ukesvisning - kommer snart"
     },
     status: {
       ok: "OK",
@@ -408,7 +409,9 @@ var translations = {
       errorCreatingNote: "Feil ved opprettelse av notat: {error}",
       addedHours: "Lagt til {duration} timer for {date}",
       errorLoadingDashboard: "Feil ved lasting av dashboard: {error}",
-      errorImporting: "Feil ved importering av data"
+      errorImporting: "Feil ved importering av data",
+      errorDeletingEntry: "Feil ved sletting av oppf\xF8ring",
+      errorUpdatingEntry: "Feil ved oppdatering av oppf\xF8ring"
     },
     confirm: {
       deleteEntry: "Er du sikker p\xE5 at du vil slette denne oppf\xF8ringen?",
@@ -659,7 +662,8 @@ var translations = {
       minimum: "minimum",
       multipleDays: "Multiple days",
       startDate: "Start date",
-      endDate: "End date"
+      endDate: "End date",
+      weeklyViewComingSoon: "Weekly view - coming soon"
     },
     status: {
       ok: "OK",
@@ -778,7 +782,9 @@ var translations = {
       errorCreatingNote: "Error creating note: {error}",
       addedHours: "Added {duration} hours for {date}",
       errorLoadingDashboard: "Error loading dashboard: {error}",
-      errorImporting: "Error importing data"
+      errorImporting: "Error importing data",
+      errorDeletingEntry: "Error deleting entry",
+      errorUpdatingEntry: "Error updating entry"
     },
     confirm: {
       deleteEntry: "Are you sure you want to delete this entry?",
@@ -1851,7 +1857,7 @@ var ConfirmModal = class extends import_obsidian2.Modal {
     const confirmBtn = buttonDiv.createEl("button", { text: t("buttons.confirm"), cls: "mod-cta mod-warning" });
     confirmBtn.onclick = () => {
       this.close();
-      this.onConfirm();
+      void this.onConfirm();
     };
   }
   onClose() {
@@ -1993,7 +1999,7 @@ var SpecialDayBehaviorModal = class extends import_obsidian2.Modal {
         isWorkType: formData.isWorkType,
         showInTimerDropdown: formData.showInTimerDropdown
       };
-      this.onSave(behavior, this.index);
+      void this.onSave(behavior, this.index);
       this.close();
     };
   }
@@ -2062,7 +2068,7 @@ var AnnetTemplateModal = class extends import_obsidian2.Modal {
         label: formData.label,
         icon: formData.icon
       };
-      this.onSave(template, this.index);
+      void this.onSave(template, this.index);
       this.close();
     };
   }
@@ -2264,7 +2270,7 @@ var WorkSchedulePeriodModal = class extends import_obsidian2.Modal {
         workDays: formData.workDays,
         halfDayHours: formData.halfDayHours
       };
-      this.onSave(period, this.index);
+      void this.onSave(period, this.index);
       this.close();
     };
   }
@@ -2380,7 +2386,6 @@ var TimeFlowSettingTab = class extends import_obsidian2.PluginSettingTab {
   display() {
     const { containerEl } = this;
     containerEl.empty();
-    new import_obsidian2.Setting(containerEl).setName("Timeflow settings").setHeading();
     const searchContainer = containerEl.createDiv({ cls: "tf-settings-search" });
     const searchInput = searchContainer.createEl("input", {
       type: "text",
@@ -3795,8 +3800,9 @@ var DataManager = class {
           if (!isReduceGoalType || isFullDay) {
             daysByType[name].add(dayKey);
             const statKey = name;
-            if (name !== "jobb" && typeof stats[statKey] === "object" && stats[statKey] !== null && "hours" in stats[statKey]) {
-              stats[statKey].hours += e.duration || 0;
+            const stat = stats[statKey];
+            if (name !== "jobb" && typeof stat === "object" && stat !== null && "hours" in stat) {
+              stat.hours += e.duration || 0;
             }
           }
         }
@@ -4929,8 +4935,7 @@ var UIBuilder = class {
     });
     rightControls.appendChild(tabs);
     header.appendChild(rightControls);
-    card._editToggle = editToggle;
-    card._detailsElement = detailsElement;
+    editToggle.addClass("tf-history-edit-toggle");
     content.appendChild(detailsElement);
     header.onclick = () => {
       content.classList.toggle("open");
@@ -7722,7 +7727,7 @@ var UIBuilder = class {
       this.updateDayCard();
     } catch (error) {
       console.error("Failed to delete planned day:", error);
-      new import_obsidian4.Notice(`\u274C Error deleting entry`);
+      new import_obsidian4.Notice(`\u274C ${t("notifications.errorDeletingEntry")}`);
     }
   }
   /**
@@ -7780,7 +7785,7 @@ var UIBuilder = class {
       this.updateDayCard();
     } catch (error) {
       console.error("Failed to update planned day:", error);
-      new import_obsidian4.Notice(`\u274C Error updating entry`);
+      new import_obsidian4.Notice(`\u274C ${t("notifications.errorUpdatingEntry")}`);
     }
   }
   async createNoteFromType(dateObj, noteType) {
@@ -7867,7 +7872,7 @@ ${noteType.tags.join(" ")}`;
     const historyCard = container.closest(".tf-card-history");
     if (!historyCard)
       return;
-    const editToggle = historyCard._editToggle;
+    const editToggle = historyCard.querySelector(".tf-history-edit-toggle");
     if (!editToggle)
       return;
     const isWide = container.offsetWidth >= 450;
@@ -8156,7 +8161,7 @@ ${noteType.tags.join(" ")}`;
             activeIcon.title = t("ui.activeTimer");
             activeIcon.className = "tf-cursor-help";
             dateCell.appendChild(activeIcon);
-          } else if (hasConflict) {
+          } else if (hasConflict && holidayInfo) {
             const flagIcon = document.createElement("span");
             flagIcon.textContent = "\u26A0\uFE0F ";
             flagIcon.title = t("info.workRegisteredOnSpecialDay").replace("{dayType}", translateSpecialDayName(holidayInfo.type));
@@ -8317,7 +8322,7 @@ ${noteType.tags.join(" ")}`;
               overlapIcon.title = `Overlapper med: ${overlapDetails}`;
               overlapIcon.className = "tf-cursor-help";
               dateCell.appendChild(overlapIcon);
-            } else if (hasSpecialDayConflict) {
+            } else if (hasSpecialDayConflict && holidayInfo) {
               const flagIcon = document.createElement("span");
               flagIcon.textContent = "\u26A0\uFE0F ";
               flagIcon.title = t("info.workRegisteredOnSpecialDay").replace("{dayType}", translateSpecialDayName(holidayInfo.type));
@@ -8678,7 +8683,7 @@ ${noteType.tags.join(" ")}`;
     container.empty();
     const div = container.createDiv();
     div.className = "tf-heatmap-no-data";
-    div.textContent = "Weekly view - Coming soon";
+    div.textContent = t("ui.weeklyViewComingSoon");
   }
   renderHeatmapView(container, years) {
     const heatmap = document.createElement("div");
@@ -8863,11 +8868,11 @@ ${noteType.tags.join(" ")}`;
     dialog.className = "tf-confirm-dialog";
     const title = document.createElement("div");
     title.className = "tf-confirm-title";
-    title.textContent = "\u{1F5D1}\uFE0F Slett oppf\xF8ring";
+    title.textContent = "\u{1F5D1}\uFE0F " + t("modals.deleteEntryTitle");
     dialog.appendChild(title);
     const message = document.createElement("div");
     message.className = "tf-confirm-message";
-    message.textContent = "Er du sikker p\xE5 at du vil slette denne oppf\xF8ringen?";
+    message.textContent = t("confirm.deleteEntry");
     dialog.appendChild(message);
     const details = document.createElement("div");
     details.className = "tf-confirm-details";
@@ -9470,7 +9475,7 @@ var TimeFlowPlugin = class extends import_obsidian7.Plugin {
       VIEW_TYPE_TIMEFLOW,
       (leaf) => new TimeFlowView(leaf, this)
     );
-    this.addRibbonIcon("calendar-clock", "Open Timeflow", () => {
+    this.addRibbonIcon("calendar-clock", "Open timeflow", () => {
       void this.activateView();
     });
     this.addCommand({

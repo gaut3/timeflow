@@ -878,8 +878,9 @@ export class DataManager {
 						// Only add hours to non-jobb types here (jobb hours are handled below)
 						// Type-safe access using known keys
 						const statKey = name as keyof typeof stats;
-						if (name !== 'jobb' && typeof stats[statKey] === 'object' && stats[statKey] !== null && 'hours' in stats[statKey]) {
-							(stats[statKey] as DayTypeStats).hours += e.duration || 0;
+						const stat = stats[statKey];
+						if (name !== 'jobb' && typeof stat === 'object' && stat !== null && 'hours' in stat) {
+							stat.hours += e.duration || 0;
 						}
 					}
 				}
