@@ -21,7 +21,7 @@ export class TimeFlowView extends ItemView {
 	}
 
 	getDisplayText(): string {
-		return 'timeflow Dashboard';
+		return 'Timeflow dashboard';
 	}
 
 	getIcon(): string {

@@ -22,7 +22,6 @@ export function getLocale(): string {
  */
 export function t(key: string): string {
 	const keys = key.split('.');
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	let value: unknown = translations[currentLanguage];
 	for (const k of keys) {
 		if (typeof value === 'object' && value !== null && k in value) {

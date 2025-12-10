@@ -748,6 +748,9 @@
 
 .tf-context-menu {
 	position: fixed;
+	left: var(--tf-left, auto);
+	right: var(--tf-right, auto);
+	width: var(--tf-width, auto);
 	background: var(--background-primary);
 	border: 1px solid var(--background-modifier-border);
 	border-radius: 8px;
@@ -2787,13 +2790,14 @@
 .tf-status-toggle {
 	font-size: 10px;
 	transition: transform 0.2s;
+	transform: rotate(var(--tf-rotate, 0deg));
 }
 
 .tf-status-details {
-	max-height: 0;
+	max-height: var(--tf-max-height, 0);
 	overflow: hidden;
-	transition: max-height 0.3s ease-out;
-	opacity: 0;
+	transition: max-height 0.3s ease-out, opacity 0.3s ease-out;
+	opacity: var(--tf-opacity, 0);
 }
 
 .tf-status-details-inner {

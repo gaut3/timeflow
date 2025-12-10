@@ -48,7 +48,7 @@ export default class TimeFlowPlugin extends Plugin {
 
 		// Add command to open timeflow
 		this.addCommand({
-			id: 'open-timeflow',
+			id: 'open-dashboard',
 			name: 'Open dashboard',
 			callback: () => {
 				void this.activateView();
@@ -108,7 +108,7 @@ export default class TimeFlowPlugin extends Plugin {
 						leaves.forEach(leaf => {
 							const view = leaf.view as TimeFlowView;
 							if (view && view.refresh) {
-								view.refresh();
+								void view.refresh();
 							}
 						});
 					}
@@ -394,7 +394,7 @@ export default class TimeFlowPlugin extends Plugin {
 
 		// Reveal the leaf if it exists
 		if (leaf) {
-			workspace.revealLeaf(leaf);
+			void workspace.revealLeaf(leaf);
 		}
 	}
 

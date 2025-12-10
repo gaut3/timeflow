@@ -383,10 +383,10 @@ export const DEFAULT_SETTINGS: TimeFlowSettings = {
  */
 export class ConfirmModal extends Modal {
 	message: string;
-	onConfirm: () => void;
+	onConfirm: () => void | Promise<void>;
 	title: string;
 
-	constructor(app: App, message: string, onConfirm: () => void, title?: string) {
+	constructor(app: App, message: string, onConfirm: () => void | Promise<void>, title?: string) {
 		super(app);
 		this.message = message;
 		this.onConfirm = onConfirm;
@@ -423,14 +423,14 @@ export class SpecialDayBehaviorModal extends Modal {
 	behavior: SpecialDayBehavior | null;
 	index: number;
 	plugin: TimeFlowPlugin;
-	onSave: (behavior: SpecialDayBehavior, index: number) => void;
+	onSave: (behavior: SpecialDayBehavior, index: number) => void | Promise<void>;
 
 	constructor(
 		app: App,
 		plugin: TimeFlowPlugin,
 		behavior: SpecialDayBehavior | null,
 		index: number,
-		onSave: (behavior: SpecialDayBehavior, index: number) => void
+		onSave: (behavior: SpecialDayBehavior, index: number) => void | Promise<void>
 	) {
 		super(app);
 		this.plugin = plugin;
@@ -483,7 +483,7 @@ export class SpecialDayBehaviorModal extends Modal {
 			flextimeEffect: this.behavior?.flextimeEffect || 'none',
 			includeInStats: this.behavior?.includeInStats ?? true,
 			maxDaysPerYear: this.behavior?.maxDaysPerYear || undefined,
-			countingPeriod: this.behavior?.countingPeriod || 'calendar',
+			countingPeriod: (this.behavior?.countingPeriod || 'calendar') as 'calendar' | 'rolling365',
 			isWorkType: isWorkType,
 			// Default to true for jobb, studie, kurs if not explicitly set
 			showInTimerDropdown: this.behavior?.showInTimerDropdown ?? ['jobb', 'studie', 'kurs'].includes(this.behavior?.id || '')
@@ -668,11 +668,11 @@ export class SpecialDayBehaviorModal extends Modal {
 				return;
 			}
 			if (!formData.label) {
-				new Notice('⚠️ Label is required');
+				new Notice('⚠️ A label is required');
 				return;
 			}
 			if (!formData.icon) {
-				new Notice('⚠️ Icon is required');
+				new Notice('⚠️ An icon is required');
 				return;
 			}
 
@@ -702,7 +702,7 @@ export class SpecialDayBehaviorModal extends Modal {
 				flextimeEffect: formData.isWorkType ? 'accumulate' : formData.flextimeEffect,
 				includeInStats: formData.isWorkType ? true : formData.includeInStats,
 				maxDaysPerYear: formData.isWorkType ? undefined : formData.maxDaysPerYear,
-				countingPeriod: formData.isWorkType ? undefined : formData.countingPeriod as 'calendar' | 'rolling365',
+				countingPeriod: formData.isWorkType ? undefined : formData.countingPeriod,
 				isWorkType: formData.isWorkType,
 				showInTimerDropdown: formData.showInTimerDropdown
 			};
@@ -722,14 +722,14 @@ export class AnnetTemplateModal extends Modal {
 	template: AnnetTemplate | null;
 	index: number;
 	plugin: TimeFlowPlugin;
-	onSave: (template: AnnetTemplate, index: number) => void;
+	onSave: (template: AnnetTemplate, index: number) => void | Promise<void>;
 
 	constructor(
 		app: App,
 		plugin: TimeFlowPlugin,
 		template: AnnetTemplate | null,
 		index: number,
-		onSave: (template: AnnetTemplate, index: number) => void
+		onSave: (template: AnnetTemplate, index: number) => void | Promise<void>
 	) {
 		super(app);
 		this.plugin = plugin;
@@ -842,14 +842,14 @@ export class WorkSchedulePeriodModal extends Modal {
 	period: WorkSchedulePeriod | null;
 	index: number;
 	plugin: TimeFlowPlugin;
-	onSave: (period: WorkSchedulePeriod, index: number) => void;
+	onSave: (period: WorkSchedulePeriod, index: number) => void | Promise<void>;
 
 	constructor(
 		app: App,
 		plugin: TimeFlowPlugin,
 		period: WorkSchedulePeriod | null,
 		index: number,
-		onSave: (period: WorkSchedulePeriod, index: number) => void
+		onSave: (period: WorkSchedulePeriod, index: number) => void | Promise<void>
 	) {
 		super(app);
 		this.plugin = plugin;
@@ -1101,7 +1101,7 @@ export class WorkSchedulePeriodModal extends Modal {
 		saveBtn.onclick = () => {
 			// Validate date format
 			if (!/^\d{4}-\d{2}-\d{2}$/.test(formData.effectiveFrom)) {
-				new Notice('Invalid date format. Use YYYY-MM-DD');
+				new Notice('Invalid date format, use YYYY-MM-DD');
 				return;
 			}
 
@@ -1214,7 +1214,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 				await this.plugin.saveSettings();
 				this.display(); // Refresh settings UI
 				if (refreshCallback) {
-					await refreshCallback();
+					refreshCallback();
 				}
 			})
 		);
@@ -1285,7 +1285,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 		const { containerEl } = this;
 		containerEl.empty();
 
-		containerEl.createEl("h2", { text: "timeflow Settings" });
+		new Setting(containerEl).setName("Timeflow settings").setHeading();
 
 		// NEW: Search box
 		const searchContainer = containerEl.createDiv({ cls: "tf-settings-search" });

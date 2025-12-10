@@ -1394,7 +1394,7 @@ var ImportModal = class extends import_obsidian.Modal {
     const uploadBtn = uploadDiv.createEl("button", { text: "\u{1F4C1} " + t("import.selectFile"), cls: "tf-import-upload-btn" });
     uploadBtn.onclick = () => fileInput.click();
     const fileNameSpan = uploadDiv.createEl("span", { text: t("import.noFile"), cls: "tf-import-file-name" });
-    const textAreaLabel = contentEl.createEl("div", { text: t("import.orPasteData"), cls: "tf-import-textarea-label" });
+    contentEl.createEl("div", { text: t("import.orPasteData"), cls: "tf-import-textarea-label" });
     const textArea = contentEl.createEl("textarea", {
       cls: "tf-import-textarea",
       attr: {
@@ -1958,11 +1958,11 @@ var SpecialDayBehaviorModal = class extends import_obsidian2.Modal {
         return;
       }
       if (!formData.label) {
-        new import_obsidian2.Notice("\u26A0\uFE0F Label is required");
+        new import_obsidian2.Notice("\u26A0\uFE0F A label is required");
         return;
       }
       if (!formData.icon) {
-        new import_obsidian2.Notice("\u26A0\uFE0F Icon is required");
+        new import_obsidian2.Notice("\u26A0\uFE0F An icon is required");
         return;
       }
       if (!this.behavior || this.behavior.id !== formData.id) {
@@ -2237,7 +2237,7 @@ var WorkSchedulePeriodModal = class extends import_obsidian2.Modal {
     const saveBtn = buttonDiv.createEl("button", { text: "Save", cls: "mod-cta" });
     saveBtn.onclick = () => {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(formData.effectiveFrom)) {
-        new import_obsidian2.Notice("Invalid date format. Use YYYY-MM-DD");
+        new import_obsidian2.Notice("Invalid date format, use YYYY-MM-DD");
         return;
       }
       if (formData.workDays.length === 0) {
@@ -2326,7 +2326,7 @@ var TimeFlowSettingTab = class extends import_obsidian2.PluginSettingTab {
         await this.plugin.saveSettings();
         this.display();
         if (refreshCallback) {
-          await refreshCallback();
+          refreshCallback();
         }
       })
     );
@@ -2380,7 +2380,7 @@ var TimeFlowSettingTab = class extends import_obsidian2.PluginSettingTab {
   display() {
     const { containerEl } = this;
     containerEl.empty();
-    containerEl.createEl("h2", { text: "timeflow Settings" });
+    new import_obsidian2.Setting(containerEl).setName("Timeflow settings").setHeading();
     const searchContainer = containerEl.createDiv({ cls: "tf-settings-search" });
     const searchInput = searchContainer.createEl("input", {
       type: "text",
@@ -5002,7 +5002,7 @@ var UIBuilder = class {
     const titleRow = headerContent.createDiv();
     titleRow.createEl("strong", { text: t("status.systemStatus") });
     if (hasIssues) {
-      const clickHint = titleRow.createSpan({ text: ` (${t("status.clickForDetails")})`, cls: "tf-status-hint" });
+      titleRow.createSpan({ text: ` (${t("status.clickForDetails")})`, cls: "tf-status-hint" });
     }
     const statusRow = headerContent.createDiv();
     statusRow.className = "tf-status-row";
@@ -5027,14 +5027,12 @@ var UIBuilder = class {
         isOpen = !isOpen;
         const toggle = header.querySelector(".tf-status-toggle");
         if (toggle) {
-          toggle.style.transform = isOpen ? "rotate(90deg)" : "rotate(0deg)";
+          toggle.setCssProps({ "--tf-rotate": isOpen ? "90deg" : "0deg" });
         }
         if (isOpen) {
-          details.style.maxHeight = details.scrollHeight + "px";
-          details.style.opacity = "1";
+          details.setCssProps({ "--tf-max-height": details.scrollHeight + "px", "--tf-opacity": "1" });
         } else {
-          details.style.maxHeight = "0";
-          details.style.opacity = "0";
+          details.setCssProps({ "--tf-max-height": "0", "--tf-opacity": "0" });
         }
       };
     }
@@ -5053,7 +5051,7 @@ var UIBuilder = class {
     viewToggle.onclick = (e) => {
       e.stopPropagation();
       const newLocation = isInSidebar ? "main" : "sidebar";
-      this.plugin.moveViewToLocation(newLocation);
+      void this.plugin.moveViewToLocation(newLocation);
     };
     container.appendChild(viewToggle);
     return container;
@@ -5218,7 +5216,6 @@ var UIBuilder = class {
     }
     panel.createEl("p", { text: statusText, cls: "tf-compliance-status-text" });
     const badgeRect = this.elements.complianceBadge.getBoundingClientRect();
-    panel.style.position = "fixed";
     document.body.appendChild(panel);
     const panelRect = panel.getBoundingClientRect();
     const padding = 10;
@@ -5516,7 +5513,7 @@ var UIBuilder = class {
         if (Math.abs(diff) > 2) {
           const arrow = diff > 0 ? "\u{1F4C8}" : "\u{1F4C9}";
           const signDiff = diff > 0 ? "+" : "";
-          const compDiv = weekItem.createDiv({ text: `${t("ui.vsLastWeek")}: ${signDiff}${diff.toFixed(1)}t ${arrow}`, cls: "tf-comp-small" });
+          weekItem.createDiv({ text: `${t("ui.vsLastWeek")}: ${signDiff}${diff.toFixed(1)}t ${arrow}`, cls: "tf-comp-small" });
         }
       }
     }
@@ -5536,7 +5533,7 @@ var UIBuilder = class {
       const vacationItem = this.elements.statsCard.createDiv({ cls: "tf-stat-item" });
       vacationItem.createDiv({ cls: "tf-stat-label", text: `\u{1F3D6}\uFE0F ${t("stats.vacation")}` });
       const sizeClass = this.statsTimeframe === "year" ? "tf-text-year-size" : "tf-text-default-size";
-      const vacationValue = vacationItem.createDiv({ cls: `tf-stat-value ${sizeClass}`, text: ferieDisplay });
+      vacationItem.createDiv({ cls: `tf-stat-value ${sizeClass}`, text: ferieDisplay });
       vacationItem.createDiv({ cls: "tf-stat-subtitle" });
     }
     if (!this.settings.hideEmptyStats || stats.velferdspermisjon.count > 0) {
@@ -5546,7 +5543,7 @@ var UIBuilder = class {
       const sickItem = this.elements.statsCard.createDiv({ cls: "tf-stat-item" });
       sickItem.createDiv({ cls: "tf-stat-label", text: `\u{1F912} ${t("stats.selfReportedSick")}` });
       const sickSizeClass = this.statsTimeframe === "year" ? "tf-text-year-size" : "tf-text-default-size";
-      const sickValue = sickItem.createDiv({ cls: `tf-stat-value ${sickSizeClass}`, text: egenmeldingDisplay });
+      sickItem.createDiv({ cls: `tf-stat-value ${sickSizeClass}`, text: egenmeldingDisplay });
       sickItem.createDiv({ text: egenmeldingPeriodLabel, cls: "tf-stat-subtitle" });
     }
     if (!this.settings.hideEmptyStats || stats.sykemelding.count > 0) {
@@ -5908,7 +5905,6 @@ var UIBuilder = class {
           const behavior = this.settings.specialDayBehaviors.find((b) => b.id === dominantSpecialType);
           stripeColor = (behavior == null ? void 0 : behavior.color) || specialDayColors[dominantSpecialType];
         } else {
-          const workBehavior = this.settings.specialDayBehaviors.find((b) => b.isWorkType);
           const dayFlextime = (dayEntries == null ? void 0 : dayEntries.reduce((sum, e) => sum + (e.flextime || 0), 0)) || 0;
           stripeColor = this.flextimeColor(dayFlextime);
         }
@@ -6177,7 +6173,7 @@ var UIBuilder = class {
     const diff = data.totalHours - data.expectedHours;
     const diffText = diff >= 0 ? `+${diff.toFixed(1)}` : diff.toFixed(1);
     const headerRow = panel.createDiv({ cls: "tf-panel-header-row" });
-    const weekTitle = headerRow.createEl("strong", { text: `${t("ui.week")} ${data.weekNumber}`, cls: "tf-week-title" });
+    headerRow.createEl("strong", { text: `${t("ui.week")} ${data.weekNumber}`, cls: "tf-week-title" });
     const statusSpan = headerRow.createSpan({ text: `${statusIcon} ${statusText}`, cls: "tf-font-bold tf-dynamic-color" });
     statusSpan.setCssProps({ "--tf-color": statusColor });
     const contentDiv = panel.createDiv({ cls: "tf-panel-content-col" });
@@ -6233,9 +6229,7 @@ var UIBuilder = class {
     const isMobile = window.innerWidth <= 500;
     if (isMobile) {
       menuLeft = 10;
-      menu.style.left = `${menuLeft}px`;
-      menu.style.right = "10px";
-      menu.style.width = "calc(100vw - 20px)";
+      menu.setCssProps({ "--tf-left": `${menuLeft}px`, "--tf-right": "10px", "--tf-width": "calc(100vw - 20px)" });
     } else {
       const menuWidth = 450;
       if (menuLeft + menuWidth > window.innerWidth) {
@@ -6385,7 +6379,7 @@ var UIBuilder = class {
         const behavior = this.data.getSpecialDayBehavior(e.name);
         const isFullDayReduceGoal = (behavior == null ? void 0 : behavior.flextimeEffect) === "reduce_goal" && (!e.duration || e.duration === 0);
         const durationText = e.duration && e.duration > 0 ? `: ${e.duration.toFixed(1)}${this.settings.hourUnit}` : isFullDayReduceGoal ? ` (${t("ui.fullDay")})` : "";
-        const entryP = menuInfo.createEl("p", { text: emoji + " " + translateSpecialDayName(e.name.toLowerCase(), e.name) + durationText, cls: "tf-ml-8" });
+        menuInfo.createEl("p", { text: emoji + " " + translateSpecialDayName(e.name.toLowerCase(), e.name) + durationText, cls: "tf-ml-8" });
       });
       if (!isFutureDay) {
         const dayGoal = this.data.getDailyGoal(dateStr);
@@ -6641,10 +6635,10 @@ var UIBuilder = class {
         this.showOvernightShiftConfirmation(() => {
           const nextDayEndDate = new Date(endDate);
           nextDayEndDate.setDate(nextDayEndDate.getDate() + 1);
-          addEntry(nextDayEndDate);
+          void addEntry(nextDayEndDate);
         });
       } else {
-        addEntry(endDate);
+        void addEntry(endDate);
       }
     };
     buttonDiv.appendChild(addBtn);
@@ -6718,7 +6712,7 @@ var UIBuilder = class {
       const infoDiv = document.createElement("div");
       infoDiv.className = "tf-info-mb";
       const entryLabel = item.parent ? `${item.parent.name} - ${entry.name}` : `Oppf\xF8ring ${index + 1}`;
-      const titleDiv = infoDiv.createDiv({ text: entryLabel, cls: "tf-title-bold" });
+      infoDiv.createDiv({ text: entryLabel, cls: "tf-title-bold" });
       const timeDisplay = isMultiDay ? `\u23F0 ${startDateStr} ${startTimeStr} \u2192 ${endDateStr} ${endTimeStr}` : `\u23F0 ${startTimeStr} - ${endTimeStr}`;
       infoDiv.createDiv({ text: timeDisplay });
       infoDiv.createDiv({ text: `\u23F1\uFE0F ${duration} timer` });
@@ -6811,9 +6805,9 @@ var UIBuilder = class {
               new import_obsidian4.Notice(`\u274C ${t("validation.endAfterStart")}`);
               return;
             }
-            saveUpdate(newEndDate);
+            void saveUpdate(newEndDate);
           } else {
-            saveUpdate(null);
+            void saveUpdate(null);
           }
         }
       };
@@ -7424,7 +7418,7 @@ var UIBuilder = class {
             });
             await this.saveWithErrorHandling();
             new import_obsidian4.Notice(`\u2705 ${translateSpecialDayName(dayType)}: ${sickHours.toFixed(1)}${this.settings.hourUnit || "t"} for ${Utils.toLocalDateStr(dateObj)}`);
-            await ((_b = (_a = this.plugin.timerManager).onTimerChange) == null ? void 0 : _b.call(_a));
+            (_b = (_a = this.plugin.timerManager).onTimerChange) == null ? void 0 : _b.call(_a);
           } else {
             new import_obsidian4.Notice(`\u274C ${t("validation.invalidTimePeriod") || "Ugyldig tidsperiode"}`);
             return;
@@ -8012,7 +8006,7 @@ ${noteType.tags.join(" ")}`;
           var _a, _b;
           matchingRaw.name = select.value;
           await this.saveWithErrorHandling();
-          await ((_b = (_a = this.plugin.timerManager).onTimerChange) == null ? void 0 : _b.call(_a));
+          (_b = (_a = this.plugin.timerManager).onTimerChange) == null ? void 0 : _b.call(_a);
         };
         typeCell.appendChild(select);
       } else {
@@ -8034,7 +8028,7 @@ ${noteType.tags.join(" ")}`;
               newStart.setHours(parsed.hours, parsed.minutes, 0, 0);
               matchingRaw.startTime = Utils.toLocalISOString(newStart);
               await this.saveWithErrorHandling();
-              await ((_b = (_a = this.plugin.timerManager).onTimerChange) == null ? void 0 : _b.call(_a));
+              (_b = (_a = this.plugin.timerManager).onTimerChange) == null ? void 0 : _b.call(_a);
             });
             startCell.appendChild(input);
           } else {
@@ -8672,7 +8666,7 @@ ${noteType.tags.join(" ")}`;
       modal.remove();
       const duration = (endDate.getTime() - startDate.getTime()) / (1e3 * 60 * 60);
       new import_obsidian4.Notice(`\u2705 ${t("notifications.addedHours").replace("{duration}", duration.toFixed(1)).replace("{date}", dateStr)}`);
-      await ((_b = (_a = this.plugin.timerManager).onTimerChange) == null ? void 0 : _b.call(_a));
+      (_b = (_a = this.plugin.timerManager).onTimerChange) == null ? void 0 : _b.call(_a);
     };
     buttonContainer.appendChild(saveBtn);
     content.appendChild(buttonContainer);
@@ -8896,7 +8890,8 @@ ${noteType.tags.join(" ")}`;
     }
     const durationRow = details.createDiv();
     durationRow.createEl("strong", { text: t("ui.duration") + ":" });
-    durationRow.appendText(" " + (typeof duration === "string" ? duration : duration + " " + t("ui.hours").toLowerCase()));
+    const durationDisplay = endDate ? `${duration} ${t("ui.hours").toLowerCase()}` : duration;
+    durationRow.appendText(" " + durationDisplay);
     dialog.appendChild(details);
     const buttons = document.createElement("div");
     buttons.className = "tf-confirm-buttons";
@@ -8956,7 +8951,7 @@ var TimeFlowView = class extends import_obsidian5.ItemView {
     return VIEW_TYPE_TIMEFLOW;
   }
   getDisplayText() {
-    return "timeflow Dashboard";
+    return "Timeflow dashboard";
   }
   getIcon() {
     return "calendar-clock";
@@ -9479,7 +9474,7 @@ var TimeFlowPlugin = class extends import_obsidian7.Plugin {
       void this.activateView();
     });
     this.addCommand({
-      id: "open-timeflow",
+      id: "open-dashboard",
       name: "Open dashboard",
       callback: () => {
         void this.activateView();
@@ -9526,7 +9521,7 @@ var TimeFlowPlugin = class extends import_obsidian7.Plugin {
             leaves.forEach((leaf) => {
               const view = leaf.view;
               if (view && view.refresh) {
-                view.refresh();
+                void view.refresh();
               }
             });
           }
@@ -9744,7 +9739,7 @@ ${corrections.join("\n")}`, 5e3);
       }
     }
     if (leaf) {
-      workspace.revealLeaf(leaf);
+      void workspace.revealLeaf(leaf);
     }
   }
   async moveViewToLocation(location) {

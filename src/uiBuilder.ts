@@ -817,7 +817,7 @@ export class UIBuilder {
 		const titleRow = headerContent.createDiv();
 		titleRow.createEl('strong', { text: t('status.systemStatus') });
 		if (hasIssues) {
-			const clickHint = titleRow.createSpan({ text: ` (${t('status.clickForDetails')})`, cls: 'tf-status-hint' });
+			titleRow.createSpan({ text: ` (${t('status.clickForDetails')})`, cls: 'tf-status-hint' });
 		}
 
 		const statusRow = headerContent.createDiv();
@@ -853,14 +853,12 @@ export class UIBuilder {
 				isOpen = !isOpen;
 				const toggle = header.querySelector('.tf-status-toggle') as HTMLElement;
 				if (toggle) {
-					toggle.style.transform = isOpen ? 'rotate(90deg)' : 'rotate(0deg)';
+					toggle.setCssProps({ '--tf-rotate': isOpen ? '90deg' : '0deg' });
 				}
 				if (isOpen) {
-					details.style.maxHeight = details.scrollHeight + 'px';
-					details.style.opacity = '1';
+					details.setCssProps({ '--tf-max-height': details.scrollHeight + 'px', '--tf-opacity': '1' });
 				} else {
-					details.style.maxHeight = '0';
-					details.style.opacity = '0';
+					details.setCssProps({ '--tf-max-height': '0', '--tf-opacity': '0' });
 				}
 			};
 		}
@@ -883,7 +881,7 @@ export class UIBuilder {
 		viewToggle.onclick = (e) => {
 			e.stopPropagation();
 			const newLocation = isInSidebar ? 'main' : 'sidebar';
-			this.plugin.moveViewToLocation(newLocation);
+			void this.plugin.moveViewToLocation(newLocation);
 		};
 
 		container.appendChild(viewToggle);
@@ -1088,7 +1086,6 @@ export class UIBuilder {
 
 		// Position panel near the badge, ensuring it stays on screen
 		const badgeRect = this.elements.complianceBadge!.getBoundingClientRect();
-		panel.style.position = 'fixed';
 		document.body.appendChild(panel);
 
 		// Calculate position after adding to DOM so we can measure panel size
@@ -1457,7 +1454,7 @@ export class UIBuilder {
 				if (Math.abs(diff) > 2) {
 					const arrow = diff > 0 ? "📈" : "📉";
 					const signDiff = diff > 0 ? "+" : "";
-					const compDiv = weekItem.createDiv({ text: `${t('ui.vsLastWeek')}: ${signDiff}${diff.toFixed(1)}t ${arrow}`, cls: 'tf-comp-small' });
+					weekItem.createDiv({ text: `${t('ui.vsLastWeek')}: ${signDiff}${diff.toFixed(1)}t ${arrow}`, cls: 'tf-comp-small' });
 				}
 			}
 		}
@@ -1487,7 +1484,7 @@ export class UIBuilder {
 			const vacationItem = this.elements.statsCard.createDiv({ cls: 'tf-stat-item' });
 			vacationItem.createDiv({ cls: 'tf-stat-label', text: `🏖️ ${t('stats.vacation')}` });
 			const sizeClass = this.statsTimeframe === 'year' ? 'tf-text-year-size' : 'tf-text-default-size';
-			const vacationValue = vacationItem.createDiv({ cls: `tf-stat-value ${sizeClass}`, text: ferieDisplay });
+			vacationItem.createDiv({ cls: `tf-stat-value ${sizeClass}`, text: ferieDisplay });
 			vacationItem.createDiv({ cls: 'tf-stat-subtitle' });
 		}
 
@@ -1501,7 +1498,7 @@ export class UIBuilder {
 			const sickItem = this.elements.statsCard.createDiv({ cls: 'tf-stat-item' });
 			sickItem.createDiv({ cls: 'tf-stat-label', text: `🤒 ${t('stats.selfReportedSick')}` });
 			const sickSizeClass = this.statsTimeframe === 'year' ? 'tf-text-year-size' : 'tf-text-default-size';
-			const sickValue = sickItem.createDiv({ cls: `tf-stat-value ${sickSizeClass}`, text: egenmeldingDisplay });
+			sickItem.createDiv({ cls: `tf-stat-value ${sickSizeClass}`, text: egenmeldingDisplay });
 			sickItem.createDiv({ text: egenmeldingPeriodLabel, cls: 'tf-stat-subtitle' });
 		}
 
@@ -2001,7 +1998,6 @@ export class UIBuilder {
 				} else {
 					// Special day is main, work (flextime gradient) is stripe
 					// Use the work type's color for the stripe
-					const workBehavior = this.settings.specialDayBehaviors.find(b => b.isWorkType);
 					const dayFlextime = dayEntries?.reduce((sum, e) => sum + (e.flextime || 0), 0) || 0;
 					stripeColor = this.flextimeColor(dayFlextime);
 				}
@@ -2371,7 +2367,7 @@ export class UIBuilder {
 
 		// Build panel content using DOM API
 		const headerRow = panel.createDiv({ cls: 'tf-panel-header-row' });
-		const weekTitle = headerRow.createEl('strong', { text: `${t('ui.week')} ${data.weekNumber}`, cls: 'tf-week-title' });
+		headerRow.createEl('strong', { text: `${t('ui.week')} ${data.weekNumber}`, cls: 'tf-week-title' });
 		const statusSpan = headerRow.createSpan({ text: `${statusIcon} ${statusText}`, cls: 'tf-font-bold tf-dynamic-color' });
 		statusSpan.setCssProps({ '--tf-color': statusColor });
 
@@ -2457,9 +2453,7 @@ export class UIBuilder {
 		if (isMobile) {
 			// On mobile, center horizontally with margins
 			menuLeft = 10;
-			menu.style.left = `${menuLeft}px`;
-			menu.style.right = '10px';
-			menu.style.width = 'calc(100vw - 20px)';
+			menu.setCssProps({ '--tf-left': `${menuLeft}px`, '--tf-right': '10px', '--tf-width': 'calc(100vw - 20px)' });
 		} else {
 			// Desktop positioning logic
 			const menuWidth = 450; // Account for both menu and info panel
@@ -2666,7 +2660,7 @@ export class UIBuilder {
 				const durationText = (e.duration && e.duration > 0)
 					? `: ${e.duration.toFixed(1)}${this.settings.hourUnit}`
 					: isFullDayReduceGoal ? ` (${t('ui.fullDay')})` : '';
-				const entryP = menuInfo.createEl('p', { text: emoji + ' ' + translateSpecialDayName(e.name.toLowerCase(), e.name) + durationText, cls: 'tf-ml-8' });
+				menuInfo.createEl('p', { text: emoji + ' ' + translateSpecialDayName(e.name.toLowerCase(), e.name) + durationText, cls: 'tf-ml-8' });
 			});
 
 			// Add balance information for past days
@@ -2999,10 +2993,10 @@ export class UIBuilder {
 					// User confirmed overnight shift - add a day to end date
 					const nextDayEndDate = new Date(endDate);
 					nextDayEndDate.setDate(nextDayEndDate.getDate() + 1);
-					addEntry(nextDayEndDate);
+					void addEntry(nextDayEndDate);
 				});
 			} else {
-				addEntry(endDate);
+				void addEntry(endDate);
 			}
 		};
 		buttonDiv.appendChild(addBtn);
@@ -3104,7 +3098,7 @@ export class UIBuilder {
 
 			// Show entry name for subEntries, or just number for regular entries
 			const entryLabel = item.parent ? `${item.parent.name} - ${entry.name}` : `Oppføring ${index + 1}`;
-			const titleDiv = infoDiv.createDiv({ text: entryLabel, cls: 'tf-title-bold' });
+			infoDiv.createDiv({ text: entryLabel, cls: 'tf-title-bold' });
 
 			// Show time with date indicator for multi-day entries
 			const timeDisplay = isMultiDay
@@ -3238,10 +3232,10 @@ export class UIBuilder {
 							return;
 						}
 
-						saveUpdate(newEndDate);
+						void saveUpdate(newEndDate);
 					} else {
 						// No end time (active timer)
-						saveUpdate(null);
+						void saveUpdate(null);
 					}
 				}
 			};
@@ -4056,7 +4050,7 @@ export class UIBuilder {
 						});
 						await this.saveWithErrorHandling();
 						new Notice(`✅ ${translateSpecialDayName(dayType)}: ${sickHours.toFixed(1)}${this.settings.hourUnit || 't'} for ${Utils.toLocalDateStr(dateObj)}`);
-						await this.plugin.timerManager.onTimerChange?.();
+						this.plugin.timerManager.onTimerChange?.();
 					} else {
 						new Notice(`❌ ${t('validation.invalidTimePeriod') || 'Ugyldig tidsperiode'}`);
 						return;
@@ -4871,7 +4865,7 @@ export class UIBuilder {
 				select.onchange = async () => {
 					matchingRaw.name = select.value;
 					await this.saveWithErrorHandling();
-					await this.plugin.timerManager.onTimerChange?.();
+					this.plugin.timerManager.onTimerChange?.();
 				};
 				typeCell.appendChild(select);
 			} else {
@@ -4894,7 +4888,7 @@ export class UIBuilder {
 							newStart.setHours(parsed.hours, parsed.minutes, 0, 0);
 							matchingRaw.startTime = Utils.toLocalISOString(newStart);
 							await this.saveWithErrorHandling();
-							await this.plugin.timerManager.onTimerChange?.();
+							this.plugin.timerManager.onTimerChange?.();
 						});
 						startCell.appendChild(input);
 					} else {
@@ -5712,7 +5706,7 @@ export class UIBuilder {
 			const duration = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60);
 			new Notice(`✅ ${t('notifications.addedHours').replace('{duration}', duration.toFixed(1)).replace('{date}', dateStr)}`);
 
-			await this.plugin.timerManager.onTimerChange?.();
+			this.plugin.timerManager.onTimerChange?.();
 		};
 		buttonContainer.appendChild(saveBtn);
 		content.appendChild(buttonContainer);
@@ -6016,7 +6010,10 @@ export class UIBuilder {
 
 		const durationRow = details.createDiv();
 		durationRow.createEl('strong', { text: t('ui.duration') + ':' });
-		durationRow.appendText(' ' + (typeof duration === 'string' ? duration : duration + ' ' + t('ui.hours').toLowerCase()));
+		// duration is always a string (from .toFixed() or t('ui.ongoing'))
+		// If it's a numeric string (from .toFixed), append the hours unit
+		const durationDisplay = endDate ? `${duration} ${t('ui.hours').toLowerCase()}` : duration;
+		durationRow.appendText(' ' + durationDisplay);
 		dialog.appendChild(details);
 
 		// Buttons

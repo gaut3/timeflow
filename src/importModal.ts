@@ -66,7 +66,7 @@ export class ImportModal extends Modal {
 		const fileNameSpan = uploadDiv.createEl('span', { text: t('import.noFile'), cls: 'tf-import-file-name' });
 
 		// Text area for manual input
-		const textAreaLabel = contentEl.createEl('div', { text: t('import.orPasteData'), cls: 'tf-import-textarea-label' });
+		contentEl.createEl('div', { text: t('import.orPasteData'), cls: 'tf-import-textarea-label' });
 
 		const textArea = contentEl.createEl('textarea', {
 			cls: 'tf-import-textarea',
