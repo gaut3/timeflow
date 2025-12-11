@@ -638,10 +638,10 @@ export class SpecialDayBehaviorModal extends Modal {
 			// Counting period dropdown (only show if maxDaysPerYear is set)
 			new Setting(contentEl)
 				.setName('Counting period')
-				.setDesc('How to count the max days limit. Calendar year resets each January 1st. Rolling 365 days counts backwards from today.')
+				.setDesc('How to count the max days limit. The calendar year option resets each January 1st, while rolling 365 days counts backwards from today.')
 				.addDropdown(dropdown => dropdown
-					.addOption('calendar', 'Calendar year')
-					.addOption('rolling365', 'Rolling 365 days')
+					.addOption('calendar', 'calendar year')
+					.addOption('rolling365', 'rolling 365 days')
 					.setValue(formData.countingPeriod)
 					.onChange(value => formData.countingPeriod = value as 'calendar' | 'rolling365'));
 		}

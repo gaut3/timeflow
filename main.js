@@ -1951,7 +1951,7 @@ var SpecialDayBehaviorModal = class extends import_obsidian2.Modal {
           formData.maxDaysPerYear = isNaN(num) ? void 0 : num;
         });
       });
-      new import_obsidian2.Setting(contentEl).setName("Counting period").setDesc("How to count the max days limit. Calendar year resets each January 1st. Rolling 365 days counts backwards from today.").addDropdown((dropdown) => dropdown.addOption("calendar", "Calendar year").addOption("rolling365", "Rolling 365 days").setValue(formData.countingPeriod).onChange((value) => formData.countingPeriod = value));
+      new import_obsidian2.Setting(contentEl).setName("Counting period").setDesc("How to count the max days limit. The calendar year option resets each January 1st, while rolling 365 days counts backwards from today.").addDropdown((dropdown) => dropdown.addOption("calendar", "calendar year").addOption("rolling365", "rolling 365 days").setValue(formData.countingPeriod).onChange((value) => formData.countingPeriod = value));
     }
     new import_obsidian2.Setting(contentEl).setName("Show in timer dropdown").setDesc("Include this type in the quick-start timer menu").addToggle((toggle) => toggle.setValue(formData.showInTimerDropdown).onChange((value) => formData.showInTimerDropdown = value));
     const buttonDiv = contentEl.createDiv({ cls: "tf-settings-button-row" });
