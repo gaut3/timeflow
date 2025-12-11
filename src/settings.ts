@@ -887,7 +887,7 @@ export class WorkSchedulePeriodModal extends Modal {
 			.setName('Effective from')
 			.setDesc('Date when this schedule becomes active (yyyy-mm-dd)')
 			.addText(text => text
-				.setPlaceholder('YYYY-MM-DD')
+				.setPlaceholder('Yyyy-mm-dd')
 				.setValue(formData.effectiveFrom)
 				.onChange(value => {
 					formData.effectiveFrom = value;

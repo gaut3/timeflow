@@ -2102,7 +2102,7 @@ var WorkSchedulePeriodModal = class extends import_obsidian2.Modal {
     };
     let updateImpactPreview = () => {
     };
-    new import_obsidian2.Setting(contentEl).setName("Effective from").setDesc("Date when this schedule becomes active (yyyy-mm-dd)").addText((text) => text.setPlaceholder("YYYY-MM-DD").setValue(formData.effectiveFrom).onChange((value) => {
+    new import_obsidian2.Setting(contentEl).setName("Effective from").setDesc("Date when this schedule becomes active (yyyy-mm-dd)").addText((text) => text.setPlaceholder("Yyyy-mm-dd").setValue(formData.effectiveFrom).onChange((value) => {
       formData.effectiveFrom = value;
       updateImpactPreview();
     }));
@@ -4487,7 +4487,7 @@ var UIBuilder = class {
     const input = document.createElement("input");
     input.type = "text";
     input.value = initialValue;
-    input.placeholder = "HH:MM";
+    input.placeholder = "Hh:mm";
     input.maxLength = 5;
     input.pattern = "[0-2][0-9]:[0-5][0-9]";
     input.inputMode = "numeric";
@@ -6578,7 +6578,7 @@ var UIBuilder = class {
     const startInput = document.createElement("input");
     startInput.type = "text";
     startInput.value = "08:00";
-    startInput.placeholder = "HH:MM";
+    startInput.placeholder = "Hh:mm";
     startInput.className = "tf-form-input-full tf-form-input-mb";
     content.appendChild(startInput);
     const endLabel = document.createElement("div");
@@ -6588,7 +6588,7 @@ var UIBuilder = class {
     const endInput = document.createElement("input");
     endInput.type = "text";
     endInput.value = "15:30";
-    endInput.placeholder = "HH:MM";
+    endInput.placeholder = "Hh:mm";
     endInput.className = "tf-form-input-full tf-form-input-mb-lg";
     content.appendChild(endInput);
     const buttonDiv = document.createElement("div");

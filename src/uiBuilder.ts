@@ -107,7 +107,7 @@ export class UIBuilder {
 		const input = document.createElement('input');
 		input.type = 'text';
 		input.value = initialValue;
-		input.placeholder = 'HH:MM';
+		input.placeholder = 'Hh:mm';
 		input.maxLength = 5;
 		input.pattern = '[0-2][0-9]:[0-5][0-9]';
 		input.inputMode = 'numeric'; // Show numeric keyboard on mobile
@@ -2895,7 +2895,7 @@ export class UIBuilder {
 		const startInput = document.createElement('input');
 		startInput.type = 'text';
 		startInput.value = '08:00';
-		startInput.placeholder = 'HH:MM';
+		startInput.placeholder = 'Hh:mm';
 		startInput.className = 'tf-form-input-full tf-form-input-mb';
 		content.appendChild(startInput);
 
@@ -2908,7 +2908,7 @@ export class UIBuilder {
 		const endInput = document.createElement('input');
 		endInput.type = 'text';
 		endInput.value = '15:30';
-		endInput.placeholder = 'HH:MM';
+		endInput.placeholder = 'Hh:mm';
 		endInput.className = 'tf-form-input-full tf-form-input-mb-lg';
 		content.appendChild(endInput);
 
