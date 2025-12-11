@@ -1644,7 +1644,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 			.setName('Add historical period')
 			.setDesc('Add a period for when your work schedule was different')
 			.addButton(btn => btn
-				.setButtonText('+ Add period')
+				.setButtonText('+ add period')
 				.setCta()
 				.onClick(() => {
 					new WorkSchedulePeriodModal(
@@ -2135,7 +2135,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 			.setName('Add new note type')
 			.setDesc('Create a new note type for the context menu')
 			.addButton(button => button
-				.setButtonText('+ Add note type')
+				.setButtonText('+ add note type')
 				.setCta()
 				.onClick(() => {
 					this.showNoteTypeModal(null, -1);
@@ -2248,7 +2248,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 
 		new Setting(balanceThresholdsSection.content)
 			.setName('Balance color thresholds')
-			.setDesc('Configure the hour thresholds for balance indicator colors. These control the color-coding of your flextime balance badge: Red = significant under/overtime, Yellow = approaching limits, Green = healthy balance.');
+			.setDesc('Configure the hour thresholds for balance indicator colors. These control the color-coding of your flextime balance badge: red = significant under/overtime, yellow = approaching limits, green = healthy balance.');
 
 		new Setting(balanceThresholdsSection.content)
 			.setName('Critical low threshold (red)')
@@ -2526,7 +2526,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 		a.click();
 		URL.revokeObjectURL(url);
 
-		new Notice('✅ Exported to CSV');
+		new Notice('✅ exported to CSV');
 	}
 
 	showImportModal(): void {

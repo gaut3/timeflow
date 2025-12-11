@@ -2598,7 +2598,7 @@ var TimeFlowSettingTab = class extends import_obsidian2.PluginSettingTab {
       const noPeriods = scheduleHistorySection.content.createDiv({ cls: "tf-settings-no-periods" });
       noPeriods.textContent = "No historical periods defined. Add a period when your schedule changes.";
     }
-    new import_obsidian2.Setting(scheduleHistorySection.content).setName("Add historical period").setDesc("Add a period for when your work schedule was different").addButton((btn) => btn.setButtonText("+ Add period").setCta().onClick(() => {
+    new import_obsidian2.Setting(scheduleHistorySection.content).setName("Add historical period").setDesc("Add a period for when your work schedule was different").addButton((btn) => btn.setButtonText("+ add period").setCta().onClick(() => {
       new WorkSchedulePeriodModal(
         this.app,
         this.plugin,
@@ -2902,7 +2902,7 @@ Note: Historical data using "annet:${template.id}" will still work but show a ge
         this.display();
       }));
     });
-    new import_obsidian2.Setting(settingsContainer).setName("Add new note type").setDesc("Create a new note type for the context menu").addButton((button) => button.setButtonText("+ Add note type").setCta().onClick(() => {
+    new import_obsidian2.Setting(settingsContainer).setName("Add new note type").setDesc("Create a new note type for the context menu").addButton((button) => button.setButtonText("+ add note type").setCta().onClick(() => {
       this.showNoteTypeModal(null, -1);
     }));
     new import_obsidian2.Setting(settingsContainer).setName("Data management").setDesc("Import and export your time tracking data").setHeading();
@@ -2954,7 +2954,7 @@ Note: Historical data using "annet:${template.id}" will still work but show a ge
       "Balance color thresholds",
       false
     );
-    new import_obsidian2.Setting(balanceThresholdsSection.content).setName("Balance color thresholds").setDesc("Configure the hour thresholds for balance indicator colors. These control the color-coding of your flextime balance badge: Red = significant under/overtime, Yellow = approaching limits, Green = healthy balance.");
+    new import_obsidian2.Setting(balanceThresholdsSection.content).setName("Balance color thresholds").setDesc("Configure the hour thresholds for balance indicator colors. These control the color-coding of your flextime balance badge: red = significant under/overtime, yellow = approaching limits, green = healthy balance.");
     new import_obsidian2.Setting(balanceThresholdsSection.content).setName("Critical low threshold (red)").setDesc("Below this many hours = red badge (significant undertime)").addText((text) => text.setPlaceholder("-15").setValue(this.plugin.settings.balanceThresholds.criticalLow.toString()).onChange(async (value) => {
       const num = parseFloat(value);
       if (!isNaN(num) && num < this.plugin.settings.balanceThresholds.warningLow) {
@@ -3139,7 +3139,7 @@ Note: Historical data using "annet:${template.id}" will still work but show a ge
     a.download = `timeflow-export-${Utils.toLocalDateStr(/* @__PURE__ */ new Date())}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-    new import_obsidian2.Notice("\u2705 Exported to CSV");
+    new import_obsidian2.Notice("\u2705 exported to CSV");
   }
   showImportModal() {
     new ImportModal(this.app, this.plugin.timerManager, async () => {
