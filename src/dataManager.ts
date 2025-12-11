@@ -607,10 +607,22 @@ export class DataManager {
 			let goalReduction = 0;  // Hours that reduce daily goal (sick days, etc.)
 			let hasCompletedEntries = false;
 			let hasAccumulateEntry = false;  // Track if any accumulate entries exist
+			let hasActiveEntry = false;  // Track if any active entries exist
 
 			dayEntries.forEach(e => {
-				// Skip active entries - only count completed work in balance
-				if (e.isActive) return;
+				// Track active entries but include their current duration in balance
+				if (e.isActive) {
+					hasActiveEntry = true;
+					// Include active timer's current duration in regular work
+					const behavior = this.getSpecialDayBehavior(e.name);
+					if (!behavior || behavior.isWorkType) {
+						regularWorked += e.duration || 0;
+					} else if (behavior?.flextimeEffect === 'accumulate') {
+						accumulateWorked += e.duration || 0;
+						hasAccumulateEntry = true;
+					}
+					return;
+				}
 				hasCompletedEntries = true;
 
 				// Check if this entry type should count toward flextime
@@ -639,8 +651,8 @@ export class DataManager {
 				}
 			});
 
-			// Skip days that only have active entries (work in progress)
-			if (!hasCompletedEntries) continue;
+			// Skip days that have no entries at all (neither completed nor active)
+			if (!hasCompletedEntries && !hasActiveEntry) continue;
 
 			// Calculate effective goal after reductions (but not below 0)
 			const effectiveGoal = Math.max(0, dayGoal - goalReduction);

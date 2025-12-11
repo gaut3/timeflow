@@ -3610,9 +3610,19 @@ var DataManager = class {
       let goalReduction = 0;
       let hasCompletedEntries = false;
       let hasAccumulateEntry = false;
+      let hasActiveEntry = false;
       dayEntries.forEach((e) => {
-        if (e.isActive)
+        if (e.isActive) {
+          hasActiveEntry = true;
+          const behavior2 = this.getSpecialDayBehavior(e.name);
+          if (!behavior2 || behavior2.isWorkType) {
+            regularWorked += e.duration || 0;
+          } else if ((behavior2 == null ? void 0 : behavior2.flextimeEffect) === "accumulate") {
+            accumulateWorked += e.duration || 0;
+            hasAccumulateEntry = true;
+          }
           return;
+        }
         hasCompletedEntries = true;
         const behavior = this.getSpecialDayBehavior(e.name);
         if ((behavior == null ? void 0 : behavior.flextimeEffect) === "reduce_goal") {
@@ -3629,7 +3639,7 @@ var DataManager = class {
           regularWorked += e.duration || 0;
         }
       });
-      if (!hasCompletedEntries)
+      if (!hasCompletedEntries && !hasActiveEntry)
         continue;
       const effectiveGoal = Math.max(0, dayGoal - goalReduction);
       if (hasAccumulateEntry && regularWorked === 0) {
@@ -8822,7 +8832,20 @@ ${noteType.tags.join(" ")}`;
               hoursCell.textContent = `${hoursText}...`;
             }
             if (isWide && cells[4]) {
-              const flextime = duration - this.settings.baseWorkday;
+              const dateStr = Utils.toLocalDateStr(start || /* @__PURE__ */ new Date());
+              const dayGoal = this.data.getDailyGoal(dateStr);
+              let completedHoursToday = 0;
+              const todayEntries = this.data.daily[dateStr] || [];
+              todayEntries.forEach((e) => {
+                if (!e.isActive) {
+                  const behavior = this.data.getSpecialDayBehavior(e.name);
+                  if (!behavior || behavior.isWorkType || behavior.flextimeEffect === "accumulate") {
+                    completedHoursToday += e.duration || 0;
+                  }
+                }
+              });
+              const totalWorkToday = completedHoursToday + duration;
+              const flextime = totalWorkToday - dayGoal;
               cells[4].textContent = Utils.formatHoursToHM(flextime, this.settings.hourUnit);
             }
           }

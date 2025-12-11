@@ -5903,8 +5903,25 @@ export class UIBuilder {
 						}
 						// Update flextime cell in wide mode
 						if (isWide && cells[4]) {
-							// Flextime is duration minus daily goal (simplified)
-							const flextime = duration - this.settings.baseWorkday;
+							// Calculate flextime properly: total work today minus daily goal
+							const dateStr = Utils.toLocalDateStr(start || new Date());
+							const dayGoal = this.data.getDailyGoal(dateStr);
+
+							// Sum all completed work hours for today
+							let completedHoursToday = 0;
+							const todayEntries = this.data.daily[dateStr] || [];
+							todayEntries.forEach(e => {
+								if (!e.isActive) {
+									const behavior = this.data.getSpecialDayBehavior(e.name);
+									if (!behavior || behavior.isWorkType || behavior.flextimeEffect === 'accumulate') {
+										completedHoursToday += e.duration || 0;
+									}
+								}
+							});
+
+							// Total work = completed + current active timer duration
+							const totalWorkToday = completedHoursToday + duration;
+							const flextime = totalWorkToday - dayGoal;
 							cells[4].textContent = Utils.formatHoursToHM(flextime, this.settings.hourUnit);
 						}
 					}

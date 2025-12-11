@@ -555,6 +555,10 @@
 	border-top: 1px solid var(--background-modifier-border);
 }
 
+.tf-card-stats .tf-stats-grid {
+	margin-bottom: 20px;
+}
+
 .tf-hours-chart-title {
 	font-size: 12px;
 	color: var(--text-muted);
