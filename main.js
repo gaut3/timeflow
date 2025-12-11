@@ -1916,7 +1916,7 @@ var SpecialDayBehaviorModal = class extends import_obsidian2.Modal {
     };
     if (!isWorkType) {
       new import_obsidian2.Setting(contentEl).setName("ID").setDesc("Unique identifier (lowercase, no spaces). Used in holiday file format.").addText((text) => {
-        text.setPlaceholder("ferie").setValue(formData.id).onChange((value) => formData.id = value.toLowerCase().replace(/\s+/g, ""));
+        text.setPlaceholder("vacation").setValue(formData.id).onChange((value) => formData.id = value.toLowerCase().replace(/\s+/g, ""));
         if (this.behavior) {
           text.setDisabled(true);
         }
@@ -1951,7 +1951,7 @@ var SpecialDayBehaviorModal = class extends import_obsidian2.Modal {
           formData.maxDaysPerYear = isNaN(num) ? void 0 : num;
         });
       });
-      new import_obsidian2.Setting(contentEl).setName("Counting period").setDesc("How to count the max days limit. Calendar year resets each January 1st. Rolling 365 days counts backwards from today.").addDropdown((dropdown) => dropdown.addOption("calendar", "Calendar year").addOption("rolling365", "Rolling 365 days").setValue(formData.countingPeriod).onChange((value) => formData.countingPeriod = value));
+      new import_obsidian2.Setting(contentEl).setName("Counting period").setDesc("How to count the max days limit. Calendar year resets each January 1st. Rolling 365 days counts backwards from today.").addDropdown((dropdown) => dropdown.addOption("calendar", "calendar year").addOption("rolling365", "rolling 365 days").setValue(formData.countingPeriod).onChange((value) => formData.countingPeriod = value));
     }
     new import_obsidian2.Setting(contentEl).setName("Show in timer dropdown").setDesc("Include this type in the quick-start timer menu").addToggle((toggle) => toggle.setValue(formData.showInTimerDropdown).onChange((value) => formData.showInTimerDropdown = value));
     const buttonDiv = contentEl.createDiv({ cls: "tf-settings-button-row" });
@@ -2029,7 +2029,7 @@ var AnnetTemplateModal = class extends import_obsidian2.Modal {
       icon: ((_c = this.template) == null ? void 0 : _c.icon) || "\u{1F4CB}"
     };
     new import_obsidian2.Setting(contentEl).setName("ID").setDesc(t("annet.idDesc")).addText((text) => {
-      text.setPlaceholder("lege").setValue(formData.id).onChange((value) => formData.id = value.toLowerCase().replace(/\s+/g, ""));
+      text.setPlaceholder("doctor").setValue(formData.id).onChange((value) => formData.id = value.toLowerCase().replace(/\s+/g, ""));
       if (this.template) {
         text.setDisabled(true);
       }
@@ -2355,16 +2355,16 @@ var TimeFlowSettingTab = class extends import_obsidian2.PluginSettingTab {
   }
   validateDateFormat(dateStr) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-      new import_obsidian2.Notice("\u274C Balance start date: format must be yyyy-mm-dd");
+      new import_obsidian2.Notice("\u274C balance start date: format must be yyyy-mm-dd");
       return false;
     }
     const date = /* @__PURE__ */ new Date(dateStr + "T00:00:00");
     if (isNaN(date.getTime())) {
-      new import_obsidian2.Notice("\u274C Balance start date: invalid date");
+      new import_obsidian2.Notice("\u274C balance start date: invalid date");
       return false;
     }
     if (date > /* @__PURE__ */ new Date()) {
-      new import_obsidian2.Notice("\u274C Balance start date: cannot be in the future");
+      new import_obsidian2.Notice("\u274C balance start date: cannot be in the future");
       return false;
     }
     return true;
@@ -2676,7 +2676,7 @@ var TimeFlowSettingTab = class extends import_obsidian2.PluginSettingTab {
         }
       });
     });
-    new import_obsidian2.Setting(complianceSection.content).setName("Minimum rest hours").setDesc("Minimum consecutive hours of rest between work sessions (default: 11 hours)").addText((text) => {
+    new import_obsidian2.Setting(complianceSection.content).setName("Minimum rest hours").setDesc("minimum hours of rest between work sessions (default: 11 hours)").addText((text) => {
       var _a, _b;
       return text.setPlaceholder("11").setValue(((_b = (_a = this.plugin.settings.complianceSettings) == null ? void 0 : _a.minimumRestHours) != null ? _b : 11).toString()).onChange(async (value) => {
         const num = parseFloat(value);

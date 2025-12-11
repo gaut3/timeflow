@@ -496,7 +496,7 @@ export class SpecialDayBehaviorModal extends Modal {
 				.setDesc('Unique identifier (lowercase, no spaces). Used in holiday file format.')
 				.addText(text => {
 					text
-						.setPlaceholder('ferie')
+						.setPlaceholder('vacation')
 						.setValue(formData.id)
 						.onChange(value => formData.id = value.toLowerCase().replace(/\s+/g, ''));
 					if (this.behavior) {
@@ -640,8 +640,8 @@ export class SpecialDayBehaviorModal extends Modal {
 				.setName('Counting period')
 				.setDesc('How to count the max days limit. Calendar year resets each January 1st. Rolling 365 days counts backwards from today.')
 				.addDropdown(dropdown => dropdown
-					.addOption('calendar', 'Calendar year')
-					.addOption('rolling365', 'Rolling 365 days')
+					.addOption('calendar', 'calendar year')
+					.addOption('rolling365', 'rolling 365 days')
 					.setValue(formData.countingPeriod)
 					.onChange(value => formData.countingPeriod = value as 'calendar' | 'rolling365'));
 		}
@@ -761,7 +761,7 @@ export class AnnetTemplateModal extends Modal {
 			.setDesc(t('annet.idDesc'))
 			.addText(text => {
 				text
-					.setPlaceholder('lege')
+					.setPlaceholder('doctor')
 					.setValue(formData.id)
 					.onChange(value => formData.id = value.toLowerCase().replace(/\s+/g, ''));
 				if (this.template) {
@@ -1241,18 +1241,18 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 
 	private validateDateFormat(dateStr: string): boolean {
 		if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-			new Notice("❌ Balance start date: format must be yyyy-mm-dd");
+			new Notice("❌ balance start date: format must be yyyy-mm-dd");
 			return false;
 		}
 
 		const date = new Date(dateStr + 'T00:00:00');
 		if (isNaN(date.getTime())) {
-			new Notice("❌ Balance start date: invalid date");
+			new Notice("❌ balance start date: invalid date");
 			return false;
 		}
 
 		if (date > new Date()) {
-			new Notice("❌ Balance start date: cannot be in the future");
+			new Notice("❌ balance start date: cannot be in the future");
 			return false;
 		}
 
@@ -1741,7 +1741,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 
 		new Setting(complianceSection.content)
 			.setName('Minimum rest hours')
-			.setDesc('Minimum consecutive hours of rest between work sessions (default: 11 hours)')
+			.setDesc('minimum hours of rest between work sessions (default: 11 hours)')
 			.addText(text => text
 				.setPlaceholder('11')
 				.setValue((this.plugin.settings.complianceSettings?.minimumRestHours ?? 11).toString())
