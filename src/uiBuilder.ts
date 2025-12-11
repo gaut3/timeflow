@@ -107,7 +107,7 @@ export class UIBuilder {
 		const input = document.createElement('input');
 		input.type = 'text';
 		input.value = initialValue;
-		input.placeholder = 'HH:MM';
+		input.placeholder = 'hh:mm';
 		input.maxLength = 5;
 		input.pattern = '[0-2][0-9]:[0-5][0-9]';
 		input.inputMode = 'numeric'; // Show numeric keyboard on mobile
@@ -138,7 +138,7 @@ export class UIBuilder {
 				const formatted = `${parsed.hours.toString().padStart(2, '0')}:${parsed.minutes.toString().padStart(2, '0')}`;
 				input.value = formatted;
 				lastValidValue = formatted;
-				onChange(formatted);
+				void onChange(formatted);
 			} else {
 				new Notice(t('validation.invalidTime'));
 				input.value = lastValidValue; // Restore previous value
@@ -2805,7 +2805,7 @@ export class UIBuilder {
 		confirmBtn.className = 'mod-cta mod-warning';
 		confirmBtn.onclick = () => {
 			modal.remove();
-			onConfirm();
+			void onConfirm();
 		};
 		buttonDiv.appendChild(confirmBtn);
 
@@ -2895,7 +2895,7 @@ export class UIBuilder {
 		const startInput = document.createElement('input');
 		startInput.type = 'text';
 		startInput.value = '08:00';
-		startInput.placeholder = 'HH:MM';
+		startInput.placeholder = 'hh:mm';
 		startInput.className = 'tf-form-input-full tf-form-input-mb';
 		content.appendChild(startInput);
 
@@ -2908,7 +2908,7 @@ export class UIBuilder {
 		const endInput = document.createElement('input');
 		endInput.type = 'text';
 		endInput.value = '15:30';
-		endInput.placeholder = 'HH:MM';
+		endInput.placeholder = 'hh:mm';
 		endInput.className = 'tf-form-input-full tf-form-input-mb-lg';
 		content.appendChild(endInput);
 
@@ -6030,7 +6030,7 @@ export class UIBuilder {
 		deleteBtn.textContent = 'Slett';
 		deleteBtn.onclick = () => {
 			overlay.remove();
-			onConfirm();
+			void onConfirm();
 		};
 		buttons.appendChild(deleteBtn);
 

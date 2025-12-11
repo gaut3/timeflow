@@ -1475,7 +1475,7 @@ var ImportModal = class extends import_obsidian.Modal {
           new import_obsidian.Notice(`\u2705 ${t("import.imported")} ${addedCount} ${t("import.entries")}!`);
         }
         this.close();
-        this.onSuccess();
+        void this.onSuccess();
       } catch (error) {
         new import_obsidian.Notice(`\u274C ${t("import.errors_label")}: ${error instanceof Error ? error.message : String(error)}`);
         console.error("Import error:", error);
@@ -1964,11 +1964,11 @@ var SpecialDayBehaviorModal = class extends import_obsidian2.Modal {
         return;
       }
       if (!formData.label) {
-        new import_obsidian2.Notice("\u26A0\uFE0F A label is required");
+        new import_obsidian2.Notice("\u26A0\uFE0F a label is required");
         return;
       }
       if (!formData.icon) {
-        new import_obsidian2.Notice("\u26A0\uFE0F An icon is required");
+        new import_obsidian2.Notice("\u26A0\uFE0F an icon is required");
         return;
       }
       if (!this.behavior || this.behavior.id !== formData.id) {
@@ -1976,7 +1976,7 @@ var SpecialDayBehaviorModal = class extends import_obsidian2.Modal {
           (b, i) => b.id === formData.id && i !== this.index
         );
         if (isDuplicate) {
-          new import_obsidian2.Notice("\u26A0\uFE0F An absence type with this ID already exists");
+          new import_obsidian2.Notice("\u26A0\uFE0F an absence type with this ID already exists");
           return;
         }
       }
@@ -2102,7 +2102,7 @@ var WorkSchedulePeriodModal = class extends import_obsidian2.Modal {
     };
     let updateImpactPreview = () => {
     };
-    new import_obsidian2.Setting(contentEl).setName("Effective from").setDesc("Date when this schedule becomes active (YYYY-MM-DD)").addText((text) => text.setPlaceholder("YYYY-MM-DD").setValue(formData.effectiveFrom).onChange((value) => {
+    new import_obsidian2.Setting(contentEl).setName("Effective from").setDesc("Date when this schedule becomes active (yyyy-mm-dd)").addText((text) => text.setPlaceholder("yyyy-mm-dd").setValue(formData.effectiveFrom).onChange((value) => {
       formData.effectiveFrom = value;
       updateImpactPreview();
     }));
@@ -2203,7 +2203,7 @@ var WorkSchedulePeriodModal = class extends import_obsidian2.Modal {
           newWorkdays++;
       });
       const title = impactPreview.createEl("div", { cls: "tf-settings-impact-title" });
-      title.textContent = `Impact Preview`;
+      title.textContent = `Impact preview`;
       const affectedText = impactPreview.createEl("div", { cls: "tf-settings-impact-item" });
       affectedText.textContent = `\u2022 Affects ${affectedDays.size} days with existing data`;
       if (affectedDays.size > 0) {
@@ -2243,7 +2243,7 @@ var WorkSchedulePeriodModal = class extends import_obsidian2.Modal {
     const saveBtn = buttonDiv.createEl("button", { text: "Save", cls: "mod-cta" });
     saveBtn.onclick = () => {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(formData.effectiveFrom)) {
-        new import_obsidian2.Notice("Invalid date format, use YYYY-MM-DD");
+        new import_obsidian2.Notice("Invalid date format, use yyyy-mm-dd");
         return;
       }
       if (formData.workDays.length === 0) {
@@ -2355,16 +2355,16 @@ var TimeFlowSettingTab = class extends import_obsidian2.PluginSettingTab {
   }
   validateDateFormat(dateStr) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-      new import_obsidian2.Notice("\u274C Balance start date: Format must be YYYY-MM-DD");
+      new import_obsidian2.Notice("\u274C Balance start date: format must be yyyy-mm-dd");
       return false;
     }
     const date = /* @__PURE__ */ new Date(dateStr + "T00:00:00");
     if (isNaN(date.getTime())) {
-      new import_obsidian2.Notice("\u274C Balance start date: Invalid date");
+      new import_obsidian2.Notice("\u274C Balance start date: invalid date");
       return false;
     }
     if (date > /* @__PURE__ */ new Date()) {
-      new import_obsidian2.Notice("\u274C Balance start date: Cannot be in the future");
+      new import_obsidian2.Notice("\u274C Balance start date: cannot be in the future");
       return false;
     }
     return true;
@@ -2409,7 +2409,7 @@ var TimeFlowSettingTab = class extends import_obsidian2.PluginSettingTab {
     });
     new import_obsidian2.Setting(settingsContainer).setName("Quick start").setDesc("Essential settings to get started with timeflow").setHeading();
     const syncInfo = settingsContainer.createDiv({ cls: "tf-settings-info-box" });
-    syncInfo.createEl("strong", { text: "\u{1F4F1} Cross-device settings sync" });
+    syncInfo.createEl("strong", { text: "\u{1F4F1} cross-device settings sync" });
     syncInfo.createEl("br");
     syncInfo.appendText("Settings are automatically saved to ");
     syncInfo.createEl("code", { text: "timeflow/data.md" });
@@ -2883,7 +2883,7 @@ Note: Historical data using "annet:${template.id}" will still work but show a ge
       }
     }));
     new import_obsidian2.Setting(settingsContainer).setName("File paths & templates").setDesc("Configure file paths and note templates").setHeading();
-    new import_obsidian2.Setting(settingsContainer).setName("Daily notes folder").setDesc("Folder where daily notes are stored").addText((text) => text.setPlaceholder("Daily Notes").setValue(this.plugin.settings.dailyNotesFolder).onChange(async (value) => {
+    new import_obsidian2.Setting(settingsContainer).setName("Daily notes folder").setDesc("Folder where daily notes are stored").addText((text) => text.setPlaceholder("Daily notes").setValue(this.plugin.settings.dailyNotesFolder).onChange(async (value) => {
       this.plugin.settings.dailyNotesFolder = value;
       await this.plugin.saveSettings();
     }));
@@ -2914,7 +2914,7 @@ Note: Historical data using "annet:${template.id}" will still work but show a ge
     }));
     new import_obsidian2.Setting(settingsContainer).setName("Advanced").setDesc("Fine-tune balance calculations, thresholds, and visual customization").setHeading();
     const advancedInfo = settingsContainer.createDiv({ cls: "tf-settings-info-box" });
-    advancedInfo.createEl("strong", { text: "\u2699\uFE0F Advanced settings" });
+    advancedInfo.createEl("strong", { text: "\u2699\uFE0F advanced configuration" });
     advancedInfo.createEl("br");
     advancedInfo.appendText("These settings affect balance calculations and visual indicators. Settings sync across devices via your data file.");
     const balanceCalcSection = this.createCollapsibleSubsection(
@@ -2922,7 +2922,7 @@ Note: Historical data using "annet:${template.id}" will still work but show a ge
       "Balance calculation",
       false
     );
-    new import_obsidian2.Setting(balanceCalcSection.content).setName("Balance start date").setDesc("Set the date from which flextime balance is calculated. Earlier entries are ignored in balance calculations. Format: YYYY-MM-DD").addText((text) => text.setPlaceholder("2025-01-01").setValue(this.plugin.settings.balanceStartDate).onChange(async (value) => {
+    new import_obsidian2.Setting(balanceCalcSection.content).setName("Balance start date").setDesc("Set the date from which flextime balance is calculated. Earlier entries are ignored in balance calculations. Format: yyyy-mm-dd").addText((text) => text.setPlaceholder("2025-01-01").setValue(this.plugin.settings.balanceStartDate).onChange(async (value) => {
       if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
         const date = new Date(value);
         if (!isNaN(date.getTime())) {
@@ -3186,7 +3186,7 @@ Note: Historical data using "annet:${template.id}" will still work but show a ge
       formData.filenamePattern = value;
     }));
     const infoDiv = contentEl.createDiv({ cls: "tf-settings-info-box" });
-    infoDiv.createEl("strong", { text: "\u{1F4CB} Pattern Variables:" });
+    infoDiv.createEl("strong", { text: "\u{1F4CB} pattern variables:" });
     const ul = infoDiv.createEl("ul", { cls: "tf-settings-info-list" });
     const patterns = [
       ["{YYYY}", "Four-digit year (e.g., 2025)"],
@@ -3205,7 +3205,7 @@ Note: Historical data using "annet:${template.id}" will still work but show a ge
     const saveBtn = buttonDiv.createEl("button", { text: "Save", cls: "mod-cta" });
     saveBtn.onclick = async () => {
       if (!formData.id || !formData.label || !formData.folder) {
-        new import_obsidian2.Notice("\u26A0\uFE0F Please fill in all required fields (ID, Label, Folder)");
+        new import_obsidian2.Notice("\u26A0\uFE0F please fill in all required fields (ID, label, folder)");
         return;
       }
       const tagsArray = formData.tags.split(",").map((t2) => t2.trim()).filter((t2) => t2.length > 0);
@@ -3223,7 +3223,7 @@ Note: Historical data using "annet:${template.id}" will still work but show a ge
       } else {
         const existingIndex = this.plugin.settings.noteTypes.findIndex((nt) => nt.id === newNoteType.id);
         if (existingIndex >= 0) {
-          new import_obsidian2.Notice("\u26A0\uFE0F A note type with this ID already exists");
+          new import_obsidian2.Notice("\u26A0\uFE0F a note type with this ID already exists");
           return;
         }
         this.plugin.settings.noteTypes.push(newNoteType);
@@ -4050,7 +4050,7 @@ var DataManager = class {
         }
       });
       if (dayEntries.length > 1) {
-        const sortedEntries = [...dayEntries].filter((e) => e.startTime && e.endTime).sort((a, b) => {
+        const sortedEntries = [...dayEntries].filter((e) => Boolean(e.startTime && e.endTime)).sort((a, b) => {
           const aStart = new Date(a.startTime);
           const bStart = new Date(b.startTime);
           return aStart.getTime() - bStart.getTime();
@@ -4477,7 +4477,7 @@ var UIBuilder = class {
     const input = document.createElement("input");
     input.type = "text";
     input.value = initialValue;
-    input.placeholder = "HH:MM";
+    input.placeholder = "hh:mm";
     input.maxLength = 5;
     input.pattern = "[0-2][0-9]:[0-5][0-9]";
     input.inputMode = "numeric";
@@ -4502,7 +4502,7 @@ var UIBuilder = class {
         const formatted = `${parsed.hours.toString().padStart(2, "0")}:${parsed.minutes.toString().padStart(2, "0")}`;
         input.value = formatted;
         lastValidValue = formatted;
-        onChange(formatted);
+        void onChange(formatted);
       } else {
         new import_obsidian4.Notice(t("validation.invalidTime"));
         input.value = lastValidValue;
@@ -6499,7 +6499,7 @@ var UIBuilder = class {
     confirmBtn.className = "mod-cta mod-warning";
     confirmBtn.onclick = () => {
       modal.remove();
-      onConfirm();
+      void onConfirm();
     };
     buttonDiv.appendChild(confirmBtn);
     content.appendChild(buttonDiv);
@@ -6568,7 +6568,7 @@ var UIBuilder = class {
     const startInput = document.createElement("input");
     startInput.type = "text";
     startInput.value = "08:00";
-    startInput.placeholder = "HH:MM";
+    startInput.placeholder = "hh:mm";
     startInput.className = "tf-form-input-full tf-form-input-mb";
     content.appendChild(startInput);
     const endLabel = document.createElement("div");
@@ -6578,7 +6578,7 @@ var UIBuilder = class {
     const endInput = document.createElement("input");
     endInput.type = "text";
     endInput.value = "15:30";
-    endInput.placeholder = "HH:MM";
+    endInput.placeholder = "hh:mm";
     endInput.className = "tf-form-input-full tf-form-input-mb-lg";
     content.appendChild(endInput);
     const buttonDiv = document.createElement("div");
@@ -8910,7 +8910,7 @@ ${noteType.tags.join(" ")}`;
     deleteBtn.textContent = "Slett";
     deleteBtn.onclick = () => {
       overlay.remove();
-      onConfirm();
+      void onConfirm();
     };
     buttons.appendChild(deleteBtn);
     dialog.appendChild(buttons);
@@ -9501,7 +9501,7 @@ var TimeFlowPlugin = class extends import_obsidian7.Plugin {
     });
     this.addCommand({
       id: "import-timekeep-data",
-      name: "Import Timekeep data",
+      name: "Import timekeep data",
       callback: () => {
         new ImportModal(this.app, this.timerManager, () => {
           const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_TIMEFLOW);

@@ -165,7 +165,7 @@ export class ImportModal extends Modal {
 				}
 
 				this.close();
-				this.onSuccess();
+				void this.onSuccess();
 			} catch (error) {
 				new Notice(`❌ ${t('import.errors_label')}: ${error instanceof Error ? error.message : String(error)}`);
 				console.error('Import error:', error);

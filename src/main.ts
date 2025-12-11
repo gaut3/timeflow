@@ -75,7 +75,7 @@ export default class TimeFlowPlugin extends Plugin {
 		// Add command to import data
 		this.addCommand({
 			id: 'import-timekeep-data',
-			name: 'Import Timekeep data',
+			name: 'Import timekeep data',
 			callback: () => {
 				new ImportModal(this.app, this.timerManager, () => {
 					// Refresh any open TimeFlow views

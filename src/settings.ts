@@ -668,11 +668,11 @@ export class SpecialDayBehaviorModal extends Modal {
 				return;
 			}
 			if (!formData.label) {
-				new Notice('⚠️ A label is required');
+				new Notice('⚠️ a label is required');
 				return;
 			}
 			if (!formData.icon) {
-				new Notice('⚠️ An icon is required');
+				new Notice('⚠️ an icon is required');
 				return;
 			}
 
@@ -682,7 +682,7 @@ export class SpecialDayBehaviorModal extends Modal {
 					(b, i) => b.id === formData.id && i !== this.index
 				);
 				if (isDuplicate) {
-					new Notice('⚠️ An absence type with this ID already exists');
+					new Notice('⚠️ an absence type with this ID already exists');
 					return;
 				}
 			}
@@ -885,9 +885,9 @@ export class WorkSchedulePeriodModal extends Modal {
 		// Effective from date
 		new Setting(contentEl)
 			.setName('Effective from')
-			.setDesc('Date when this schedule becomes active (YYYY-MM-DD)')
+			.setDesc('Date when this schedule becomes active (yyyy-mm-dd)')
 			.addText(text => text
-				.setPlaceholder('YYYY-MM-DD')
+				.setPlaceholder('yyyy-mm-dd')
 				.setValue(formData.effectiveFrom)
 				.onChange(value => {
 					formData.effectiveFrom = value;
@@ -1046,7 +1046,7 @@ export class WorkSchedulePeriodModal extends Modal {
 
 			// Build preview
 			const title = impactPreview.createEl('div', { cls: 'tf-settings-impact-title' });
-			title.textContent = `Impact Preview`;
+			title.textContent = `Impact preview`;
 
 			const affectedText = impactPreview.createEl('div', { cls: 'tf-settings-impact-item' });
 			affectedText.textContent = `• Affects ${affectedDays.size} days with existing data`;
@@ -1101,7 +1101,7 @@ export class WorkSchedulePeriodModal extends Modal {
 		saveBtn.onclick = () => {
 			// Validate date format
 			if (!/^\d{4}-\d{2}-\d{2}$/.test(formData.effectiveFrom)) {
-				new Notice('Invalid date format, use YYYY-MM-DD');
+				new Notice('Invalid date format, use yyyy-mm-dd');
 				return;
 			}
 
@@ -1241,18 +1241,18 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 
 	private validateDateFormat(dateStr: string): boolean {
 		if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-			new Notice("❌ Balance start date: Format must be YYYY-MM-DD");
+			new Notice("❌ Balance start date: format must be yyyy-mm-dd");
 			return false;
 		}
 
 		const date = new Date(dateStr + 'T00:00:00');
 		if (isNaN(date.getTime())) {
-			new Notice("❌ Balance start date: Invalid date");
+			new Notice("❌ Balance start date: invalid date");
 			return false;
 		}
 
 		if (date > new Date()) {
-			new Notice("❌ Balance start date: Cannot be in the future");
+			new Notice("❌ Balance start date: cannot be in the future");
 			return false;
 		}
 
@@ -1325,7 +1325,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 
 		// Settings sync info
 		const syncInfo = settingsContainer.createDiv({ cls: 'tf-settings-info-box' });
-		syncInfo.createEl('strong', { text: '📱 Cross-device settings sync' });
+		syncInfo.createEl('strong', { text: '📱 cross-device settings sync' });
 		syncInfo.createEl('br');
 		syncInfo.appendText('Settings are automatically saved to ');
 		syncInfo.createEl('code', { text: 'timeflow/data.md' });
@@ -2086,7 +2086,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 			.setName('Daily notes folder')
 			.setDesc('Folder where daily notes are stored')
 			.addText(text => text
-				.setPlaceholder('Daily Notes')
+				.setPlaceholder('Daily notes')
 				.setValue(this.plugin.settings.dailyNotesFolder)
 				.onChange(async (value) => {
 					this.plugin.settings.dailyNotesFolder = value;
@@ -2178,7 +2178,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 			.setHeading();
 
 		const advancedInfo = settingsContainer.createDiv({ cls: 'tf-settings-info-box' });
-		advancedInfo.createEl('strong', { text: '⚙️ Advanced settings' });
+		advancedInfo.createEl('strong', { text: '⚙️ advanced configuration' });
 		advancedInfo.createEl('br');
 		advancedInfo.appendText('These settings affect balance calculations and visual indicators. Settings sync across devices via your data file.');
 
@@ -2191,7 +2191,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 
 		new Setting(balanceCalcSection.content)
 			.setName('Balance start date')
-			.setDesc('Set the date from which flextime balance is calculated. Earlier entries are ignored in balance calculations. Format: YYYY-MM-DD')
+			.setDesc('Set the date from which flextime balance is calculated. Earlier entries are ignored in balance calculations. Format: yyyy-mm-dd')
 			.addText(text => text
 				.setPlaceholder('2025-01-01')
 				.setValue(this.plugin.settings.balanceStartDate)
@@ -2636,7 +2636,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 
 		// Info section
 		const infoDiv = contentEl.createDiv({ cls: 'tf-settings-info-box' });
-		infoDiv.createEl('strong', { text: '📋 Pattern Variables:' });
+		infoDiv.createEl('strong', { text: '📋 pattern variables:' });
 		const ul = infoDiv.createEl('ul', { cls: 'tf-settings-info-list' });
 		const patterns = [
 			['{YYYY}', 'Four-digit year (e.g., 2025)'],
@@ -2660,7 +2660,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 		saveBtn.onclick = async () => {
 			// Validate required fields
 			if (!formData.id || !formData.label || !formData.folder) {
-				new Notice('⚠️ Please fill in all required fields (ID, Label, Folder)');
+				new Notice('⚠️ please fill in all required fields (ID, label, folder)');
 				return;
 			}
 
@@ -2688,7 +2688,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 				// Check if ID already exists
 				const existingIndex = this.plugin.settings.noteTypes.findIndex(nt => nt.id === newNoteType.id);
 				if (existingIndex >= 0) {
-					new Notice('⚠️ A note type with this ID already exists');
+					new Notice('⚠️ a note type with this ID already exists');
 					return;
 				}
 				// Add new

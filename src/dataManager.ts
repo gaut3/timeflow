@@ -1190,10 +1190,10 @@ export class DataManager {
 			// Check for overlapping entries on the same day
 			if (dayEntries.length > 1) {
 				const sortedEntries = [...dayEntries]
-					.filter(e => e.startTime && e.endTime)
+					.filter((e): e is TimeEntry & { startTime: string; endTime: string } => Boolean(e.startTime && e.endTime))
 					.sort((a, b) => {
-						const aStart = new Date(a.startTime!);
-						const bStart = new Date(b.startTime!);
+						const aStart = new Date(a.startTime);
+						const bStart = new Date(b.startTime);
 						return aStart.getTime() - bStart.getTime();
 					});
 
