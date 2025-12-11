@@ -496,7 +496,7 @@ export class SpecialDayBehaviorModal extends Modal {
 				.setDesc('Unique identifier (lowercase, no spaces). Used in holiday file format.')
 				.addText(text => {
 					text
-						.setPlaceholder('vacation')
+						.setPlaceholder('Vacation')
 						.setValue(formData.id)
 						.onChange(value => formData.id = value.toLowerCase().replace(/\s+/g, ''));
 					if (this.behavior) {
@@ -640,8 +640,8 @@ export class SpecialDayBehaviorModal extends Modal {
 				.setName('Counting period')
 				.setDesc('How to count the max days limit. Calendar year resets each January 1st. Rolling 365 days counts backwards from today.')
 				.addDropdown(dropdown => dropdown
-					.addOption('calendar', 'calendar year')
-					.addOption('rolling365', 'rolling 365 days')
+					.addOption('calendar', 'Calendar year')
+					.addOption('rolling365', 'Rolling 365 days')
 					.setValue(formData.countingPeriod)
 					.onChange(value => formData.countingPeriod = value as 'calendar' | 'rolling365'));
 		}
@@ -761,7 +761,7 @@ export class AnnetTemplateModal extends Modal {
 			.setDesc(t('annet.idDesc'))
 			.addText(text => {
 				text
-					.setPlaceholder('doctor')
+					.setPlaceholder('Doctor')
 					.setValue(formData.id)
 					.onChange(value => formData.id = value.toLowerCase().replace(/\s+/g, ''));
 				if (this.template) {
@@ -887,7 +887,7 @@ export class WorkSchedulePeriodModal extends Modal {
 			.setName('Effective from')
 			.setDesc('Date when this schedule becomes active (yyyy-mm-dd)')
 			.addText(text => text
-				.setPlaceholder('yyyy-mm-dd')
+				.setPlaceholder('YYYY-MM-DD')
 				.setValue(formData.effectiveFrom)
 				.onChange(value => {
 					formData.effectiveFrom = value;
@@ -1741,7 +1741,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 
 		new Setting(complianceSection.content)
 			.setName('Minimum rest hours')
-			.setDesc('minimum hours of rest between work sessions (default: 11 hours)')
+			.setDesc('Minimum hours of rest between work sessions (default: 11 hours)')
 			.addText(text => text
 				.setPlaceholder('11')
 				.setValue((this.plugin.settings.complianceSettings?.minimumRestHours ?? 11).toString())
@@ -1988,8 +1988,8 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 			.setName('Hour unit')
 			.setDesc('Choose the unit symbol for displaying hours: "h" for hours or "t" for timer')
 			.addDropdown(dropdown => dropdown
-				.addOption('h', 'h')
-				.addOption('t', 't')
+				.addOption('h', 'H')
+				.addOption('t', 'T')
 				.setValue(this.plugin.settings.hourUnit)
 				.onChange(async (value: 'h' | 't') => {
 					this.plugin.settings.hourUnit = value;
@@ -2557,7 +2557,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 			.setName('ID')
 			.setDesc('Unique identifier for this note type (lowercase, no spaces)')
 			.addText(text => {
-				text.setPlaceholder('meeting')
+				text.setPlaceholder('Meeting')
 					.setValue(formData.id)
 					.onChange((value) => {
 						formData.id = value.toLowerCase().replace(/\s+/g, '-');

@@ -1916,7 +1916,7 @@ var SpecialDayBehaviorModal = class extends import_obsidian2.Modal {
     };
     if (!isWorkType) {
       new import_obsidian2.Setting(contentEl).setName("ID").setDesc("Unique identifier (lowercase, no spaces). Used in holiday file format.").addText((text) => {
-        text.setPlaceholder("vacation").setValue(formData.id).onChange((value) => formData.id = value.toLowerCase().replace(/\s+/g, ""));
+        text.setPlaceholder("Vacation").setValue(formData.id).onChange((value) => formData.id = value.toLowerCase().replace(/\s+/g, ""));
         if (this.behavior) {
           text.setDisabled(true);
         }
@@ -1951,7 +1951,7 @@ var SpecialDayBehaviorModal = class extends import_obsidian2.Modal {
           formData.maxDaysPerYear = isNaN(num) ? void 0 : num;
         });
       });
-      new import_obsidian2.Setting(contentEl).setName("Counting period").setDesc("How to count the max days limit. Calendar year resets each January 1st. Rolling 365 days counts backwards from today.").addDropdown((dropdown) => dropdown.addOption("calendar", "calendar year").addOption("rolling365", "rolling 365 days").setValue(formData.countingPeriod).onChange((value) => formData.countingPeriod = value));
+      new import_obsidian2.Setting(contentEl).setName("Counting period").setDesc("How to count the max days limit. Calendar year resets each January 1st. Rolling 365 days counts backwards from today.").addDropdown((dropdown) => dropdown.addOption("calendar", "Calendar year").addOption("rolling365", "Rolling 365 days").setValue(formData.countingPeriod).onChange((value) => formData.countingPeriod = value));
     }
     new import_obsidian2.Setting(contentEl).setName("Show in timer dropdown").setDesc("Include this type in the quick-start timer menu").addToggle((toggle) => toggle.setValue(formData.showInTimerDropdown).onChange((value) => formData.showInTimerDropdown = value));
     const buttonDiv = contentEl.createDiv({ cls: "tf-settings-button-row" });
@@ -2029,7 +2029,7 @@ var AnnetTemplateModal = class extends import_obsidian2.Modal {
       icon: ((_c = this.template) == null ? void 0 : _c.icon) || "\u{1F4CB}"
     };
     new import_obsidian2.Setting(contentEl).setName("ID").setDesc(t("annet.idDesc")).addText((text) => {
-      text.setPlaceholder("doctor").setValue(formData.id).onChange((value) => formData.id = value.toLowerCase().replace(/\s+/g, ""));
+      text.setPlaceholder("Doctor").setValue(formData.id).onChange((value) => formData.id = value.toLowerCase().replace(/\s+/g, ""));
       if (this.template) {
         text.setDisabled(true);
       }
@@ -2102,7 +2102,7 @@ var WorkSchedulePeriodModal = class extends import_obsidian2.Modal {
     };
     let updateImpactPreview = () => {
     };
-    new import_obsidian2.Setting(contentEl).setName("Effective from").setDesc("Date when this schedule becomes active (yyyy-mm-dd)").addText((text) => text.setPlaceholder("yyyy-mm-dd").setValue(formData.effectiveFrom).onChange((value) => {
+    new import_obsidian2.Setting(contentEl).setName("Effective from").setDesc("Date when this schedule becomes active (yyyy-mm-dd)").addText((text) => text.setPlaceholder("YYYY-MM-DD").setValue(formData.effectiveFrom).onChange((value) => {
       formData.effectiveFrom = value;
       updateImpactPreview();
     }));
@@ -2676,7 +2676,7 @@ var TimeFlowSettingTab = class extends import_obsidian2.PluginSettingTab {
         }
       });
     });
-    new import_obsidian2.Setting(complianceSection.content).setName("Minimum rest hours").setDesc("minimum hours of rest between work sessions (default: 11 hours)").addText((text) => {
+    new import_obsidian2.Setting(complianceSection.content).setName("Minimum rest hours").setDesc("Minimum hours of rest between work sessions (default: 11 hours)").addText((text) => {
       var _a, _b;
       return text.setPlaceholder("11").setValue(((_b = (_a = this.plugin.settings.complianceSettings) == null ? void 0 : _a.minimumRestHours) != null ? _b : 11).toString()).onChange(async (value) => {
         const num = parseFloat(value);
@@ -2833,7 +2833,7 @@ Note: Historical data using "annet:${template.id}" will still work but show a ge
       this.plugin.settings.defaultViewLocation = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian2.Setting(settingsContainer).setName("Hour unit").setDesc('Choose the unit symbol for displaying hours: "h" for hours or "t" for timer').addDropdown((dropdown) => dropdown.addOption("h", "h").addOption("t", "t").setValue(this.plugin.settings.hourUnit).onChange(async (value) => {
+    new import_obsidian2.Setting(settingsContainer).setName("Hour unit").setDesc('Choose the unit symbol for displaying hours: "h" for hours or "t" for timer').addDropdown((dropdown) => dropdown.addOption("h", "H").addOption("t", "T").setValue(this.plugin.settings.hourUnit).onChange(async (value) => {
       this.plugin.settings.hourUnit = value;
       await this.plugin.saveSettings();
       await this.refreshView();
@@ -3160,7 +3160,7 @@ Note: Historical data using "annet:${template.id}" will still work but show a ge
       filenamePattern: (noteType == null ? void 0 : noteType.filenamePattern) || "{YYYY}-{MM}-{DD}"
     };
     new import_obsidian2.Setting(contentEl).setName("ID").setDesc("Unique identifier for this note type (lowercase, no spaces)").addText((text) => {
-      text.setPlaceholder("meeting").setValue(formData.id).onChange((value) => {
+      text.setPlaceholder("Meeting").setValue(formData.id).onChange((value) => {
         formData.id = value.toLowerCase().replace(/\s+/g, "-");
       });
       if (noteType) {
@@ -4487,7 +4487,7 @@ var UIBuilder = class {
     const input = document.createElement("input");
     input.type = "text";
     input.value = initialValue;
-    input.placeholder = "hh:mm";
+    input.placeholder = "HH:MM";
     input.maxLength = 5;
     input.pattern = "[0-2][0-9]:[0-5][0-9]";
     input.inputMode = "numeric";
@@ -6578,7 +6578,7 @@ var UIBuilder = class {
     const startInput = document.createElement("input");
     startInput.type = "text";
     startInput.value = "08:00";
-    startInput.placeholder = "hh:mm";
+    startInput.placeholder = "HH:MM";
     startInput.className = "tf-form-input-full tf-form-input-mb";
     content.appendChild(startInput);
     const endLabel = document.createElement("div");
@@ -6588,7 +6588,7 @@ var UIBuilder = class {
     const endInput = document.createElement("input");
     endInput.type = "text";
     endInput.value = "15:30";
-    endInput.placeholder = "hh:mm";
+    endInput.placeholder = "HH:MM";
     endInput.className = "tf-form-input-full tf-form-input-mb-lg";
     content.appendChild(endInput);
     const buttonDiv = document.createElement("div");
