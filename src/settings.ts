@@ -1333,8 +1333,8 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 
 		// Language selector
 		new Setting(settingsContainer)
-			.setName('Language / Språk')
-			.setDesc('Interface language / Grensesnittspråk')
+			.setName('Language')
+			.setDesc('Interface language')
 			.addDropdown(dropdown => dropdown
 				.addOption('nb', 'Norsk')
 				.addOption('en', 'English')
@@ -1676,7 +1676,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 
 		new Setting(complianceSection.content)
 			.setName('Enable compliance warnings')
-			.setDesc('Show warnings when approaching or exceeding Norwegian labor law limits')
+			.setDesc('Show warnings when approaching or exceeding labor law limits')
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.complianceSettings?.enableWarnings ?? true)
 				.onChange(async (value) => {
@@ -1695,7 +1695,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 
 		new Setting(complianceSection.content)
 			.setName('Daily hours limit')
-			.setDesc('Maximum hours per day before showing a warning (Norwegian law: 9 hours)')
+			.setDesc('Maximum hours per day before showing a warning (default: 9 hours)')
 			.addText(text => text
 				.setPlaceholder('9')
 				.setValue((this.plugin.settings.complianceSettings?.dailyHoursLimit ?? 9).toString())
@@ -1718,7 +1718,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 
 		new Setting(complianceSection.content)
 			.setName('Weekly hours limit')
-			.setDesc('Maximum hours per week before showing a warning (Norwegian law: 40 hours)')
+			.setDesc('Maximum hours per week before showing a warning (default: 40 hours)')
 			.addText(text => text
 				.setPlaceholder('40')
 				.setValue((this.plugin.settings.complianceSettings?.weeklyHoursLimit ?? 40).toString())
@@ -1741,7 +1741,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 
 		new Setting(complianceSection.content)
 			.setName('Minimum rest hours')
-			.setDesc('Minimum consecutive hours of rest between work sessions (Norwegian law: 11 hours)')
+			.setDesc('Minimum consecutive hours of rest between work sessions (default: 11 hours)')
 			.addText(text => text
 				.setPlaceholder('11')
 				.setValue((this.plugin.settings.complianceSettings?.minimumRestHours ?? 11).toString())
@@ -1988,8 +1988,8 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 			.setName('Hour unit')
 			.setDesc('Choose the unit symbol for displaying hours: "h" for hours or "t" for timer')
 			.addDropdown(dropdown => dropdown
-				.addOption('h', 'h (hours)')
-				.addOption('t', 't (timer)')
+				.addOption('h', 'h')
+				.addOption('t', 't')
 				.setValue(this.plugin.settings.hourUnit)
 				.onChange(async (value: 'h' | 't') => {
 					this.plugin.settings.hourUnit = value;
@@ -1999,7 +1999,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 
 		new Setting(settingsContainer)
 			.setName('Show week numbers')
-			.setDesc('Show week numbers in calendar and week card (ISO 8601 week numbers)')
+			.setDesc('Show week numbers in calendar and week card')
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.showWeekNumbers ?? true)
 				.onChange(async (value) => {

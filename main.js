@@ -2414,7 +2414,7 @@ var TimeFlowSettingTab = class extends import_obsidian2.PluginSettingTab {
     syncInfo.appendText("Settings are automatically saved to ");
     syncInfo.createEl("code", { text: "timeflow/data.md" });
     syncInfo.appendText(" and will sync across devices when using Obsidian Sync or any other vault sync solution. When you open the plugin on another device, your settings will be automatically loaded.");
-    new import_obsidian2.Setting(settingsContainer).setName("Language / Spr\xE5k").setDesc("Interface language / Grensesnittspr\xE5k").addDropdown((dropdown) => dropdown.addOption("nb", "Norsk").addOption("en", "English").setValue(this.plugin.settings.language).onChange(async (value) => {
+    new import_obsidian2.Setting(settingsContainer).setName("Language").setDesc("Interface language").addDropdown((dropdown) => dropdown.addOption("nb", "Norsk").addOption("en", "English").setValue(this.plugin.settings.language).onChange(async (value) => {
       this.plugin.settings.language = value;
       setLanguage(value);
       await this.plugin.saveSettings();
@@ -2622,7 +2622,7 @@ var TimeFlowSettingTab = class extends import_obsidian2.PluginSettingTab {
       false
     );
     complianceSection.content.addClass("tf-compliance-settings");
-    new import_obsidian2.Setting(complianceSection.content).setName("Enable compliance warnings").setDesc("Show warnings when approaching or exceeding Norwegian labor law limits").addToggle((toggle) => {
+    new import_obsidian2.Setting(complianceSection.content).setName("Enable compliance warnings").setDesc("Show warnings when approaching or exceeding labor law limits").addToggle((toggle) => {
       var _a, _b;
       return toggle.setValue((_b = (_a = this.plugin.settings.complianceSettings) == null ? void 0 : _a.enableWarnings) != null ? _b : true).onChange(async (value) => {
         if (!this.plugin.settings.complianceSettings) {
@@ -2638,7 +2638,7 @@ var TimeFlowSettingTab = class extends import_obsidian2.PluginSettingTab {
         await this.refreshView();
       });
     });
-    new import_obsidian2.Setting(complianceSection.content).setName("Daily hours limit").setDesc("Maximum hours per day before showing a warning (Norwegian law: 9 hours)").addText((text) => {
+    new import_obsidian2.Setting(complianceSection.content).setName("Daily hours limit").setDesc("Maximum hours per day before showing a warning (default: 9 hours)").addText((text) => {
       var _a, _b;
       return text.setPlaceholder("9").setValue(((_b = (_a = this.plugin.settings.complianceSettings) == null ? void 0 : _a.dailyHoursLimit) != null ? _b : 9).toString()).onChange(async (value) => {
         const num = parseFloat(value);
@@ -2657,7 +2657,7 @@ var TimeFlowSettingTab = class extends import_obsidian2.PluginSettingTab {
         }
       });
     });
-    new import_obsidian2.Setting(complianceSection.content).setName("Weekly hours limit").setDesc("Maximum hours per week before showing a warning (Norwegian law: 40 hours)").addText((text) => {
+    new import_obsidian2.Setting(complianceSection.content).setName("Weekly hours limit").setDesc("Maximum hours per week before showing a warning (default: 40 hours)").addText((text) => {
       var _a, _b;
       return text.setPlaceholder("40").setValue(((_b = (_a = this.plugin.settings.complianceSettings) == null ? void 0 : _a.weeklyHoursLimit) != null ? _b : 40).toString()).onChange(async (value) => {
         const num = parseFloat(value);
@@ -2676,7 +2676,7 @@ var TimeFlowSettingTab = class extends import_obsidian2.PluginSettingTab {
         }
       });
     });
-    new import_obsidian2.Setting(complianceSection.content).setName("Minimum rest hours").setDesc("Minimum consecutive hours of rest between work sessions (Norwegian law: 11 hours)").addText((text) => {
+    new import_obsidian2.Setting(complianceSection.content).setName("Minimum rest hours").setDesc("Minimum consecutive hours of rest between work sessions (default: 11 hours)").addText((text) => {
       var _a, _b;
       return text.setPlaceholder("11").setValue(((_b = (_a = this.plugin.settings.complianceSettings) == null ? void 0 : _a.minimumRestHours) != null ? _b : 11).toString()).onChange(async (value) => {
         const num = parseFloat(value);
@@ -2833,12 +2833,12 @@ Note: Historical data using "annet:${template.id}" will still work but show a ge
       this.plugin.settings.defaultViewLocation = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian2.Setting(settingsContainer).setName("Hour unit").setDesc('Choose the unit symbol for displaying hours: "h" for hours or "t" for timer').addDropdown((dropdown) => dropdown.addOption("h", "h (hours)").addOption("t", "t (timer)").setValue(this.plugin.settings.hourUnit).onChange(async (value) => {
+    new import_obsidian2.Setting(settingsContainer).setName("Hour unit").setDesc('Choose the unit symbol for displaying hours: "h" for hours or "t" for timer').addDropdown((dropdown) => dropdown.addOption("h", "h").addOption("t", "t").setValue(this.plugin.settings.hourUnit).onChange(async (value) => {
       this.plugin.settings.hourUnit = value;
       await this.plugin.saveSettings();
       await this.refreshView();
     }));
-    new import_obsidian2.Setting(settingsContainer).setName("Show week numbers").setDesc("Show week numbers in calendar and week card (ISO 8601 week numbers)").addToggle((toggle) => {
+    new import_obsidian2.Setting(settingsContainer).setName("Show week numbers").setDesc("Show week numbers in calendar and week card").addToggle((toggle) => {
       var _a;
       return toggle.setValue((_a = this.plugin.settings.showWeekNumbers) != null ? _a : true).onChange(async (value) => {
         this.plugin.settings.showWeekNumbers = value;
