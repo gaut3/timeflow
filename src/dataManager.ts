@@ -605,7 +605,6 @@ export class DataManager {
 			let accumulateWorked = 0;  // Accumulate type hours (studie, kurs - only positive excess)
 			let avspaseringHours = 0;
 			let goalReduction = 0;  // Hours that reduce daily goal (sick days, etc.)
-			let hasCompletedEntries = false;
 			let hasAccumulateEntry = false;  // Track if any accumulate entries exist
 			let hasActiveEntry = false;  // Track if any active entries exist
 
@@ -623,7 +622,6 @@ export class DataManager {
 					}
 					return;
 				}
-				hasCompletedEntries = true;
 
 				// Check if this entry type should count toward flextime
 				const behavior = this.getSpecialDayBehavior(e.name);

@@ -75,11 +75,9 @@ var Utils = {
   parseDate: (str) => str ? new Date(str) : null,
   hoursDiff: (start, end) => (end.getTime() - start.getTime()) / 36e5,
   isWeekend: (date, settings) => {
-    if (!date)
-      return false;
+    if (!date) return false;
     const day = date.getDay();
-    if (!settings)
-      return day === 0 || day === 6;
+    if (!settings) return day === 0 || day === 6;
     if (settings.enableAlternatingWeeks) {
       const weekNum = Utils.getWeekNumber(date);
       const isAlternatingWeek = weekNum % 2 === 0;
@@ -121,12 +119,9 @@ var Utils = {
   },
   getEmoji: (entry) => {
     const name = entry.name.toLowerCase();
-    if (EMOJI_MAP[name])
-      return EMOJI_MAP[name];
-    if (!entry.endTime)
-      return "\u23F3";
-    if (entry.date && Utils.isWeekend(entry.date))
-      return "\u{1F319}";
+    if (EMOJI_MAP[name]) return EMOJI_MAP[name];
+    if (!entry.endTime) return "\u23F3";
+    if (entry.date && Utils.isWeekend(entry.date)) return "\u{1F319}";
     return "";
   },
   randMsg: (arr) => arr[Math.floor(Math.random() * arr.length)],
@@ -181,8 +176,7 @@ function formatTime(date, includeSeconds = false) {
     hour: "2-digit",
     minute: "2-digit"
   };
-  if (includeSeconds)
-    options.second = "2-digit";
+  if (includeSeconds) options.second = "2-digit";
   return date.toLocaleTimeString(getLocale(), options);
 }
 function getDayNamesShort() {
@@ -993,8 +987,7 @@ var TimekeepParser = class {
   canParse(content) {
     try {
       const trimmed = content.trim();
-      if (!trimmed.startsWith("{"))
-        return false;
+      if (!trimmed.startsWith("{")) return false;
       const data = JSON.parse(trimmed);
       return data.entries && Array.isArray(data.entries);
     } catch (e) {
@@ -1054,8 +1047,7 @@ var CSVParser = class {
   }
   canParse(content) {
     const lines = content.trim().split("\n");
-    if (lines.length < 2)
-      return false;
+    if (lines.length < 2) return false;
     const firstLine = lines[0].toLowerCase();
     const hasDateColumn = firstLine.includes("dato") || firstLine.includes("date");
     const hasTimeColumn = firstLine.includes("start") || firstLine.includes("time") || firstLine.includes("tid");
@@ -1146,10 +1138,8 @@ var CSVParser = class {
     const semicolonCount = (line.match(/;/g) || []).length;
     const commaCount = (line.match(/,/g) || []).length;
     const tabCount = (line.match(/\t/g) || []).length;
-    if (semicolonCount >= commaCount && semicolonCount >= tabCount)
-      return ";";
-    if (tabCount >= commaCount)
-      return "	";
+    if (semicolonCount >= commaCount && semicolonCount >= tabCount) return ";";
+    if (tabCount >= commaCount) return "	";
     return ",";
   }
   parseCSVLine(line, delimiter) {
@@ -1173,8 +1163,7 @@ var CSVParser = class {
   findColumn(headers, possibleNames) {
     for (const name of possibleNames) {
       const index = headers.findIndex((h) => h.includes(name));
-      if (index !== -1)
-        return index;
+      if (index !== -1) return index;
     }
     return -1;
   }
@@ -1206,8 +1195,7 @@ var CSVParser = class {
       }
     }
     const date = new Date(yearNum, monthNum - 1, dayNum);
-    if (isNaN(date.getTime()))
-      return null;
+    if (isNaN(date.getTime())) return null;
     if (date.getFullYear() !== yearNum || date.getMonth() !== monthNum - 1 || date.getDate() !== dayNum) {
       const correctedStr = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, "0")}-${date.getDate().toString().padStart(2, "0")}`;
       if (warnings) {
@@ -1243,8 +1231,7 @@ var GenericJSONParser = class {
   canParse(content) {
     try {
       const trimmed = content.trim();
-      if (!trimmed.startsWith("["))
-        return false;
+      if (!trimmed.startsWith("[")) return false;
       const data = JSON.parse(trimmed);
       return Array.isArray(data) && data.length > 0;
     } catch (e) {
@@ -1324,8 +1311,7 @@ var GenericJSONParser = class {
       const [day, month, year] = dateStr.split(".").map(Number);
       date = new Date(year, month - 1, day);
     }
-    if (!date || isNaN(date.getTime()))
-      return null;
+    if (!date || isNaN(date.getTime())) return null;
     const timeMatch = timeStr.match(/^(\d{1,2}):(\d{2})$/);
     if (timeMatch) {
       date.setHours(parseInt(timeMatch[1]), parseInt(timeMatch[2]), 0, 0);
@@ -1385,8 +1371,7 @@ var ImportModal = class extends import_obsidian.Modal {
     ];
     formats.forEach((f) => {
       const option = formatSelect.createEl("option", { text: f.label, value: f.value });
-      if (f.value === this.selectedFormat)
-        option.selected = true;
+      if (f.value === this.selectedFormat) option.selected = true;
     });
     formatSelect.onchange = () => {
       this.selectedFormat = formatSelect.value;
@@ -2122,13 +2107,11 @@ var WorkSchedulePeriodModal = class extends import_obsidian2.Modal {
     }));
     new import_obsidian2.Setting(contentEl).setName("Base workweek hours").setDesc("Standard hours for a full workweek").addText((text) => text.setPlaceholder("37.5").setValue(formData.baseWorkweek.toString()).onChange((value) => {
       const num = parseFloat(value);
-      if (!isNaN(num))
-        formData.baseWorkweek = num;
+      if (!isNaN(num)) formData.baseWorkweek = num;
     }));
     new import_obsidian2.Setting(contentEl).setName("Half-day hours").setDesc("Hours counted for a half workday").addText((text) => text.setPlaceholder("4").setValue(formData.halfDayHours.toString()).onChange((value) => {
       const num = parseFloat(value);
-      if (!isNaN(num))
-        formData.halfDayHours = num;
+      if (!isNaN(num)) formData.halfDayHours = num;
     }));
     new import_obsidian2.Setting(contentEl).setName("Work days").setDesc("Select which days are part of this work week");
     const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -2181,8 +2164,7 @@ var WorkSchedulePeriodModal = class extends import_obsidian2.Modal {
         }
       }
       entries.forEach((entry) => {
-        if (!entry.startTime)
-          return;
+        if (!entry.startTime) return;
         const entryDate = Utils.toLocalDateStr(new Date(entry.startTime));
         if (entryDate >= periodDate && (!nextPeriodDate || entryDate < nextPeriodDate)) {
           affectedDays.add(entryDate);
@@ -2197,10 +2179,8 @@ var WorkSchedulePeriodModal = class extends import_obsidian2.Modal {
       affectedDays.forEach((dateStr) => {
         const date = new Date(dateStr);
         const dayOfWeek = date.getDay();
-        if (currentWorkDays.includes(dayOfWeek))
-          oldWorkdays++;
-        if (formData.workDays.includes(dayOfWeek))
-          newWorkdays++;
+        if (currentWorkDays.includes(dayOfWeek)) oldWorkdays++;
+        if (formData.workDays.includes(dayOfWeek)) newWorkdays++;
       });
       const title = impactPreview.createEl("div", { cls: "tf-settings-impact-title" });
       title.textContent = `Impact preview`;
@@ -2300,8 +2280,7 @@ var TimeFlowSettingTab = class extends import_obsidian2.PluginSettingTab {
    */
   syncCurrentSettingsToActivePeriod() {
     const history = this.plugin.settings.workScheduleHistory;
-    if (!history || history.length === 0)
-      return;
+    if (!history || history.length === 0) return;
     const todayStr = Utils.toLocalDateStr(/* @__PURE__ */ new Date());
     const sortedHistory = [...history].sort((a, b) => a.effectiveFrom.localeCompare(b.effectiveFrom));
     let activeIndex = -1;
@@ -2676,7 +2655,7 @@ var TimeFlowSettingTab = class extends import_obsidian2.PluginSettingTab {
         }
       });
     });
-    new import_obsidian2.Setting(complianceSection.content).setName("Rest period between shifts").setDesc("Required rest time between work sessions, 11 hours by default").addText((text) => {
+    new import_obsidian2.Setting(complianceSection.content).setName("Rest period between shifts").setDesc("Hours of rest required between work sessions, 11 by default").addText((text) => {
       var _a, _b;
       return text.setPlaceholder("11").setValue(((_b = (_a = this.plugin.settings.complianceSettings) == null ? void 0 : _a.minimumRestHours) != null ? _b : 11).toString()).onChange(async (value) => {
         const num = parseFloat(value);
@@ -3447,8 +3426,7 @@ var DataManager = class {
     const date = new Date(dateStr);
     const dayOfWeek = date.getDay();
     const isWeekend = !schedule.workDays.includes(dayOfWeek);
-    if (isWeekend)
-      return 0;
+    if (isWeekend) return 0;
     const holidayInfo = this.getHolidayInfo(dateStr);
     if (holidayInfo) {
       const behavior = holidayInfo.type === "annet" ? this.getAnnetBehavior(holidayInfo) : this.getSpecialDayBehavior(holidayInfo.type);
@@ -3479,16 +3457,13 @@ var DataManager = class {
     this._cachedAverages = null;
     this._cachedContextData = {};
     this.rawEntries.forEach((e) => {
-      if (!e.startTime)
-        return;
+      if (!e.startTime) return;
       const start = Utils.parseDate(e.startTime);
-      if (!start)
-        return;
+      if (!start) return;
       const dayKey = Utils.toLocalDateStr(start);
       if (!e.endTime) {
         this.activeEntries.push(e);
-        if (!this.activeEntriesByDate[dayKey])
-          this.activeEntriesByDate[dayKey] = [];
+        if (!this.activeEntriesByDate[dayKey]) this.activeEntriesByDate[dayKey] = [];
         this.activeEntriesByDate[dayKey].push(e);
         const now = /* @__PURE__ */ new Date();
         let duration2 = Utils.hoursDiff(start, now);
@@ -3496,21 +3471,18 @@ var DataManager = class {
           const lunchBreakHours = this.settings.lunchBreakMinutes / 60;
           duration2 = Math.max(0, duration2 - lunchBreakHours);
         }
-        if (!this.daily[dayKey])
-          this.daily[dayKey] = [];
+        if (!this.daily[dayKey]) this.daily[dayKey] = [];
         this.daily[dayKey].push({ ...e, duration: duration2, date: start, isActive: true });
         return;
       }
       const end = Utils.parseDate(e.endTime);
-      if (!end)
-        return;
+      if (!end) return;
       let duration = Utils.hoursDiff(start, end);
       if (e.name.toLowerCase() === "jobb" && this.settings.lunchBreakMinutes > 0) {
         const lunchBreakHours = this.settings.lunchBreakMinutes / 60;
         duration = Math.max(0, duration - lunchBreakHours);
       }
-      if (!this.daily[dayKey])
-        this.daily[dayKey] = [];
+      if (!this.daily[dayKey]) this.daily[dayKey] = [];
       this.daily[dayKey].push({ ...e, duration, date: start });
     });
     this.calculateFlextime();
@@ -3582,11 +3554,9 @@ var DataManager = class {
     for (let day of Object.keys(this.daily)) {
       const date = new Date(day);
       const monthKey = `${date.getFullYear()}-${date.getMonth() + 1}`;
-      if (!this.months[monthKey])
-        this.months[monthKey] = {};
+      if (!this.months[monthKey]) this.months[monthKey] = {};
       const weekNum = Utils.getWeekNumber(date);
-      if (!this.months[monthKey][weekNum])
-        this.months[monthKey][weekNum] = [];
+      if (!this.months[monthKey][weekNum]) this.months[monthKey][weekNum] = [];
       this.months[monthKey][weekNum].push(...this.daily[day]);
     }
   }
@@ -3608,7 +3578,6 @@ var DataManager = class {
       let accumulateWorked = 0;
       let avspaseringHours = 0;
       let goalReduction = 0;
-      let hasCompletedEntries = false;
       let hasAccumulateEntry = false;
       let hasActiveEntry = false;
       dayEntries.forEach((e) => {
@@ -3623,7 +3592,6 @@ var DataManager = class {
           }
           return;
         }
-        hasCompletedEntries = true;
         const behavior = this.getSpecialDayBehavior(e.name);
         if ((behavior == null ? void 0 : behavior.flextimeEffect) === "reduce_goal") {
           const reduction = e.duration && e.duration > 0 ? e.duration : dayGoal;
@@ -3639,8 +3607,7 @@ var DataManager = class {
           regularWorked += e.duration || 0;
         }
       });
-      if (hasActiveEntry)
-        continue;
+      if (hasActiveEntry) continue;
       const effectiveGoal = Math.max(0, dayGoal - goalReduction);
       if (hasAccumulateEntry && regularWorked === 0) {
         if (effectiveGoal === 0) {
@@ -3682,8 +3649,7 @@ var DataManager = class {
       const dayKey = Utils.toLocalDateStr(d);
       const dayEntries = this.daily[dayKey] || [];
       dayEntries.forEach((entry) => {
-        if (entry.isActive)
-          return;
+        if (entry.isActive) return;
         const behavior = this.getSpecialDayBehavior(entry.name);
         const shouldExclude = behavior && (behavior.flextimeEffect === "withdraw" || behavior.flextimeEffect === "reduce_goal" || behavior.flextimeEffect === "none" && behavior.noHoursRequired);
         if (!shouldExclude) {
@@ -3697,8 +3663,7 @@ var DataManager = class {
     const todayKey = Utils.toLocalDateStr(today);
     const todayEntries = this.daily[todayKey] || [];
     return todayEntries.filter((e) => {
-      if (e.isActive)
-        return false;
+      if (e.isActive) return false;
       const behavior = this.getSpecialDayBehavior(e.name);
       return !behavior || behavior.isWorkType || behavior.flextimeEffect === "accumulate";
     }).reduce((sum, e) => sum + (e.duration || 0), 0) + this.getOngoing();
@@ -3896,8 +3861,7 @@ var DataManager = class {
     let consecutiveFlextimeDays = 0;
     const sortedDays = Object.keys(this.daily).sort().reverse();
     for (let day of sortedDays) {
-      if (day >= todayKey)
-        continue;
+      if (day >= todayKey) continue;
       const dayFlextime = this.daily[day].reduce(
         (sum, e) => sum + (e.flextime || 0),
         0
@@ -4099,16 +4063,14 @@ var DataManager = class {
         const isWeekend = Utils.isWeekend(d, this.settings);
         const holidayInfo = this.getHolidayInfo(dateStr);
         const hasEntries = this.daily[dateStr] && this.daily[dateStr].length > 0;
-        if (isWeekend)
-          continue;
+        if (isWeekend) continue;
         if (holidayInfo) {
           const behavior = holidayInfo.type === "annet" ? this.getAnnetBehavior(holidayInfo) : this.getSpecialDayBehavior(holidayInfo.type);
           if ((behavior == null ? void 0 : behavior.noHoursRequired) || (behavior == null ? void 0 : behavior.flextimeEffect) === "reduce_goal") {
             continue;
           }
         }
-        if (dateStr >= todayStr)
-          continue;
+        if (dateStr >= todayStr) continue;
         if (!hasEntries) {
           issues.warnings.push({
             severity: "warning",
@@ -4466,17 +4428,13 @@ var UIBuilder = class {
    * Returns null if invalid, otherwise returns { hours, minutes }.
    */
   parseTimeInput(value) {
-    if (!value || !value.includes(":"))
-      return null;
+    if (!value || !value.includes(":")) return null;
     const parts = value.split(":");
-    if (parts.length !== 2)
-      return null;
+    if (parts.length !== 2) return null;
     const hours = parseInt(parts[0], 10);
     const minutes = parseInt(parts[1], 10);
-    if (isNaN(hours) || isNaN(minutes))
-      return null;
-    if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59)
-      return null;
+    if (isNaN(hours) || isNaN(minutes)) return null;
+    if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null;
     return { hours, minutes };
   }
   /**
@@ -4498,8 +4456,7 @@ var UIBuilder = class {
       if (val.length >= 3) {
         val = val.slice(0, 2) + ":" + val.slice(2, 4);
       }
-      if (val.length > 5)
-        val = val.slice(0, 5);
+      if (val.length > 5) val = val.slice(0, 5);
       input.value = val;
     };
     input.onblur = () => {
@@ -4575,8 +4532,7 @@ var UIBuilder = class {
     return section;
   }
   updateTimerBadge() {
-    if (!this.elements.timerBadge)
-      return;
+    if (!this.elements.timerBadge) return;
     const activeTimers = this.timerManager.getActiveTimers();
     if (activeTimers.length === 0) {
       this.elements.timerBadge.empty();
@@ -5072,8 +5028,7 @@ var UIBuilder = class {
     return container;
   }
   updateClock() {
-    if (!this.elements.clock)
-      return;
+    if (!this.elements.clock) return;
     const now = /* @__PURE__ */ new Date();
     this.elements.clock.textContent = now.toLocaleTimeString("nb-NO", {
       hour: "2-digit",
@@ -5082,8 +5037,7 @@ var UIBuilder = class {
     });
   }
   updateBadge() {
-    if (!this.elements.badge)
-      return;
+    if (!this.elements.badge) return;
     const balance = this.data.getCurrentBalance();
     const formatted = Utils.formatHoursToHM(Math.abs(balance), this.settings.hourUnit);
     const sign = balance >= 0 ? "+" : "-";
@@ -5096,8 +5050,7 @@ var UIBuilder = class {
    */
   isViewInSidebar() {
     const leaves = this.app.workspace.getLeavesOfType("timeflow-view");
-    if (leaves.length === 0)
-      return true;
+    if (leaves.length === 0) return true;
     const leaf = leaves[0];
     const root = leaf.getRoot();
     return root === this.app.workspace.rightSplit || root === this.app.workspace.leftSplit;
@@ -5157,8 +5110,7 @@ var UIBuilder = class {
    */
   updateComplianceBadge() {
     var _a;
-    if (!this.elements.complianceBadge)
-      return;
+    if (!this.elements.complianceBadge) return;
     if (!((_a = this.settings.complianceSettings) == null ? void 0 : _a.enableWarnings)) {
       this.elements.complianceBadge.addClass("tf-hidden");
       return;
@@ -5237,14 +5189,10 @@ var UIBuilder = class {
     let top = badgeRect.bottom + 8;
     let right = window.innerWidth - badgeRect.right;
     const leftEdge = window.innerWidth - right - panelRect.width;
-    if (leftEdge < padding)
-      right = window.innerWidth - panelRect.width - padding;
-    if (right < padding)
-      right = padding;
-    if (top + panelRect.height > window.innerHeight - padding)
-      top = badgeRect.top - panelRect.height - 8;
-    if (top < padding)
-      top = padding;
+    if (leftEdge < padding) right = window.innerWidth - panelRect.width - padding;
+    if (right < padding) right = padding;
+    if (top + panelRect.height > window.innerHeight - padding) top = badgeRect.top - panelRect.height - 8;
+    if (top < padding) top = padding;
     panel.style.top = `${top}px`;
     panel.style.right = `${right}px`;
     const closeHandler = (e) => {
@@ -5260,8 +5208,7 @@ var UIBuilder = class {
    */
   getDailyComplianceWarning(hours) {
     var _a, _b, _c;
-    if (!((_a = this.settings.complianceSettings) == null ? void 0 : _a.enableWarnings))
-      return "";
+    if (!((_a = this.settings.complianceSettings) == null ? void 0 : _a.enableWarnings)) return "";
     const dailyLimit = (_c = (_b = this.settings.complianceSettings) == null ? void 0 : _b.dailyHoursLimit) != null ? _c : 9;
     const approachingThreshold = this.settings.baseWorkday * this.settings.workPercent;
     if (hours >= dailyLimit) {
@@ -5276,8 +5223,7 @@ var UIBuilder = class {
    */
   getWeeklyComplianceWarning(hours) {
     var _a, _b, _c;
-    if (!((_a = this.settings.complianceSettings) == null ? void 0 : _a.enableWarnings))
-      return "";
+    if (!((_a = this.settings.complianceSettings) == null ? void 0 : _a.enableWarnings)) return "";
     const weeklyLimit = (_c = (_b = this.settings.complianceSettings) == null ? void 0 : _b.weeklyHoursLimit) != null ? _c : 40;
     const approachingThreshold = this.settings.baseWorkweek * this.settings.workPercent;
     if (hours >= weeklyLimit) {
@@ -5289,8 +5235,7 @@ var UIBuilder = class {
   }
   updateDayCard() {
     var _a, _b;
-    if (!this.elements.dayCard)
-      return;
+    if (!this.elements.dayCard) return;
     const today = /* @__PURE__ */ new Date();
     const todayKey = Utils.toLocalDateStr(today);
     const todayHours = this.data.getTodayHours(today);
@@ -5328,8 +5273,7 @@ var UIBuilder = class {
   }
   updateWeekCard() {
     var _a, _b;
-    if (!this.elements.weekCard)
-      return;
+    if (!this.elements.weekCard) return;
     const today = /* @__PURE__ */ new Date();
     const weekHours = this.data.getCurrentWeekHours(today);
     const currentWeekNumber = Utils.getWeekNumber(today);
@@ -5389,8 +5333,7 @@ var UIBuilder = class {
   }
   updateStatsCard() {
     var _a, _b;
-    if (!this.elements.statsCard)
-      return;
+    if (!this.elements.statsCard) return;
     const stats = this.data.getStatistics(this.statsTimeframe, this.selectedYear, this.selectedMonth);
     const balance = this.data.getCurrentBalance();
     const { avgDaily, avgWeekly } = this.data.getAverages();
@@ -5500,8 +5443,7 @@ var UIBuilder = class {
     this.elements.statsCard.empty();
     const createStatItem = (label, value, subtitle, extraCls, extraStyle) => {
       const item = this.elements.statsCard.createDiv({ cls: `tf-stat-item${extraCls ? " " + extraCls : ""}` });
-      if (extraStyle)
-        item.style.cssText = extraStyle;
+      if (extraStyle) item.style.cssText = extraStyle;
       item.createDiv({ cls: "tf-stat-label", text: label });
       const valueDiv = item.createDiv({ cls: "tf-stat-value", text: value });
       if (subtitle !== void 0) {
@@ -5587,11 +5529,9 @@ var UIBuilder = class {
    */
   renderHoursBarChart() {
     var _a;
-    if (!this.elements.statsCard)
-      return;
+    if (!this.elements.statsCard) return;
     const contentWrapper = this.elements.statsCard.parentElement;
-    if (!contentWrapper)
-      return;
+    if (!contentWrapper) return;
     const existingChart = contentWrapper.querySelector(".tf-hours-chart");
     if (existingChart) {
       existingChart.remove();
@@ -5601,19 +5541,16 @@ var UIBuilder = class {
       this.selectedYear,
       this.selectedMonth
     );
-    if (chartData.length === 0)
-      return;
+    if (chartData.length === 0) return;
     const maxHours = Math.max(...chartData.map((d) => d.hours), ...chartData.map((d) => d.target || 0));
-    if (maxHours === 0)
-      return;
+    if (maxHours === 0) return;
     const chartContainer = document.createElement("div");
     chartContainer.className = "tf-hours-chart";
     contentWrapper.appendChild(chartContainer);
     const createDiv = (className, text) => {
       const div = document.createElement("div");
       div.className = className;
-      if (text)
-        div.textContent = text;
+      if (text) div.textContent = text;
       return div;
     };
     let title = "";
@@ -5660,8 +5597,7 @@ var UIBuilder = class {
     });
   }
   updateMonthCard() {
-    if (!this.elements.monthCard)
-      return;
+    if (!this.elements.monthCard) return;
     const displayDate = new Date(this.today);
     displayDate.setMonth(this.today.getMonth() + this.currentMonthOffset);
     const grid = this.createMonthGrid(displayDate);
@@ -5760,8 +5696,7 @@ var UIBuilder = class {
     });
     const firstDay = new Date(year, month, 1);
     let firstDayOfWeek = firstDay.getDay() - 1;
-    if (firstDayOfWeek === -1)
-      firstDayOfWeek = 6;
+    if (firstDayOfWeek === -1) firstDayOfWeek = 6;
     if (showWeekNumbers) {
       const weekNumCell = document.createElement("div");
       const dayOfWeek = firstDay.getDay();
@@ -6109,8 +6044,7 @@ var UIBuilder = class {
       const day = new Date(mondayOfWeek);
       day.setDate(mondayOfWeek.getDate() + i);
       const dayKey = Utils.toLocalDateStr(day);
-      if (day < balanceStartDate)
-        continue;
+      if (day < balanceStartDate) continue;
       const isWorkDay = this.settings.workDays.includes(day.getDay());
       if (isWorkDay) {
         const holidayInfo = this.data.getHolidayInfo(dayKey);
@@ -6270,8 +6204,7 @@ var UIBuilder = class {
     const dateEntries = this.data.daily[dateStr];
     const hasWorkEntriesInDaily = dateEntries && dateEntries.some((e) => e.name.toLowerCase() === "jobb");
     const hasRunningTimerForDate = this.timerManager.data.entries.some((entry) => {
-      if (!entry.startTime || entry.name.toLowerCase() !== "jobb")
-        return false;
+      if (!entry.startTime || entry.name.toLowerCase() !== "jobb") return false;
       const entryDate = new Date(entry.startTime);
       return Utils.toLocalDateStr(entryDate) === dateStr;
     });
@@ -6347,8 +6280,7 @@ var UIBuilder = class {
     const isPastDay = dateObj < /* @__PURE__ */ new Date();
     const isFutureDay = dateObj > /* @__PURE__ */ new Date();
     const runningTimersForDate = this.timerManager.data.entries.filter((entry) => {
-      if (!entry.startTime || !entry.endTime === false || entry.name.toLowerCase() !== "jobb")
-        return false;
+      if (!entry.startTime || !entry.endTime === false || entry.name.toLowerCase() !== "jobb") return false;
       const entryDate = new Date(entry.startTime);
       return Utils.toLocalDateStr(entryDate) === dateStr && !entry.endTime;
     });
@@ -6381,8 +6313,7 @@ var UIBuilder = class {
       });
     }
     const completedEntries = allEntries.filter((e) => {
-      if (e.duration && e.duration > 0)
-        return true;
+      if (e.duration && e.duration > 0) return true;
       const behavior = this.data.getSpecialDayBehavior(e.name);
       return behavior && (behavior.noHoursRequired || behavior.countsAsWorkday || behavior.flextimeEffect === "reduce_goal");
     });
@@ -6525,10 +6456,8 @@ var UIBuilder = class {
     const newBehavior = this.settings.specialDayBehaviors.find((b) => b.id === entryType.toLowerCase());
     const newIsAccumulate = (newBehavior == null ? void 0 : newBehavior.flextimeEffect) === "accumulate";
     const dayEntries = this.timerManager.data.entries.filter((e) => {
-      if (e === excludeEntry)
-        return false;
-      if (!e.startTime || !e.endTime)
-        return false;
+      if (e === excludeEntry) return false;
+      if (!e.startTime || !e.endTime) return false;
       return Utils.toLocalDateStr(new Date(e.startTime)) === dateStr;
     });
     for (const entry of dayEntries) {
@@ -6538,10 +6467,8 @@ var UIBuilder = class {
         const existingType = entry.name.toLowerCase();
         const existingBehavior = this.settings.specialDayBehaviors.find((b) => b.id === existingType);
         const existingIsAccumulate = (existingBehavior == null ? void 0 : existingBehavior.flextimeEffect) === "accumulate";
-        if (entryType.toLowerCase() === existingType)
-          return true;
-        if (newIsAccumulate && existingIsAccumulate)
-          return true;
+        if (entryType.toLowerCase() === existingType) return true;
+        if (newIsAccumulate && existingIsAccumulate) return true;
       }
     }
     return false;
@@ -7066,8 +6993,7 @@ var UIBuilder = class {
     let autoSickToTime = defaultEndTime;
     const workEntries = this.timerManager.data.entries.filter((entry) => {
       var _a;
-      if (!entry.endTime)
-        return false;
+      if (!entry.endTime) return false;
       const entryDate = Utils.toLocalDateStr(new Date(entry.startTime || ""));
       const behavior = (_a = this.settings.specialDayBehaviors) == null ? void 0 : _a.find((b) => b.id === entry.name.toLowerCase());
       const isWorkType = (behavior == null ? void 0 : behavior.isWorkType) || entry.name.toLowerCase() === "jobb";
@@ -7839,11 +7765,9 @@ ${noteType.tags.join(" ")}`;
     const years = {};
     Object.keys(this.data.daily).sort().reverse().forEach((dateKey) => {
       const year = dateKey.split("-")[0];
-      if (!years[year])
-        years[year] = {};
+      if (!years[year]) years[year] = {};
       const month = dateKey.split("-")[1];
-      if (!years[year][month])
-        years[year][month] = [];
+      if (!years[year][month]) years[year][month] = [];
       const dayEntries = this.data.daily[dateKey];
       dayEntries.forEach((entry) => {
         if (this.historyView === "list" && this.historyFilter.length > 0) {
@@ -7880,11 +7804,9 @@ ${noteType.tags.join(" ")}`;
   }
   updateEditToggleVisibility(container) {
     const historyCard = container.closest(".tf-card-history");
-    if (!historyCard)
-      return;
+    if (!historyCard) return;
     const editToggle = historyCard.querySelector(".tf-history-edit-toggle");
-    if (!editToggle)
-      return;
+    if (!editToggle) return;
     const isWide = container.offsetWidth >= 450;
     const isListView = this.historyView === "list";
     if (isWide && isListView) {
@@ -8037,8 +7959,7 @@ ${noteType.tags.join(" ")}`;
             const input = this.createTimeInput(startTimeStr, async (newValue) => {
               var _a, _b;
               const parsed = this.parseTimeInput(newValue);
-              if (!parsed)
-                return;
+              if (!parsed) return;
               const newStart = new Date(matchingRaw.startTime);
               newStart.setHours(parsed.hours, parsed.minutes, 0, 0);
               matchingRaw.startTime = Utils.toLocalISOString(newStart);
@@ -8254,8 +8175,7 @@ ${noteType.tags.join(" ")}`;
         monthEntries.forEach((e) => {
           const dateStr = e.date ? Utils.toLocalDateStr(e.date) : "";
           if (dateStr) {
-            if (!entriesByDate[dateStr])
-              entriesByDate[dateStr] = [];
+            if (!entriesByDate[dateStr]) entriesByDate[dateStr] = [];
             entriesByDate[dateStr].push(e);
           }
         });
@@ -8290,8 +8210,7 @@ ${noteType.tags.join(" ")}`;
               (item) => !usedRawEntries.has(item.entry) && item.entry.name.toLowerCase() === e.name.toLowerCase()
             );
             const matchingRaw = matchingItem == null ? void 0 : matchingItem.entry;
-            if (matchingRaw)
-              usedRawEntries.add(matchingRaw);
+            if (matchingRaw) usedRawEntries.add(matchingRaw);
             const dateCell = document.createElement("td");
             const holidayInfo = this.data.getHolidayInfo(dateStr);
             const entryBehavior = this.settings.specialDayBehaviors.find(
@@ -8305,10 +8224,8 @@ ${noteType.tags.join(" ")}`;
               const thisStart = new Date(matchingRaw.startTime).getTime();
               const thisEnd = new Date(matchingRaw.endTime).getTime();
               for (const otherItem of rawDayEntries) {
-                if (otherItem.entry === matchingRaw)
-                  continue;
-                if (!otherItem.entry.startTime || !otherItem.entry.endTime)
-                  continue;
+                if (otherItem.entry === matchingRaw) continue;
+                if (!otherItem.entry.startTime || !otherItem.entry.endTime) continue;
                 const otherStart = new Date(otherItem.entry.startTime).getTime();
                 const otherEnd = new Date(otherItem.entry.endTime).getTime();
                 if (thisStart < otherEnd && thisEnd > otherStart) {
@@ -8389,8 +8306,7 @@ ${noteType.tags.join(" ")}`;
                 }
                 const timeInput = this.createTimeInput(startTimeStr, async (newValue) => {
                   const parsed = this.parseTimeInput(newValue);
-                  if (!parsed)
-                    return;
+                  if (!parsed) return;
                   const newStart = new Date(matchingRaw.startTime);
                   newStart.setHours(parsed.hours, parsed.minutes, 0, 0);
                   matchingRaw.startTime = Utils.toLocalISOString(newStart);
@@ -8433,8 +8349,7 @@ ${noteType.tags.join(" ")}`;
                 }
                 const timeInput = this.createTimeInput(endTimeStr, async (newValue) => {
                   const parsed = this.parseTimeInput(newValue);
-                  if (!parsed)
-                    return;
+                  if (!parsed) return;
                   const newEnd = new Date(matchingRaw.endTime);
                   newEnd.setHours(parsed.hours, parsed.minutes, 0, 0);
                   matchingRaw.endTime = Utils.toLocalISOString(newEnd);
@@ -8452,8 +8367,7 @@ ${noteType.tags.join(" ")}`;
               container2.className = "tf-time-input-container";
               const timeInput = this.createTimeInput("", async (newValue) => {
                 const parsed = this.parseTimeInput(newValue);
-                if (!parsed)
-                  return;
+                if (!parsed) return;
                 const newEnd = new Date(startDate);
                 newEnd.setHours(parsed.hours, parsed.minutes, 0, 0);
                 if (newEnd <= startDate) {
@@ -8718,8 +8632,7 @@ ${noteType.tags.join(" ")}`;
         if (!specialDayBehavior && dayEntries) {
           for (const entry of dayEntries) {
             const entryName = entry.name.toLowerCase();
-            if (entryName === "jobb")
-              continue;
+            if (entryName === "jobb") continue;
             const entryBehavior = this.settings.specialDayBehaviors.find(
               (b) => b.id === entryName
             );
@@ -8800,8 +8713,7 @@ ${noteType.tags.join(" ")}`;
     this.intervals.push(dataInterval);
   }
   updateAll() {
-    if (this.isModalOpen)
-      return;
+    if (this.isModalOpen) return;
     this.data.rawEntries = this.timerManager.convertToTimeEntries();
     this.data.processEntries();
     this.updateBadge();
@@ -9071,10 +8983,8 @@ var TimerManager = class {
    * to prevent race conditions with the file watcher.
    */
   shouldReloadFromFile() {
-    if (this.isSaving)
-      return false;
-    if (Date.now() - this.lastSaveTime < 500)
-      return false;
+    if (this.isSaving) return false;
+    if (Date.now() - this.lastSaveTime < 500) return false;
     return true;
   }
   async load() {
@@ -9265,8 +9175,7 @@ ${timekeepBlock}${settingsBlock}
   normalizeEntryTimestamps() {
     let modified = false;
     const normalizeTimestamp = (timestamp) => {
-      if (!timestamp)
-        return null;
+      if (!timestamp) return null;
       if (timestamp.endsWith("Z")) {
         const date = new Date(timestamp);
         if (!isNaN(date.getTime())) {
@@ -9332,8 +9241,7 @@ ${timekeepBlock}${settingsBlock}
   }
   // Get running time for active timer
   getRunningTime(timer) {
-    if (!timer.startTime || timer.endTime)
-      return 0;
+    if (!timer.startTime || timer.endTime) return 0;
     const now = /* @__PURE__ */ new Date();
     const start = new Date(timer.startTime);
     return Utils.hoursDiff(start, now);
@@ -9423,8 +9331,7 @@ ${timekeepBlock}${settingsBlock}
     let converted = 0;
     for (const [dateStr, info] of Object.entries(holidays)) {
       const plannedDate = new Date(dateStr);
-      if (plannedDate >= today)
-        continue;
+      if (plannedDate >= today) continue;
       let shouldConvert = false;
       if (info.type === "annet") {
         shouldConvert = true;
@@ -9432,18 +9339,14 @@ ${timekeepBlock}${settingsBlock}
         const behavior2 = settings.specialDayBehaviors.find((b) => b.id === info.type);
         shouldConvert = (behavior2 == null ? void 0 : behavior2.noHoursRequired) || (behavior2 == null ? void 0 : behavior2.flextimeEffect) === "reduce_goal";
       }
-      if (!shouldConvert)
-        continue;
-      if (info.type === "helligdag")
-        continue;
+      if (!shouldConvert) continue;
+      if (info.type === "helligdag") continue;
       const hasEntry = this.data.entries.some((e) => {
-        if (!e.startTime)
-          return false;
+        if (!e.startTime) return false;
         const entryDate = new Date(e.startTime);
         return Utils.toLocalDateStr(entryDate) === dateStr && e.name.toLowerCase() === info.type;
       });
-      if (hasEntry)
-        continue;
+      if (hasEntry) continue;
       let startTime = `${dateStr}T08:00:00`;
       let endTime = `${dateStr}T08:00:00`;
       const behavior = settings.specialDayBehaviors.find((b) => b.id === info.type);
@@ -9542,8 +9445,7 @@ var TimeFlowPlugin = class extends import_obsidian7.Plugin {
       this.registerEvent(
         this.app.vault.on("modify", async (file) => {
           if (file.path === this.settings.dataFilePath) {
-            if (!this.timerManager.shouldReloadFromFile())
-              return;
+            if (!this.timerManager.shouldReloadFromFile()) return;
             await this.timerManager.load();
             const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_TIMEFLOW);
             leaves.forEach((leaf) => {
@@ -9611,8 +9513,7 @@ var TimeFlowPlugin = class extends import_obsidian7.Plugin {
     }
     let changed = false;
     const convertTimestamp = (timestamp) => {
-      if (!timestamp)
-        return null;
+      if (!timestamp) return null;
       if (timestamp.endsWith("Z")) {
         const date = new Date(timestamp);
         return Utils.toLocalISOString(date);
@@ -9729,12 +9630,9 @@ var TimeFlowPlugin = class extends import_obsidian7.Plugin {
       corrections.push(`Base workweek adjusted from ${oldWorkweek}h to ${expectedWorkweek}h (${this.settings.baseWorkday}h \xD7 ${((_b = this.settings.workDays) == null ? void 0 : _b.length) || 5} days)`);
     }
     const t2 = this.settings.balanceThresholds;
-    if (t2.criticalLow >= t2.warningLow)
-      t2.warningLow = t2.criticalLow + 1;
-    if (t2.warningLow >= t2.warningHigh)
-      t2.warningHigh = t2.warningLow + 1;
-    if (t2.warningHigh >= t2.criticalHigh)
-      t2.criticalHigh = t2.warningHigh + 1;
+    if (t2.criticalLow >= t2.warningLow) t2.warningLow = t2.criticalLow + 1;
+    if (t2.warningLow >= t2.warningHigh) t2.warningHigh = t2.warningLow + 1;
+    if (t2.warningHigh >= t2.criticalHigh) t2.criticalHigh = t2.warningHigh + 1;
     if (!this.settings.workDays || this.settings.workDays.length === 0) {
       this.settings.workDays = [1, 2, 3, 4, 5];
       corrections.push("Work days reset to Monday-Friday (at least one day required)");
