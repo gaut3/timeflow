@@ -2655,7 +2655,7 @@ var TimeFlowSettingTab = class extends import_obsidian2.PluginSettingTab {
         }
       });
     });
-    new import_obsidian2.Setting(complianceSection.content).setName("Rest period between shifts").setDesc("Hours of rest required between work sessions, 11 by default").addText((text) => {
+    new import_obsidian2.Setting(complianceSection.content).setName("Rest period").setDesc("Rest between shifts (default 11 hours)").addText((text) => {
       var _a, _b;
       return text.setPlaceholder("11").setValue(((_b = (_a = this.plugin.settings.complianceSettings) == null ? void 0 : _a.minimumRestHours) != null ? _b : 11).toString()).onChange(async (value) => {
         const num = parseFloat(value);
