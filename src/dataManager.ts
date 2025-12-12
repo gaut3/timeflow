@@ -651,8 +651,12 @@ export class DataManager {
 				}
 			});
 
-			// Skip days that have no entries at all (neither completed nor active)
-			if (!hasCompletedEntries && !hasActiveEntry) continue;
+			// If there's an active timer, skip this day entirely - don't charge goal yet
+			// (assume user intends to work the full goal)
+			if (hasActiveEntry) continue;
+
+			// Days with no entries will now be processed and charge the full goal
+			// (regularWorked = 0, so balance += 0 - effectiveGoal = -goal)
 
 			// Calculate effective goal after reductions (but not below 0)
 			const effectiveGoal = Math.max(0, dayGoal - goalReduction);

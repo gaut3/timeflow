@@ -1740,8 +1740,8 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(complianceSection.content)
-			.setName('Minimum rest hours')
-			.setDesc('Minimum hours of rest between work sessions, 11 hours by default')
+			.setName('Rest period between shifts')
+			.setDesc('Required rest time between work sessions, 11 hours by default')
 			.addText(text => text
 				.setPlaceholder('11')
 				.setValue((this.plugin.settings.complianceSettings?.minimumRestHours ?? 11).toString())

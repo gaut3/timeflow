@@ -2676,7 +2676,7 @@ var TimeFlowSettingTab = class extends import_obsidian2.PluginSettingTab {
         }
       });
     });
-    new import_obsidian2.Setting(complianceSection.content).setName("Minimum rest hours").setDesc("Minimum hours of rest between work sessions, 11 hours by default").addText((text) => {
+    new import_obsidian2.Setting(complianceSection.content).setName("Rest period between shifts").setDesc("Required rest time between work sessions, 11 hours by default").addText((text) => {
       var _a, _b;
       return text.setPlaceholder("11").setValue(((_b = (_a = this.plugin.settings.complianceSettings) == null ? void 0 : _a.minimumRestHours) != null ? _b : 11).toString()).onChange(async (value) => {
         const num = parseFloat(value);
@@ -3639,7 +3639,7 @@ var DataManager = class {
           regularWorked += e.duration || 0;
         }
       });
-      if (!hasCompletedEntries && !hasActiveEntry)
+      if (hasActiveEntry)
         continue;
       const effectiveGoal = Math.max(0, dayGoal - goalReduction);
       if (hasAccumulateEntry && regularWorked === 0) {
