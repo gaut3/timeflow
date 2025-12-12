@@ -638,10 +638,10 @@ export class SpecialDayBehaviorModal extends Modal {
 			// Counting period dropdown (only show if maxDaysPerYear is set)
 			new Setting(contentEl)
 				.setName('Counting period')
-				.setDesc('How to count the max days limit. The calendar year option resets each January 1st, while rolling 365 days counts backwards from today.')
+				.setDesc('How to count the max days limit. The calendar year option resets each january 1st, while rolling 365 days counts backwards from today.')
 				.addDropdown(dropdown => dropdown
-					.addOption('calendar', 'calendar year')
-					.addOption('rolling365', 'rolling 365 days')
+					.addOption('calendar', 'Calendar year')
+					.addOption('rolling365', 'Rolling 365 days')
 					.setValue(formData.countingPeriod)
 					.onChange(value => formData.countingPeriod = value as 'calendar' | 'rolling365'));
 		}
@@ -1741,7 +1741,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 
 		new Setting(complianceSection.content)
 			.setName('Minimum rest hours')
-			.setDesc('Minimum hours of rest between work sessions (default: 11 hours)')
+			.setDesc('Minimum hours of rest between work sessions, 11 hours by default')
 			.addText(text => text
 				.setPlaceholder('11')
 				.setValue((this.plugin.settings.complianceSettings?.minimumRestHours ?? 11).toString())
