@@ -239,6 +239,7 @@ const translations: Record<Language, TranslationStrings> = {
 			done: 'Ferdig',
 			start: 'Start',
 			stop: 'Stopp',
+			confirm: 'Bekreft',
 			export: 'Eksporter',
 			import: 'Importer',
 			preview: 'Forhåndsvis',
@@ -650,6 +651,7 @@ const translations: Record<Language, TranslationStrings> = {
 			done: 'Done',
 			start: 'Start',
 			stop: 'Stop',
+			confirm: 'Confirm',
 			export: 'Export',
 			import: 'Import',
 			preview: 'Preview',
@@ -1063,6 +1065,7 @@ interface TranslationStrings {
 		done: string;
 		start: string;
 		stop: string;
+		confirm: string;
 		export: string;
 		import: string;
 		preview: string;
