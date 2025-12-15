@@ -22,6 +22,11 @@ timeflow provides a comprehensive flextime tracking dashboard with **built-in ti
 - **Live Timer Display** - See running timers with real-time duration updates in the day/week cards.
 - **Automatic Logging** - Completed timers are automatically saved to your data file
 - **Quick Access** - Start/stop timers via command palette or dashboard buttons
+- **Comment System** (v1.3.6) - Add comments to timer entries when stopping
+  - Optional comment modal appears when stopping timers
+  - Overtime comment requirement when exceeding daily goal + threshold
+  - Comments displayed in history table and calendar context menu
+  - Comments included in CSV exports
 
 ### 📊 Tracking & Visualization
 ![timeflow-stats](https://github.com/gaut3/timeflow/blob/main/images/timeflow%20stats.png?raw=true)
@@ -60,6 +65,9 @@ timeflow provides a comprehensive flextime tracking dashboard with **built-in ti
 - **Data Validation** - Automatically detect issues like negative durations, long-running timers, and overlapping entries
 - **Delete Confirmation** - Safety dialog before deleting entries to prevent accidental data loss
 - **CSV Export** - Export your time data to CSV for further analysis
+  - Month selector modal for targeted exports
+  - "All months" option for complete data export
+  - Comments included in exports (v1.3.6)
 - **Multi-Format Import** - Import time data from multiple formats:
   - Timekeep JSON format
   - CSV files (Norwegian DD.MM.YYYY or ISO YYYY-MM-DD dates)
@@ -101,6 +109,7 @@ timeflow provides a comprehensive flextime tracking dashboard with **built-in ti
 #### Advanced Configuration
 - **Balance Calculation Settings**
   - Configurable balance start date - Choose when to start counting flextime balance
+  - **Starting flextime balance** (v1.3.6) - Set an initial balance for users migrating from other time tracking systems
   - Half-day hours - Fixed value or percentage-based (e.g., 50% of workday)
   - Balance color thresholds - Customize when balance shows green/yellow/red
   - Data validation thresholds - Adjust warning levels for long sessions, weekly totals, etc.
@@ -110,6 +119,7 @@ timeflow provides a comprehensive flextime tracking dashboard with **built-in ti
   - Automatically created when you first change work settings
 - **Simple Tracking Mode** - Disable goal tracking for flexible schedules without fixed targets
 - **Compliance Warnings** - Optional warnings for Norwegian labor law compliance (daily/weekly hour limits, rest periods)
+- **Overtime Comment Requirement** (v1.3.6) - Require comments when work exceeds daily goal + configurable threshold
 - **Custom Colors** - Customize balance badge colors and progress bar colors
 
 #### Theme & Layout
@@ -170,7 +180,8 @@ This file contains your time tracking data in Timekeep-compatible format.
       "name": "Jobb",
       "startTime": "2025-11-25T07:44:34",
       "endTime": "2025-11-25T15:52:31",
-      "subEntries": null
+      "subEntries": null,
+      "comment": "Optional comment for this entry"
     }
   ]
 }
