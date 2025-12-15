@@ -27,7 +27,7 @@ __export(main_exports, {
   default: () => TimeFlowPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian7 = require("obsidian");
+var import_obsidian8 = require("obsidian");
 
 // src/settings.ts
 var import_obsidian2 = require("obsidian");
@@ -364,7 +364,12 @@ var translations = {
         halfday: 'F.eks. "Halv dag f\xF8r ferie"',
         default: 'F.eks. "Kommentar"'
       },
-      durationHint: "Antall timer (f.eks. 3.5 for resten av dagen etter sykdom)"
+      durationHint: "Antall timer (f.eks. 3.5 for resten av dagen etter sykdom)",
+      commentRequired: "Kommentar p\xE5krevd",
+      commentTitle: "Legg til kommentar",
+      overtimeExplanation: "Du har jobbet {hours} over dagsm\xE5let.",
+      commentPrompt: "Vennligst forklar hvorfor:",
+      skip: "Hopp over"
     },
     validation: {
       endAfterStart: "Sluttid m\xE5 v\xE6re etter starttid",
@@ -536,6 +541,30 @@ var translations = {
         type: "Type"
       }
     },
+    export: {
+      csvTooltip: "Eksporter historikk til CSV-fil",
+      noData: "Ingen data \xE5 eksportere",
+      success: "Eksport fullf\xF8rt",
+      selectMonth: "Eksporter m\xE5ned",
+      month: "M\xE5ned",
+      allMonths: "Alle m\xE5neder",
+      date: "Dato",
+      type: "Type",
+      start: "Start",
+      end: "Slutt",
+      hours: "Timer",
+      flextime: "Fleksitid",
+      comment: "Kommentar",
+      monthlySummary: "M\xE5nedlig oppsummering",
+      totalHours: "Totalt timer",
+      totalFlextime: "Total fleksitid",
+      workDays: "Arbeidsdager",
+      avgDaily: "Gjennomsnitt per dag",
+      typeBreakdown: "Fordeling per type",
+      typeHeader: "Type",
+      daysHeader: "Dager",
+      hoursHeader: "Timer"
+    },
     settings: {
       language: "Spr\xE5k",
       languageDesc: "Velg spr\xE5k for grensesnittet",
@@ -543,10 +572,19 @@ var translations = {
       showWeekNumbersDesc: "Vis ukenummer i kalender og uke-kortet (ISO 8601 ukenummer)",
       hideEmptyStats: "Skjul tomme statistikker",
       hideEmptyStatsDesc: "Skjul statistikker med 0 timer/dager",
+      startingFlextimeBalance: "Startbalanse fleksitid",
+      startingFlextimeBalanceDesc: "Fleksitidssaldo \xE5 starte med (bruk dette hvis du migrerer fra et annet system)",
       importData: "Importer data",
       importDataDesc: "Importer tidsdata fra ulike formater: Timekeep JSON, CSV (norsk/ISO datoformat), eller JSON-arrays",
       absenceTypesDesc: 'Opprett egendefinerte frav\xE6rskategorier med spesifikke fleksitid- og statistikkregler. St\xF8tter frav\xE6r over flere dager. For enkeltst\xE5ende frav\xE6r, bruk "Annet-maler" nedenfor.',
-      addAbsenceType: "Legg til frav\xE6rstype"
+      addAbsenceType: "Legg til frav\xE6rstype",
+      overtimeComments: "Overtidskommentarer",
+      enableOvertimeComments: "Krev kommentar ved overtid",
+      enableOvertimeCommentsDesc: "Krev kommentar n\xE5r du stopper en timer og har jobbet mer enn dagsm\xE5let + terskel",
+      overtimeCommentThreshold: "Kommentarkrav (timer over m\xE5l)",
+      overtimeCommentThresholdDesc: "Krev kommentar n\xE5r dagstotal overstiger dagsm\xE5l + dette antall timer (standard: 0.5)",
+      overtimeCommentEffectiveDate: "Gjelder fra dato",
+      overtimeCommentEffectiveDateDesc: "Dato fra n\xE5r kommentarkravet trer i kraft (eldre oppf\xF8ringer p\xE5virkes ikke)"
     },
     compliance: {
       title: "Arbeidstidsgrenser",
@@ -737,7 +775,12 @@ var translations = {
         halfday: 'E.g. "Half day before vacation"',
         default: 'E.g. "Comment"'
       },
-      durationHint: "Number of hours (e.g. 3.5 for rest of day after leaving sick)"
+      durationHint: "Number of hours (e.g. 3.5 for rest of day after leaving sick)",
+      commentRequired: "Comment required",
+      commentTitle: "Add comment",
+      overtimeExplanation: "You worked {hours} over the daily goal.",
+      commentPrompt: "Please explain why:",
+      skip: "Skip"
     },
     validation: {
       endAfterStart: "End time must be after start time",
@@ -909,6 +952,30 @@ var translations = {
         type: "Type"
       }
     },
+    export: {
+      csvTooltip: "Export history to CSV file",
+      noData: "No data to export",
+      success: "Export completed",
+      selectMonth: "Export month",
+      month: "Month",
+      allMonths: "All months",
+      date: "Date",
+      type: "Type",
+      start: "Start",
+      end: "End",
+      hours: "Hours",
+      flextime: "Flextime",
+      comment: "Comment",
+      monthlySummary: "Monthly summary",
+      totalHours: "Total hours",
+      totalFlextime: "Total flextime",
+      workDays: "Work days",
+      avgDaily: "Average per day",
+      typeBreakdown: "Breakdown by type",
+      typeHeader: "Type",
+      daysHeader: "Days",
+      hoursHeader: "Hours"
+    },
     settings: {
       language: "Language",
       languageDesc: "Choose interface language",
@@ -916,10 +983,19 @@ var translations = {
       showWeekNumbersDesc: "Show week numbers in calendar and week card (ISO 8601 week numbers)",
       hideEmptyStats: "Hide empty statistics",
       hideEmptyStatsDesc: "Hide statistics with 0 hours/days",
+      startingFlextimeBalance: "Starting flextime balance",
+      startingFlextimeBalanceDesc: "Initial flextime balance to start with (use this if migrating from another system)",
       importData: "Import data",
       importDataDesc: "Import time data from various formats: Timekeep JSON, CSV (Norwegian/ISO date format), or JSON arrays",
       absenceTypesDesc: 'Create custom absence categories with specific flextime and statistics rules. Supports multi-day absences. For occasional one-off absences, use "Other templates" below.',
-      addAbsenceType: "Add absence type"
+      addAbsenceType: "Add absence type",
+      overtimeComments: "Overtime comments",
+      enableOvertimeComments: "Require comment on overtime",
+      enableOvertimeCommentsDesc: "Require comment when stopping a timer and daily work exceeds goal + threshold",
+      overtimeCommentThreshold: "Comment required (hours over goal)",
+      overtimeCommentThresholdDesc: "Require comment when daily total exceeds daily goal + this many hours (default: 0.5)",
+      overtimeCommentEffectiveDate: "Effective from date",
+      overtimeCommentEffectiveDateDesc: "Date from when comment requirement takes effect (older entries are not affected)"
     },
     compliance: {
       title: "Work time limits",
@@ -1792,6 +1868,7 @@ var DEFAULT_SETTINGS = {
   },
   // Advanced configuration settings
   balanceStartDate: "2025-01-01",
+  startingFlextimeBalance: 0,
   halfDayHours: 4,
   halfDayMode: "fixed",
   balanceThresholds: {
@@ -1821,7 +1898,11 @@ var DEFAULT_SETTINGS = {
     minimumRestHours: 11
   },
   // Migration flags
-  hasTimestampMigration: false
+  hasTimestampMigration: false,
+  // Overtime comment settings
+  enableOvertimeComments: true,
+  overtimeCommentThreshold: 0.5,
+  overtimeCommentEffectiveDate: "2025-01-01"
 };
 var ConfirmModal = class extends import_obsidian2.Modal {
   constructor(app, message, onConfirm, title) {
@@ -2409,6 +2490,14 @@ var TimeFlowSettingTab = class extends import_obsidian2.PluginSettingTab {
       this.plugin.settings.holidaysFilePath = value;
       await this.plugin.saveSettings();
     }));
+    new import_obsidian2.Setting(settingsContainer).setName(t("settings.startingFlextimeBalance")).setDesc(t("settings.startingFlextimeBalanceDesc")).addText((text) => text.setPlaceholder("0").setValue(this.plugin.settings.startingFlextimeBalance.toString()).onChange(async (value) => {
+      const num = parseFloat(value);
+      if (!isNaN(num)) {
+        this.plugin.settings.startingFlextimeBalance = num;
+        await this.plugin.saveSettings();
+        await this.refreshView();
+      }
+    }));
     new import_obsidian2.Setting(settingsContainer).setName("Work configuration").setDesc("Configure your work schedule and goals").setHeading();
     new import_obsidian2.Setting(settingsContainer).setName("Enable goal tracking").setDesc("Enable flextime calculations and daily/weekly goals. Disable for simple hour tracking without goals (e.g., shift workers, freelancers).").addToggle((toggle) => toggle.setValue(this.plugin.settings.enableGoalTracking).onChange(async (value) => {
       this.plugin.settings.enableGoalTracking = value;
@@ -2655,7 +2744,7 @@ var TimeFlowSettingTab = class extends import_obsidian2.PluginSettingTab {
         }
       });
     });
-    new import_obsidian2.Setting(complianceSection.content).setName("Rest period").setDesc("Rest between shifts (default 11 hours)").addText((text) => {
+    new import_obsidian2.Setting(complianceSection.content).setName("Rest-period").setDesc("Default 11 hours").addText((text) => {
       var _a, _b;
       return text.setPlaceholder("11").setValue(((_b = (_a = this.plugin.settings.complianceSettings) == null ? void 0 : _a.minimumRestHours) != null ? _b : 11).toString()).onChange(async (value) => {
         const num = parseFloat(value);
@@ -2674,6 +2763,38 @@ var TimeFlowSettingTab = class extends import_obsidian2.PluginSettingTab {
         }
       });
     });
+    new import_obsidian2.Setting(complianceSection.content).setName(t("settings.enableOvertimeComments")).setDesc(t("settings.enableOvertimeCommentsDesc")).addToggle((toggle) => {
+      var _a;
+      return toggle.setValue((_a = this.plugin.settings.enableOvertimeComments) != null ? _a : false).onChange(async (value) => {
+        this.plugin.settings.enableOvertimeComments = value;
+        await this.plugin.saveSettings();
+        this.display();
+      });
+    });
+    if (this.plugin.settings.enableOvertimeComments) {
+      new import_obsidian2.Setting(complianceSection.content).setName(t("settings.overtimeCommentThreshold")).setDesc(t("settings.overtimeCommentThresholdDesc")).addText((text) => {
+        var _a;
+        return text.setPlaceholder("0.5").setValue(((_a = this.plugin.settings.overtimeCommentThreshold) != null ? _a : 0.5).toString()).onChange(async (value) => {
+          const num = parseFloat(value);
+          if (!isNaN(num) && num >= 0 && num <= 5) {
+            this.plugin.settings.overtimeCommentThreshold = num;
+            await this.plugin.saveSettings();
+          }
+        });
+      });
+      new import_obsidian2.Setting(complianceSection.content).setName(t("settings.overtimeCommentEffectiveDate")).setDesc(t("settings.overtimeCommentEffectiveDateDesc")).addText((text) => {
+        var _a;
+        return text.setPlaceholder("2025-01-01").setValue((_a = this.plugin.settings.overtimeCommentEffectiveDate) != null ? _a : "2025-01-01").onChange(async (value) => {
+          if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+            const date = new Date(value);
+            if (!isNaN(date.getTime())) {
+              this.plugin.settings.overtimeCommentEffectiveDate = value;
+              await this.plugin.saveSettings();
+            }
+          }
+        });
+      });
+    }
     const getBehaviorDescription = (behavior) => {
       const parts = [];
       if (behavior.isWorkType) {
@@ -3095,30 +3216,197 @@ Note: Historical data using "annet:${template.id}" will still work but show a ge
     );
   }
   exportToCSV() {
-    const entries = this.plugin.timerManager.convertToTimeEntries();
-    const rows = [["Name", "Start Time", "End Time", "Duration (hours)"]];
+    const entries = this.plugin.timerManager.data.entries;
+    const availableMonths = [];
     entries.forEach((entry) => {
-      if (entry.startTime && entry.endTime) {
-        const start = new Date(entry.startTime);
-        const end = new Date(entry.endTime);
-        const durationHours = ((end.getTime() - start.getTime()) / (1e3 * 60 * 60)).toFixed(2);
-        rows.push([
-          entry.name,
-          start.toISOString(),
-          end.toISOString(),
-          durationHours
-        ]);
+      if (entry.startTime) {
+        const yearMonth = entry.startTime.substring(0, 7);
+        if (!availableMonths.includes(yearMonth)) {
+          availableMonths.push(yearMonth);
+        }
       }
     });
-    const csv = rows.map((row) => row.map((cell) => `"${cell}"`).join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
+    if (availableMonths.length === 0) {
+      new import_obsidian2.Notice(t("export.noData"));
+      return;
+    }
+    availableMonths.sort().reverse();
+    const now = /* @__PURE__ */ new Date();
+    const currentYearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    const defaultMonth = availableMonths.includes(currentYearMonth) ? currentYearMonth : availableMonths[0];
+    const overlay = document.createElement("div");
+    overlay.className = "modal-container mod-dim";
+    const modal = document.createElement("div");
+    modal.className = "modal tf-export-modal";
+    const title = document.createElement("h3");
+    title.className = "tf-export-modal-title";
+    title.textContent = t("export.selectMonth");
+    modal.appendChild(title);
+    const selectContainer = document.createElement("div");
+    selectContainer.className = "tf-export-select-container";
+    const label = document.createElement("label");
+    label.textContent = t("export.month") + ":";
+    selectContainer.appendChild(label);
+    const select = document.createElement("select");
+    select.className = "tf-export-select";
+    const allOption = document.createElement("option");
+    allOption.value = "all";
+    allOption.textContent = t("export.allMonths");
+    select.appendChild(allOption);
+    availableMonths.forEach((yearMonth) => {
+      const [year, month] = yearMonth.split("-").map(Number);
+      const monthName = getMonthName(new Date(year, month - 1, 1));
+      const option = document.createElement("option");
+      option.value = yearMonth;
+      option.textContent = monthName;
+      if (yearMonth === defaultMonth) option.selected = true;
+      select.appendChild(option);
+    });
+    selectContainer.appendChild(select);
+    modal.appendChild(selectContainer);
+    const buttonDiv = document.createElement("div");
+    buttonDiv.className = "tf-export-buttons";
+    const cancelBtn = document.createElement("button");
+    cancelBtn.textContent = t("buttons.cancel");
+    cancelBtn.onclick = () => overlay.remove();
+    buttonDiv.appendChild(cancelBtn);
+    const exportBtn = document.createElement("button");
+    exportBtn.className = "mod-cta";
+    exportBtn.textContent = `\u{1F4E5} ${t("buttons.export")}`;
+    exportBtn.onclick = () => {
+      const selectedMonth = select.value;
+      overlay.remove();
+      this.downloadMonthCSV(selectedMonth, entries);
+    };
+    buttonDiv.appendChild(exportBtn);
+    modal.appendChild(buttonDiv);
+    overlay.appendChild(modal);
+    overlay.onclick = (e) => {
+      if (e.target === overlay) overlay.remove();
+    };
+    document.body.appendChild(overlay);
+  }
+  downloadMonthCSV(yearMonth, allEntries) {
+    const BOM = "\uFEFF";
+    let csvContent = "";
+    let filename;
+    let noticeText;
+    if (yearMonth === "all") {
+      const availableMonths = [];
+      allEntries.forEach((entry) => {
+        if (entry.startTime) {
+          const ym = entry.startTime.substring(0, 7);
+          if (!availableMonths.includes(ym)) availableMonths.push(ym);
+        }
+      });
+      availableMonths.sort().reverse();
+      if (availableMonths.length === 0) {
+        new import_obsidian2.Notice(t("export.noData"));
+        return;
+      }
+      availableMonths.forEach((ym, index) => {
+        if (index > 0) csvContent += "\n\n";
+        csvContent += this.generateMonthCSV(ym, allEntries);
+      });
+      filename = `timeflow-${t("export.allMonths").toLowerCase().replace(/\s+/g, "-")}-${(/* @__PURE__ */ new Date()).toISOString().split("T")[0]}.csv`;
+      noticeText = t("export.allMonths");
+    } else {
+      csvContent = this.generateMonthCSV(yearMonth, allEntries);
+      if (!csvContent) {
+        new import_obsidian2.Notice(t("export.noData"));
+        return;
+      }
+      const [year, month] = yearMonth.split("-").map(Number);
+      filename = `timeflow-${yearMonth}.csv`;
+      noticeText = getMonthName(new Date(year, month - 1, 1));
+    }
+    const blob = new Blob([BOM + csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `timeflow-export-${Utils.toLocalDateStr(/* @__PURE__ */ new Date())}.csv`;
-    a.click();
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    link.click();
     URL.revokeObjectURL(url);
-    new import_obsidian2.Notice("\u2705 exported to CSV");
+    new import_obsidian2.Notice(`\u2705 ${t("export.success")}: ${noticeText}`);
+  }
+  generateMonthCSV(yearMonth, allEntries) {
+    const [year, month] = yearMonth.split("-").map(Number);
+    const monthEntries = allEntries.filter((entry) => {
+      if (!entry.startTime) return false;
+      return entry.startTime.startsWith(yearMonth);
+    });
+    if (monthEntries.length === 0) return "";
+    const monthName = getMonthName(new Date(year, month - 1, 1));
+    let csvContent = "";
+    csvContent += `"${monthName}"
+
+`;
+    csvContent += `"${t("export.date")}","${t("export.type")}","${t("export.start")}","${t("export.end")}","${t("export.hours")}","${t("export.comment")}"
+`;
+    const sortedEntries = [...monthEntries].sort((a, b) => {
+      const dateA = a.startTime || "";
+      const dateB = b.startTime || "";
+      return dateA.localeCompare(dateB);
+    });
+    sortedEntries.forEach((entry) => {
+      if (!entry.startTime || !entry.endTime) return;
+      const startDate = new Date(entry.startTime);
+      const endDate = new Date(entry.endTime);
+      const dateStr = Utils.toLocalDateStr(startDate);
+      const startTime = `${startDate.getHours().toString().padStart(2, "0")}:${startDate.getMinutes().toString().padStart(2, "0")}`;
+      const endTime = `${endDate.getHours().toString().padStart(2, "0")}:${endDate.getMinutes().toString().padStart(2, "0")}`;
+      const hours = ((endDate.getTime() - startDate.getTime()) / (1e3 * 60 * 60)).toFixed(2);
+      const comment = entry.comment || "";
+      const escapedComment = comment.replace(/"/g, '""');
+      const typeName = translateSpecialDayName(entry.name.toLowerCase(), entry.name);
+      csvContent += `"${dateStr}","${typeName}","${startTime}","${endTime}","${hours}","${escapedComment}"
+`;
+    });
+    let totalHours = 0;
+    let workDays = 0;
+    const daysWithEntries = /* @__PURE__ */ new Set();
+    sortedEntries.forEach((entry) => {
+      if (entry.startTime && entry.endTime) {
+        const startDate = new Date(entry.startTime);
+        const endDate = new Date(entry.endTime);
+        totalHours += (endDate.getTime() - startDate.getTime()) / (1e3 * 60 * 60);
+        daysWithEntries.add(Utils.toLocalDateStr(startDate));
+      }
+    });
+    workDays = daysWithEntries.size;
+    csvContent += "\n";
+    csvContent += `"${t("export.monthlySummary")}"
+`;
+    csvContent += `"${t("export.totalHours")}","${totalHours.toFixed(2)}"
+`;
+    csvContent += `"${t("export.workDays")}","${workDays}"
+`;
+    csvContent += `"${t("export.avgDaily")}","${workDays > 0 ? (totalHours / workDays).toFixed(2) : "0.00"}"
+`;
+    csvContent += "\n";
+    csvContent += `"${t("export.typeBreakdown")}"
+`;
+    csvContent += `"${t("export.typeHeader")}","${t("export.daysHeader")}","${t("export.hoursHeader")}"
+`;
+    const typeStats = {};
+    sortedEntries.forEach((entry) => {
+      if (entry.startTime && entry.endTime) {
+        const typeName = entry.name.toLowerCase();
+        if (!typeStats[typeName]) {
+          typeStats[typeName] = { days: /* @__PURE__ */ new Set(), hours: 0 };
+        }
+        const startDate = new Date(entry.startTime);
+        const endDate = new Date(entry.endTime);
+        typeStats[typeName].days.add(Utils.toLocalDateStr(startDate));
+        typeStats[typeName].hours += (endDate.getTime() - startDate.getTime()) / (1e3 * 60 * 60);
+      }
+    });
+    Object.keys(typeStats).forEach((type) => {
+      const stat = typeStats[type];
+      csvContent += `"${translateSpecialDayName(type)}","${stat.days.size}","${stat.hours.toFixed(2)}"
+`;
+    });
+    return csvContent;
   }
   showImportModal() {
     new ImportModal(this.app, this.plugin.timerManager, async () => {
@@ -3218,7 +3506,7 @@ Note: Historical data using "annet:${template.id}" will still work but show a ge
 };
 
 // src/view.ts
-var import_obsidian5 = require("obsidian");
+var import_obsidian6 = require("obsidian");
 
 // src/dataManager.ts
 var import_obsidian3 = require("obsidian");
@@ -3328,6 +3616,47 @@ var DataManager = class {
       };
     }
     return behavior;
+  }
+  /**
+   * Check if a comment is required for stopping a timer on a given date.
+   * Required if:
+   * - Date >= effective date
+   * - Entry is work type or accumulate type
+   * - Day's total work + additionalDuration exceeds (dailyGoal + threshold)
+   */
+  checkCommentRequired(dateStr, entryType, additionalDuration) {
+    var _a, _b;
+    if (!this.settings.enableOvertimeComments) {
+      return { required: false, hoursOverThreshold: 0, dailyGoal: 0 };
+    }
+    const threshold = (_a = this.settings.overtimeCommentThreshold) != null ? _a : 0.5;
+    const effectiveDate = (_b = this.settings.overtimeCommentEffectiveDate) != null ? _b : "2025-01-01";
+    if (dateStr < effectiveDate) {
+      return { required: false, hoursOverThreshold: 0, dailyGoal: 0 };
+    }
+    const behavior = this.getSpecialDayBehavior(entryType);
+    if (!(behavior == null ? void 0 : behavior.isWorkType) && (behavior == null ? void 0 : behavior.flextimeEffect) !== "accumulate") {
+      return { required: false, hoursOverThreshold: 0, dailyGoal: 0 };
+    }
+    const dailyGoal = this.getDailyGoal(dateStr);
+    const dayEntries = this.daily[dateStr] || [];
+    let dayWorkTotal = 0;
+    dayEntries.forEach((e) => {
+      if (!e.isActive) {
+        const eBehavior = this.getSpecialDayBehavior(e.name);
+        if ((eBehavior == null ? void 0 : eBehavior.isWorkType) || (eBehavior == null ? void 0 : eBehavior.flextimeEffect) === "accumulate") {
+          dayWorkTotal += e.duration || 0;
+        }
+      }
+    });
+    dayWorkTotal += additionalDuration;
+    const thresholdLimit = dailyGoal + threshold;
+    const hoursOverThreshold = dayWorkTotal - thresholdLimit;
+    return {
+      required: hoursOverThreshold > 0,
+      hoursOverThreshold: Math.max(0, hoursOverThreshold),
+      dailyGoal
+    };
   }
   /**
    * Get the behavior for an 'annet' holiday entry with dynamic properties based on time range.
@@ -3568,7 +3897,7 @@ var DataManager = class {
     }, 0);
   }
   getBalanceUpToDate(endDate) {
-    let balance = 0;
+    let balance = this.settings.startingFlextimeBalance || 0;
     const startDate = this.settings.balanceStartDate;
     const sortedDays = Object.keys(this.daily).filter((day) => day >= startDate && day <= endDate).sort();
     for (const day of sortedDays) {
@@ -4374,7 +4703,92 @@ var DataManager = class {
 };
 
 // src/uiBuilder.ts
+var import_obsidian5 = require("obsidian");
+
+// src/commentModal.ts
 var import_obsidian4 = require("obsidian");
+var CommentModal = class extends import_obsidian4.Modal {
+  constructor(app, timer, isRequired, hoursOverThreshold, onSubmit, onSkip) {
+    super(app);
+    this.timer = timer;
+    this.isRequired = isRequired;
+    this.hoursOverThreshold = hoursOverThreshold;
+    this.onSubmit = onSubmit;
+    this.onSkip = onSkip;
+  }
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.addClass("tf-comment-modal");
+    contentEl.createEl("h3", {
+      text: t("modals.commentTitle"),
+      cls: "tf-comment-modal-title"
+    });
+    if (this.isRequired) {
+      const noticeDiv = contentEl.createDiv({ cls: "tf-comment-required-notice" });
+      noticeDiv.createEl("strong", { text: "\u26A0\uFE0F " + t("modals.commentRequired") });
+      noticeDiv.createEl("br");
+      const explanation = t("modals.overtimeExplanation").replace(
+        "{hours}",
+        Utils.formatHoursToHM(this.hoursOverThreshold)
+      );
+      noticeDiv.appendText(explanation);
+    }
+    contentEl.createEl("p", {
+      text: t("modals.commentPrompt"),
+      cls: "tf-comment-prompt"
+    });
+    const textarea = contentEl.createEl("textarea", {
+      cls: "tf-comment-textarea",
+      attr: {
+        rows: "4",
+        maxlength: "500",
+        placeholder: this.timer.comment || ""
+      }
+    });
+    textarea.value = this.timer.comment || "";
+    const charCount = contentEl.createDiv({ cls: "tf-comment-char-count" });
+    const updateCharCount = () => {
+      charCount.textContent = `${textarea.value.length}/500`;
+    };
+    updateCharCount();
+    textarea.addEventListener("input", updateCharCount);
+    const buttonDiv = contentEl.createDiv({ cls: "tf-comment-buttons" });
+    const skipBtn = buttonDiv.createEl("button", {
+      text: t("modals.skip"),
+      cls: "tf-comment-skip-btn"
+    });
+    if (this.isRequired) {
+      skipBtn.disabled = true;
+      skipBtn.addClass("tf-comment-skip-disabled");
+      skipBtn.title = t("modals.commentRequired");
+    }
+    skipBtn.addEventListener("click", async () => {
+      this.close();
+      await this.onSkip();
+    });
+    const saveBtn = buttonDiv.createEl("button", {
+      text: t("buttons.save"),
+      cls: "mod-cta"
+    });
+    saveBtn.addEventListener("click", async () => {
+      const comment = textarea.value.trim();
+      if (this.isRequired && !comment) {
+        textarea.addClass("tf-comment-textarea-error");
+        return;
+      }
+      this.close();
+      await this.onSubmit(comment);
+    });
+    textarea.focus();
+  }
+  onClose() {
+    const { contentEl } = this;
+    contentEl.empty();
+  }
+};
+
+// src/uiBuilder.ts
 var UIBuilder = class {
   constructor(dataManager, systemStatus, settings, app, timerManager, plugin) {
     this.intervals = [];
@@ -4471,7 +4885,7 @@ var UIBuilder = class {
         lastValidValue = formatted;
         void onChange(formatted);
       } else {
-        new import_obsidian4.Notice(t("validation.invalidTime"));
+        new import_obsidian5.Notice(t("validation.invalidTime"));
         input.value = lastValidValue;
       }
     };
@@ -4492,7 +4906,7 @@ var UIBuilder = class {
       return true;
     } catch (error) {
       console.error("TimeFlow: Error saving data:", error);
-      new import_obsidian4.Notice(t("notifications.saveError"));
+      new import_obsidian5.Notice(t("notifications.saveError"));
       return false;
     }
   }
@@ -4563,11 +4977,44 @@ var UIBuilder = class {
       this.elements.timerBadge.className = "tf-timer-badge tf-timer-stop-btn";
       this.elements.timerBadge.onclick = async () => {
         for (const timer of activeTimers) {
-          await this.timerManager.stopTimer(timer);
+          await this.stopTimerWithCommentCheck(timer);
         }
         this.updateTimerBadge();
       };
     }
+  }
+  /**
+   * Stop a timer with optional comment modal.
+   * Shows comment modal; skip is disabled if overtime threshold is exceeded.
+   */
+  async stopTimerWithCommentCheck(timer) {
+    if (!timer.startTime) return;
+    const start = new Date(timer.startTime);
+    const now = /* @__PURE__ */ new Date();
+    let duration = Utils.hoursDiff(start, now);
+    if (timer.name.toLowerCase() === "jobb" && this.settings.lunchBreakMinutes > 0) {
+      duration = Math.max(0, duration - this.settings.lunchBreakMinutes / 60);
+    }
+    const dateStr = Utils.toLocalDateStr(start);
+    const commentCheck = this.data.checkCommentRequired(dateStr, timer.name, duration);
+    return new Promise((resolve) => {
+      const modal = new CommentModal(
+        this.app,
+        timer,
+        commentCheck.required,
+        commentCheck.hoursOverThreshold,
+        async (comment) => {
+          timer.comment = comment || void 0;
+          await this.timerManager.stopTimer(timer);
+          resolve();
+        },
+        async () => {
+          await this.timerManager.stopTimer(timer);
+          resolve();
+        }
+      );
+      modal.open();
+    });
   }
   showTimerTypeMenu(button) {
     const existingMenu = document.querySelector(".tf-timer-type-menu");
@@ -4863,6 +5310,15 @@ var UIBuilder = class {
     content.className = "tf-collapsible-content";
     const detailsElement = document.createElement("div");
     detailsElement.className = "tf-history-content";
+    const exportBtn = document.createElement("button");
+    exportBtn.className = "tf-history-export-btn";
+    exportBtn.textContent = `\u{1F4E5} ${t("buttons.export")}`;
+    exportBtn.title = t("export.csvTooltip");
+    exportBtn.onclick = (e) => {
+      e.stopPropagation();
+      this.exportHistoryToCSV();
+    };
+    rightControls.appendChild(exportBtn);
     const editToggle = document.createElement("button");
     editToggle.className = `tf-history-edit-btn ${this.inlineEditMode ? "active" : ""}`;
     editToggle.textContent = this.inlineEditMode ? `\u2713 ${t("buttons.done")}` : `\u270F\uFE0F ${t("buttons.edit")}`;
@@ -4913,6 +5369,16 @@ var UIBuilder = class {
     requestAnimationFrame(() => {
       this.updateEditToggleVisibility(detailsElement);
     });
+    let lastWasWide = detailsElement.offsetWidth >= 450;
+    const resizeObserver = new ResizeObserver(() => {
+      const isWide = detailsElement.offsetWidth >= 450;
+      if (isWide !== lastWasWide && this.historyView === "list") {
+        lastWasWide = isWide;
+        this.refreshHistoryView(detailsElement);
+      }
+      this.updateEditToggleVisibility(detailsElement);
+    });
+    resizeObserver.observe(detailsElement);
     return card;
   }
   buildStatusBar() {
@@ -6320,12 +6786,30 @@ var UIBuilder = class {
     if (completedEntries.length > 0) {
       const historyP = menuInfo.createEl("p");
       historyP.createEl("strong", { text: t("ui.history") + ":" });
+      const rawEntriesForDate = this.timerManager.data.entries.filter((entry) => {
+        if (!entry.startTime) return false;
+        const entryDate = new Date(entry.startTime);
+        return Utils.toLocalDateStr(entryDate) === dateStr;
+      });
+      const usedRawEntries = /* @__PURE__ */ new Set();
       completedEntries.forEach((e) => {
         const emoji = Utils.getEmoji(e);
         const behavior = this.data.getSpecialDayBehavior(e.name);
         const isFullDayReduceGoal = (behavior == null ? void 0 : behavior.flextimeEffect) === "reduce_goal" && (!e.duration || e.duration === 0);
         const durationText = e.duration && e.duration > 0 ? `: ${e.duration.toFixed(1)}${this.settings.hourUnit}` : isFullDayReduceGoal ? ` (${t("ui.fullDay")})` : "";
-        menuInfo.createEl("p", { text: emoji + " " + translateSpecialDayName(e.name.toLowerCase(), e.name) + durationText, cls: "tf-ml-8" });
+        const matchingRaw = rawEntriesForDate.find(
+          (raw) => !usedRawEntries.has(raw) && raw.name.toLowerCase() === e.name.toLowerCase() && raw.startTime === e.startTime
+        ) || rawEntriesForDate.find(
+          (raw) => !usedRawEntries.has(raw) && raw.name.toLowerCase() === e.name.toLowerCase()
+        );
+        if (matchingRaw) usedRawEntries.add(matchingRaw);
+        const entryP = menuInfo.createEl("p", { cls: "tf-ml-8" });
+        entryP.appendText(emoji + " " + translateSpecialDayName(e.name.toLowerCase(), e.name) + durationText);
+        if (matchingRaw == null ? void 0 : matchingRaw.comment) {
+          const commentSpan = entryP.createEl("span", { cls: "tf-context-menu-comment" });
+          commentSpan.appendText(" \u{1F4AC} " + (matchingRaw.comment.length > 40 ? matchingRaw.comment.substring(0, 37) + "..." : matchingRaw.comment));
+          commentSpan.title = matchingRaw.comment;
+        }
       });
       if (!isFutureDay) {
         const dayGoal = this.data.getDailyGoal(dateStr);
@@ -6535,7 +7019,7 @@ var UIBuilder = class {
       const endTime = endInput.value.trim();
       const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
       if (!timeRegex.test(startTime) || !timeRegex.test(endTime)) {
-        new import_obsidian4.Notice(`\u274C ${t("validation.invalidTimeFormat")}`);
+        new import_obsidian5.Notice(`\u274C ${t("validation.invalidTimeFormat")}`);
         return;
       }
       const [startHour, startMin] = startTime.split(":").map(Number);
@@ -6546,7 +7030,7 @@ var UIBuilder = class {
       endDate.setHours(endHour, endMin, 0, 0);
       const addEntry = async (finalEndDate) => {
         if (this.checkProhibitedOverlap(dateStr, "jobb", startDate, finalEndDate)) {
-          new import_obsidian4.Notice(`\u274C ${t("validation.overlappingEntry")}`);
+          new import_obsidian5.Notice(`\u274C ${t("validation.overlappingEntry")}`);
           return;
         }
         try {
@@ -6559,7 +7043,7 @@ var UIBuilder = class {
           });
           await this.saveWithErrorHandling();
           const duration = (finalEndDate.getTime() - startDate.getTime()) / (1e3 * 60 * 60);
-          new import_obsidian4.Notice(`\u2705 ${t("notifications.addedWorkTime").replace("{duration}", duration.toFixed(1)).replace("{date}", dateStr)}`);
+          new import_obsidian5.Notice(`\u2705 ${t("notifications.addedWorkTime").replace("{duration}", duration.toFixed(1)).replace("{date}", dateStr)}`);
           this.data.rawEntries = this.timerManager.convertToTimeEntries();
           this.data.processEntries();
           this.updateDayCard();
@@ -6570,7 +7054,7 @@ var UIBuilder = class {
           modal.remove();
         } catch (error) {
           console.error("Failed to add work time:", error);
-          new import_obsidian4.Notice(`\u274C ${t("notifications.errorAddingWorkTime")}`);
+          new import_obsidian5.Notice(`\u274C ${t("notifications.errorAddingWorkTime")}`);
         }
       };
       if (endDate <= startDate) {
@@ -6613,7 +7097,7 @@ var UIBuilder = class {
       }
     });
     if (workEntries.length === 0) {
-      new import_obsidian4.Notice(t("notifications.noWorkEntriesFound"));
+      new import_obsidian5.Notice(t("notifications.noWorkEntriesFound"));
       return;
     }
     this.isModalOpen = true;
@@ -6708,26 +7192,26 @@ var UIBuilder = class {
           const newEndDateValue = endDateInput.value;
           const newEndTimeValue = endTimeInput.value;
           if (!newStartDateValue || !newStartTimeValue) {
-            new import_obsidian4.Notice(`\u274C ${t("validation.startTimeRequired")}`);
+            new import_obsidian5.Notice(`\u274C ${t("validation.startTimeRequired")}`);
             return;
           }
           const newStartDate = /* @__PURE__ */ new Date(`${newStartDateValue}T${newStartTimeValue}:00`);
           if (isNaN(newStartDate.getTime())) {
-            new import_obsidian4.Notice(`\u274C ${t("validation.invalidStartDateTime")}`);
+            new import_obsidian5.Notice(`\u274C ${t("validation.invalidStartDateTime")}`);
             return;
           }
           const saveUpdate = async (finalEndDate) => {
             if (finalEndDate) {
               const checkDateStr = Utils.toLocalDateStr(newStartDate);
               if (this.checkProhibitedOverlap(checkDateStr, entry.name, newStartDate, finalEndDate, entry)) {
-                new import_obsidian4.Notice(`\u274C ${t("validation.overlappingEntry")}`);
+                new import_obsidian5.Notice(`\u274C ${t("validation.overlappingEntry")}`);
                 return;
               }
             }
             entry.startTime = Utils.toLocalISOString(newStartDate);
             entry.endTime = finalEndDate ? Utils.toLocalISOString(finalEndDate) : null;
             await this.saveWithErrorHandling();
-            new import_obsidian4.Notice(`\u2705 ${t("notifications.entryUpdated")}`);
+            new import_obsidian5.Notice(`\u2705 ${t("notifications.entryUpdated")}`);
             this.data.rawEntries = this.timerManager.convertToTimeEntries();
             this.data.processEntries();
             this.updateDayCard();
@@ -6740,11 +7224,11 @@ var UIBuilder = class {
           if (newEndTimeValue) {
             const newEndDate = /* @__PURE__ */ new Date(`${newEndDateValue}T${newEndTimeValue}:00`);
             if (isNaN(newEndDate.getTime())) {
-              new import_obsidian4.Notice(`\u274C ${t("validation.invalidEndDateTime")}`);
+              new import_obsidian5.Notice(`\u274C ${t("validation.invalidEndDateTime")}`);
               return;
             }
             if (newEndDate <= newStartDate) {
-              new import_obsidian4.Notice(`\u274C ${t("validation.endAfterStart")}`);
+              new import_obsidian5.Notice(`\u274C ${t("validation.endAfterStart")}`);
               return;
             }
             void saveUpdate(newEndDate);
@@ -6779,7 +7263,7 @@ var UIBuilder = class {
           }
           if (deleted) {
             await this.saveWithErrorHandling();
-            new import_obsidian4.Notice(`\u2705 ${t("notifications.deleted")}`);
+            new import_obsidian5.Notice(`\u2705 ${t("notifications.deleted")}`);
             this.data.rawEntries = this.timerManager.convertToTimeEntries();
             this.data.processEntries();
             this.updateDayCard();
@@ -7303,12 +7787,12 @@ var UIBuilder = class {
           const customIcon = templateIconInput.value.trim() || "\u{1F4CB}";
           if (saveAsTemplateCheckbox.checked) {
             if (!customName) {
-              new import_obsidian4.Notice(`\u274C ${t("annet.labelRequired")}`);
+              new import_obsidian5.Notice(`\u274C ${t("annet.labelRequired")}`);
               return;
             }
             const newTemplateId = customName.toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "");
             if (this.settings.annetTemplates.some((tmpl) => tmpl.id === newTemplateId)) {
-              new import_obsidian4.Notice(`\u274C ${t("annet.duplicateId")}`);
+              new import_obsidian5.Notice(`\u274C ${t("annet.duplicateId")}`);
               return;
             }
             this.settings.annetTemplates.push({
@@ -7317,7 +7801,7 @@ var UIBuilder = class {
               icon: customIcon
             });
             await this.plugin.saveSettings();
-            new import_obsidian4.Notice(`\u2705 ${t("annet.addTemplate")}: ${customIcon} ${customName}`);
+            new import_obsidian5.Notice(`\u2705 ${t("annet.addTemplate")}: ${customIcon} ${customName}`);
             templateId = newTemplateId;
           } else if (customName) {
             const prefix = `${customIcon} ${customName}`;
@@ -7331,7 +7815,7 @@ var UIBuilder = class {
           const [tH, tM] = to.split(":").map(Number);
           const hours = tH + tM / 60 - (fH + fM / 60);
           if (hours <= 0) {
-            new import_obsidian4.Notice(`\u274C ${t("validation.invalidTimePeriod") || "Ugyldig tidsperiode"}`);
+            new import_obsidian5.Notice(`\u274C ${t("validation.invalidTimePeriod") || "Ugyldig tidsperiode"}`);
             return;
           }
           await this.addAnnetEntry(dateObj, templateId, from, to, entryDescription);
@@ -7358,10 +7842,10 @@ var UIBuilder = class {
               subEntries: null
             });
             await this.saveWithErrorHandling();
-            new import_obsidian4.Notice(`\u2705 ${translateSpecialDayName(dayType)}: ${sickHours.toFixed(1)}${this.settings.hourUnit || "t"} for ${Utils.toLocalDateStr(dateObj)}`);
+            new import_obsidian5.Notice(`\u2705 ${translateSpecialDayName(dayType)}: ${sickHours.toFixed(1)}${this.settings.hourUnit || "t"} for ${Utils.toLocalDateStr(dateObj)}`);
             (_b = (_a = this.plugin.timerManager).onTimerChange) == null ? void 0 : _b.call(_a);
           } else {
-            new import_obsidian4.Notice(`\u274C ${t("validation.invalidTimePeriod") || "Ugyldig tidsperiode"}`);
+            new import_obsidian5.Notice(`\u274C ${t("validation.invalidTimePeriod") || "Ugyldig tidsperiode"}`);
             return;
           }
         } else {
@@ -7372,7 +7856,7 @@ var UIBuilder = class {
           const startDate = new Date(startDateInput.value);
           const endDate = new Date(endDateInput.value);
           if (endDate < startDate) {
-            new import_obsidian4.Notice(`\u274C ${t("validation.invalidDateRange") || "Invalid date range"}`);
+            new import_obsidian5.Notice(`\u274C ${t("validation.invalidDateRange") || "Invalid date range"}`);
             return;
           }
           const currentDate = new Date(startDate);
@@ -7386,7 +7870,7 @@ var UIBuilder = class {
           }
           const behavior = this.settings.specialDayBehaviors.find((b) => b.id === dayType);
           const typeName = behavior ? translateSpecialDayName(behavior.id, behavior.label) : dayType;
-          new import_obsidian4.Notice(`\u2705 ${typeName}: ${daysAdded} ${daysAdded === 1 ? t("units.day") : t("units.days")}`);
+          new import_obsidian5.Notice(`\u2705 ${typeName}: ${daysAdded} ${daysAdded === 1 ? t("units.day") : t("units.days")}`);
         } else {
           await this.addSpecialDay(dateObj, dayType, note, startTime, endTime);
         }
@@ -7404,9 +7888,9 @@ var UIBuilder = class {
   async addSpecialDay(dateObj, dayType, note = "", startTime, endTime) {
     try {
       const filePath = this.settings.holidaysFilePath;
-      const file = this.app.vault.getAbstractFileByPath((0, import_obsidian4.normalizePath)(filePath));
-      if (!file || !(file instanceof import_obsidian4.TFile)) {
-        new import_obsidian4.Notice(`\u274C ${t("notifications.fileNotFound").replace("{path}", filePath)}`);
+      const file = this.app.vault.getAbstractFileByPath((0, import_obsidian5.normalizePath)(filePath));
+      if (!file || !(file instanceof import_obsidian5.TFile)) {
+        new import_obsidian5.Notice(`\u274C ${t("notifications.fileNotFound").replace("{path}", filePath)}`);
         return;
       }
       const year = dateObj.getFullYear();
@@ -7417,13 +7901,13 @@ var UIBuilder = class {
       const sectionMarker = "## Planlagte egne fridager";
       const sectionIndex = content.indexOf(sectionMarker);
       if (sectionIndex === -1) {
-        new import_obsidian4.Notice(`\u274C ${t("notifications.sectionNotFound")}`);
+        new import_obsidian5.Notice(`\u274C ${t("notifications.sectionNotFound")}`);
         return;
       }
       const codeBlockStart = content.indexOf("```", sectionIndex);
       const codeBlockEnd = content.indexOf("```", codeBlockStart + 3);
       if (codeBlockStart === -1 || codeBlockEnd === -1) {
-        new import_obsidian4.Notice(`\u274C ${t("notifications.codeBlockNotFound")}`);
+        new import_obsidian5.Notice(`\u274C ${t("notifications.codeBlockNotFound")}`);
         return;
       }
       let typeWithModifier = dayType;
@@ -7437,12 +7921,12 @@ var UIBuilder = class {
       content = beforeClosing + (needsNewline ? "\n" : "") + newEntry + "\n" + afterClosing;
       await this.app.vault.modify(file, content);
       const label = translateSpecialDayName(dayType);
-      new import_obsidian4.Notice(`\u2705 ${t("notifications.added")} ${dateStr} (${label})`);
+      new import_obsidian5.Notice(`\u2705 ${t("notifications.added")} ${dateStr} (${label})`);
       await this.data.loadHolidays();
       this.updateMonthCard();
     } catch (error) {
       console.error("Failed to add special day:", error);
-      new import_obsidian4.Notice(`\u274C ${t("notifications.errorAddingSpecialDay")}`);
+      new import_obsidian5.Notice(`\u274C ${t("notifications.errorAddingSpecialDay")}`);
     }
   }
   /**
@@ -7455,9 +7939,9 @@ var UIBuilder = class {
   async addAnnetEntry(dateObj, templateId, startTime, endTime, note) {
     try {
       const filePath = this.settings.holidaysFilePath;
-      const file = this.app.vault.getAbstractFileByPath((0, import_obsidian4.normalizePath)(filePath));
-      if (!file || !(file instanceof import_obsidian4.TFile)) {
-        new import_obsidian4.Notice(`\u274C ${t("notifications.fileNotFound").replace("{path}", filePath)}`);
+      const file = this.app.vault.getAbstractFileByPath((0, import_obsidian5.normalizePath)(filePath));
+      if (!file || !(file instanceof import_obsidian5.TFile)) {
+        new import_obsidian5.Notice(`\u274C ${t("notifications.fileNotFound").replace("{path}", filePath)}`);
         return;
       }
       const year = dateObj.getFullYear();
@@ -7468,13 +7952,13 @@ var UIBuilder = class {
       const sectionMarker = "## Planlagte egne fridager";
       const sectionIndex = content.indexOf(sectionMarker);
       if (sectionIndex === -1) {
-        new import_obsidian4.Notice(`\u274C ${t("notifications.sectionNotFound")}`);
+        new import_obsidian5.Notice(`\u274C ${t("notifications.sectionNotFound")}`);
         return;
       }
       const codeBlockStart = content.indexOf("```", sectionIndex);
       const codeBlockEnd = content.indexOf("```", codeBlockStart + 3);
       if (codeBlockStart === -1 || codeBlockEnd === -1) {
-        new import_obsidian4.Notice(`\u274C ${t("notifications.codeBlockNotFound")}`);
+        new import_obsidian5.Notice(`\u274C ${t("notifications.codeBlockNotFound")}`);
         return;
       }
       let annetType = "annet";
@@ -7498,15 +7982,15 @@ var UIBuilder = class {
         }
       }
       if (startTime && endTime) {
-        new import_obsidian4.Notice(`\u2705 ${t("notifications.added")} ${dateStr} (${label} ${startTime}-${endTime})`);
+        new import_obsidian5.Notice(`\u2705 ${t("notifications.added")} ${dateStr} (${label} ${startTime}-${endTime})`);
       } else {
-        new import_obsidian4.Notice(`\u2705 ${t("notifications.added")} ${dateStr} (${label})`);
+        new import_obsidian5.Notice(`\u2705 ${t("notifications.added")} ${dateStr} (${label})`);
       }
       await this.data.loadHolidays();
       this.updateMonthCard();
     } catch (error) {
       console.error("Failed to add annet entry:", error);
-      new import_obsidian4.Notice(`\u274C ${t("notifications.errorAddingSpecialDay")}`);
+      new import_obsidian5.Notice(`\u274C ${t("notifications.errorAddingSpecialDay")}`);
     }
   }
   /**
@@ -7626,35 +8110,35 @@ var UIBuilder = class {
   async deletePlannedDay(dateStr) {
     try {
       const filePath = this.settings.holidaysFilePath;
-      const file = this.app.vault.getAbstractFileByPath((0, import_obsidian4.normalizePath)(filePath));
-      if (!file || !(file instanceof import_obsidian4.TFile)) {
-        new import_obsidian4.Notice(`\u274C ${t("notifications.fileNotFound").replace("{path}", filePath)}`);
+      const file = this.app.vault.getAbstractFileByPath((0, import_obsidian5.normalizePath)(filePath));
+      if (!file || !(file instanceof import_obsidian5.TFile)) {
+        new import_obsidian5.Notice(`\u274C ${t("notifications.fileNotFound").replace("{path}", filePath)}`);
         return;
       }
       let content = await this.app.vault.read(file);
       const sectionMarker = "## Planlagte egne fridager";
       const sectionIndex = content.indexOf(sectionMarker);
       if (sectionIndex === -1) {
-        new import_obsidian4.Notice(`\u274C ${t("notifications.sectionNotFound")}`);
+        new import_obsidian5.Notice(`\u274C ${t("notifications.sectionNotFound")}`);
         return;
       }
       const codeBlockStart = content.indexOf("```", sectionIndex);
       const codeBlockEnd = content.indexOf("```", codeBlockStart + 3);
       if (codeBlockStart === -1 || codeBlockEnd === -1) {
-        new import_obsidian4.Notice(`\u274C ${t("notifications.codeBlockNotFound")}`);
+        new import_obsidian5.Notice(`\u274C ${t("notifications.codeBlockNotFound")}`);
         return;
       }
       const codeBlockContent = content.substring(codeBlockStart, codeBlockEnd + 3);
       const lines = codeBlockContent.split("\n");
       const filteredLines = lines.filter((line) => !line.includes(`- ${dateStr}:`));
       if (filteredLines.length === lines.length) {
-        new import_obsidian4.Notice(`\u274C Entry not found for ${dateStr}`);
+        new import_obsidian5.Notice(`\u274C Entry not found for ${dateStr}`);
         return;
       }
       const newCodeBlock = filteredLines.join("\n");
       content = content.substring(0, codeBlockStart) + newCodeBlock + content.substring(codeBlockEnd + 3);
       await this.app.vault.modify(file, content);
-      new import_obsidian4.Notice(`\u2705 ${t("notifications.deleted")} ${dateStr}`);
+      new import_obsidian5.Notice(`\u2705 ${t("notifications.deleted")} ${dateStr}`);
       await this.data.loadHolidays();
       this.data.processEntries();
       this.updateMonthCard();
@@ -7663,7 +8147,7 @@ var UIBuilder = class {
       this.updateDayCard();
     } catch (error) {
       console.error("Failed to delete planned day:", error);
-      new import_obsidian4.Notice(`\u274C ${t("notifications.errorDeletingEntry")}`);
+      new import_obsidian5.Notice(`\u274C ${t("notifications.errorDeletingEntry")}`);
     }
   }
   /**
@@ -7672,22 +8156,22 @@ var UIBuilder = class {
   async updatePlannedDayDescription(dateStr, newDescription) {
     try {
       const filePath = this.settings.holidaysFilePath;
-      const file = this.app.vault.getAbstractFileByPath((0, import_obsidian4.normalizePath)(filePath));
-      if (!file || !(file instanceof import_obsidian4.TFile)) {
-        new import_obsidian4.Notice(`\u274C ${t("notifications.fileNotFound").replace("{path}", filePath)}`);
+      const file = this.app.vault.getAbstractFileByPath((0, import_obsidian5.normalizePath)(filePath));
+      if (!file || !(file instanceof import_obsidian5.TFile)) {
+        new import_obsidian5.Notice(`\u274C ${t("notifications.fileNotFound").replace("{path}", filePath)}`);
         return;
       }
       let content = await this.app.vault.read(file);
       const sectionMarker = "## Planlagte egne fridager";
       const sectionIndex = content.indexOf(sectionMarker);
       if (sectionIndex === -1) {
-        new import_obsidian4.Notice(`\u274C ${t("notifications.sectionNotFound")}`);
+        new import_obsidian5.Notice(`\u274C ${t("notifications.sectionNotFound")}`);
         return;
       }
       const codeBlockStart = content.indexOf("```", sectionIndex);
       const codeBlockEnd = content.indexOf("```", codeBlockStart + 3);
       if (codeBlockStart === -1 || codeBlockEnd === -1) {
-        new import_obsidian4.Notice(`\u274C ${t("notifications.codeBlockNotFound")}`);
+        new import_obsidian5.Notice(`\u274C ${t("notifications.codeBlockNotFound")}`);
         return;
       }
       const codeBlockContent = content.substring(codeBlockStart, codeBlockEnd + 3);
@@ -7706,13 +8190,13 @@ var UIBuilder = class {
         return line;
       });
       if (!updated) {
-        new import_obsidian4.Notice(`\u274C Entry not found for ${dateStr}`);
+        new import_obsidian5.Notice(`\u274C Entry not found for ${dateStr}`);
         return;
       }
       const newCodeBlock = updatedLines.join("\n");
       content = content.substring(0, codeBlockStart) + newCodeBlock + content.substring(codeBlockEnd + 3);
       await this.app.vault.modify(file, content);
-      new import_obsidian4.Notice(`\u2705 ${t("notifications.updated")} ${dateStr}`);
+      new import_obsidian5.Notice(`\u2705 ${t("notifications.updated")} ${dateStr}`);
       await this.data.loadHolidays();
       this.data.processEntries();
       this.updateMonthCard();
@@ -7721,7 +8205,7 @@ var UIBuilder = class {
       this.updateDayCard();
     } catch (error) {
       console.error("Failed to update planned day:", error);
-      new import_obsidian4.Notice(`\u274C ${t("notifications.errorUpdatingEntry")}`);
+      new import_obsidian5.Notice(`\u274C ${t("notifications.errorUpdatingEntry")}`);
     }
   }
   async createNoteFromType(dateObj, noteType) {
@@ -7729,11 +8213,11 @@ var UIBuilder = class {
       const dateStr = Utils.toLocalDateStr(dateObj);
       const weekNum = Utils.getWeekNumber(dateObj);
       let filename = noteType.filenamePattern.replace("{YYYY}", dateObj.getFullYear().toString()).replace("{MM}", (dateObj.getMonth() + 1).toString().padStart(2, "0")).replace("{DD}", dateObj.getDate().toString().padStart(2, "0")).replace("{WEEK}", weekNum.toString());
-      const filePath = (0, import_obsidian4.normalizePath)(`${noteType.folder}/${filename}.md`);
+      const filePath = (0, import_obsidian5.normalizePath)(`${noteType.folder}/${filename}.md`);
       const existingFile = this.app.vault.getAbstractFileByPath(filePath);
-      if (existingFile instanceof import_obsidian4.TFile) {
+      if (existingFile instanceof import_obsidian5.TFile) {
         await this.app.workspace.getLeaf(false).openFile(existingFile);
-        new import_obsidian4.Notice(t("notifications.openedExistingNote").replace("{filename}", filename));
+        new import_obsidian5.Notice(t("notifications.openedExistingNote").replace("{filename}", filename));
         return;
       }
       const folderPath = noteType.folder;
@@ -7741,8 +8225,8 @@ var UIBuilder = class {
         await this.app.vault.createFolder(folderPath);
       }
       let content = "";
-      const templateFile = this.app.vault.getAbstractFileByPath((0, import_obsidian4.normalizePath)(noteType.template));
-      if (templateFile && templateFile instanceof import_obsidian4.TFile) {
+      const templateFile = this.app.vault.getAbstractFileByPath((0, import_obsidian5.normalizePath)(noteType.template));
+      if (templateFile && templateFile instanceof import_obsidian5.TFile) {
         content = await this.app.vault.read(templateFile);
       }
       content = content.replace(/{date}/g, dateStr).replace(/{time}/g, (/* @__PURE__ */ new Date()).toLocaleTimeString("nb-NO")).replace(/{week}/g, weekNum.toString());
@@ -7753,9 +8237,9 @@ ${noteType.tags.join(" ")}`;
       }
       const file = await this.app.vault.create(filePath, content);
       await this.app.workspace.getLeaf(false).openFile(file);
-      new import_obsidian4.Notice(t("notifications.createdNote").replace("{filename}", filename));
+      new import_obsidian5.Notice(t("notifications.createdNote").replace("{filename}", filename));
     } catch (error) {
-      new import_obsidian4.Notice(t("notifications.errorCreatingNote").replace("{error}", error instanceof Error ? error.message : String(error)));
+      new import_obsidian5.Notice(t("notifications.errorCreatingNote").replace("{error}", error instanceof Error ? error.message : String(error)));
       console.error("Error creating note:", error);
     }
   }
@@ -8073,11 +8557,25 @@ ${noteType.tags.join(" ")}`;
         thead.appendChild(headerRow);
         table.appendChild(thead);
         const tbody = document.createElement("tbody");
+        const rawEntries = this.timerManager.data.entries;
+        const flatRawEntries = [];
+        rawEntries.forEach((entry) => {
+          if (entry.collapsed && Array.isArray(entry.subEntries)) {
+            entry.subEntries.forEach((sub) => {
+              if (sub.startTime) flatRawEntries.push(sub);
+            });
+          } else if (entry.startTime) {
+            flatRawEntries.push(entry);
+          }
+        });
         monthEntries.forEach((e) => {
           const row = document.createElement("tr");
           if (e.isActive) {
             row.className = "tf-history-row-active";
           }
+          const matchingRaw = flatRawEntries.find(
+            (item) => item.name.toLowerCase() === e.name.toLowerCase() && item.startTime === e.startTime
+          );
           const dateCell = document.createElement("td");
           const dateStr = e.date ? Utils.toLocalDateStr(e.date) : "";
           const holidayInfo = dateStr ? this.data.getHolidayInfo(dateStr) : null;
@@ -8125,6 +8623,15 @@ ${noteType.tags.join(" ")}`;
           actionCell.appendChild(editBtn);
           row.appendChild(actionCell);
           tbody.appendChild(row);
+          if (matchingRaw == null ? void 0 : matchingRaw.comment) {
+            const commentRow = document.createElement("tr");
+            const commentCell = document.createElement("td");
+            commentCell.colSpan = 5;
+            commentCell.className = "tf-comment-subtitle";
+            commentCell.textContent = `\u{1F4AC} ${matchingRaw.comment}`;
+            commentRow.appendChild(commentCell);
+            tbody.appendChild(commentRow);
+          }
         });
         table.appendChild(tbody);
         yearDiv.appendChild(table);
@@ -8162,7 +8669,7 @@ ${noteType.tags.join(" ")}`;
         table.className = "tf-history-table-wide";
         const thead = document.createElement("thead");
         const headerRow = document.createElement("tr");
-        const headers = this.inlineEditMode ? [t("ui.date"), t("ui.type"), t("ui.start"), t("ui.end"), t("ui.hours"), t("ui.flextime"), ""] : [t("ui.date"), t("ui.type"), t("ui.start"), t("ui.end"), t("ui.hours"), t("ui.flextime")];
+        const headers = this.inlineEditMode ? [t("ui.date"), t("ui.type"), t("ui.comment"), t("ui.start"), t("ui.end"), t("ui.hours"), t("ui.flextime"), ""] : [t("ui.date"), t("ui.type"), t("ui.comment"), t("ui.start"), t("ui.end"), t("ui.hours"), t("ui.flextime")];
         headers.forEach((h) => {
           const th = document.createElement("th");
           th.textContent = h;
@@ -8281,6 +8788,39 @@ ${noteType.tags.join(" ")}`;
               typeCell.textContent = translateSpecialDayName(entryNameLower, e.name);
             }
             row.appendChild(typeCell);
+            const commentCell = document.createElement("td");
+            if (this.inlineEditMode && matchingRaw) {
+              const textarea = document.createElement("textarea");
+              textarea.value = matchingRaw.comment || "";
+              textarea.placeholder = t("ui.optional");
+              textarea.rows = 1;
+              textarea.className = "tf-comment-input";
+              textarea.maxLength = 500;
+              textarea.onfocus = () => {
+                textarea.rows = 2;
+              };
+              textarea.onblur = async () => {
+                textarea.rows = 1;
+                const newComment = textarea.value.trim();
+                if (newComment !== (matchingRaw.comment || "")) {
+                  matchingRaw.comment = newComment || void 0;
+                  await this.saveWithErrorHandling();
+                }
+              };
+              commentCell.appendChild(textarea);
+            } else {
+              const comment = (matchingRaw == null ? void 0 : matchingRaw.comment) || "";
+              if (comment) {
+                const span = document.createElement("span");
+                span.textContent = comment.length > 30 ? comment.substring(0, 27) + "..." : comment;
+                span.title = comment;
+                span.className = "tf-comment-display";
+                commentCell.appendChild(span);
+              } else {
+                commentCell.textContent = "-";
+              }
+            }
+            row.appendChild(commentCell);
             const startCell = document.createElement("td");
             if (matchingRaw == null ? void 0 : matchingRaw.startTime) {
               const startDate = new Date(matchingRaw.startTime);
@@ -8372,7 +8912,7 @@ ${noteType.tags.join(" ")}`;
                 newEnd.setHours(parsed.hours, parsed.minutes, 0, 0);
                 if (newEnd <= startDate) {
                   newEnd.setDate(newEnd.getDate() + 1);
-                  new import_obsidian4.Notice(t("validation.endTimeNextDay"));
+                  new import_obsidian5.Notice(t("validation.endTimeNextDay"));
                 }
                 matchingRaw.endTime = Utils.toLocalISOString(newEnd);
                 await this.saveWithErrorHandling();
@@ -8562,7 +9102,7 @@ ${noteType.tags.join(" ")}`;
       if (isReduceGoalType(typeSelect.value)) {
         const duration2 = parseFloat(durationInput.value);
         if (isNaN(duration2) || duration2 <= 0) {
-          new import_obsidian4.Notice(t("validation.invalidDuration") || "Ugyldig varighet");
+          new import_obsidian5.Notice(t("validation.invalidDuration") || "Ugyldig varighet");
           return;
         }
         startDate = new Date(targetDate);
@@ -8572,7 +9112,7 @@ ${noteType.tags.join(" ")}`;
         const parsedStart = this.parseTimeInput(startInput.value);
         const parsedEnd = this.parseTimeInput(endInput.value);
         if (!parsedStart || !parsedEnd) {
-          new import_obsidian4.Notice(t("validation.invalidTime"));
+          new import_obsidian5.Notice(t("validation.invalidTime"));
           return;
         }
         startDate = new Date(targetDate);
@@ -8580,7 +9120,7 @@ ${noteType.tags.join(" ")}`;
         endDate = new Date(targetDate);
         endDate.setHours(parsedEnd.hours, parsedEnd.minutes, 0, 0);
         if (endDate <= startDate) {
-          new import_obsidian4.Notice(t("validation.endAfterStart"));
+          new import_obsidian5.Notice(t("validation.endAfterStart"));
           return;
         }
       }
@@ -8594,7 +9134,7 @@ ${noteType.tags.join(" ")}`;
       this.isModalOpen = false;
       modal.remove();
       const duration = (endDate.getTime() - startDate.getTime()) / (1e3 * 60 * 60);
-      new import_obsidian4.Notice(`\u2705 ${t("notifications.addedHours").replace("{duration}", duration.toFixed(1)).replace("{date}", dateStr)}`);
+      new import_obsidian5.Notice(`\u2705 ${t("notifications.addedHours").replace("{duration}", duration.toFixed(1)).replace("{date}", dateStr)}`);
       (_b = (_a = this.plugin.timerManager).onTimerChange) == null ? void 0 : _b.call(_a);
     };
     buttonContainer.appendChild(saveBtn);
@@ -8698,7 +9238,7 @@ ${noteType.tags.join(" ")}`;
     a.download = `timeflow-export-${Utils.toLocalDateStr(/* @__PURE__ */ new Date())}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-    new import_obsidian4.Notice(t("notifications.exported"));
+    new import_obsidian5.Notice(t("notifications.exported"));
   }
   startUpdates() {
     const clockMs = (this.settings.clockInterval || 1) * 1e3;
@@ -8857,6 +9397,178 @@ ${noteType.tags.join(" ")}`;
     };
     document.body.appendChild(overlay);
   }
+  /**
+   * Show export modal to select month
+   */
+  exportHistoryToCSV() {
+    const availableMonths = [];
+    Object.keys(this.data.daily).forEach((dateKey) => {
+      const yearMonth = dateKey.substring(0, 7);
+      if (!availableMonths.includes(yearMonth)) {
+        availableMonths.push(yearMonth);
+      }
+    });
+    if (availableMonths.length === 0) {
+      new import_obsidian5.Notice(t("export.noData"));
+      return;
+    }
+    availableMonths.sort().reverse();
+    const now = /* @__PURE__ */ new Date();
+    const currentYearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    const defaultMonth = availableMonths.includes(currentYearMonth) ? currentYearMonth : availableMonths[0];
+    const overlay = document.createElement("div");
+    overlay.className = "modal-container mod-dim";
+    const modal = document.createElement("div");
+    modal.className = "modal tf-export-modal";
+    modal.createEl("h3", { text: t("export.selectMonth"), cls: "tf-export-modal-title" });
+    const selectContainer = modal.createDiv({ cls: "tf-export-select-container" });
+    selectContainer.createEl("label", { text: t("export.month") + ":" });
+    const select = selectContainer.createEl("select", { cls: "tf-export-select" });
+    select.createEl("option", { text: t("export.allMonths"), value: "all" });
+    availableMonths.forEach((yearMonth) => {
+      const [year, month] = yearMonth.split("-").map(Number);
+      const monthName = getMonthName(new Date(year, month - 1, 1));
+      const option = select.createEl("option", { text: monthName, value: yearMonth });
+      if (yearMonth === defaultMonth) option.selected = true;
+    });
+    const buttonDiv = modal.createDiv({ cls: "tf-export-buttons" });
+    const cancelBtn = buttonDiv.createEl("button", { text: t("buttons.cancel") });
+    cancelBtn.onclick = () => overlay.remove();
+    const exportBtn = buttonDiv.createEl("button", { text: `\u{1F4E5} ${t("buttons.export")}`, cls: "mod-cta" });
+    exportBtn.onclick = () => {
+      const selectedMonth = select.value;
+      overlay.remove();
+      this.downloadMonthCSV(selectedMonth);
+    };
+    overlay.appendChild(modal);
+    overlay.onclick = (e) => {
+      if (e.target === overlay) overlay.remove();
+    };
+    document.body.appendChild(overlay);
+  }
+  /**
+   * Download CSV for a specific month or all months
+   */
+  downloadMonthCSV(yearMonth) {
+    const BOM = "\uFEFF";
+    let csvContent = "";
+    let filename;
+    let noticeText;
+    if (yearMonth === "all") {
+      const availableMonths = [];
+      Object.keys(this.data.daily).forEach((dateKey) => {
+        const ym = dateKey.substring(0, 7);
+        if (!availableMonths.includes(ym)) availableMonths.push(ym);
+      });
+      availableMonths.sort().reverse();
+      if (availableMonths.length === 0) {
+        new import_obsidian5.Notice(t("export.noData"));
+        return;
+      }
+      availableMonths.forEach((ym, index) => {
+        if (index > 0) csvContent += "\n\n";
+        csvContent += this.generateMonthCSV(ym);
+      });
+      filename = `timeflow-${t("export.allMonths").toLowerCase().replace(/\s+/g, "-")}-${(/* @__PURE__ */ new Date()).toISOString().split("T")[0]}.csv`;
+      noticeText = t("export.allMonths");
+    } else {
+      csvContent = this.generateMonthCSV(yearMonth);
+      if (!csvContent) {
+        new import_obsidian5.Notice(t("export.noData"));
+        return;
+      }
+      const [year, month] = yearMonth.split("-").map(Number);
+      filename = `timeflow-${yearMonth}.csv`;
+      noticeText = getMonthName(new Date(year, month - 1, 1));
+    }
+    const blob = new Blob([BOM + csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
+    new import_obsidian5.Notice(`\u2705 ${t("export.success")}: ${noticeText}`);
+  }
+  /**
+   * Generate CSV content for a single month
+   */
+  generateMonthCSV(yearMonth) {
+    const [year, month] = yearMonth.split("-").map(Number);
+    const monthEntries = [];
+    Object.keys(this.data.daily).forEach((dateKey) => {
+      if (dateKey.startsWith(yearMonth)) {
+        monthEntries.push(...this.data.daily[dateKey]);
+      }
+    });
+    if (monthEntries.length === 0) return "";
+    const rawEntries = this.timerManager.data.entries.filter((entry) => {
+      if (!entry.startTime) return false;
+      const date = new Date(entry.startTime);
+      return date.getFullYear() === year && date.getMonth() === month - 1;
+    });
+    const monthName = getMonthName(new Date(year, month - 1, 1));
+    const stats = this.data.getStatistics("month", year, month - 1);
+    let csvContent = "";
+    csvContent += `"${monthName}"
+
+`;
+    csvContent += `"${t("export.date")}","${t("export.type")}","${t("export.start")}","${t("export.end")}","${t("export.hours")}","${t("export.flextime")}","${t("export.comment")}"
+`;
+    const sortedEntries = [...monthEntries].sort((a, b) => {
+      const dateA = a.startTime || "";
+      const dateB = b.startTime || "";
+      return dateA.localeCompare(dateB);
+    });
+    const usedRawEntries = /* @__PURE__ */ new Set();
+    sortedEntries.forEach((entry) => {
+      const startDate = entry.startTime ? new Date(entry.startTime) : null;
+      const endDate = entry.endTime ? new Date(entry.endTime) : null;
+      const dateStr = startDate ? Utils.toLocalDateStr(startDate) : "";
+      const startTime = startDate ? `${startDate.getHours().toString().padStart(2, "0")}:${startDate.getMinutes().toString().padStart(2, "0")}` : "";
+      const endTime = endDate ? `${endDate.getHours().toString().padStart(2, "0")}:${endDate.getMinutes().toString().padStart(2, "0")}` : "";
+      const hours = entry.duration ? entry.duration.toFixed(2) : "0.00";
+      const flextime = entry.flextime ? entry.flextime.toFixed(2) : "0.00";
+      const matchingRaw = rawEntries.find(
+        (raw) => !usedRawEntries.has(raw) && raw.name.toLowerCase() === entry.name.toLowerCase() && raw.startTime === entry.startTime
+      ) || rawEntries.find(
+        (raw) => !usedRawEntries.has(raw) && raw.name.toLowerCase() === entry.name.toLowerCase()
+      );
+      if (matchingRaw) usedRawEntries.add(matchingRaw);
+      const comment = (matchingRaw == null ? void 0 : matchingRaw.comment) || "";
+      const escapedComment = comment.replace(/"/g, '""');
+      const typeName = translateSpecialDayName(entry.name.toLowerCase(), entry.name);
+      csvContent += `"${dateStr}","${typeName}","${startTime}","${endTime}","${hours}","${flextime}","${escapedComment}"
+`;
+    });
+    csvContent += "\n";
+    csvContent += `"${t("export.monthlySummary")}"
+`;
+    csvContent += `"${t("export.totalHours")}","${stats.totalHours.toFixed(2)}"
+`;
+    csvContent += `"${t("export.totalFlextime")}","${stats.totalFlextime.toFixed(2)}"
+`;
+    csvContent += `"${t("export.workDays")}","${stats.workDays}"
+`;
+    csvContent += `"${t("export.avgDaily")}","${stats.avgDailyHours.toFixed(2)}"
+`;
+    csvContent += "\n";
+    csvContent += `"${t("export.typeBreakdown")}"
+`;
+    csvContent += `"${t("export.typeHeader")}","${t("export.daysHeader")}","${t("export.hoursHeader")}"
+`;
+    const types = ["jobb", "kurs", "studie", "ferie", "avspasering", "egenmelding", "sykemelding", "velferdspermisjon"];
+    types.forEach((type) => {
+      const typeStat = stats[type];
+      if (typeStat && typeof typeStat === "object" && "count" in typeStat) {
+        if (typeStat.count > 0 || typeStat.hours > 0) {
+          csvContent += `"${translateSpecialDayName(type)}","${typeStat.count}","${typeStat.hours.toFixed(2)}"
+`;
+        }
+      }
+    });
+    return csvContent;
+  }
   cleanup() {
     this.intervals.forEach((interval) => clearInterval(interval));
     this.intervals = [];
@@ -8880,7 +9592,7 @@ ${noteType.tags.join(" ")}`;
 
 // src/view.ts
 var VIEW_TYPE_TIMEFLOW = "timeflow-view";
-var TimeFlowView = class extends import_obsidian5.ItemView {
+var TimeFlowView = class extends import_obsidian6.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     this.dataManager = null;
@@ -8967,7 +9679,7 @@ var TimeFlowView = class extends import_obsidian5.ItemView {
 };
 
 // src/timerManager.ts
-var import_obsidian6 = require("obsidian");
+var import_obsidian7 = require("obsidian");
 var TimerManager = class {
   constructor(app, settings) {
     this.isSaving = false;
@@ -9082,8 +9794,8 @@ ${timekeepBlock}${settingsBlock}
 `;
       const fileExists = await this.app.vault.adapter.exists(this.dataFile);
       if (fileExists) {
-        const file = this.app.vault.getAbstractFileByPath((0, import_obsidian6.normalizePath)(this.dataFile));
-        if (file && file instanceof import_obsidian6.TFile) {
+        const file = this.app.vault.getAbstractFileByPath((0, import_obsidian7.normalizePath)(this.dataFile));
+        if (file && file instanceof import_obsidian7.TFile) {
           await this.app.vault.modify(file, content);
         } else {
           await this.app.vault.adapter.write(this.dataFile, content);
@@ -9128,7 +9840,7 @@ ${timekeepBlock}${settingsBlock}
     if (this.onTimerChange) {
       this.onTimerChange();
     }
-    new import_obsidian6.Notice(`\u23F1\uFE0F ${t("timer.started").replace("{name}", name)}`);
+    new import_obsidian7.Notice(`\u23F1\uFE0F ${t("timer.started").replace("{name}", name)}`);
     return timer;
   }
   async stopTimer(timer) {
@@ -9144,7 +9856,7 @@ ${timekeepBlock}${settingsBlock}
       new Date(timer.startTime),
       new Date(timer.endTime)
     );
-    new import_obsidian6.Notice(`\u2705 ${t("timer.stopped").replace("{name}", timer.name).replace("{duration}", Utils.formatHoursToHM(duration))}`);
+    new import_obsidian7.Notice(`\u2705 ${t("timer.stopped").replace("{name}", timer.name).replace("{duration}", Utils.formatHoursToHM(duration))}`);
     return timer;
   }
   async stopAllTimers() {
@@ -9161,7 +9873,7 @@ ${timekeepBlock}${settingsBlock}
       if (this.onTimerChange) {
         this.onTimerChange();
       }
-      new import_obsidian6.Notice(t("timer.deleted"));
+      new import_obsidian7.Notice(t("timer.deleted"));
       return true;
     }
     return false;
@@ -9311,15 +10023,15 @@ ${timekeepBlock}${settingsBlock}
           this.onTimerChange();
         }
         if (skippedCount > 0) {
-          new import_obsidian6.Notice(`\u2705 ${t("import.imported")} ${addedCount} ${t("import.entries")}, ${t("import.skippedDuplicates")} ${skippedCount} ${t("import.duplicates")}`);
+          new import_obsidian7.Notice(`\u2705 ${t("import.imported")} ${addedCount} ${t("import.entries")}, ${t("import.skippedDuplicates")} ${skippedCount} ${t("import.duplicates")}`);
         } else {
-          new import_obsidian6.Notice(`\u2705 ${t("import.imported")} ${addedCount} ${t("import.entries")}`);
+          new import_obsidian7.Notice(`\u2705 ${t("import.imported")} ${addedCount} ${t("import.entries")}`);
         }
         return true;
       }
     } catch (error) {
       console.error("Error importing timekeep data:", error);
-      new import_obsidian6.Notice(`\u274C ${t("notifications.errorImporting")}`);
+      new import_obsidian7.Notice(`\u274C ${t("notifications.errorImporting")}`);
     }
     return false;
   }
@@ -9381,7 +10093,7 @@ ${timekeepBlock}${settingsBlock}
 };
 
 // src/main.ts
-var TimeFlowPlugin = class extends import_obsidian7.Plugin {
+var TimeFlowPlugin = class extends import_obsidian8.Plugin {
   async onload() {
     var _a;
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
@@ -9638,7 +10350,7 @@ var TimeFlowPlugin = class extends import_obsidian7.Plugin {
       corrections.push("Work days reset to Monday-Friday (at least one day required)");
     }
     if (corrections.length > 0) {
-      new import_obsidian7.Notice(`Settings auto-corrected:
+      new import_obsidian8.Notice(`Settings auto-corrected:
 ${corrections.join("\n")}`, 5e3);
     }
   }

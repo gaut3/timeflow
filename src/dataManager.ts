@@ -260,6 +260,66 @@ export class DataManager {
 	}
 
 	/**
+	 * Check if a comment is required for stopping a timer on a given date.
+	 * Required if:
+	 * - Date >= effective date
+	 * - Entry is work type or accumulate type
+	 * - Day's total work + additionalDuration exceeds (dailyGoal + threshold)
+	 */
+	checkCommentRequired(
+		dateStr: string,
+		entryType: string,
+		additionalDuration: number
+	): { required: boolean; hoursOverThreshold: number; dailyGoal: number } {
+		// Check if overtime comments feature is enabled
+		if (!this.settings.enableOvertimeComments) {
+			return { required: false, hoursOverThreshold: 0, dailyGoal: 0 };
+		}
+
+		const threshold = this.settings.overtimeCommentThreshold ?? 0.5;
+		const effectiveDate = this.settings.overtimeCommentEffectiveDate ?? '2025-01-01';
+
+		// Check if date >= effective date
+		if (dateStr < effectiveDate) {
+			return { required: false, hoursOverThreshold: 0, dailyGoal: 0 };
+		}
+
+		// Check if entry type requires comments (work/accumulate only)
+		const behavior = this.getSpecialDayBehavior(entryType);
+		if (!behavior?.isWorkType && behavior?.flextimeEffect !== 'accumulate') {
+			return { required: false, hoursOverThreshold: 0, dailyGoal: 0 };
+		}
+
+		// Calculate day's work total
+		const dailyGoal = this.getDailyGoal(dateStr);
+		const dayEntries = this.daily[dateStr] || [];
+
+		let dayWorkTotal = 0;
+		dayEntries.forEach(e => {
+			// Only count completed entries (not active ones)
+			if (!e.isActive) {
+				const eBehavior = this.getSpecialDayBehavior(e.name);
+				if (eBehavior?.isWorkType || eBehavior?.flextimeEffect === 'accumulate') {
+					dayWorkTotal += e.duration || 0;
+				}
+			}
+		});
+
+		// Add the current timer's duration
+		dayWorkTotal += additionalDuration;
+
+		// Check if exceeds threshold
+		const thresholdLimit = dailyGoal + threshold;
+		const hoursOverThreshold = dayWorkTotal - thresholdLimit;
+
+		return {
+			required: hoursOverThreshold > 0,
+			hoursOverThreshold: Math.max(0, hoursOverThreshold),
+			dailyGoal
+		};
+	}
+
+	/**
 	 * Get the behavior for an 'annet' holiday entry with dynamic properties based on time range.
 	 * - Full day (no time range): noHoursRequired=true, flextimeEffect='none'
 	 * - Partial day (with time range): noHoursRequired=false, flextimeEffect='reduce_goal'
@@ -590,7 +650,8 @@ export class DataManager {
 	}
 
 	getBalanceUpToDate(endDate: string): number {
-		let balance = 0;
+		// Start with the configured starting balance (for users migrating from other systems)
+		let balance = this.settings.startingFlextimeBalance || 0;
 		const startDate = this.settings.balanceStartDate;
 
 		const sortedDays = Object.keys(this.daily)

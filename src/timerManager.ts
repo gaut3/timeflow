@@ -11,6 +11,7 @@ export interface Timer {
 	endTime: string | null;
 	collapsed?: boolean;
 	subEntries: Timer[] | null;
+	comment?: string;
 }
 
 export interface TimekeepData {

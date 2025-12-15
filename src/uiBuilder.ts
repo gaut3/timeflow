@@ -5,6 +5,7 @@ import { TimerManager, Timer } from './timerManager';
 import { Utils, getSpecialDayColors, getSpecialDayTextColors } from './utils';
 import type TimeFlowPlugin from './main';
 import { t, formatDate, formatTime, getDayNamesShort, getMonthName, translateSpecialDayName, translateNoteTypeName, translateAnnetTemplateName } from './i18n';
+import { CommentModal } from './commentModal';
 
 export interface SystemStatus {
 	validation?: ValidationResults;
@@ -260,13 +261,57 @@ export class UIBuilder {
 			this.elements.timerBadge.textContent = t('buttons.stop');
 			this.elements.timerBadge.className = "tf-timer-badge tf-timer-stop-btn";
 			this.elements.timerBadge.onclick = async () => {
-				// Stop all active timers
+				// Stop all active timers with comment check
 				for (const timer of activeTimers) {
-					await this.timerManager.stopTimer(timer);
+					await this.stopTimerWithCommentCheck(timer);
 				}
 				this.updateTimerBadge();
 			};
 		}
+	}
+
+	/**
+	 * Stop a timer with optional comment modal.
+	 * Shows comment modal; skip is disabled if overtime threshold is exceeded.
+	 */
+	private async stopTimerWithCommentCheck(timer: Timer): Promise<void> {
+		// Calculate timer duration
+		if (!timer.startTime) return;
+
+		const start = new Date(timer.startTime);
+		const now = new Date();
+		let duration = Utils.hoursDiff(start, now);
+
+		// Deduct lunch break for work entries if configured
+		if (timer.name.toLowerCase() === 'jobb' && this.settings.lunchBreakMinutes > 0) {
+			duration = Math.max(0, duration - (this.settings.lunchBreakMinutes / 60));
+		}
+
+		// Check if comment is required
+		const dateStr = Utils.toLocalDateStr(start);
+		const commentCheck = this.data.checkCommentRequired(dateStr, timer.name, duration);
+
+		// Always show modal - skip is disabled if required
+		return new Promise((resolve) => {
+			const modal = new CommentModal(
+				this.app,
+				timer,
+				commentCheck.required,
+				commentCheck.hoursOverThreshold,
+				async (comment: string) => {
+					// Save comment and stop timer
+					timer.comment = comment || undefined;
+					await this.timerManager.stopTimer(timer);
+					resolve();
+				},
+				async () => {
+					// Skip pressed (only works if not required)
+					await this.timerManager.stopTimer(timer);
+					resolve();
+				}
+			);
+			modal.open();
+		});
 	}
 
 	showTimerTypeMenu(button: HTMLElement): void {
@@ -676,6 +721,17 @@ export class UIBuilder {
 		const detailsElement = document.createElement("div");
 		detailsElement.className = "tf-history-content";
 
+		// Export CSV button
+		const exportBtn = document.createElement("button");
+		exportBtn.className = 'tf-history-export-btn';
+		exportBtn.textContent = `📥 ${t('buttons.export')}`;
+		exportBtn.title = t('export.csvTooltip');
+		exportBtn.onclick = (e) => {
+			e.stopPropagation();
+			this.exportHistoryToCSV();
+		};
+		rightControls.appendChild(exportBtn);
+
 		// Edit toggle button (to the LEFT of tabs so tabs don't shift)
 		const editToggle = document.createElement("button");
 		editToggle.className = `tf-history-edit-btn ${this.inlineEditMode ? 'active' : ''}`;
@@ -744,6 +800,20 @@ export class UIBuilder {
 		requestAnimationFrame(() => {
 			this.updateEditToggleVisibility(detailsElement);
 		});
+
+		// Add ResizeObserver to re-render when crossing narrow/wide threshold
+		let lastWasWide = detailsElement.offsetWidth >= 450;
+		const resizeObserver = new ResizeObserver(() => {
+			const isWide = detailsElement.offsetWidth >= 450;
+			// Only re-render if we crossed the threshold and we're in list view
+			if (isWide !== lastWasWide && this.historyView === 'list') {
+				lastWasWide = isWide;
+				this.refreshHistoryView(detailsElement);
+			}
+			// Always update edit toggle visibility
+			this.updateEditToggleVisibility(detailsElement);
+		});
+		resizeObserver.observe(detailsElement);
 
 		return card;
 	}
@@ -2651,6 +2721,16 @@ export class UIBuilder {
 		if (completedEntries.length > 0) {
 			const historyP = menuInfo.createEl('p');
 			historyP.createEl('strong', { text: t('ui.history') + ':' });
+
+			// Get raw timer entries for this date to access comments
+			const rawEntriesForDate = this.timerManager.data.entries.filter(entry => {
+				if (!entry.startTime) return false;
+				const entryDate = new Date(entry.startTime);
+				return Utils.toLocalDateStr(entryDate) === dateStr;
+			});
+			// Track used entries to avoid duplicates
+			const usedRawEntries = new Set<typeof rawEntriesForDate[0]>();
+
 			completedEntries.forEach(e => {
 				const emoji = Utils.getEmoji(e);
 				// Don't show "0.0t" for special days with no duration
@@ -2659,7 +2739,27 @@ export class UIBuilder {
 				const durationText = (e.duration && e.duration > 0)
 					? `: ${e.duration.toFixed(1)}${this.settings.hourUnit}`
 					: isFullDayReduceGoal ? ` (${t('ui.fullDay')})` : '';
-				menuInfo.createEl('p', { text: emoji + ' ' + translateSpecialDayName(e.name.toLowerCase(), e.name) + durationText, cls: 'tf-ml-8' });
+
+				// Find matching raw entry to get comment
+				const matchingRaw = rawEntriesForDate.find(raw =>
+					!usedRawEntries.has(raw) &&
+					raw.name.toLowerCase() === e.name.toLowerCase() &&
+					raw.startTime === e.startTime
+				) || rawEntriesForDate.find(raw =>
+					!usedRawEntries.has(raw) &&
+					raw.name.toLowerCase() === e.name.toLowerCase()
+				);
+				if (matchingRaw) usedRawEntries.add(matchingRaw);
+
+				const entryP = menuInfo.createEl('p', { cls: 'tf-ml-8' });
+				entryP.appendText(emoji + ' ' + translateSpecialDayName(e.name.toLowerCase(), e.name) + durationText);
+
+				// Show comment if exists
+				if (matchingRaw?.comment) {
+					const commentSpan = entryP.createEl('span', { cls: 'tf-context-menu-comment' });
+					commentSpan.appendText(' 💬 ' + (matchingRaw.comment.length > 40 ? matchingRaw.comment.substring(0, 37) + '...' : matchingRaw.comment));
+					commentSpan.title = matchingRaw.comment; // Full text on hover
+				}
 			});
 
 			// Add balance information for past days
@@ -5022,6 +5122,20 @@ export class UIBuilder {
 
 				// Create tbody
 				const tbody = document.createElement('tbody');
+
+				// Get raw timer entries to access comments
+				const rawEntries = this.timerManager.data.entries;
+				const flatRawEntries: Timer[] = [];
+				rawEntries.forEach(entry => {
+					if (entry.collapsed && Array.isArray(entry.subEntries)) {
+						entry.subEntries.forEach(sub => {
+							if (sub.startTime) flatRawEntries.push(sub);
+						});
+					} else if (entry.startTime) {
+						flatRawEntries.push(entry);
+					}
+				});
+
 				monthEntries.forEach((e: TimeEntry) => {
 					const row = document.createElement('tr');
 
@@ -5029,6 +5143,12 @@ export class UIBuilder {
 					if (e.isActive) {
 						row.className = 'tf-history-row-active';
 					}
+
+					// Find matching raw entry for comment
+					const matchingRaw = flatRawEntries.find(item =>
+						item.name.toLowerCase() === e.name.toLowerCase() &&
+						item.startTime === e.startTime
+					);
 
 					// Date cell
 					const dateCell = document.createElement('td');
@@ -5093,6 +5213,17 @@ export class UIBuilder {
 					row.appendChild(actionCell);
 
 					tbody.appendChild(row);
+
+					// Comment subtitle row (if entry has comment)
+					if (matchingRaw?.comment) {
+						const commentRow = document.createElement('tr');
+						const commentCell = document.createElement('td');
+						commentCell.colSpan = 5;
+						commentCell.className = 'tf-comment-subtitle';
+						commentCell.textContent = `💬 ${matchingRaw.comment}`;
+						commentRow.appendChild(commentCell);
+						tbody.appendChild(commentRow);
+					}
 				});
 				table.appendChild(tbody);
 
@@ -5149,8 +5280,8 @@ export class UIBuilder {
 				const headerRow = document.createElement('tr');
 
 				const headers = this.inlineEditMode
-					? [t('ui.date'), t('ui.type'), t('ui.start'), t('ui.end'), t('ui.hours'), t('ui.flextime'), '']
-					: [t('ui.date'), t('ui.type'), t('ui.start'), t('ui.end'), t('ui.hours'), t('ui.flextime')];
+					? [t('ui.date'), t('ui.type'), t('ui.comment'), t('ui.start'), t('ui.end'), t('ui.hours'), t('ui.flextime'), '']
+					: [t('ui.date'), t('ui.type'), t('ui.comment'), t('ui.start'), t('ui.end'), t('ui.hours'), t('ui.flextime')];
 
 				headers.forEach(h => {
 					const th = document.createElement('th');
@@ -5309,6 +5440,43 @@ export class UIBuilder {
 							typeCell.textContent = translateSpecialDayName(entryNameLower, e.name);
 						}
 						row.appendChild(typeCell);
+
+						// Comment cell (after type)
+						const commentCell = document.createElement('td');
+						if (this.inlineEditMode && matchingRaw) {
+							// Editable textarea in inline edit mode
+							const textarea = document.createElement('textarea');
+							textarea.value = matchingRaw.comment || '';
+							textarea.placeholder = t('ui.optional');
+							textarea.rows = 1;
+							textarea.className = 'tf-comment-input';
+							textarea.maxLength = 500;
+
+							textarea.onfocus = () => { textarea.rows = 2; };
+							textarea.onblur = async () => {
+								textarea.rows = 1;
+								const newComment = textarea.value.trim();
+								if (newComment !== (matchingRaw.comment || '')) {
+									matchingRaw.comment = newComment || undefined;
+									await this.saveWithErrorHandling();
+								}
+							};
+
+							commentCell.appendChild(textarea);
+						} else {
+							// Display mode - show comment with truncation
+							const comment = matchingRaw?.comment || '';
+							if (comment) {
+								const span = document.createElement('span');
+								span.textContent = comment.length > 30 ? comment.substring(0, 27) + '...' : comment;
+								span.title = comment; // Full text on hover
+								span.className = 'tf-comment-display';
+								commentCell.appendChild(span);
+							} else {
+								commentCell.textContent = '-';
+							}
+						}
+						row.appendChild(commentCell);
 
 						// Start time cell
 						const startCell = document.createElement('td');
@@ -6062,6 +6230,235 @@ export class UIBuilder {
 		};
 
 		document.body.appendChild(overlay);
+	}
+
+	/**
+	 * Show export modal to select month
+	 */
+	exportHistoryToCSV(): void {
+		// Get available months from data
+		const availableMonths: string[] = [];
+		Object.keys(this.data.daily).forEach(dateKey => {
+			const yearMonth = dateKey.substring(0, 7);
+			if (!availableMonths.includes(yearMonth)) {
+				availableMonths.push(yearMonth);
+			}
+		});
+
+		if (availableMonths.length === 0) {
+			new Notice(t('export.noData'));
+			return;
+		}
+
+		// Sort descending (newest first)
+		availableMonths.sort().reverse();
+
+		// Default to current month
+		const now = new Date();
+		const currentYearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+		const defaultMonth = availableMonths.includes(currentYearMonth) ? currentYearMonth : availableMonths[0];
+
+		// Create modal
+		const overlay = document.createElement('div');
+		overlay.className = 'modal-container mod-dim';
+
+		const modal = document.createElement('div');
+		modal.className = 'modal tf-export-modal';
+
+		// Title
+		modal.createEl('h3', { text: t('export.selectMonth'), cls: 'tf-export-modal-title' });
+
+		// Month selector
+		const selectContainer = modal.createDiv({ cls: 'tf-export-select-container' });
+		selectContainer.createEl('label', { text: t('export.month') + ':' });
+
+		const select = selectContainer.createEl('select', { cls: 'tf-export-select' });
+
+		// Add "All months" option first
+		select.createEl('option', { text: t('export.allMonths'), value: 'all' });
+
+		availableMonths.forEach(yearMonth => {
+			const [year, month] = yearMonth.split('-').map(Number);
+			const monthName = getMonthName(new Date(year, month - 1, 1));
+			const option = select.createEl('option', { text: monthName, value: yearMonth });
+			if (yearMonth === defaultMonth) option.selected = true;
+		});
+
+		// Buttons
+		const buttonDiv = modal.createDiv({ cls: 'tf-export-buttons' });
+
+		const cancelBtn = buttonDiv.createEl('button', { text: t('buttons.cancel') });
+		cancelBtn.onclick = () => overlay.remove();
+
+		const exportBtn = buttonDiv.createEl('button', { text: `📥 ${t('buttons.export')}`, cls: 'mod-cta' });
+		exportBtn.onclick = () => {
+			const selectedMonth = select.value;
+			overlay.remove();
+			this.downloadMonthCSV(selectedMonth);
+		};
+
+		overlay.appendChild(modal);
+
+		// Close on overlay click
+		overlay.onclick = (e) => {
+			if (e.target === overlay) overlay.remove();
+		};
+
+		document.body.appendChild(overlay);
+	}
+
+	/**
+	 * Download CSV for a specific month or all months
+	 */
+	private downloadMonthCSV(yearMonth: string): void {
+		const BOM = '\uFEFF';
+		let csvContent = '';
+		let filename: string;
+		let noticeText: string;
+
+		if (yearMonth === 'all') {
+			// Export all months
+			const availableMonths: string[] = [];
+			Object.keys(this.data.daily).forEach(dateKey => {
+				const ym = dateKey.substring(0, 7);
+				if (!availableMonths.includes(ym)) availableMonths.push(ym);
+			});
+			availableMonths.sort().reverse();
+
+			if (availableMonths.length === 0) {
+				new Notice(t('export.noData'));
+				return;
+			}
+
+			availableMonths.forEach((ym, index) => {
+				if (index > 0) csvContent += '\n\n';
+				csvContent += this.generateMonthCSV(ym);
+			});
+
+			filename = `timeflow-${t('export.allMonths').toLowerCase().replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.csv`;
+			noticeText = t('export.allMonths');
+		} else {
+			// Export single month
+			csvContent = this.generateMonthCSV(yearMonth);
+			if (!csvContent) {
+				new Notice(t('export.noData'));
+				return;
+			}
+			const [year, month] = yearMonth.split('-').map(Number);
+			filename = `timeflow-${yearMonth}.csv`;
+			noticeText = getMonthName(new Date(year, month - 1, 1));
+		}
+
+		// Create and download the file
+		const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+		const url = URL.createObjectURL(blob);
+		const link = document.createElement('a');
+		link.href = url;
+		link.download = filename;
+		link.click();
+		URL.revokeObjectURL(url);
+
+		new Notice(`✅ ${t('export.success')}: ${noticeText}`);
+	}
+
+	/**
+	 * Generate CSV content for a single month
+	 */
+	private generateMonthCSV(yearMonth: string): string {
+		const [year, month] = yearMonth.split('-').map(Number);
+
+		// Get entries for this month
+		const monthEntries: TimeEntry[] = [];
+		Object.keys(this.data.daily).forEach(dateKey => {
+			if (dateKey.startsWith(yearMonth)) {
+				monthEntries.push(...this.data.daily[dateKey]);
+			}
+		});
+
+		if (monthEntries.length === 0) return '';
+
+		// Get raw entries for comments
+		const rawEntries = this.timerManager.data.entries.filter(entry => {
+			if (!entry.startTime) return false;
+			const date = new Date(entry.startTime);
+			return date.getFullYear() === year && date.getMonth() === month - 1;
+		});
+
+		const monthName = getMonthName(new Date(year, month - 1, 1));
+		const stats = this.data.getStatistics('month', year, month - 1);
+
+		let csvContent = '';
+
+		// Month header
+		csvContent += `"${monthName}"\n\n`;
+
+		// Column headers
+		csvContent += `"${t('export.date')}","${t('export.type')}","${t('export.start')}","${t('export.end')}","${t('export.hours')}","${t('export.flextime')}","${t('export.comment')}"\n`;
+
+		// Sort entries by date and time
+		const sortedEntries = [...monthEntries].sort((a, b) => {
+			const dateA = a.startTime || '';
+			const dateB = b.startTime || '';
+			return dateA.localeCompare(dateB);
+		});
+
+		// Track used raw entries
+		const usedRawEntries = new Set<Timer>();
+
+		// Entry rows
+		sortedEntries.forEach(entry => {
+			const startDate = entry.startTime ? new Date(entry.startTime) : null;
+			const endDate = entry.endTime ? new Date(entry.endTime) : null;
+
+			const dateStr = startDate ? Utils.toLocalDateStr(startDate) : '';
+			const startTime = startDate ? `${startDate.getHours().toString().padStart(2, '0')}:${startDate.getMinutes().toString().padStart(2, '0')}` : '';
+			const endTime = endDate ? `${endDate.getHours().toString().padStart(2, '0')}:${endDate.getMinutes().toString().padStart(2, '0')}` : '';
+			const hours = entry.duration ? entry.duration.toFixed(2) : '0.00';
+			const flextime = entry.flextime ? entry.flextime.toFixed(2) : '0.00';
+
+			// Find matching raw entry for comment
+			const matchingRaw = rawEntries.find(raw =>
+				!usedRawEntries.has(raw) &&
+				raw.name.toLowerCase() === entry.name.toLowerCase() &&
+				raw.startTime === entry.startTime
+			) || rawEntries.find(raw =>
+				!usedRawEntries.has(raw) &&
+				raw.name.toLowerCase() === entry.name.toLowerCase()
+			);
+			if (matchingRaw) usedRawEntries.add(matchingRaw);
+
+			const comment = matchingRaw?.comment || '';
+			const escapedComment = comment.replace(/"/g, '""');
+
+			const typeName = translateSpecialDayName(entry.name.toLowerCase(), entry.name);
+
+			csvContent += `"${dateStr}","${typeName}","${startTime}","${endTime}","${hours}","${flextime}","${escapedComment}"\n`;
+		});
+
+		// Monthly summary section
+		csvContent += '\n';
+		csvContent += `"${t('export.monthlySummary')}"\n`;
+		csvContent += `"${t('export.totalHours')}","${stats.totalHours.toFixed(2)}"\n`;
+		csvContent += `"${t('export.totalFlextime')}","${stats.totalFlextime.toFixed(2)}"\n`;
+		csvContent += `"${t('export.workDays')}","${stats.workDays}"\n`;
+		csvContent += `"${t('export.avgDaily')}","${stats.avgDailyHours.toFixed(2)}"\n`;
+
+		// Type breakdown
+		csvContent += '\n';
+		csvContent += `"${t('export.typeBreakdown')}"\n`;
+		csvContent += `"${t('export.typeHeader')}","${t('export.daysHeader')}","${t('export.hoursHeader')}"\n`;
+
+		const types = ['jobb', 'kurs', 'studie', 'ferie', 'avspasering', 'egenmelding', 'sykemelding', 'velferdspermisjon'];
+		types.forEach(type => {
+			const typeStat = stats[type as keyof typeof stats];
+			if (typeStat && typeof typeStat === 'object' && 'count' in typeStat) {
+				if (typeStat.count > 0 || typeStat.hours > 0) {
+					csvContent += `"${translateSpecialDayName(type)}","${typeStat.count}","${typeStat.hours.toFixed(2)}"\n`;
+				}
+			}
+		});
+
+		return csvContent;
 	}
 
 	cleanup(): void {

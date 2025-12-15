@@ -2,8 +2,7 @@ import { App, PluginSettingTab, Setting, Notice, Modal } from 'obsidian';
 import TimeFlowPlugin from './main';
 import { Utils } from './utils';
 import { ImportModal } from './importModal';
-import { setLanguage, t, translateAnnetTemplateName } from './i18n';
-import type { TimeEntry } from './dataManager';
+import { setLanguage, t, translateAnnetTemplateName, getMonthName, translateSpecialDayName } from './i18n';
 
 export interface TimeFlowSettings {
 	version: string;
@@ -45,6 +44,7 @@ export interface TimeFlowSettings {
 	specialDayLabels?: Record<string, string>; // DEPRECATED - kept for migration
 	// Advanced configuration settings
 	balanceStartDate: string;
+	startingFlextimeBalance: number; // Initial flextime balance to add to calculations
 	halfDayHours: number;
 	halfDayMode: 'fixed' | 'percentage';
 	balanceThresholds: {
@@ -77,6 +77,10 @@ export interface TimeFlowSettings {
 	hasTimestampMigration?: boolean; // True if UTC timestamps have been converted to local
 	// Work schedule history - periods with different work configurations
 	workScheduleHistory?: WorkSchedulePeriod[];
+	// Overtime comment settings
+	enableOvertimeComments?: boolean; // Enable/disable overtime comment requirement (default: false)
+	overtimeCommentThreshold?: number; // Hours above daily goal requiring comment (default: 0.5)
+	overtimeCommentEffectiveDate?: string; // Date from which threshold takes effect (YYYY-MM-DD)
 }
 
 export interface SpecialDayBehavior {
@@ -346,6 +350,7 @@ export const DEFAULT_SETTINGS: TimeFlowSettings = {
 	},
 	// Advanced configuration settings
 	balanceStartDate: "2025-01-01",
+	startingFlextimeBalance: 0,
 	halfDayHours: 4,
 	halfDayMode: 'fixed',
 	balanceThresholds: {
@@ -375,7 +380,11 @@ export const DEFAULT_SETTINGS: TimeFlowSettings = {
 		minimumRestHours: 11
 	},
 	// Migration flags
-	hasTimestampMigration: false
+	hasTimestampMigration: false,
+	// Overtime comment settings
+	enableOvertimeComments: true,
+	overtimeCommentThreshold: 0.5,
+	overtimeCommentEffectiveDate: "2025-01-01"
 };
 
 /**
@@ -1371,6 +1380,21 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}));
 
+		new Setting(settingsContainer)
+			.setName(t('settings.startingFlextimeBalance'))
+			.setDesc(t('settings.startingFlextimeBalanceDesc'))
+			.addText(text => text
+				.setPlaceholder('0')
+				.setValue(this.plugin.settings.startingFlextimeBalance.toString())
+				.onChange(async (value) => {
+					const num = parseFloat(value);
+					if (!isNaN(num)) {
+						this.plugin.settings.startingFlextimeBalance = num;
+						await this.plugin.saveSettings();
+						await this.refreshView();
+					}
+				}));
+
 		// ============================================================
 		// SECTION 2: WORK CONFIGURATION
 		// ============================================================
@@ -1761,6 +1785,52 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 						await this.refreshView();
 					}
 				}));
+
+		// Overtime comments toggle and settings
+		new Setting(complianceSection.content)
+			.setName(t('settings.enableOvertimeComments'))
+			.setDesc(t('settings.enableOvertimeCommentsDesc'))
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.enableOvertimeComments ?? false)
+				.onChange(async (value) => {
+					this.plugin.settings.enableOvertimeComments = value;
+					await this.plugin.saveSettings();
+					this.display(); // Refresh to show/hide dependent settings
+				}));
+
+		// Only show threshold and date settings if overtime comments are enabled
+		if (this.plugin.settings.enableOvertimeComments) {
+			new Setting(complianceSection.content)
+				.setName(t('settings.overtimeCommentThreshold'))
+				.setDesc(t('settings.overtimeCommentThresholdDesc'))
+				.addText(text => text
+					.setPlaceholder('0.5')
+					.setValue((this.plugin.settings.overtimeCommentThreshold ?? 0.5).toString())
+					.onChange(async (value) => {
+						const num = parseFloat(value);
+						if (!isNaN(num) && num >= 0 && num <= 5) {
+							this.plugin.settings.overtimeCommentThreshold = num;
+							await this.plugin.saveSettings();
+						}
+					}));
+
+			new Setting(complianceSection.content)
+				.setName(t('settings.overtimeCommentEffectiveDate'))
+				.setDesc(t('settings.overtimeCommentEffectiveDateDesc'))
+				.addText(text => text
+					.setPlaceholder('2025-01-01')
+					.setValue(this.plugin.settings.overtimeCommentEffectiveDate ?? '2025-01-01')
+					.onChange(async (value) => {
+						// Validate date format
+						if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+							const date = new Date(value);
+							if (!isNaN(date.getTime())) {
+								this.plugin.settings.overtimeCommentEffectiveDate = value;
+								await this.plugin.saveSettings();
+							}
+						}
+					}));
+		}
 
 		// ============================================================
 		// SECTION 3: ENTRY TYPES
@@ -2499,34 +2569,252 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 
 	exportToCSV(): void {
 		// Get all entries from timer manager
-		const entries = this.plugin.timerManager.convertToTimeEntries();
-		const rows: string[][] = [['Name', 'Start Time', 'End Time', 'Duration (hours)']];
+		const entries = this.plugin.timerManager.data.entries;
 
-		entries.forEach((entry: TimeEntry) => {
-			if (entry.startTime && entry.endTime) {
-				const start = new Date(entry.startTime);
-				const end = new Date(entry.endTime);
-				const durationHours = ((end.getTime() - start.getTime()) / (1000 * 60 * 60)).toFixed(2);
-
-				rows.push([
-					entry.name,
-					start.toISOString(),
-					end.toISOString(),
-					durationHours
-				]);
+		// Get available months from entries
+		const availableMonths: string[] = [];
+		entries.forEach(entry => {
+			if (entry.startTime) {
+				const yearMonth = entry.startTime.substring(0, 7);
+				if (!availableMonths.includes(yearMonth)) {
+					availableMonths.push(yearMonth);
+				}
 			}
 		});
 
-		const csv = rows.map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
-		const blob = new Blob([csv], { type: 'text/csv' });
+		if (availableMonths.length === 0) {
+			new Notice(t('export.noData'));
+			return;
+		}
+
+		// Sort descending (newest first)
+		availableMonths.sort().reverse();
+
+		// Default to current month
+		const now = new Date();
+		const currentYearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+		const defaultMonth = availableMonths.includes(currentYearMonth) ? currentYearMonth : availableMonths[0];
+
+		// Create modal
+		const overlay = document.createElement('div');
+		overlay.className = 'modal-container mod-dim';
+
+		const modal = document.createElement('div');
+		modal.className = 'modal tf-export-modal';
+
+		// Title
+		const title = document.createElement('h3');
+		title.className = 'tf-export-modal-title';
+		title.textContent = t('export.selectMonth');
+		modal.appendChild(title);
+
+		// Month selector
+		const selectContainer = document.createElement('div');
+		selectContainer.className = 'tf-export-select-container';
+
+		const label = document.createElement('label');
+		label.textContent = t('export.month') + ':';
+		selectContainer.appendChild(label);
+
+		const select = document.createElement('select');
+		select.className = 'tf-export-select';
+
+		// Add "All months" option first
+		const allOption = document.createElement('option');
+		allOption.value = 'all';
+		allOption.textContent = t('export.allMonths');
+		select.appendChild(allOption);
+
+		availableMonths.forEach(yearMonth => {
+			const [year, month] = yearMonth.split('-').map(Number);
+			const monthName = getMonthName(new Date(year, month - 1, 1));
+			const option = document.createElement('option');
+			option.value = yearMonth;
+			option.textContent = monthName;
+			if (yearMonth === defaultMonth) option.selected = true;
+			select.appendChild(option);
+		});
+
+		selectContainer.appendChild(select);
+		modal.appendChild(selectContainer);
+
+		// Buttons
+		const buttonDiv = document.createElement('div');
+		buttonDiv.className = 'tf-export-buttons';
+
+		const cancelBtn = document.createElement('button');
+		cancelBtn.textContent = t('buttons.cancel');
+		cancelBtn.onclick = () => overlay.remove();
+		buttonDiv.appendChild(cancelBtn);
+
+		const exportBtn = document.createElement('button');
+		exportBtn.className = 'mod-cta';
+		exportBtn.textContent = `📥 ${t('buttons.export')}`;
+		exportBtn.onclick = () => {
+			const selectedMonth = select.value;
+			overlay.remove();
+			this.downloadMonthCSV(selectedMonth, entries);
+		};
+		buttonDiv.appendChild(exportBtn);
+
+		modal.appendChild(buttonDiv);
+		overlay.appendChild(modal);
+
+		// Close on overlay click
+		overlay.onclick = (e) => {
+			if (e.target === overlay) overlay.remove();
+		};
+
+		document.body.appendChild(overlay);
+	}
+
+	private downloadMonthCSV(yearMonth: string, allEntries: typeof this.plugin.timerManager.data.entries): void {
+		const BOM = '\uFEFF';
+		let csvContent = '';
+		let filename: string;
+		let noticeText: string;
+
+		if (yearMonth === 'all') {
+			// Export all months
+			const availableMonths: string[] = [];
+			allEntries.forEach(entry => {
+				if (entry.startTime) {
+					const ym = entry.startTime.substring(0, 7);
+					if (!availableMonths.includes(ym)) availableMonths.push(ym);
+				}
+			});
+			availableMonths.sort().reverse();
+
+			if (availableMonths.length === 0) {
+				new Notice(t('export.noData'));
+				return;
+			}
+
+			availableMonths.forEach((ym, index) => {
+				if (index > 0) csvContent += '\n\n';
+				csvContent += this.generateMonthCSV(ym, allEntries);
+			});
+
+			filename = `timeflow-${t('export.allMonths').toLowerCase().replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.csv`;
+			noticeText = t('export.allMonths');
+		} else {
+			// Export single month
+			csvContent = this.generateMonthCSV(yearMonth, allEntries);
+			if (!csvContent) {
+				new Notice(t('export.noData'));
+				return;
+			}
+			const [year, month] = yearMonth.split('-').map(Number);
+			filename = `timeflow-${yearMonth}.csv`;
+			noticeText = getMonthName(new Date(year, month - 1, 1));
+		}
+
+		// Create and download the file
+		const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
 		const url = URL.createObjectURL(blob);
-		const a = document.createElement('a');
-		a.href = url;
-		a.download = `timeflow-export-${Utils.toLocalDateStr(new Date())}.csv`;
-		a.click();
+		const link = document.createElement('a');
+		link.href = url;
+		link.download = filename;
+		link.click();
 		URL.revokeObjectURL(url);
 
-		new Notice('✅ exported to CSV');
+		new Notice(`✅ ${t('export.success')}: ${noticeText}`);
+	}
+
+	private generateMonthCSV(yearMonth: string, allEntries: typeof this.plugin.timerManager.data.entries): string {
+		const [year, month] = yearMonth.split('-').map(Number);
+
+		// Get entries for this month
+		const monthEntries = allEntries.filter(entry => {
+			if (!entry.startTime) return false;
+			return entry.startTime.startsWith(yearMonth);
+		});
+
+		if (monthEntries.length === 0) return '';
+
+		const monthName = getMonthName(new Date(year, month - 1, 1));
+
+		let csvContent = '';
+
+		// Month header
+		csvContent += `"${monthName}"\n\n`;
+
+		// Column headers
+		csvContent += `"${t('export.date')}","${t('export.type')}","${t('export.start')}","${t('export.end')}","${t('export.hours')}","${t('export.comment')}"\n`;
+
+		// Sort entries by date and time
+		const sortedEntries = [...monthEntries].sort((a, b) => {
+			const dateA = a.startTime || '';
+			const dateB = b.startTime || '';
+			return dateA.localeCompare(dateB);
+		});
+
+		// Entry rows
+		sortedEntries.forEach(entry => {
+			if (!entry.startTime || !entry.endTime) return;
+
+			const startDate = new Date(entry.startTime);
+			const endDate = new Date(entry.endTime);
+
+			const dateStr = Utils.toLocalDateStr(startDate);
+			const startTime = `${startDate.getHours().toString().padStart(2, '0')}:${startDate.getMinutes().toString().padStart(2, '0')}`;
+			const endTime = `${endDate.getHours().toString().padStart(2, '0')}:${endDate.getMinutes().toString().padStart(2, '0')}`;
+			const hours = ((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60)).toFixed(2);
+
+			const comment = entry.comment || '';
+			const escapedComment = comment.replace(/"/g, '""');
+
+			const typeName = translateSpecialDayName(entry.name.toLowerCase(), entry.name);
+
+			csvContent += `"${dateStr}","${typeName}","${startTime}","${endTime}","${hours}","${escapedComment}"\n`;
+		});
+
+		// Monthly summary section
+		let totalHours = 0;
+		let workDays = 0;
+		const daysWithEntries = new Set<string>();
+
+		sortedEntries.forEach(entry => {
+			if (entry.startTime && entry.endTime) {
+				const startDate = new Date(entry.startTime);
+				const endDate = new Date(entry.endTime);
+				totalHours += (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60);
+				daysWithEntries.add(Utils.toLocalDateStr(startDate));
+			}
+		});
+		workDays = daysWithEntries.size;
+
+		csvContent += '\n';
+		csvContent += `"${t('export.monthlySummary')}"\n`;
+		csvContent += `"${t('export.totalHours')}","${totalHours.toFixed(2)}"\n`;
+		csvContent += `"${t('export.workDays')}","${workDays}"\n`;
+		csvContent += `"${t('export.avgDaily')}","${workDays > 0 ? (totalHours / workDays).toFixed(2) : '0.00'}"\n`;
+
+		// Type breakdown
+		csvContent += '\n';
+		csvContent += `"${t('export.typeBreakdown')}"\n`;
+		csvContent += `"${t('export.typeHeader')}","${t('export.daysHeader')}","${t('export.hoursHeader')}"\n`;
+
+		const typeStats: Record<string, { days: Set<string>; hours: number }> = {};
+		sortedEntries.forEach(entry => {
+			if (entry.startTime && entry.endTime) {
+				const typeName = entry.name.toLowerCase();
+				if (!typeStats[typeName]) {
+					typeStats[typeName] = { days: new Set(), hours: 0 };
+				}
+				const startDate = new Date(entry.startTime);
+				const endDate = new Date(entry.endTime);
+				typeStats[typeName].days.add(Utils.toLocalDateStr(startDate));
+				typeStats[typeName].hours += (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60);
+			}
+		});
+
+		Object.keys(typeStats).forEach(type => {
+			const stat = typeStats[type];
+			csvContent += `"${translateSpecialDayName(type)}","${stat.days.size}","${stat.hours.toFixed(2)}"\n`;
+		});
+
+		return csvContent;
 	}
 
 	showImportModal(): void {

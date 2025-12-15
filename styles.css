@@ -1032,7 +1032,6 @@
 	width: 100%;
 	border-collapse: collapse;
 	margin-bottom: 15px;
-	table-layout: fixed;
 }
 
 .tf-history-table-wide th,
@@ -1052,21 +1051,23 @@
 	background: var(--background-secondary);
 }
 
-/* Fixed column widths for wide table */
+/* Column widths for wide table: Date, Type, Comment, Start, End, Hours, Flextime, Delete */
 .tf-history-table-wide th:nth-child(1),
-.tf-history-table-wide td:nth-child(1) { width: 100px; }
+.tf-history-table-wide td:nth-child(1) { min-width: 85px; white-space: nowrap; }  /* Date */
 .tf-history-table-wide th:nth-child(2),
-.tf-history-table-wide td:nth-child(2) { width: 120px; }
+.tf-history-table-wide td:nth-child(2) { min-width: 90px; } /* Type */
 .tf-history-table-wide th:nth-child(3),
-.tf-history-table-wide td:nth-child(3) { width: 80px; }
+.tf-history-table-wide td:nth-child(3) { min-width: 80px; } /* Comment */
 .tf-history-table-wide th:nth-child(4),
-.tf-history-table-wide td:nth-child(4) { width: 80px; }
+.tf-history-table-wide td:nth-child(4) { min-width: 55px; white-space: nowrap; }  /* Start */
 .tf-history-table-wide th:nth-child(5),
-.tf-history-table-wide td:nth-child(5) { width: 70px; }
+.tf-history-table-wide td:nth-child(5) { min-width: 55px; white-space: nowrap; }  /* End */
 .tf-history-table-wide th:nth-child(6),
-.tf-history-table-wide td:nth-child(6) { width: 80px; }
+.tf-history-table-wide td:nth-child(6) { min-width: 55px; white-space: nowrap; }  /* Hours */
 .tf-history-table-wide th:nth-child(7),
-.tf-history-table-wide td:nth-child(7) { width: 40px; }
+.tf-history-table-wide td:nth-child(7) { min-width: 60px; white-space: nowrap; }  /* Flextime */
+.tf-history-table-wide th:nth-child(8),
+.tf-history-table-wide td:nth-child(8) { min-width: 40px; }  /* Delete */
 
 /* Fixed column widths for narrow table */
 .tf-history-table-narrow th:nth-child(1),
@@ -4034,4 +4035,175 @@
 
 .tf-text-default-size {
 	font-size: 1.3em;
+}
+
+/* ========================================
+   Comment Modal Styles
+   ======================================== */
+
+.tf-comment-modal {
+	max-width: 500px;
+}
+
+.tf-comment-modal-title {
+	margin: 0 0 16px 0;
+	font-size: 1.2em;
+}
+
+.tf-comment-required-notice {
+	background: var(--background-modifier-error);
+	padding: 10px 14px;
+	border-radius: 6px;
+	margin-bottom: 16px;
+	font-size: 0.95em;
+}
+
+.tf-comment-prompt {
+	margin: 0 0 8px 0;
+	color: var(--text-muted);
+}
+
+.tf-comment-textarea {
+	width: 100%;
+	min-height: 80px;
+	padding: 10px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	font-family: inherit;
+	font-size: 0.95em;
+	resize: vertical;
+	background: var(--background-primary);
+	color: var(--text-normal);
+}
+
+.tf-comment-textarea:focus {
+	outline: none;
+	border-color: var(--interactive-accent);
+}
+
+.tf-comment-textarea-error {
+	border-color: var(--text-error);
+}
+
+.tf-comment-char-count {
+	text-align: right;
+	font-size: 0.85em;
+	color: var(--text-muted);
+	margin-top: 4px;
+	margin-bottom: 16px;
+}
+
+.tf-comment-buttons {
+	display: flex;
+	justify-content: flex-end;
+	gap: 10px;
+}
+
+.tf-comment-skip-btn {
+	background: transparent;
+	border: 1px solid var(--background-modifier-border);
+}
+
+.tf-comment-skip-disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+/* History Table Comment Column */
+.tf-comment-input {
+	width: 100%;
+	min-width: 100px;
+	padding: 4px 6px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	font-size: 0.9em;
+	resize: none;
+	font-family: inherit;
+	background: var(--background-primary);
+	color: var(--text-normal);
+}
+
+.tf-comment-input:focus {
+	outline: none;
+	border-color: var(--interactive-accent);
+}
+
+.tf-comment-display {
+	font-size: 0.9em;
+	color: var(--text-muted);
+	font-style: italic;
+	max-width: 150px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.tf-comment-subtitle {
+	font-size: 0.85em;
+	color: var(--text-muted);
+	font-style: italic;
+	padding-left: 20px;
+}
+
+/* Context menu comment display */
+.tf-context-menu-comment {
+	display: block;
+	font-size: 0.85em;
+	color: var(--text-muted);
+	font-style: italic;
+	margin-top: 2px;
+	cursor: help;
+}
+
+/* History export button */
+.tf-history-export-btn {
+	padding: 4px 8px;
+	border-radius: 4px;
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-primary);
+	color: var(--text-normal);
+	cursor: pointer;
+	font-size: 0.85em;
+	margin-right: 8px;
+	transition: background-color 0.15s ease;
+}
+
+.tf-history-export-btn:hover {
+	background: var(--background-modifier-hover);
+}
+
+/* Export modal */
+.tf-export-modal {
+	padding: 20px;
+	min-width: 300px;
+}
+
+.tf-export-modal-title {
+	margin: 0 0 16px 0;
+	font-size: 1.2em;
+}
+
+.tf-export-select-container {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	margin-bottom: 20px;
+}
+
+.tf-export-select {
+	padding: 8px 12px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	background: var(--background-primary);
+	color: var(--text-normal);
+	font-size: 1em;
+	line-height: 1.4;
+	height: auto;
+	min-height: 36px;
+}
+
+.tf-export-buttons {
+	display: flex;
+	justify-content: flex-end;
+	gap: 10px;
 }

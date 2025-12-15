@@ -290,6 +290,11 @@ const translations: Record<Language, TranslationStrings> = {
 				default: 'F.eks. "Kommentar"',
 			},
 			durationHint: 'Antall timer (f.eks. 3.5 for resten av dagen etter sykdom)',
+			commentRequired: 'Kommentar påkrevd',
+			commentTitle: 'Legg til kommentar',
+			overtimeExplanation: 'Du har jobbet {hours} over dagsmålet.',
+			commentPrompt: 'Vennligst forklar hvorfor:',
+			skip: 'Hopp over',
 		},
 		validation: {
 			endAfterStart: 'Sluttid må være etter starttid',
@@ -461,6 +466,30 @@ const translations: Record<Language, TranslationStrings> = {
 				type: 'Type',
 			},
 		},
+		export: {
+			csvTooltip: 'Eksporter historikk til CSV-fil',
+			noData: 'Ingen data å eksportere',
+			success: 'Eksport fullført',
+			selectMonth: 'Eksporter måned',
+			month: 'Måned',
+			allMonths: 'Alle måneder',
+			date: 'Dato',
+			type: 'Type',
+			start: 'Start',
+			end: 'Slutt',
+			hours: 'Timer',
+			flextime: 'Fleksitid',
+			comment: 'Kommentar',
+			monthlySummary: 'Månedlig oppsummering',
+			totalHours: 'Totalt timer',
+			totalFlextime: 'Total fleksitid',
+			workDays: 'Arbeidsdager',
+			avgDaily: 'Gjennomsnitt per dag',
+			typeBreakdown: 'Fordeling per type',
+			typeHeader: 'Type',
+			daysHeader: 'Dager',
+			hoursHeader: 'Timer',
+		},
 		settings: {
 			language: 'Språk',
 			languageDesc: 'Velg språk for grensesnittet',
@@ -468,10 +497,19 @@ const translations: Record<Language, TranslationStrings> = {
 			showWeekNumbersDesc: 'Vis ukenummer i kalender og uke-kortet (ISO 8601 ukenummer)',
 			hideEmptyStats: 'Skjul tomme statistikker',
 			hideEmptyStatsDesc: 'Skjul statistikker med 0 timer/dager',
+			startingFlextimeBalance: 'Startbalanse fleksitid',
+			startingFlextimeBalanceDesc: 'Fleksitidssaldo å starte med (bruk dette hvis du migrerer fra et annet system)',
 			importData: 'Importer data',
 			importDataDesc: 'Importer tidsdata fra ulike formater: Timekeep JSON, CSV (norsk/ISO datoformat), eller JSON-arrays',
 			absenceTypesDesc: 'Opprett egendefinerte fraværskategorier med spesifikke fleksitid- og statistikkregler. Støtter fravær over flere dager. For enkeltstående fravær, bruk "Annet-maler" nedenfor.',
 			addAbsenceType: 'Legg til fraværstype',
+			overtimeComments: 'Overtidskommentarer',
+			enableOvertimeComments: 'Krev kommentar ved overtid',
+			enableOvertimeCommentsDesc: 'Krev kommentar når du stopper en timer og har jobbet mer enn dagsmålet + terskel',
+			overtimeCommentThreshold: 'Kommentarkrav (timer over mål)',
+			overtimeCommentThresholdDesc: 'Krev kommentar når dagstotal overstiger dagsmål + dette antall timer (standard: 0.5)',
+			overtimeCommentEffectiveDate: 'Gjelder fra dato',
+			overtimeCommentEffectiveDateDesc: 'Dato fra når kommentarkravet trer i kraft (eldre oppføringer påvirkes ikke)',
 		},
 		compliance: {
 			title: 'Arbeidstidsgrenser',
@@ -663,6 +701,11 @@ const translations: Record<Language, TranslationStrings> = {
 				default: 'E.g. "Comment"',
 			},
 			durationHint: 'Number of hours (e.g. 3.5 for rest of day after leaving sick)',
+			commentRequired: 'Comment required',
+			commentTitle: 'Add comment',
+			overtimeExplanation: 'You worked {hours} over the daily goal.',
+			commentPrompt: 'Please explain why:',
+			skip: 'Skip',
 		},
 		validation: {
 			endAfterStart: 'End time must be after start time',
@@ -834,6 +877,30 @@ const translations: Record<Language, TranslationStrings> = {
 				type: 'Type',
 			},
 		},
+		export: {
+			csvTooltip: 'Export history to CSV file',
+			noData: 'No data to export',
+			success: 'Export completed',
+			selectMonth: 'Export month',
+			month: 'Month',
+			allMonths: 'All months',
+			date: 'Date',
+			type: 'Type',
+			start: 'Start',
+			end: 'End',
+			hours: 'Hours',
+			flextime: 'Flextime',
+			comment: 'Comment',
+			monthlySummary: 'Monthly summary',
+			totalHours: 'Total hours',
+			totalFlextime: 'Total flextime',
+			workDays: 'Work days',
+			avgDaily: 'Average per day',
+			typeBreakdown: 'Breakdown by type',
+			typeHeader: 'Type',
+			daysHeader: 'Days',
+			hoursHeader: 'Hours',
+		},
 		settings: {
 			language: 'Language',
 			languageDesc: 'Choose interface language',
@@ -841,10 +908,19 @@ const translations: Record<Language, TranslationStrings> = {
 			showWeekNumbersDesc: 'Show week numbers in calendar and week card (ISO 8601 week numbers)',
 			hideEmptyStats: 'Hide empty statistics',
 			hideEmptyStatsDesc: 'Hide statistics with 0 hours/days',
+			startingFlextimeBalance: 'Starting flextime balance',
+			startingFlextimeBalanceDesc: 'Initial flextime balance to start with (use this if migrating from another system)',
 			importData: 'Import data',
 			importDataDesc: 'Import time data from various formats: Timekeep JSON, CSV (Norwegian/ISO date format), or JSON arrays',
 			absenceTypesDesc: 'Create custom absence categories with specific flextime and statistics rules. Supports multi-day absences. For occasional one-off absences, use "Other templates" below.',
 			addAbsenceType: 'Add absence type',
+			overtimeComments: 'Overtime comments',
+			enableOvertimeComments: 'Require comment on overtime',
+			enableOvertimeCommentsDesc: 'Require comment when stopping a timer and daily work exceeds goal + threshold',
+			overtimeCommentThreshold: 'Comment required (hours over goal)',
+			overtimeCommentThresholdDesc: 'Require comment when daily total exceeds daily goal + this many hours (default: 0.5)',
+			overtimeCommentEffectiveDate: 'Effective from date',
+			overtimeCommentEffectiveDateDesc: 'Date from when comment requirement takes effect (older entries are not affected)',
 		},
 		compliance: {
 			title: 'Work time limits',
@@ -1038,6 +1114,11 @@ interface TranslationStrings {
 			default: string;
 		};
 		durationHint: string;
+		commentRequired: string;
+		commentTitle: string;
+		overtimeExplanation: string;
+		commentPrompt: string;
+		skip: string;
 	};
 	validation: {
 		endAfterStart: string;
@@ -1209,6 +1290,30 @@ interface TranslationStrings {
 			type: string;
 		};
 	};
+	export: {
+		csvTooltip: string;
+		noData: string;
+		success: string;
+		selectMonth: string;
+		month: string;
+		allMonths: string;
+		date: string;
+		type: string;
+		start: string;
+		end: string;
+		hours: string;
+		flextime: string;
+		comment: string;
+		monthlySummary: string;
+		totalHours: string;
+		totalFlextime: string;
+		workDays: string;
+		avgDaily: string;
+		typeBreakdown: string;
+		typeHeader: string;
+		daysHeader: string;
+		hoursHeader: string;
+	};
 	settings: {
 		language: string;
 		languageDesc: string;
@@ -1216,10 +1321,19 @@ interface TranslationStrings {
 		showWeekNumbersDesc: string;
 		hideEmptyStats: string;
 		hideEmptyStatsDesc: string;
+		startingFlextimeBalance: string;
+		startingFlextimeBalanceDesc: string;
 		importData: string;
 		importDataDesc: string;
 		absenceTypesDesc: string;
 		addAbsenceType: string;
+		overtimeComments: string;
+		enableOvertimeComments: string;
+		enableOvertimeCommentsDesc: string;
+		overtimeCommentThreshold: string;
+		overtimeCommentThresholdDesc: string;
+		overtimeCommentEffectiveDate: string;
+		overtimeCommentEffectiveDateDesc: string;
 	};
 	compliance: {
 		title: string;
