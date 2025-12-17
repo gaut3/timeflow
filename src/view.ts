@@ -61,7 +61,7 @@ export class TimeFlowView extends ItemView {
 			this.dataManager = new DataManager(allEntries, this.plugin.settings, this.app);
 
 			// Load holidays asynchronously
-			const holidayStatus = await this.dataManager.loadHolidays();
+			let holidayStatus = await this.dataManager.loadHolidays();
 
 			// Convert past planned days to timer entries (so they appear in Historikk)
 			const converted = await this.plugin.timerManager.convertPastPlannedDays(
@@ -72,8 +72,8 @@ export class TimeFlowView extends ItemView {
 				// Refresh entries after conversion since new entries were added
 				const updatedEntries = this.plugin.timerManager.convertToTimeEntries();
 				this.dataManager = new DataManager(updatedEntries, this.plugin.settings, this.app);
-				// Re-load holidays into new dataManager
-				await this.dataManager.loadHolidays();
+				// Re-load holidays into new dataManager and update status
+				holidayStatus = await this.dataManager.loadHolidays();
 			}
 
 			// Process entries
@@ -86,7 +86,8 @@ export class TimeFlowView extends ItemView {
 			const systemStatus = {
 				holiday: holidayStatus,
 				validation: validationResults,
-				activeTimers: this.dataManager.activeEntries.length
+				activeTimers: this.dataManager.activeEntries.length,
+				dataParseError: this.plugin.timerManager.dataParseError
 			};
 
 			// Build UI

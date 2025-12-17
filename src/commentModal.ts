@@ -87,9 +87,9 @@ export class CommentModal extends Modal {
 			skipBtn.addClass('tf-comment-skip-disabled');
 			skipBtn.title = t('modals.commentRequired');
 		}
-		skipBtn.addEventListener('click', async () => {
+		skipBtn.addEventListener('click', () => {
 			this.close();
-			await this.onSkip();
+			void this.onSkip();
 		});
 
 		// Save button
@@ -97,7 +97,7 @@ export class CommentModal extends Modal {
 			text: t('buttons.save'),
 			cls: 'mod-cta'
 		});
-		saveBtn.addEventListener('click', async () => {
+		saveBtn.addEventListener('click', () => {
 			const comment = textarea.value.trim();
 			if (this.isRequired && !comment) {
 				// Show validation error - don't close
@@ -105,7 +105,7 @@ export class CommentModal extends Modal {
 				return;
 			}
 			this.close();
-			await this.onSubmit(comment);
+			void this.onSubmit(comment);
 		});
 
 		// Focus textarea

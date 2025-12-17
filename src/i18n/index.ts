@@ -228,6 +228,16 @@ const translations: Record<Language, TranslationStrings> = {
 			activeTimers: 'aktive timer',
 			entriesChecked: 'oppføringer sjekket',
 			loadedPlannedDays: 'Lastet inn {count} planlagte dager',
+			errors: 'Feil ({count}):',
+			moreErrors: '...og {count} flere feil',
+			warnings: 'Advarsler ({count}):',
+			moreWarnings: '...og {count} flere advarsler',
+			dataParseError: 'Kunne ikke lese timeflow-data. Filen kan være skadet. Sjekk versjonhistorikk i synctjenesten for å gjenopprette.',
+			holidayParseErrors: '{count} linjer i feriedager-filen kunne ikke leses',
+			duplicateHolidays: 'Duplikate datoer i feriedager: {dates}',
+			invalidTimeRange: 'Ugyldig tidsrom for {date}',
+			unknownEntryTypes: '{count} oppføringer har ukjent type',
+			balanceStartAfterFirst: 'Startdato for saldo ({date}) er etter første oppføring - noen oppføringer telles ikke',
 		},
 		buttons: {
 			cancel: 'Avbryt',
@@ -634,12 +644,22 @@ const translations: Record<Language, TranslationStrings> = {
 			allLimitsOk: 'All limits are OK.',
 			withinLimits: 'Within limits',
 			approachingLimits: 'Approaching',
-			systemStatus: 'System Status',
+			systemStatus: 'System status',
 			clickForDetails: 'click for details',
 			holidayNotLoaded: 'Holiday data not loaded',
 			activeTimers: 'active timers',
 			entriesChecked: 'entries checked',
 			loadedPlannedDays: 'Loaded {count} planned days',
+			errors: 'Errors ({count}):',
+			moreErrors: '...and {count} more errors',
+			warnings: 'Warnings ({count}):',
+			moreWarnings: '...and {count} more warnings',
+			dataParseError: 'Could not parse timeflow data. File may be corrupted. Check sync service version history to restore.',
+			holidayParseErrors: '{count} lines in holidays file could not be parsed',
+			duplicateHolidays: 'Duplicate dates in holidays: {dates}',
+			invalidTimeRange: 'Invalid time range for {date}',
+			unknownEntryTypes: '{count} entries have unknown type',
+			balanceStartAfterFirst: 'Balance start date ({date}) is after first entry - some entries not counted',
 		},
 		buttons: {
 			cancel: 'Cancel',
@@ -1054,6 +1074,16 @@ interface TranslationStrings {
 		activeTimers: string;
 		entriesChecked: string;
 		loadedPlannedDays: string;
+		errors: string;
+		moreErrors: string;
+		warnings: string;
+		moreWarnings: string;
+		dataParseError: string;
+		holidayParseErrors: string;
+		duplicateHolidays: string;
+		invalidTimeRange: string;
+		unknownEntryTypes: string;
+		balanceStartAfterFirst: string;
 	};
 	buttons: {
 		cancel: string;

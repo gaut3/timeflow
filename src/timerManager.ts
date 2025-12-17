@@ -27,6 +27,7 @@ export class TimerManager {
 	onTimerChange?: () => void;
 	private isSaving = false;
 	private lastSaveTime = 0;
+	dataParseError = false; // Track if data file could not be parsed
 
 	constructor(app: App, settings: TimeFlowSettings) {
 		this.app = app;
@@ -47,6 +48,7 @@ export class TimerManager {
 	}
 
 	async load(): Promise<TimeFlowSettings | null> {
+		this.dataParseError = false; // Reset parse error state
 		try {
 			// Check if file exists using the adapter
 			const fileExists = await this.app.vault.adapter.exists(this.dataFile);
@@ -69,8 +71,21 @@ export class TimerManager {
 						return parsed.settings as TimeFlowSettings;
 					}
 				} else {
-					console.warn('TimeFlow: Could not parse data from', this.dataFile);
-					this.data = { entries: [] };
+					// File exists but couldn't be parsed - this is a critical error
+					// Check if the file has content (not just empty)
+					const trimmedContent = content.trim();
+					if (trimmedContent.length > 0) {
+						// File has content but couldn't be parsed - likely corrupted
+						this.dataParseError = true;
+						console.error('TimeFlow: Could not parse data from', this.dataFile, '- file may be corrupted');
+						new Notice(t('status.dataParseError'), 10000);
+						// Keep data empty but DON'T overwrite the file
+						this.data = { entries: [] };
+					} else {
+						// File is empty - treat as new file
+						console.warn('TimeFlow: Data file is empty, initializing', this.dataFile);
+						this.data = { entries: [] };
+					}
 				}
 			} else {
 				// Create the file if it doesn't exist
@@ -142,6 +157,11 @@ ${timekeepBlock}${settingsBlock}
 	}
 
 	async save(): Promise<void> {
+		// Don't save if there was a parse error - prevent overwriting potentially recoverable data
+		if (this.dataParseError) {
+			console.warn('TimeFlow: Skipping save due to previous parse error - file may be corrupted');
+			return;
+		}
 		this.isSaving = true;
 		this.lastSaveTime = Date.now();
 		try {

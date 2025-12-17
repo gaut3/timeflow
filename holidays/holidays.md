@@ -74,9 +74,8 @@ Du kan legge til dine egne planlagte dager ved å følge samme format som hellig
 - 2027-03-29: helligdag: Andre påskedag
 - 2027-05-01: helligdag: Arbeidernes dag / Første mai
 - 2027-05-06: helligdag: Kristi himmelfartsdag
-- 2027-05-17: helligdag: Grunnlovsdag / Nasjonaldagen
 - 2027-05-16: helligdag: Første pinsedag
-- 2027-05-17: helligdag: Andre pinsedag
+- 2027-05-17: helligdag: Grunnlovsdag / Andre pinsedag
 - 2027-12-24: helligdag: Julaften
 - 2027-12-25: helligdag: Første juledag
 - 2027-12-26: helligdag: Andre juledag

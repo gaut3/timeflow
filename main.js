@@ -302,7 +302,17 @@ var translations = {
       holidayNotLoaded: "Helligdagsdata ikke lastet",
       activeTimers: "aktive timer",
       entriesChecked: "oppf\xF8ringer sjekket",
-      loadedPlannedDays: "Lastet inn {count} planlagte dager"
+      loadedPlannedDays: "Lastet inn {count} planlagte dager",
+      errors: "Feil ({count}):",
+      moreErrors: "...og {count} flere feil",
+      warnings: "Advarsler ({count}):",
+      moreWarnings: "...og {count} flere advarsler",
+      dataParseError: "Kunne ikke lese timeflow-data. Filen kan v\xE6re skadet. Sjekk versjonhistorikk i synctjenesten for \xE5 gjenopprette.",
+      holidayParseErrors: "{count} linjer i feriedager-filen kunne ikke leses",
+      duplicateHolidays: "Duplikate datoer i feriedager: {dates}",
+      invalidTimeRange: "Ugyldig tidsrom for {date}",
+      unknownEntryTypes: "{count} oppf\xF8ringer har ukjent type",
+      balanceStartAfterFirst: "Startdato for saldo ({date}) er etter f\xF8rste oppf\xF8ring - noen oppf\xF8ringer telles ikke"
     },
     buttons: {
       cancel: "Avbryt",
@@ -709,12 +719,22 @@ var translations = {
       allLimitsOk: "All limits are OK.",
       withinLimits: "Within limits",
       approachingLimits: "Approaching",
-      systemStatus: "System Status",
+      systemStatus: "System status",
       clickForDetails: "click for details",
       holidayNotLoaded: "Holiday data not loaded",
       activeTimers: "active timers",
       entriesChecked: "entries checked",
-      loadedPlannedDays: "Loaded {count} planned days"
+      loadedPlannedDays: "Loaded {count} planned days",
+      errors: "Errors ({count}):",
+      moreErrors: "...and {count} more errors",
+      warnings: "Warnings ({count}):",
+      moreWarnings: "...and {count} more warnings",
+      dataParseError: "Could not parse timeflow data. File may be corrupted. Check sync service version history to restore.",
+      holidayParseErrors: "{count} lines in holidays file could not be parsed",
+      duplicateHolidays: "Duplicate dates in holidays: {dates}",
+      invalidTimeRange: "Invalid time range for {date}",
+      unknownEntryTypes: "{count} entries have unknown type",
+      balanceStartAfterFirst: "Balance start date ({date}) is after first entry - some entries not counted"
     },
     buttons: {
       cancel: "Cancel",
@@ -3531,16 +3551,30 @@ var DataManager = class {
   async loadHolidays() {
     const status = { success: false, message: "", count: 0, warning: null };
     this.holidays = {};
+    let parseErrors = 0;
+    const duplicates = [];
+    const invalidTimeRanges = [];
+    const isValidTimeRange = (start, end) => {
+      const startMinutes = parseInt(start.split(":")[0]) * 60 + parseInt(start.split(":")[1]);
+      const endMinutes = parseInt(end.split(":")[0]) * 60 + parseInt(end.split(":")[1]);
+      return endMinutes > startMinutes;
+    };
     try {
       const holidayFile = this.app.vault.getAbstractFileByPath((0, import_obsidian3.normalizePath)(this.settings.holidaysFilePath));
       if (holidayFile && holidayFile instanceof import_obsidian3.TFile) {
         const content = await this.app.vault.read(holidayFile);
         const lines = content.split("\n");
         lines.forEach((line) => {
+          const trimmedLine = line.trim();
+          if (!trimmedLine || trimmedLine.startsWith("#") || !trimmedLine.startsWith("-")) {
+            return;
+          }
           const match = line.match(/^-\s*(\d{4}-\d{2}-\d{2}):\s*(\w+)(?::(half|\d{2}:\d{2}-\d{2}:\d{2})?)?:\s*(.+)$/);
           const annetMatch = line.match(/^-\s*(\d{4}-\d{2}-\d{2}):\s*annet(?::([^:]+))?(?::(\d{2}:\d{2}-\d{2}:\d{2}))?:\s*(.+)$/);
+          let parsedDate = null;
           if (annetMatch) {
             const [, date, templateOrTime, timeRange, description] = annetMatch;
+            parsedDate = date;
             let annetTemplateId;
             let startTime;
             let endTime;
@@ -3556,6 +3590,12 @@ var DataManager = class {
                 endTime = end;
               }
             }
+            if (startTime && endTime && !isValidTimeRange(startTime, endTime)) {
+              invalidTimeRanges.push(date);
+            }
+            if (this.holidays[date]) {
+              duplicates.push(date);
+            }
             this.holidays[date] = {
               type: "annet",
               description: description.trim(),
@@ -3566,6 +3606,7 @@ var DataManager = class {
             };
           } else if (match) {
             const [, date, type, modifier, description] = match;
+            parsedDate = date;
             const isHalfDay = modifier === "half";
             let startTime;
             let endTime;
@@ -3573,6 +3614,12 @@ var DataManager = class {
               const [start, end] = modifier.split("-");
               startTime = start;
               endTime = end;
+              if (!isValidTimeRange(start, end)) {
+                invalidTimeRanges.push(date);
+              }
+            }
+            if (this.holidays[date]) {
+              duplicates.push(date);
             }
             this.holidays[date] = {
               type: type.trim().toLowerCase(),
@@ -3581,11 +3628,18 @@ var DataManager = class {
               startTime,
               endTime
             };
+          } else {
+            if (/^-\s*\d{4}-/.test(line)) {
+              parseErrors++;
+            }
           }
         });
         status.success = true;
         status.count = Object.keys(this.holidays).length;
         status.message = t("status.loadedPlannedDays").replace("{count}", String(status.count));
+        if (parseErrors > 0) status.parseErrors = parseErrors;
+        if (duplicates.length > 0) status.duplicates = duplicates;
+        if (invalidTimeRanges.length > 0) status.invalidTimeRanges = invalidTimeRanges;
       } else {
         status.warning = `Holiday file not found: ${this.settings.holidaysFilePath}`;
         console.warn(status.warning);
@@ -4444,6 +4498,41 @@ var DataManager = class {
         date: todayStr
       });
     }
+    const knownTypes = new Set(this.settings.specialDayBehaviors.map((b) => b.id.toLowerCase()));
+    const unknownTypes = /* @__PURE__ */ new Map();
+    for (const dayKey in this.daily) {
+      this.daily[dayKey].forEach((entry) => {
+        if (entry.name) {
+          const entryType = entry.name.toLowerCase();
+          if (!knownTypes.has(entryType)) {
+            unknownTypes.set(entry.name, (unknownTypes.get(entry.name) || 0) + 1);
+          }
+        }
+      });
+    }
+    if (unknownTypes.size > 0) {
+      const totalUnknown = Array.from(unknownTypes.values()).reduce((sum, count) => sum + count, 0);
+      const typeNames = Array.from(unknownTypes.keys()).slice(0, 3).join(", ");
+      const moreTypes = unknownTypes.size > 3 ? ` +${unknownTypes.size - 3}` : "";
+      issues.info.push({
+        severity: "info",
+        type: t("status.unknownEntryTypes").replace("{count}", String(totalUnknown)),
+        description: `${typeNames}${moreTypes}`,
+        date: todayStr
+      });
+    }
+    const allDatesForBalance = Object.keys(this.daily).sort();
+    if (allDatesForBalance.length > 0 && this.settings.balanceStartDate) {
+      const firstEntryDate = allDatesForBalance[0];
+      if (this.settings.balanceStartDate > firstEntryDate) {
+        issues.info.push({
+          severity: "info",
+          type: t("status.balanceStartAfterFirst").replace("{date}", this.settings.balanceStartDate),
+          description: `${firstEntryDate}`,
+          date: this.settings.balanceStartDate
+        });
+      }
+    }
     return {
       hasErrors: issues.errors.length > 0,
       hasWarnings: issues.warnings.length > 0,
@@ -4765,22 +4854,22 @@ var CommentModal = class extends import_obsidian4.Modal {
       skipBtn.addClass("tf-comment-skip-disabled");
       skipBtn.title = t("modals.commentRequired");
     }
-    skipBtn.addEventListener("click", async () => {
+    skipBtn.addEventListener("click", () => {
       this.close();
-      await this.onSkip();
+      void this.onSkip();
     });
     const saveBtn = buttonDiv.createEl("button", {
       text: t("buttons.save"),
       cls: "mod-cta"
     });
-    saveBtn.addEventListener("click", async () => {
+    saveBtn.addEventListener("click", () => {
       const comment = textarea.value.trim();
       if (this.isRequired && !comment) {
         textarea.addClass("tf-comment-textarea-error");
         return;
       }
       this.close();
-      await this.onSubmit(comment);
+      void this.onSubmit(comment);
     });
     textarea.focus();
   }
@@ -5384,17 +5473,42 @@ var UIBuilder = class {
     return card;
   }
   buildStatusBar() {
-    var _a, _b, _c, _d, _e, _f;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i;
     const bar = document.createElement("div");
     bar.className = "tf-status-bar";
     const status = this.systemStatus;
-    const hasErrors = (_a = status.validation) == null ? void 0 : _a.hasErrors;
-    const hasWarnings = (_b = status.validation) == null ? void 0 : _b.hasWarnings;
+    const hasErrors = ((_a = status.validation) == null ? void 0 : _a.hasErrors) || status.dataParseError;
+    const hasHolidayIssues = ((_b = status.holiday) == null ? void 0 : _b.parseErrors) && status.holiday.parseErrors > 0 || ((_c = status.holiday) == null ? void 0 : _c.duplicates) && status.holiday.duplicates.length > 0 || ((_d = status.holiday) == null ? void 0 : _d.invalidTimeRanges) && status.holiday.invalidTimeRanges.length > 0;
+    const hasWarnings = ((_e = status.validation) == null ? void 0 : _e.hasWarnings) || hasHolidayIssues;
     const statusIcon = hasErrors ? "\u274C" : hasWarnings ? "\u26A0\uFE0F" : "\u2705";
     const hasIssues = hasErrors || hasWarnings;
     const buildIssuesContent = (container) => {
-      var _a2;
-      if (hasIssues && ((_a2 = status.validation) == null ? void 0 : _a2.issues)) {
+      var _a2, _b2, _c2, _d2;
+      if (status.dataParseError) {
+        const parseErrorDiv = container.createDiv();
+        parseErrorDiv.className = "tf-status-error";
+        const parseErrorStrong = parseErrorDiv.createEl("strong");
+        parseErrorStrong.className = "tf-status-error-label";
+        parseErrorStrong.textContent = "\u274C " + t("status.dataParseError");
+      }
+      if (((_a2 = status.holiday) == null ? void 0 : _a2.parseErrors) && status.holiday.parseErrors > 0) {
+        const holidayErrorDiv = container.createDiv();
+        holidayErrorDiv.className = "tf-status-warning-item";
+        holidayErrorDiv.textContent = "\u26A0\uFE0F " + t("status.holidayParseErrors").replace("{count}", String(status.holiday.parseErrors));
+      }
+      if (((_b2 = status.holiday) == null ? void 0 : _b2.duplicates) && status.holiday.duplicates.length > 0) {
+        const duplicatesDiv = container.createDiv();
+        duplicatesDiv.className = "tf-status-warning-item";
+        duplicatesDiv.textContent = "\u26A0\uFE0F " + t("status.duplicateHolidays").replace("{dates}", status.holiday.duplicates.join(", "));
+      }
+      if (((_c2 = status.holiday) == null ? void 0 : _c2.invalidTimeRanges) && status.holiday.invalidTimeRanges.length > 0) {
+        status.holiday.invalidTimeRanges.forEach((date) => {
+          const invalidRangeDiv = container.createDiv();
+          invalidRangeDiv.className = "tf-status-warning-item";
+          invalidRangeDiv.textContent = "\u26A0\uFE0F " + t("status.invalidTimeRange").replace("{date}", date);
+        });
+      }
+      if (hasIssues && ((_d2 = status.validation) == null ? void 0 : _d2.issues)) {
         const errors = status.validation.issues.errors || [];
         const warnings = status.validation.issues.warnings || [];
         if (errors.length > 0) {
@@ -5402,7 +5516,7 @@ var UIBuilder = class {
           errorHeader.className = "tf-status-error";
           const errorStrong = errorHeader.createEl("strong");
           errorStrong.className = "tf-status-error-label";
-          errorStrong.textContent = `Feil (${errors.length}):`;
+          errorStrong.textContent = t("status.errors").replace("{count}", String(errors.length));
           errors.slice(0, 5).forEach((err) => {
             const errorItem = container.createDiv();
             errorItem.className = "tf-status-error-item";
@@ -5411,7 +5525,7 @@ var UIBuilder = class {
           if (errors.length > 5) {
             const moreErrors = container.createDiv();
             moreErrors.className = "tf-status-more";
-            moreErrors.textContent = `...og ${errors.length - 5} flere feil`;
+            moreErrors.textContent = t("status.moreErrors").replace("{count}", String(errors.length - 5));
           }
         }
         if (warnings.length > 0) {
@@ -5419,7 +5533,7 @@ var UIBuilder = class {
           warningHeader.className = "tf-status-error";
           const warningStrong = warningHeader.createEl("strong");
           warningStrong.className = "tf-status-warning-label";
-          warningStrong.textContent = `Advarsler (${warnings.length}):`;
+          warningStrong.textContent = t("status.warnings").replace("{count}", String(warnings.length));
           warnings.slice(0, 5).forEach((warn) => {
             const warningItem = container.createDiv();
             warningItem.className = "tf-status-warning-item";
@@ -5428,7 +5542,7 @@ var UIBuilder = class {
           if (warnings.length > 5) {
             const moreWarnings = container.createDiv();
             moreWarnings.className = "tf-status-more";
-            moreWarnings.textContent = `...og ${warnings.length - 5} flere advarsler`;
+            moreWarnings.textContent = t("status.moreWarnings").replace("{count}", String(warnings.length - 5));
           }
         }
       }
@@ -5446,7 +5560,7 @@ var UIBuilder = class {
     const statusRow = headerContent.createDiv();
     statusRow.className = "tf-status-row";
     const statusText = statusRow.createSpan();
-    statusText.textContent = `${((_c = status.holiday) == null ? void 0 : _c.message) || t("status.holidayNotLoaded")} \u2022 ${status.activeTimers || 0} ${t("status.activeTimers")} \u2022 ${((_f = (_e = (_d = status.validation) == null ? void 0 : _d.issues) == null ? void 0 : _e.stats) == null ? void 0 : _f.totalEntries) || 0} ${t("status.entriesChecked")}`;
+    statusText.textContent = `${((_f = status.holiday) == null ? void 0 : _f.message) || t("status.holidayNotLoaded")} \u2022 ${status.activeTimers || 0} ${t("status.activeTimers")} \u2022 ${((_i = (_h = (_g = status.validation) == null ? void 0 : _g.issues) == null ? void 0 : _h.stats) == null ? void 0 : _i.totalEntries) || 0} ${t("status.entriesChecked")}`;
     const versionText = statusRow.createSpan();
     versionText.className = "tf-status-version";
     versionText.textContent = `v${this.plugin.manifest.version}`;
@@ -7031,6 +7145,7 @@ var UIBuilder = class {
       const endDate = new Date(dateObj);
       endDate.setHours(endHour, endMin, 0, 0);
       const addEntry = async (finalEndDate) => {
+        var _a, _b;
         if (this.checkProhibitedOverlap(dateStr, "jobb", startDate, finalEndDate)) {
           new import_obsidian5.Notice(`\u274C ${t("validation.overlappingEntry")}`);
           return;
@@ -7046,14 +7161,9 @@ var UIBuilder = class {
           await this.saveWithErrorHandling();
           const duration = (finalEndDate.getTime() - startDate.getTime()) / (1e3 * 60 * 60);
           new import_obsidian5.Notice(`\u2705 ${t("notifications.addedWorkTime").replace("{duration}", duration.toFixed(1)).replace("{date}", dateStr)}`);
-          this.data.rawEntries = this.timerManager.convertToTimeEntries();
-          this.data.processEntries();
-          this.updateDayCard();
-          this.updateWeekCard();
-          this.updateStatsCard();
-          this.updateMonthCard();
           this.isModalOpen = false;
           modal.remove();
+          (_b = (_a = this.timerManager).onTimerChange) == null ? void 0 : _b.call(_a);
         } catch (error) {
           console.error("Failed to add work time:", error);
           new import_obsidian5.Notice(`\u274C ${t("notifications.errorAddingWorkTime")}`);
@@ -7203,6 +7313,7 @@ var UIBuilder = class {
             return;
           }
           const saveUpdate = async (finalEndDate) => {
+            var _a, _b;
             if (finalEndDate) {
               const checkDateStr = Utils.toLocalDateStr(newStartDate);
               if (this.checkProhibitedOverlap(checkDateStr, entry.name, newStartDate, finalEndDate, entry)) {
@@ -7214,14 +7325,9 @@ var UIBuilder = class {
             entry.endTime = finalEndDate ? Utils.toLocalISOString(finalEndDate) : null;
             await this.saveWithErrorHandling();
             new import_obsidian5.Notice(`\u2705 ${t("notifications.entryUpdated")}`);
-            this.data.rawEntries = this.timerManager.convertToTimeEntries();
-            this.data.processEntries();
-            this.updateDayCard();
-            this.updateWeekCard();
-            this.updateStatsCard();
-            this.updateMonthCard();
             this.isModalOpen = false;
             modal.remove();
+            (_b = (_a = this.timerManager).onTimerChange) == null ? void 0 : _b.call(_a);
           };
           if (newEndTimeValue) {
             const newEndDate = /* @__PURE__ */ new Date(`${newEndDateValue}T${newEndTimeValue}:00`);
@@ -7244,6 +7350,7 @@ var UIBuilder = class {
       deleteBtn.textContent = `\u{1F5D1}\uFE0F ${t("buttons.delete")}`;
       deleteBtn.onclick = () => {
         this.showDeleteConfirmation(entry, dateObj, async () => {
+          var _a, _b;
           let deleted = false;
           if (item.parent && item.subIndex !== void 0) {
             if (item.parent.subEntries) {
@@ -7266,14 +7373,9 @@ var UIBuilder = class {
           if (deleted) {
             await this.saveWithErrorHandling();
             new import_obsidian5.Notice(`\u2705 ${t("notifications.deleted")}`);
-            this.data.rawEntries = this.timerManager.convertToTimeEntries();
-            this.data.processEntries();
-            this.updateDayCard();
-            this.updateWeekCard();
-            this.updateStatsCard();
-            this.updateMonthCard();
             this.isModalOpen = false;
             modal.remove();
+            (_b = (_a = this.timerManager).onTimerChange) == null ? void 0 : _b.call(_a);
           }
         });
       };
@@ -7888,6 +7990,7 @@ var UIBuilder = class {
     typeSelect.focus();
   }
   async addSpecialDay(dateObj, dayType, note = "", startTime, endTime) {
+    var _a, _b;
     try {
       const filePath = this.settings.holidaysFilePath;
       const file = this.app.vault.getAbstractFileByPath((0, import_obsidian5.normalizePath)(filePath));
@@ -7924,8 +8027,7 @@ var UIBuilder = class {
       await this.app.vault.modify(file, content);
       const label = translateSpecialDayName(dayType);
       new import_obsidian5.Notice(`\u2705 ${t("notifications.added")} ${dateStr} (${label})`);
-      await this.data.loadHolidays();
-      this.updateMonthCard();
+      (_b = (_a = this.timerManager).onTimerChange) == null ? void 0 : _b.call(_a);
     } catch (error) {
       console.error("Failed to add special day:", error);
       new import_obsidian5.Notice(`\u274C ${t("notifications.errorAddingSpecialDay")}`);
@@ -7939,6 +8041,7 @@ var UIBuilder = class {
    *    or:  - YYYY-MM-DD: annet: description (full day, no template)
    */
   async addAnnetEntry(dateObj, templateId, startTime, endTime, note) {
+    var _a, _b;
     try {
       const filePath = this.settings.holidaysFilePath;
       const file = this.app.vault.getAbstractFileByPath((0, import_obsidian5.normalizePath)(filePath));
@@ -7988,8 +8091,7 @@ var UIBuilder = class {
       } else {
         new import_obsidian5.Notice(`\u2705 ${t("notifications.added")} ${dateStr} (${label})`);
       }
-      await this.data.loadHolidays();
-      this.updateMonthCard();
+      (_b = (_a = this.timerManager).onTimerChange) == null ? void 0 : _b.call(_a);
     } catch (error) {
       console.error("Failed to add annet entry:", error);
       new import_obsidian5.Notice(`\u274C ${t("notifications.errorAddingSpecialDay")}`);
@@ -8110,6 +8212,7 @@ var UIBuilder = class {
    * Delete a planned day entry from the holidays file
    */
   async deletePlannedDay(dateStr) {
+    var _a, _b;
     try {
       const filePath = this.settings.holidaysFilePath;
       const file = this.app.vault.getAbstractFileByPath((0, import_obsidian5.normalizePath)(filePath));
@@ -8141,12 +8244,7 @@ var UIBuilder = class {
       content = content.substring(0, codeBlockStart) + newCodeBlock + content.substring(codeBlockEnd + 3);
       await this.app.vault.modify(file, content);
       new import_obsidian5.Notice(`\u2705 ${t("notifications.deleted")} ${dateStr}`);
-      await this.data.loadHolidays();
-      this.data.processEntries();
-      this.updateMonthCard();
-      this.updateStatsCard();
-      this.updateWeekCard();
-      this.updateDayCard();
+      (_b = (_a = this.timerManager).onTimerChange) == null ? void 0 : _b.call(_a);
     } catch (error) {
       console.error("Failed to delete planned day:", error);
       new import_obsidian5.Notice(`\u274C ${t("notifications.errorDeletingEntry")}`);
@@ -8156,6 +8254,7 @@ var UIBuilder = class {
    * Update the description of a planned day entry
    */
   async updatePlannedDayDescription(dateStr, newDescription) {
+    var _a, _b;
     try {
       const filePath = this.settings.holidaysFilePath;
       const file = this.app.vault.getAbstractFileByPath((0, import_obsidian5.normalizePath)(filePath));
@@ -8199,12 +8298,7 @@ var UIBuilder = class {
       content = content.substring(0, codeBlockStart) + newCodeBlock + content.substring(codeBlockEnd + 3);
       await this.app.vault.modify(file, content);
       new import_obsidian5.Notice(`\u2705 ${t("notifications.updated")} ${dateStr}`);
-      await this.data.loadHolidays();
-      this.data.processEntries();
-      this.updateMonthCard();
-      this.updateStatsCard();
-      this.updateWeekCard();
-      this.updateDayCard();
+      (_b = (_a = this.timerManager).onTimerChange) == null ? void 0 : _b.call(_a);
     } catch (error) {
       console.error("Failed to update planned day:", error);
       new import_obsidian5.Notice(`\u274C ${t("notifications.errorUpdatingEntry")}`);
@@ -9632,7 +9726,7 @@ var TimeFlowView = class extends import_obsidian6.ItemView {
         });
       }
       this.dataManager = new DataManager(allEntries, this.plugin.settings, this.app);
-      const holidayStatus = await this.dataManager.loadHolidays();
+      let holidayStatus = await this.dataManager.loadHolidays();
       const converted = await this.plugin.timerManager.convertPastPlannedDays(
         this.dataManager.holidays,
         this.plugin.settings
@@ -9640,14 +9734,15 @@ var TimeFlowView = class extends import_obsidian6.ItemView {
       if (converted > 0) {
         const updatedEntries = this.plugin.timerManager.convertToTimeEntries();
         this.dataManager = new DataManager(updatedEntries, this.plugin.settings, this.app);
-        await this.dataManager.loadHolidays();
+        holidayStatus = await this.dataManager.loadHolidays();
       }
       this.dataManager.processEntries();
       const validationResults = this.dataManager.validateData();
       const systemStatus = {
         holiday: holidayStatus,
         validation: validationResults,
-        activeTimers: this.dataManager.activeEntries.length
+        activeTimers: this.dataManager.activeEntries.length,
+        dataParseError: this.plugin.timerManager.dataParseError
       };
       this.uiBuilder = new UIBuilder(
         this.dataManager,
@@ -9683,9 +9778,11 @@ var TimeFlowView = class extends import_obsidian6.ItemView {
 // src/timerManager.ts
 var import_obsidian7 = require("obsidian");
 var TimerManager = class {
+  // Track if data file could not be parsed
   constructor(app, settings) {
     this.isSaving = false;
     this.lastSaveTime = 0;
+    this.dataParseError = false;
     this.app = app;
     this.settings = settings;
     this.dataFile = settings.dataFilePath;
@@ -9702,6 +9799,7 @@ var TimerManager = class {
     return true;
   }
   async load() {
+    this.dataParseError = false;
     try {
       const fileExists = await this.app.vault.adapter.exists(this.dataFile);
       if (fileExists) {
@@ -9717,8 +9815,16 @@ var TimerManager = class {
             return parsed.settings;
           }
         } else {
-          console.warn("TimeFlow: Could not parse data from", this.dataFile);
-          this.data = { entries: [] };
+          const trimmedContent = content.trim();
+          if (trimmedContent.length > 0) {
+            this.dataParseError = true;
+            console.error("TimeFlow: Could not parse data from", this.dataFile, "- file may be corrupted");
+            new import_obsidian7.Notice(t("status.dataParseError"), 1e4);
+            this.data = { entries: [] };
+          } else {
+            console.warn("TimeFlow: Data file is empty, initializing", this.dataFile);
+            this.data = { entries: [] };
+          }
         }
       } else {
         await this.createDataFile();
@@ -9776,6 +9882,10 @@ ${timekeepBlock}${settingsBlock}
   }
   async save() {
     var _a;
+    if (this.dataParseError) {
+      console.warn("TimeFlow: Skipping save due to previous parse error - file may be corrupted");
+      return;
+    }
     this.isSaving = true;
     this.lastSaveTime = Date.now();
     try {

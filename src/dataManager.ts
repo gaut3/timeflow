@@ -100,6 +100,9 @@ export interface HolidayLoadStatus {
 	message: string;
 	count: number;
 	warning: string | null;
+	parseErrors?: number;           // Lines that couldn't be parsed
+	duplicates?: string[];          // Dates with duplicate entries
+	invalidTimeRanges?: string[];   // Dates with invalid time ranges (end <= start)
 }
 
 export interface ValidationResults {
@@ -140,6 +143,18 @@ export class DataManager {
 		// Clear existing holidays before reloading
 		this.holidays = {};
 
+		// Track validation issues
+		let parseErrors = 0;
+		const duplicates: string[] = [];
+		const invalidTimeRanges: string[] = [];
+
+		// Helper to validate time range (start must be before end)
+		const isValidTimeRange = (start: string, end: string): boolean => {
+			const startMinutes = parseInt(start.split(':')[0]) * 60 + parseInt(start.split(':')[1]);
+			const endMinutes = parseInt(end.split(':')[0]) * 60 + parseInt(end.split(':')[1]);
+			return endMinutes > startMinutes;
+		};
+
 		try {
 			const holidayFile = this.app.vault.getAbstractFileByPath(normalizePath(this.settings.holidaysFilePath));
 			if (holidayFile && holidayFile instanceof TFile) {
@@ -147,6 +162,12 @@ export class DataManager {
 				const lines = content.split('\n');
 
 				lines.forEach(line => {
+					// Skip empty lines and comments
+					const trimmedLine = line.trim();
+					if (!trimmedLine || trimmedLine.startsWith('#') || !trimmedLine.startsWith('-')) {
+						return;
+					}
+
 					// Match formats:
 					// - YYYY-MM-DD: type: description
 					// - YYYY-MM-DD: type:half: description
@@ -160,8 +181,11 @@ export class DataManager {
 					// Special handling for annet entries with more complex format
 					const annetMatch = line.match(/^-\s*(\d{4}-\d{2}-\d{2}):\s*annet(?::([^:]+))?(?::(\d{2}:\d{2}-\d{2}:\d{2}))?:\s*(.+)$/);
 
+					let parsedDate: string | null = null;
+
 					if (annetMatch) {
 						const [, date, templateOrTime, timeRange, description] = annetMatch;
+						parsedDate = date;
 						let annetTemplateId: string | undefined;
 						let startTime: string | undefined;
 						let endTime: string | undefined;
@@ -183,6 +207,16 @@ export class DataManager {
 							}
 						}
 
+						// Validate time range if present
+						if (startTime && endTime && !isValidTimeRange(startTime, endTime)) {
+							invalidTimeRanges.push(date);
+						}
+
+						// Check for duplicate
+						if (this.holidays[date]) {
+							duplicates.push(date);
+						}
+
 						this.holidays[date] = {
 							type: 'annet',
 							description: description.trim(),
@@ -193,6 +227,7 @@ export class DataManager {
 						};
 					} else if (match) {
 						const [, date, type, modifier, description] = match;
+						parsedDate = date;
 						const isHalfDay = modifier === 'half';
 
 						// Parse time range (e.g., "14:00-16:00")
@@ -202,6 +237,16 @@ export class DataManager {
 							const [start, end] = modifier.split('-');
 							startTime = start;
 							endTime = end;
+
+							// Validate time range
+							if (!isValidTimeRange(start, end)) {
+								invalidTimeRanges.push(date);
+							}
+						}
+
+						// Check for duplicate
+						if (this.holidays[date]) {
+							duplicates.push(date);
 						}
 
 						this.holidays[date] = {
@@ -211,12 +256,22 @@ export class DataManager {
 							startTime,
 							endTime
 						};
+					} else {
+						// Only count as parse error if it looks like a date entry attempt (- YYYY- pattern)
+						if (/^-\s*\d{4}-/.test(line)) {
+							parseErrors++;
+						}
 					}
 				});
 
 				status.success = true;
 				status.count = Object.keys(this.holidays).length;
 				status.message = t('status.loadedPlannedDays').replace('{count}', String(status.count));
+
+				// Add validation results to status
+				if (parseErrors > 0) status.parseErrors = parseErrors;
+				if (duplicates.length > 0) status.duplicates = duplicates;
+				if (invalidTimeRanges.length > 0) status.invalidTimeRanges = invalidTimeRanges;
 			} else {
 				status.warning = `Holiday file not found: ${this.settings.holidaysFilePath}`;
 				console.warn(status.warning);
@@ -1377,6 +1432,47 @@ export class DataManager {
 				description: `Current week total exceeds ${this.settings.validationThresholds.highWeeklyTotalHours} hours (${currentWeekHours.toFixed(1)}h)`,
 				date: todayStr
 			});
+		}
+
+		// Check for unknown entry types
+		const knownTypes = new Set(this.settings.specialDayBehaviors.map(b => b.id.toLowerCase()));
+		const unknownTypes = new Map<string, number>(); // type -> count
+
+		for (const dayKey in this.daily) {
+			this.daily[dayKey].forEach(entry => {
+				if (entry.name) {
+					const entryType = entry.name.toLowerCase();
+					if (!knownTypes.has(entryType)) {
+						unknownTypes.set(entry.name, (unknownTypes.get(entry.name) || 0) + 1);
+					}
+				}
+			});
+		}
+
+		if (unknownTypes.size > 0) {
+			const totalUnknown = Array.from(unknownTypes.values()).reduce((sum, count) => sum + count, 0);
+			const typeNames = Array.from(unknownTypes.keys()).slice(0, 3).join(', ');
+			const moreTypes = unknownTypes.size > 3 ? ` +${unknownTypes.size - 3}` : '';
+			issues.info.push({
+				severity: 'info',
+				type: t('status.unknownEntryTypes').replace('{count}', String(totalUnknown)),
+				description: `${typeNames}${moreTypes}`,
+				date: todayStr
+			});
+		}
+
+		// Check if balance start date is after first entry
+		const allDatesForBalance = Object.keys(this.daily).sort();
+		if (allDatesForBalance.length > 0 && this.settings.balanceStartDate) {
+			const firstEntryDate = allDatesForBalance[0];
+			if (this.settings.balanceStartDate > firstEntryDate) {
+				issues.info.push({
+					severity: 'info',
+					type: t('status.balanceStartAfterFirst').replace('{date}', this.settings.balanceStartDate),
+					description: `${firstEntryDate}`,
+					date: this.settings.balanceStartDate
+				});
+			}
 		}
 
 		return {

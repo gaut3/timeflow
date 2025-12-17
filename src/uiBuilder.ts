@@ -9,8 +9,14 @@ import { CommentModal } from './commentModal';
 
 export interface SystemStatus {
 	validation?: ValidationResults;
-	holiday?: { message?: string };
+	holiday?: {
+		message?: string;
+		parseErrors?: number;
+		duplicates?: string[];
+		invalidTimeRanges?: string[];
+	};
 	activeTimers?: number;
+	dataParseError?: boolean;
 }
 
 export class UIBuilder {
@@ -823,13 +829,47 @@ export class UIBuilder {
 		bar.className = "tf-status-bar";
 
 		const status = this.systemStatus;
-		const hasErrors = status.validation?.hasErrors;
-		const hasWarnings = status.validation?.hasWarnings;
+		const hasErrors = status.validation?.hasErrors || status.dataParseError;
+		const hasHolidayIssues = (status.holiday?.parseErrors && status.holiday.parseErrors > 0) ||
+			(status.holiday?.duplicates && status.holiday.duplicates.length > 0) ||
+			(status.holiday?.invalidTimeRanges && status.holiday.invalidTimeRanges.length > 0);
+		const hasWarnings = status.validation?.hasWarnings || hasHolidayIssues;
 		const statusIcon = hasErrors ? "❌" : hasWarnings ? "⚠️" : "✅";
 		const hasIssues = hasErrors || hasWarnings;
 
 		// Helper function to build issues into a container
 		const buildIssuesContent = (container: HTMLElement) => {
+			// Display data parse error first (critical)
+			if (status.dataParseError) {
+				const parseErrorDiv = container.createDiv();
+				parseErrorDiv.className = 'tf-status-error';
+				const parseErrorStrong = parseErrorDiv.createEl('strong');
+				parseErrorStrong.className = 'tf-status-error-label';
+				parseErrorStrong.textContent = '❌ ' + t('status.dataParseError');
+			}
+
+			// Display holiday file issues
+			if (status.holiday?.parseErrors && status.holiday.parseErrors > 0) {
+				const holidayErrorDiv = container.createDiv();
+				holidayErrorDiv.className = 'tf-status-warning-item';
+				holidayErrorDiv.textContent = '⚠️ ' + t('status.holidayParseErrors').replace('{count}', String(status.holiday.parseErrors));
+			}
+
+			if (status.holiday?.duplicates && status.holiday.duplicates.length > 0) {
+				const duplicatesDiv = container.createDiv();
+				duplicatesDiv.className = 'tf-status-warning-item';
+				duplicatesDiv.textContent = '⚠️ ' + t('status.duplicateHolidays').replace('{dates}', status.holiday.duplicates.join(', '));
+			}
+
+			if (status.holiday?.invalidTimeRanges && status.holiday.invalidTimeRanges.length > 0) {
+				status.holiday.invalidTimeRanges.forEach(date => {
+					const invalidRangeDiv = container.createDiv();
+					invalidRangeDiv.className = 'tf-status-warning-item';
+					invalidRangeDiv.textContent = '⚠️ ' + t('status.invalidTimeRange').replace('{date}', date);
+				});
+			}
+
+			// Display validation issues
 			if (hasIssues && status.validation?.issues) {
 				const errors = status.validation.issues.errors || [];
 				const warnings = status.validation.issues.warnings || [];
@@ -839,7 +879,7 @@ export class UIBuilder {
 					errorHeader.className = 'tf-status-error';
 					const errorStrong = errorHeader.createEl('strong');
 					errorStrong.className = 'tf-status-error-label';
-					errorStrong.textContent = `Feil (${errors.length}):`;
+					errorStrong.textContent = t('status.errors').replace('{count}', String(errors.length));
 
 					errors.slice(0, 5).forEach((err: ValidationIssue) => {
 						const errorItem = container.createDiv();
@@ -849,7 +889,7 @@ export class UIBuilder {
 					if (errors.length > 5) {
 						const moreErrors = container.createDiv();
 						moreErrors.className = 'tf-status-more';
-						moreErrors.textContent = `...og ${errors.length - 5} flere feil`;
+						moreErrors.textContent = t('status.moreErrors').replace('{count}', String(errors.length - 5));
 					}
 				}
 
@@ -858,7 +898,7 @@ export class UIBuilder {
 					warningHeader.className = 'tf-status-error';
 					const warningStrong = warningHeader.createEl('strong');
 					warningStrong.className = 'tf-status-warning-label';
-					warningStrong.textContent = `Advarsler (${warnings.length}):`;
+					warningStrong.textContent = t('status.warnings').replace('{count}', String(warnings.length));
 
 					warnings.slice(0, 5).forEach((warn: ValidationIssue) => {
 						const warningItem = container.createDiv();
@@ -868,7 +908,7 @@ export class UIBuilder {
 					if (warnings.length > 5) {
 						const moreWarnings = container.createDiv();
 						moreWarnings.className = 'tf-status-more';
-						moreWarnings.textContent = `...og ${warnings.length - 5} flere advarsler`;
+						moreWarnings.textContent = t('status.moreWarnings').replace('{count}', String(warnings.length - 5));
 					}
 				}
 			}
@@ -3068,18 +3108,11 @@ export class UIBuilder {
 					const duration = (finalEndDate.getTime() - startDate.getTime()) / (1000 * 60 * 60);
 					new Notice(`✅ ${t('notifications.addedWorkTime').replace('{duration}', duration.toFixed(1)).replace('{date}', dateStr)}`);
 
-					// Reload data to reflect changes
-					this.data.rawEntries = this.timerManager.convertToTimeEntries();
-					this.data.processEntries();
-
-					// Refresh the dashboard
-					this.updateDayCard();
-					this.updateWeekCard();
-					this.updateStatsCard();
-					this.updateMonthCard();
-
 					this.isModalOpen = false;
 					modal.remove();
+
+					// Trigger full dashboard refresh to update all UI including system status
+					this.timerManager.onTimerChange?.();
 				} catch (error) {
 					console.error('Failed to add work time:', error);
 					new Notice(`❌ ${t('notifications.errorAddingWorkTime')}`);
@@ -3304,18 +3337,11 @@ export class UIBuilder {
 						await this.saveWithErrorHandling();
 						new Notice(`✅ ${t('notifications.entryUpdated')}`);
 
-						// Reload data to reflect changes
-						this.data.rawEntries = this.timerManager.convertToTimeEntries();
-						this.data.processEntries();
-
-						// Refresh the dashboard
-						this.updateDayCard();
-						this.updateWeekCard();
-						this.updateStatsCard();
-						this.updateMonthCard();
-
 						this.isModalOpen = false;
 						modal.remove();
+
+						// Trigger full dashboard refresh to update all UI including system status
+						this.timerManager.onTimerChange?.();
 					};
 
 					if (newEndTimeValue) {
@@ -3373,18 +3399,11 @@ export class UIBuilder {
 						await this.saveWithErrorHandling();
 						new Notice(`✅ ${t('notifications.deleted')}`);
 
-						// Reload data to reflect changes
-						this.data.rawEntries = this.timerManager.convertToTimeEntries();
-						this.data.processEntries();
-
-						// Refresh the dashboard
-						this.updateDayCard();
-						this.updateWeekCard();
-						this.updateStatsCard();
-						this.updateMonthCard();
-
 						this.isModalOpen = false;
 						modal.remove();
+
+						// Trigger full dashboard refresh to update all UI including system status
+						this.timerManager.onTimerChange?.();
 					}
 				});
 			};
@@ -4265,11 +4284,8 @@ export class UIBuilder {
 			const label = translateSpecialDayName(dayType);
 			new Notice(`✅ ${t('notifications.added')} ${dateStr} (${label})`);
 
-			// Reload holidays to pick up the new entry
-			await this.data.loadHolidays();
-
-			// Refresh the dashboard to show the special day
-			this.updateMonthCard();
+			// Trigger full dashboard refresh to update all UI including system status
+			this.timerManager.onTimerChange?.();
 		} catch (error) {
 			console.error('Failed to add special day:', error);
 			new Notice(`❌ ${t('notifications.errorAddingSpecialDay')}`);
@@ -4358,11 +4374,8 @@ export class UIBuilder {
 				new Notice(`✅ ${t('notifications.added')} ${dateStr} (${label})`);
 			}
 
-			// Reload holidays to pick up the new entry
-			await this.data.loadHolidays();
-
-			// Refresh the dashboard to show the special day
-			this.updateMonthCard();
+			// Trigger full dashboard refresh to update all UI including system status
+			this.timerManager.onTimerChange?.();
 		} catch (error) {
 			console.error('Failed to add annet entry:', error);
 			new Notice(`❌ ${t('notifications.errorAddingSpecialDay')}`);
@@ -4565,13 +4578,8 @@ export class UIBuilder {
 			await this.app.vault.modify(file, content);
 			new Notice(`✅ ${t('notifications.deleted')} ${dateStr}`);
 
-			// Reload holidays and refresh all UI
-			await this.data.loadHolidays();
-			this.data.processEntries();
-			this.updateMonthCard();
-			this.updateStatsCard();
-			this.updateWeekCard();
-			this.updateDayCard();
+			// Trigger full dashboard refresh to update all UI including system status
+			this.timerManager.onTimerChange?.();
 		} catch (error) {
 			console.error('Failed to delete planned day:', error);
 			new Notice(`❌ ${t('notifications.errorDeletingEntry')}`);
@@ -4644,13 +4652,8 @@ export class UIBuilder {
 			await this.app.vault.modify(file, content);
 			new Notice(`✅ ${t('notifications.updated')} ${dateStr}`);
 
-			// Reload holidays and refresh all UI
-			await this.data.loadHolidays();
-			this.data.processEntries();
-			this.updateMonthCard();
-			this.updateStatsCard();
-			this.updateWeekCard();
-			this.updateDayCard();
+			// Trigger full dashboard refresh to update all UI including system status
+			this.timerManager.onTimerChange?.();
 		} catch (error) {
 			console.error('Failed to update planned day:', error);
 			new Notice(`❌ ${t('notifications.errorUpdatingEntry')}`);
