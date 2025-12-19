@@ -4692,6 +4692,74 @@ var DataManager = class {
     return total;
   }
   /**
+   * Get week hours with special day breakdown for bar chart visualization
+   */
+  getWeekHoursWithBreakdown(weekStart) {
+    let workHours = 0;
+    const specialDayMap = {};
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(weekStart);
+      d.setDate(weekStart.getDate() + i);
+      const dayKey = Utils.toLocalDateStr(d);
+      const dayEntries = this.daily[dayKey] || [];
+      dayEntries.forEach((entry) => {
+        if (!entry.isActive) {
+          const behavior = this.getSpecialDayBehavior(entry.name);
+          const entryHours = entry.duration || 0;
+          if ((behavior == null ? void 0 : behavior.flextimeEffect) === "reduce_goal" || (behavior == null ? void 0 : behavior.noHoursRequired)) {
+            const typeId = entry.name.toLowerCase();
+            specialDayMap[typeId] = (specialDayMap[typeId] || 0) + entryHours;
+          } else if ((behavior == null ? void 0 : behavior.flextimeEffect) !== "withdraw") {
+            workHours += entryHours;
+          }
+        }
+      });
+    }
+    const specialDays = Object.entries(specialDayMap).filter(([, hours]) => hours > 0).map(([type, hours]) => {
+      const behavior = this.getSpecialDayBehavior(type);
+      return {
+        type,
+        hours,
+        color: (behavior == null ? void 0 : behavior.color) || "#e0e0e0"
+      };
+    });
+    return { workHours, specialDays };
+  }
+  /**
+   * Get month hours with special day breakdown for bar chart visualization
+   */
+  getMonthHoursWithBreakdown(year, month) {
+    let workHours = 0;
+    const specialDayMap = {};
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    for (let day = 1; day <= daysInMonth; day++) {
+      const d = new Date(year, month, day);
+      const dayKey = Utils.toLocalDateStr(d);
+      const dayEntries = this.daily[dayKey] || [];
+      dayEntries.forEach((entry) => {
+        if (!entry.isActive) {
+          const behavior = this.getSpecialDayBehavior(entry.name);
+          const entryHours = entry.duration || 0;
+          if ((behavior == null ? void 0 : behavior.flextimeEffect) === "reduce_goal" || (behavior == null ? void 0 : behavior.noHoursRequired)) {
+            const typeId = entry.name.toLowerCase();
+            specialDayMap[typeId] = (specialDayMap[typeId] || 0) + entryHours;
+          } else if ((behavior == null ? void 0 : behavior.flextimeEffect) !== "withdraw") {
+            workHours += entryHours;
+          }
+        }
+      });
+    }
+    const specialDays = Object.entries(specialDayMap).filter(([, hours]) => hours > 0).map(([type, hours]) => {
+      const behavior = this.getSpecialDayBehavior(type);
+      return {
+        type,
+        hours,
+        color: (behavior == null ? void 0 : behavior.color) || "#e0e0e0"
+      };
+    });
+    return { workHours, specialDays };
+  }
+  /**
    * Get total hours for a specific month
    */
   getMonthHours(year, month) {
@@ -4725,7 +4793,7 @@ var DataManager = class {
   }
   /**
    * Get historical hours data for bar chart
-   * Returns array of { label, hours, target? }
+   * Returns array of { label, hours, target?, specialDays? }
    */
   getHistoricalHoursData(timeframe, selectedYear, selectedMonth) {
     const data = [];
@@ -4738,11 +4806,12 @@ var DataManager = class {
         const weekStart = new Date(currentWeekStart);
         weekStart.setDate(currentWeekStart.getDate() - i * 7);
         const weekNum = this.getISOWeekNumber(weekStart);
-        const hours = this.getWeekHours(weekStart);
+        const breakdown = this.getWeekHoursWithBreakdown(weekStart);
         data.push({
           label: `${weekPrefix}${weekNum}`,
-          hours,
-          target: weeklyTarget
+          hours: breakdown.workHours,
+          target: weeklyTarget,
+          specialDays: breakdown.specialDays
         });
       }
     } else if (timeframe === "year") {
@@ -4750,11 +4819,12 @@ var DataManager = class {
       const monthNames = ["Jan", "Feb", "Mar", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Des"];
       const monthlyTarget = weeklyTarget * 4.33;
       for (let month = 0; month < 12; month++) {
-        const hours = this.getMonthHours(year, month);
+        const breakdown = this.getMonthHoursWithBreakdown(year, month);
         data.push({
           label: monthNames[month],
-          hours,
-          target: monthlyTarget
+          hours: breakdown.workHours,
+          target: monthlyTarget,
+          specialDays: breakdown.specialDays
         });
       }
     } else {
@@ -5878,13 +5948,24 @@ var UIBuilder = class {
     const firstDayOfWeek = new Date(today);
     firstDayOfWeek.setDate(today.getDate() - daysFromMonday);
     let adjustedGoal = 0;
+    let goalReduction = 0;
+    const dailyGoalAmount = this.settings.baseWorkday * this.settings.workPercent;
     for (let i = 0; i < 7; i++) {
       const d = new Date(firstDayOfWeek);
       d.setDate(firstDayOfWeek.getDate() + i);
       const dayKey = Utils.toLocalDateStr(d);
       const dayGoal = this.data.getDailyGoal(dayKey);
       adjustedGoal += dayGoal;
+      const dayEntries = this.data.daily[dayKey] || [];
+      dayEntries.forEach((entry) => {
+        const name = entry.name.toLowerCase();
+        const behavior = this.settings.specialDayBehaviors.find((b) => b.id === name);
+        if ((behavior == null ? void 0 : behavior.flextimeEffect) === "reduce_goal") {
+          goalReduction += entry.duration && entry.duration > 0 ? entry.duration : dailyGoalAmount;
+        }
+      });
     }
+    adjustedGoal = Math.max(0, adjustedGoal - goalReduction);
     const progress = adjustedGoal > 0 ? Math.min(weekHours / adjustedGoal * 100, 100) : 0;
     let bgColor;
     let textColor;
@@ -6124,7 +6205,13 @@ var UIBuilder = class {
       this.selectedMonth
     );
     if (chartData.length === 0) return;
-    const maxHours = Math.max(...chartData.map((d) => d.hours), ...chartData.map((d) => d.target || 0));
+    const maxHours = Math.max(
+      ...chartData.map((d) => {
+        var _a2;
+        return d.hours + (((_a2 = d.specialDays) == null ? void 0 : _a2.reduce((sum, sd) => sum + sd.hours, 0)) || 0);
+      }),
+      ...chartData.map((d) => d.target || 0)
+    );
     if (maxHours === 0) return;
     const chartContainer = document.createElement("div");
     chartContainer.className = "tf-hours-chart";
@@ -6162,15 +6249,40 @@ var UIBuilder = class {
       chartInner.appendChild(targetLine);
     }
     chartData.forEach((item) => {
+      var _a2, _b;
       const barWrapper = createDiv("tf-hours-bar-wrapper");
-      const valueLabel = createDiv("tf-hours-bar-value", item.hours > 0 ? `${item.hours.toFixed(0)}` : "");
+      const specialDayHours = ((_a2 = item.specialDays) == null ? void 0 : _a2.reduce((sum, sd) => sum + sd.hours, 0)) || 0;
+      const totalHours = item.hours + specialDayHours;
+      const valueLabel = createDiv("tf-hours-bar-value", totalHours > 0 ? `${totalHours.toFixed(0)}` : "");
       barWrapper.appendChild(valueLabel);
       const barContainer = createDiv("tf-hours-bar-container");
       const bar = createDiv("tf-hours-bar");
-      const barHeight = maxHours > 0 ? item.hours / maxHours * maxBarHeight : 0;
-      bar.style.height = `${Math.max(barHeight, 2)}px`;
-      if (item.hours === 0) {
+      bar.style.display = "flex";
+      bar.style.flexDirection = "column-reverse";
+      const totalHeight = maxHours > 0 ? totalHours / maxHours * maxBarHeight : 0;
+      bar.style.height = `${Math.max(totalHeight, 2)}px`;
+      if (totalHours === 0) {
         bar.classList.add("empty");
+      } else {
+        if (item.hours > 0) {
+          const workSegment = createDiv("tf-hours-bar-segment");
+          const workHeight = item.hours / totalHours * 100;
+          workSegment.style.height = `${workHeight}%`;
+          workSegment.style.background = "var(--interactive-accent)";
+          workSegment.title = `${t("ui.work") || "Jobb"}: ${item.hours.toFixed(1)}t`;
+          bar.appendChild(workSegment);
+        }
+        (_b = item.specialDays) == null ? void 0 : _b.forEach((sd) => {
+          if (sd.hours > 0) {
+            const segment = createDiv("tf-hours-bar-segment");
+            const segmentHeight = sd.hours / totalHours * 100;
+            segment.style.height = `${segmentHeight}%`;
+            segment.style.background = sd.color;
+            const behavior = this.settings.specialDayBehaviors.find((b) => b.id === sd.type);
+            segment.title = `${(behavior == null ? void 0 : behavior.label) || sd.type}: ${sd.hours.toFixed(1)}t`;
+            bar.appendChild(segment);
+          }
+        });
       }
       barContainer.appendChild(bar);
       barWrapper.appendChild(barContainer);
@@ -6566,6 +6678,8 @@ var UIBuilder = class {
     let totalHours = 0;
     let workDaysInWeek = 0;
     let workDaysPassed = 0;
+    let goalReduction = 0;
+    const dailyGoal = this.settings.baseWorkday * this.settings.workPercent;
     for (let i = 0; i < 7; i++) {
       const day = new Date(mondayOfWeek);
       day.setDate(mondayOfWeek.getDate() + i);
@@ -6588,7 +6702,10 @@ var UIBuilder = class {
       const dayEntries = this.data.daily[dayKey] || [];
       dayEntries.forEach((entry) => {
         const name = entry.name.toLowerCase();
-        if (name !== "avspasering" && name !== "ferie" && name !== "egenmelding" && name !== "sykemelding" && name !== "velferdspermisjon") {
+        const behavior = this.settings.specialDayBehaviors.find((b) => b.id === name);
+        if ((behavior == null ? void 0 : behavior.flextimeEffect) === "reduce_goal") {
+          goalReduction += entry.duration && entry.duration > 0 ? entry.duration : dailyGoal;
+        } else if (!(behavior == null ? void 0 : behavior.noHoursRequired) && (behavior == null ? void 0 : behavior.flextimeEffect) !== "withdraw") {
           totalHours += entry.duration || 0;
         }
       });
@@ -6597,7 +6714,7 @@ var UIBuilder = class {
       return "week-future";
     }
     const expectedHoursPerDay = this.settings.baseWorkday;
-    const expectedHours = workDaysPassed * expectedHoursPerDay * this.settings.workPercent;
+    const expectedHours = Math.max(0, workDaysPassed * expectedHoursPerDay * this.settings.workPercent - goalReduction);
     const tolerance = 0.5;
     if (totalHours >= expectedHours - tolerance && totalHours <= expectedHours + tolerance) {
       return "week-ok";
@@ -6622,6 +6739,8 @@ var UIBuilder = class {
     let totalHours = 0;
     let workDaysInWeek = 0;
     let workDaysPassed = 0;
+    let goalReduction = 0;
+    const dailyGoal = this.settings.baseWorkday * this.settings.workPercent;
     for (let i = 0; i < 7; i++) {
       const day = new Date(mondayOfWeek);
       day.setDate(mondayOfWeek.getDate() + i);
@@ -6642,13 +6761,16 @@ var UIBuilder = class {
       const dayEntries = this.data.daily[dayKey] || [];
       dayEntries.forEach((entry) => {
         const name = entry.name.toLowerCase();
-        if (name !== "avspasering" && name !== "ferie" && name !== "egenmelding" && name !== "sykemelding" && name !== "velferdspermisjon") {
+        const behavior = this.settings.specialDayBehaviors.find((b) => b.id === name);
+        if ((behavior == null ? void 0 : behavior.flextimeEffect) === "reduce_goal") {
+          goalReduction += entry.duration && entry.duration > 0 ? entry.duration : dailyGoal;
+        } else if (!(behavior == null ? void 0 : behavior.noHoursRequired) && (behavior == null ? void 0 : behavior.flextimeEffect) !== "withdraw") {
           totalHours += entry.duration || 0;
         }
       });
     }
     const expectedHoursPerDay = this.settings.baseWorkday;
-    const expectedHours = workDaysPassed * expectedHoursPerDay * this.settings.workPercent;
+    const expectedHours = Math.max(0, workDaysPassed * expectedHoursPerDay * this.settings.workPercent - goalReduction);
     const isComplete = workDaysPassed >= workDaysInWeek || sundayOfWeek < today;
     let status = "ok";
     const tolerance = 0.5;

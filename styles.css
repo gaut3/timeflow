@@ -595,14 +595,28 @@
 
 .tf-hours-bar {
 	width: 100%;
-	background: var(--interactive-accent);
+	background: transparent;
 	border-radius: 3px 3px 0 0;
 	min-height: 2px;
 	transition: height 0.3s ease;
+	overflow: hidden;
 }
 
 .tf-hours-bar.empty {
 	background: var(--background-modifier-border);
+}
+
+.tf-hours-bar-segment {
+	width: 100%;
+	transition: height 0.3s ease;
+}
+
+.tf-hours-bar-segment:first-child {
+	border-radius: 0 0 3px 3px;
+}
+
+.tf-hours-bar-segment:last-child {
+	border-radius: 3px 3px 0 0;
 }
 
 .tf-hours-bar-label {

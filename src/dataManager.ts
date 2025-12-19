@@ -113,6 +113,19 @@ export interface ValidationResults {
 	generatedAt: string;
 }
 
+export interface SpecialDayHours {
+	type: string;
+	hours: number;
+	color: string;
+}
+
+export interface BarChartData {
+	label: string;
+	hours: number;
+	target?: number;
+	specialDays?: SpecialDayHours[];
+}
+
 export class DataManager {
 	rawEntries: TimeEntry[];
 	daily: Record<string, TimeEntry[]> = {};
@@ -1674,6 +1687,96 @@ export class DataManager {
 	}
 
 	/**
+	 * Get week hours with special day breakdown for bar chart visualization
+	 */
+	getWeekHoursWithBreakdown(weekStart: Date): { workHours: number; specialDays: SpecialDayHours[] } {
+		let workHours = 0;
+		const specialDayMap: Record<string, number> = {};
+
+		for (let i = 0; i < 7; i++) {
+			const d = new Date(weekStart);
+			d.setDate(weekStart.getDate() + i);
+			const dayKey = Utils.toLocalDateStr(d);
+			const dayEntries = this.daily[dayKey] || [];
+
+			dayEntries.forEach(entry => {
+				if (!entry.isActive) {
+					const behavior = this.getSpecialDayBehavior(entry.name);
+					const entryHours = entry.duration || 0;
+
+					if (behavior?.flextimeEffect === 'reduce_goal' || behavior?.noHoursRequired) {
+						// Special day - track separately
+						const typeId = entry.name.toLowerCase();
+						specialDayMap[typeId] = (specialDayMap[typeId] || 0) + entryHours;
+					} else if (behavior?.flextimeEffect !== 'withdraw') {
+						// Regular work hours
+						workHours += entryHours;
+					}
+				}
+			});
+		}
+
+		// Convert map to array with colors
+		const specialDays: SpecialDayHours[] = Object.entries(specialDayMap)
+			.filter(([, hours]) => hours > 0)
+			.map(([type, hours]) => {
+				const behavior = this.getSpecialDayBehavior(type);
+				return {
+					type,
+					hours,
+					color: behavior?.color || '#e0e0e0'
+				};
+			});
+
+		return { workHours, specialDays };
+	}
+
+	/**
+	 * Get month hours with special day breakdown for bar chart visualization
+	 */
+	getMonthHoursWithBreakdown(year: number, month: number): { workHours: number; specialDays: SpecialDayHours[] } {
+		let workHours = 0;
+		const specialDayMap: Record<string, number> = {};
+		const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+		for (let day = 1; day <= daysInMonth; day++) {
+			const d = new Date(year, month, day);
+			const dayKey = Utils.toLocalDateStr(d);
+			const dayEntries = this.daily[dayKey] || [];
+
+			dayEntries.forEach(entry => {
+				if (!entry.isActive) {
+					const behavior = this.getSpecialDayBehavior(entry.name);
+					const entryHours = entry.duration || 0;
+
+					if (behavior?.flextimeEffect === 'reduce_goal' || behavior?.noHoursRequired) {
+						// Special day - track separately
+						const typeId = entry.name.toLowerCase();
+						specialDayMap[typeId] = (specialDayMap[typeId] || 0) + entryHours;
+					} else if (behavior?.flextimeEffect !== 'withdraw') {
+						// Regular work hours
+						workHours += entryHours;
+					}
+				}
+			});
+		}
+
+		// Convert map to array with colors
+		const specialDays: SpecialDayHours[] = Object.entries(specialDayMap)
+			.filter(([, hours]) => hours > 0)
+			.map(([type, hours]) => {
+				const behavior = this.getSpecialDayBehavior(type);
+				return {
+					type,
+					hours,
+					color: behavior?.color || '#e0e0e0'
+				};
+			});
+
+		return { workHours, specialDays };
+	}
+
+	/**
 	 * Get total hours for a specific month
 	 */
 	getMonthHours(year: number, month: number): number {
@@ -1713,10 +1816,10 @@ export class DataManager {
 
 	/**
 	 * Get historical hours data for bar chart
-	 * Returns array of { label, hours, target? }
+	 * Returns array of { label, hours, target?, specialDays? }
 	 */
-	getHistoricalHoursData(timeframe: 'month' | 'year' | 'total', selectedYear?: number, selectedMonth?: number): Array<{ label: string; hours: number; target?: number }> {
-		const data: Array<{ label: string; hours: number; target?: number }> = [];
+	getHistoricalHoursData(timeframe: 'month' | 'year' | 'total', selectedYear?: number, selectedMonth?: number): BarChartData[] {
+		const data: BarChartData[] = [];
 		const today = new Date();
 		const weeklyTarget = this.workweekHours;
 
@@ -1728,11 +1831,12 @@ export class DataManager {
 				const weekStart = new Date(currentWeekStart);
 				weekStart.setDate(currentWeekStart.getDate() - (i * 7));
 				const weekNum = this.getISOWeekNumber(weekStart);
-				const hours = this.getWeekHours(weekStart);
+				const breakdown = this.getWeekHoursWithBreakdown(weekStart);
 				data.push({
 					label: `${weekPrefix}${weekNum}`,
-					hours,
-					target: weeklyTarget
+					hours: breakdown.workHours,
+					target: weeklyTarget,
+					specialDays: breakdown.specialDays
 				});
 			}
 		} else if (timeframe === 'year') {
@@ -1741,15 +1845,16 @@ export class DataManager {
 			const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Des'];
 			const monthlyTarget = weeklyTarget * 4.33; // Approximate weeks per month
 			for (let month = 0; month < 12; month++) {
-				const hours = this.getMonthHours(year, month);
+				const breakdown = this.getMonthHoursWithBreakdown(year, month);
 				data.push({
 					label: monthNames[month],
-					hours,
-					target: monthlyTarget
+					hours: breakdown.workHours,
+					target: monthlyTarget,
+					specialDays: breakdown.specialDays
 				});
 			}
 		} else {
-			// Total: Last 6 years
+			// Total: Last 6 years (no special day breakdown for yearly view)
 			const currentYear = today.getFullYear();
 			for (let i = 5; i >= 0; i--) {
 				const year = currentYear - i;

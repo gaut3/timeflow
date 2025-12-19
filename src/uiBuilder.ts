@@ -1346,6 +1346,8 @@ export class UIBuilder {
 		firstDayOfWeek.setDate(today.getDate() - daysFromMonday);
 
 		let adjustedGoal = 0;
+		let goalReduction = 0; // Track goal reduction from reduce_goal entries (sick days)
+		const dailyGoalAmount = this.settings.baseWorkday * this.settings.workPercent;
 
 		for (let i = 0; i < 7; i++) {
 			const d = new Date(firstDayOfWeek);
@@ -1353,7 +1355,22 @@ export class UIBuilder {
 			const dayKey = Utils.toLocalDateStr(d);
 			const dayGoal = this.data.getDailyGoal(dayKey);
 			adjustedGoal += dayGoal;
+
+			// Check for reduce_goal entries (egenmelding, sykemelding, etc.) and reduce goal
+			const dayEntries = this.data.daily[dayKey] || [];
+			dayEntries.forEach(entry => {
+				const name = entry.name.toLowerCase();
+				const behavior = this.settings.specialDayBehaviors.find(b => b.id === name);
+				if (behavior?.flextimeEffect === 'reduce_goal') {
+					// For full-day sick leave (0 duration), reduce by full daily goal
+					// For partial sick leave, reduce by the logged hours
+					goalReduction += (entry.duration && entry.duration > 0) ? entry.duration : dailyGoalAmount;
+				}
+			});
 		}
+
+		// Apply goal reduction from sick days
+		adjustedGoal = Math.max(0, adjustedGoal - goalReduction);
 
 		const progress = adjustedGoal > 0 ? Math.min((weekHours / adjustedGoal) * 100, 100) : 0;
 
@@ -1670,8 +1687,11 @@ export class UIBuilder {
 		// Skip if no data
 		if (chartData.length === 0) return;
 
-		// Find max value for scaling
-		const maxHours = Math.max(...chartData.map(d => d.hours), ...chartData.map(d => d.target || 0));
+		// Find max value for scaling (include special day hours in total)
+		const maxHours = Math.max(
+			...chartData.map(d => d.hours + (d.specialDays?.reduce((sum, sd) => sum + sd.hours, 0) || 0)),
+			...chartData.map(d => d.target || 0)
+		);
 		if (maxHours === 0) return; // No data to display
 
 		// Create chart container and append to content wrapper (not stats grid)
@@ -1726,18 +1746,50 @@ export class UIBuilder {
 		chartData.forEach(item => {
 			const barWrapper = createDiv('tf-hours-bar-wrapper');
 
-			// Value label above bar
-			const valueLabel = createDiv('tf-hours-bar-value', item.hours > 0 ? `${item.hours.toFixed(0)}` : '');
+			// Calculate total hours for this bar (work + special days)
+			const specialDayHours = item.specialDays?.reduce((sum, sd) => sum + sd.hours, 0) || 0;
+			const totalHours = item.hours + specialDayHours;
+
+			// Value label above bar (show total)
+			const valueLabel = createDiv('tf-hours-bar-value', totalHours > 0 ? `${totalHours.toFixed(0)}` : '');
 			barWrapper.appendChild(valueLabel);
 
-			// Bar container with the actual bar
+			// Bar container with stacked segments
 			const barContainer = createDiv('tf-hours-bar-container');
 			const bar = createDiv('tf-hours-bar');
-			const barHeight = maxHours > 0 ? (item.hours / maxHours) * maxBarHeight : 0;
-			bar.style.height = `${Math.max(barHeight, 2)}px`;
-			if (item.hours === 0) {
+			bar.style.display = 'flex';
+			bar.style.flexDirection = 'column-reverse'; // Stack from bottom
+
+			const totalHeight = maxHours > 0 ? (totalHours / maxHours) * maxBarHeight : 0;
+			bar.style.height = `${Math.max(totalHeight, 2)}px`;
+
+			if (totalHours === 0) {
 				bar.classList.add('empty');
+			} else {
+				// Work hours segment (bottom)
+				if (item.hours > 0) {
+					const workSegment = createDiv('tf-hours-bar-segment');
+					const workHeight = (item.hours / totalHours) * 100;
+					workSegment.style.height = `${workHeight}%`;
+					workSegment.style.background = 'var(--interactive-accent)';
+					workSegment.title = `${t('ui.work') || 'Jobb'}: ${item.hours.toFixed(1)}t`;
+					bar.appendChild(workSegment);
+				}
+
+				// Special day segments (stacked on top)
+				item.specialDays?.forEach(sd => {
+					if (sd.hours > 0) {
+						const segment = createDiv('tf-hours-bar-segment');
+						const segmentHeight = (sd.hours / totalHours) * 100;
+						segment.style.height = `${segmentHeight}%`;
+						segment.style.background = sd.color;
+						const behavior = this.settings.specialDayBehaviors.find(b => b.id === sd.type);
+						segment.title = `${behavior?.label || sd.type}: ${sd.hours.toFixed(1)}t`;
+						bar.appendChild(segment);
+					}
+				});
 			}
+
 			barContainer.appendChild(bar);
 			barWrapper.appendChild(barContainer);
 
@@ -2288,6 +2340,8 @@ export class UIBuilder {
 		let totalHours = 0;
 		let workDaysInWeek = 0;
 		let workDaysPassed = 0;
+		let goalReduction = 0; // Track goal reduction from reduce_goal entries (sick days)
+		const dailyGoal = this.settings.baseWorkday * this.settings.workPercent;
 
 		for (let i = 0; i < 7; i++) {
 			const day = new Date(mondayOfWeek);
@@ -2315,12 +2369,18 @@ export class UIBuilder {
 				}
 			}
 
-			// Sum hours from entries
+			// Sum hours from entries and track goal reductions
 			const dayEntries = this.data.daily[dayKey] || [];
 			dayEntries.forEach(entry => {
 				const name = entry.name.toLowerCase();
-				// Count work hours (exclude special leave types that don't count as work)
-				if (name !== 'avspasering' && name !== 'ferie' && name !== 'egenmelding' && name !== 'sykemelding' && name !== 'velferdspermisjon') {
+				const behavior = this.settings.specialDayBehaviors.find(b => b.id === name);
+
+				if (behavior?.flextimeEffect === 'reduce_goal') {
+					// For full-day sick leave (0 duration), reduce by full daily goal
+					// For partial sick leave, reduce by the logged hours
+					goalReduction += (entry.duration && entry.duration > 0) ? entry.duration : dailyGoal;
+				} else if (!behavior?.noHoursRequired && behavior?.flextimeEffect !== 'withdraw') {
+					// Count work hours (exclude noHoursRequired types and withdraw types)
 					totalHours += entry.duration || 0;
 				}
 			});
@@ -2331,9 +2391,9 @@ export class UIBuilder {
 			return 'week-future';
 		}
 
-		// Calculate expected hours for days that have passed
+		// Calculate expected hours for days that have passed, minus goal reductions from sick days
 		const expectedHoursPerDay = this.settings.baseWorkday;
-		const expectedHours = workDaysPassed * expectedHoursPerDay * this.settings.workPercent;
+		const expectedHours = Math.max(0, (workDaysPassed * expectedHoursPerDay * this.settings.workPercent) - goalReduction);
 
 		// Tolerance: within 0.5 hours of goal is considered "ok"
 		const tolerance = 0.5;
@@ -2374,6 +2434,8 @@ export class UIBuilder {
 		let totalHours = 0;
 		let workDaysInWeek = 0;
 		let workDaysPassed = 0;
+		let goalReduction = 0; // Track goal reduction from reduce_goal entries (sick days)
+		const dailyGoal = this.settings.baseWorkday * this.settings.workPercent;
 
 		for (let i = 0; i < 7; i++) {
 			const day = new Date(mondayOfWeek);
@@ -2397,18 +2459,25 @@ export class UIBuilder {
 				}
 			}
 
+			// Sum hours from entries and track goal reductions
 			const dayEntries = this.data.daily[dayKey] || [];
 			dayEntries.forEach(entry => {
 				const name = entry.name.toLowerCase();
-				// Count work hours (exclude special leave types that don't count as work)
-				if (name !== 'avspasering' && name !== 'ferie' && name !== 'egenmelding' && name !== 'sykemelding' && name !== 'velferdspermisjon') {
+				const behavior = this.settings.specialDayBehaviors.find(b => b.id === name);
+
+				if (behavior?.flextimeEffect === 'reduce_goal') {
+					// For full-day sick leave (0 duration), reduce by full daily goal
+					// For partial sick leave, reduce by the logged hours
+					goalReduction += (entry.duration && entry.duration > 0) ? entry.duration : dailyGoal;
+				} else if (!behavior?.noHoursRequired && behavior?.flextimeEffect !== 'withdraw') {
+					// Count work hours (exclude noHoursRequired types and withdraw types)
 					totalHours += entry.duration || 0;
 				}
 			});
 		}
 
 		const expectedHoursPerDay = this.settings.baseWorkday;
-		const expectedHours = workDaysPassed * expectedHoursPerDay * this.settings.workPercent;
+		const expectedHours = Math.max(0, (workDaysPassed * expectedHoursPerDay * this.settings.workPercent) - goalReduction);
 		const isComplete = workDaysPassed >= workDaysInWeek || sundayOfWeek < today;
 
 		let status = 'ok';
