@@ -3823,7 +3823,7 @@ var DataManager = class {
     if (this.daily[dateStr]) {
       const specialEntry = this.daily[dateStr].find((e) => {
         const behavior = this.getSpecialDayBehavior(e.name);
-        return behavior && (behavior.noHoursRequired || behavior.countsAsWorkday);
+        return behavior && behavior.noHoursRequired && behavior.flextimeEffect !== "withdraw";
       });
       if (specialEntry) {
         return 0;
@@ -3962,12 +3962,14 @@ var DataManager = class {
       let goalReduction = 0;
       let hasAccumulateEntry = false;
       let hasActiveEntry = false;
+      let hasRegularWork = false;
       dayEntries.forEach((e) => {
         if (e.isActive) {
           hasActiveEntry = true;
           const behavior2 = this.getSpecialDayBehavior(e.name);
           if (!behavior2 || behavior2.isWorkType) {
             regularWorked += e.duration || 0;
+            hasRegularWork = true;
           } else if ((behavior2 == null ? void 0 : behavior2.flextimeEffect) === "accumulate") {
             accumulateWorked += e.duration || 0;
             hasAccumulateEntry = true;
@@ -3987,10 +3989,14 @@ var DataManager = class {
           hasAccumulateEntry = true;
         } else {
           regularWorked += e.duration || 0;
+          hasRegularWork = true;
         }
       });
       if (hasActiveEntry) continue;
-      const effectiveGoal = Math.max(0, dayGoal - goalReduction);
+      let effectiveGoal = Math.max(0, dayGoal - goalReduction);
+      if (avspaseringHours > 0 && !hasRegularWork && !hasAccumulateEntry) {
+        effectiveGoal = 0;
+      }
       if (hasAccumulateEntry && regularWorked === 0) {
         if (effectiveGoal === 0) {
           balance += accumulateWorked;

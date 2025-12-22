@@ -521,11 +521,14 @@ export class DataManager {
 
 		// Also check if there's a special day entry (ferie, egenmelding, etc.) for this date
 		// This handles legacy/imported data that exists only in data.md (not in holidays.md)
+		// NOTE: We check for noHoursRequired BUT exclude 'withdraw' types like avspasering
+		// Avspasering withdraws from balance, so work on same day should compare against normal goal
 		if (this.daily[dateStr]) {
 			const specialEntry = this.daily[dateStr].find(e => {
 				const behavior = this.getSpecialDayBehavior(e.name);
-				// Check noHoursRequired OR countsAsWorkday (legacy property for ferie, etc.)
-				return behavior && (behavior.noHoursRequired || behavior.countsAsWorkday);
+				// noHoursRequired types that DON'T withdraw (ferie, helligdag) set goal to 0
+				// Avspasering has noHoursRequired but flextimeEffect='withdraw', so excluded
+				return behavior && behavior.noHoursRequired && behavior.flextimeEffect !== 'withdraw';
 			});
 			if (specialEntry) {
 				return 0;
@@ -725,6 +728,7 @@ export class DataManager {
 			let goalReduction = 0;  // Hours that reduce daily goal (sick days, etc.)
 			let hasAccumulateEntry = false;  // Track if any accumulate entries exist
 			let hasActiveEntry = false;  // Track if any active entries exist
+			let hasRegularWork = false;  // Track if any regular work entries exist
 
 			dayEntries.forEach(e => {
 				// Track active entries but include their current duration in balance
@@ -734,6 +738,7 @@ export class DataManager {
 					const behavior = this.getSpecialDayBehavior(e.name);
 					if (!behavior || behavior.isWorkType) {
 						regularWorked += e.duration || 0;
+						hasRegularWork = true;
 					} else if (behavior?.flextimeEffect === 'accumulate') {
 						accumulateWorked += e.duration || 0;
 						hasAccumulateEntry = true;
@@ -764,6 +769,7 @@ export class DataManager {
 				} else {
 					// Regular work hours (jobb, etc.)
 					regularWorked += e.duration || 0;
+					hasRegularWork = true;
 				}
 			});
 
@@ -775,7 +781,12 @@ export class DataManager {
 			// (regularWorked = 0, so balance += 0 - effectiveGoal = -goal)
 
 			// Calculate effective goal after reductions (but not below 0)
-			const effectiveGoal = Math.max(0, dayGoal - goalReduction);
+			// Special case: If day has ONLY avspasering (no regular work), set goal to 0
+			// This prevents double-charging (avspasering already withdraws from balance)
+			let effectiveGoal = Math.max(0, dayGoal - goalReduction);
+			if (avspaseringHours > 0 && !hasRegularWork && !hasAccumulateEntry) {
+				effectiveGoal = 0;
+			}
 
 			// Handle accumulate entries: only positive excess over goal counts
 			if (hasAccumulateEntry && regularWorked === 0) {
