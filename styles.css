@@ -591,32 +591,48 @@
 	flex: 1;
 	display: flex;
 	align-items: flex-end;
+	position: relative;
+}
+
+.tf-hours-target-marker {
+	position: absolute;
+	left: 0;
+	right: 0;
+	height: 2px;
+	background: var(--text-muted);
+	z-index: 1;
+	opacity: 0.7;
+}
+
+.tf-hours-target-marker::before,
+.tf-hours-target-marker::after {
+	content: '';
+	position: absolute;
+	width: 4px;
+	height: 4px;
+	background: var(--text-muted);
+	border-radius: 50%;
+	top: -1px;
+}
+
+.tf-hours-target-marker::before {
+	left: -2px;
+}
+
+.tf-hours-target-marker::after {
+	right: -2px;
 }
 
 .tf-hours-bar {
 	width: 100%;
-	background: transparent;
+	background: var(--interactive-accent);
 	border-radius: 3px 3px 0 0;
 	min-height: 2px;
 	transition: height 0.3s ease;
-	overflow: hidden;
 }
 
 .tf-hours-bar.empty {
 	background: var(--background-modifier-border);
-}
-
-.tf-hours-bar-segment {
-	width: 100%;
-	transition: height 0.3s ease;
-}
-
-.tf-hours-bar-segment:first-child {
-	border-radius: 0 0 3px 3px;
-}
-
-.tf-hours-bar-segment:last-child {
-	border-radius: 3px 3px 0 0;
 }
 
 .tf-hours-bar-label {

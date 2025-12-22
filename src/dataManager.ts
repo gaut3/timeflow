@@ -113,17 +113,10 @@ export interface ValidationResults {
 	generatedAt: string;
 }
 
-export interface SpecialDayHours {
-	type: string;
-	hours: number;
-	color: string;
-}
-
 export interface BarChartData {
 	label: string;
 	hours: number;
 	target?: number;
-	specialDays?: SpecialDayHours[];
 }
 
 export class DataManager {
@@ -194,11 +187,8 @@ export class DataManager {
 					// Special handling for annet entries with more complex format
 					const annetMatch = line.match(/^-\s*(\d{4}-\d{2}-\d{2}):\s*annet(?::([^:]+))?(?::(\d{2}:\d{2}-\d{2}:\d{2}))?:\s*(.+)$/);
 
-					let parsedDate: string | null = null;
-
 					if (annetMatch) {
 						const [, date, templateOrTime, timeRange, description] = annetMatch;
-						parsedDate = date;
 						let annetTemplateId: string | undefined;
 						let startTime: string | undefined;
 						let endTime: string | undefined;
@@ -240,7 +230,6 @@ export class DataManager {
 						};
 					} else if (match) {
 						const [, date, type, modifier, description] = match;
-						parsedDate = date;
 						const isHalfDay = modifier === 'half';
 
 						// Parse time range (e.g., "14:00-16:00")
@@ -1687,11 +1676,12 @@ export class DataManager {
 	}
 
 	/**
-	 * Get week hours with special day breakdown for bar chart visualization
+	 * Get week hours with goal reduction for bar chart visualization
 	 */
-	getWeekHoursWithBreakdown(weekStart: Date): { workHours: number; specialDays: SpecialDayHours[] } {
+	getWeekHoursWithBreakdown(weekStart: Date): { workHours: number; goalReduction: number } {
 		let workHours = 0;
-		const specialDayMap: Record<string, number> = {};
+		let goalReduction = 0;
+		const dailyGoal = this.workdayHours;
 
 		for (let i = 0; i < 7; i++) {
 			const d = new Date(weekStart);
@@ -1704,39 +1694,27 @@ export class DataManager {
 					const behavior = this.getSpecialDayBehavior(entry.name);
 					const entryHours = entry.duration || 0;
 
-					if (behavior?.flextimeEffect === 'reduce_goal' || behavior?.noHoursRequired) {
-						// Special day - track separately
-						const typeId = entry.name.toLowerCase();
-						specialDayMap[typeId] = (specialDayMap[typeId] || 0) + entryHours;
-					} else if (behavior?.flextimeEffect !== 'withdraw') {
-						// Regular work hours
+					if (behavior?.flextimeEffect === 'reduce_goal') {
+						// Sick days reduce the goal - full day (0 duration) = full daily goal reduction
+						goalReduction += (entryHours > 0) ? entryHours : dailyGoal;
+					} else if (behavior?.flextimeEffect !== 'withdraw' && !behavior?.noHoursRequired) {
+						// Regular work hours (exclude withdraw like avspasering, and noHoursRequired like ferie/helligdag)
 						workHours += entryHours;
 					}
 				}
 			});
 		}
 
-		// Convert map to array with colors
-		const specialDays: SpecialDayHours[] = Object.entries(specialDayMap)
-			.filter(([, hours]) => hours > 0)
-			.map(([type, hours]) => {
-				const behavior = this.getSpecialDayBehavior(type);
-				return {
-					type,
-					hours,
-					color: behavior?.color || '#e0e0e0'
-				};
-			});
-
-		return { workHours, specialDays };
+		return { workHours, goalReduction };
 	}
 
 	/**
-	 * Get month hours with special day breakdown for bar chart visualization
+	 * Get month hours with goal reduction for bar chart visualization
 	 */
-	getMonthHoursWithBreakdown(year: number, month: number): { workHours: number; specialDays: SpecialDayHours[] } {
+	getMonthHoursWithBreakdown(year: number, month: number): { workHours: number; goalReduction: number } {
 		let workHours = 0;
-		const specialDayMap: Record<string, number> = {};
+		let goalReduction = 0;
+		const dailyGoal = this.workdayHours;
 		const daysInMonth = new Date(year, month + 1, 0).getDate();
 
 		for (let day = 1; day <= daysInMonth; day++) {
@@ -1749,31 +1727,18 @@ export class DataManager {
 					const behavior = this.getSpecialDayBehavior(entry.name);
 					const entryHours = entry.duration || 0;
 
-					if (behavior?.flextimeEffect === 'reduce_goal' || behavior?.noHoursRequired) {
-						// Special day - track separately
-						const typeId = entry.name.toLowerCase();
-						specialDayMap[typeId] = (specialDayMap[typeId] || 0) + entryHours;
-					} else if (behavior?.flextimeEffect !== 'withdraw') {
-						// Regular work hours
+					if (behavior?.flextimeEffect === 'reduce_goal') {
+						// Sick days reduce the goal - full day (0 duration) = full daily goal reduction
+						goalReduction += (entryHours > 0) ? entryHours : dailyGoal;
+					} else if (behavior?.flextimeEffect !== 'withdraw' && !behavior?.noHoursRequired) {
+						// Regular work hours (exclude withdraw like avspasering, and noHoursRequired like ferie/helligdag)
 						workHours += entryHours;
 					}
 				}
 			});
 		}
 
-		// Convert map to array with colors
-		const specialDays: SpecialDayHours[] = Object.entries(specialDayMap)
-			.filter(([, hours]) => hours > 0)
-			.map(([type, hours]) => {
-				const behavior = this.getSpecialDayBehavior(type);
-				return {
-					type,
-					hours,
-					color: behavior?.color || '#e0e0e0'
-				};
-			});
-
-		return { workHours, specialDays };
+		return { workHours, goalReduction };
 	}
 
 	/**
@@ -1832,11 +1797,12 @@ export class DataManager {
 				weekStart.setDate(currentWeekStart.getDate() - (i * 7));
 				const weekNum = this.getISOWeekNumber(weekStart);
 				const breakdown = this.getWeekHoursWithBreakdown(weekStart);
+				// Adjust target by goal reduction from sick days
+				const adjustedTarget = Math.max(0, weeklyTarget - breakdown.goalReduction);
 				data.push({
 					label: `${weekPrefix}${weekNum}`,
 					hours: breakdown.workHours,
-					target: weeklyTarget,
-					specialDays: breakdown.specialDays
+					target: adjustedTarget
 				});
 			}
 		} else if (timeframe === 'year') {
@@ -1846,11 +1812,12 @@ export class DataManager {
 			const monthlyTarget = weeklyTarget * 4.33; // Approximate weeks per month
 			for (let month = 0; month < 12; month++) {
 				const breakdown = this.getMonthHoursWithBreakdown(year, month);
+				// Adjust target by goal reduction from sick days
+				const adjustedTarget = Math.max(0, monthlyTarget - breakdown.goalReduction);
 				data.push({
 					label: monthNames[month],
 					hours: breakdown.workHours,
-					target: monthlyTarget,
-					specialDays: breakdown.specialDays
+					target: adjustedTarget
 				});
 			}
 		} else {

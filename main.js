@@ -3571,10 +3571,8 @@ var DataManager = class {
           }
           const match = line.match(/^-\s*(\d{4}-\d{2}-\d{2}):\s*(\w+)(?::(half|\d{2}:\d{2}-\d{2}:\d{2})?)?:\s*(.+)$/);
           const annetMatch = line.match(/^-\s*(\d{4}-\d{2}-\d{2}):\s*annet(?::([^:]+))?(?::(\d{2}:\d{2}-\d{2}:\d{2}))?:\s*(.+)$/);
-          let parsedDate = null;
           if (annetMatch) {
             const [, date, templateOrTime, timeRange, description] = annetMatch;
-            parsedDate = date;
             let annetTemplateId;
             let startTime;
             let endTime;
@@ -3606,7 +3604,6 @@ var DataManager = class {
             };
           } else if (match) {
             const [, date, type, modifier, description] = match;
-            parsedDate = date;
             const isHalfDay = modifier === "half";
             let startTime;
             let endTime;
@@ -4692,11 +4689,12 @@ var DataManager = class {
     return total;
   }
   /**
-   * Get week hours with special day breakdown for bar chart visualization
+   * Get week hours with goal reduction for bar chart visualization
    */
   getWeekHoursWithBreakdown(weekStart) {
     let workHours = 0;
-    const specialDayMap = {};
+    let goalReduction = 0;
+    const dailyGoal = this.workdayHours;
     for (let i = 0; i < 7; i++) {
       const d = new Date(weekStart);
       d.setDate(weekStart.getDate() + i);
@@ -4706,31 +4704,23 @@ var DataManager = class {
         if (!entry.isActive) {
           const behavior = this.getSpecialDayBehavior(entry.name);
           const entryHours = entry.duration || 0;
-          if ((behavior == null ? void 0 : behavior.flextimeEffect) === "reduce_goal" || (behavior == null ? void 0 : behavior.noHoursRequired)) {
-            const typeId = entry.name.toLowerCase();
-            specialDayMap[typeId] = (specialDayMap[typeId] || 0) + entryHours;
-          } else if ((behavior == null ? void 0 : behavior.flextimeEffect) !== "withdraw") {
+          if ((behavior == null ? void 0 : behavior.flextimeEffect) === "reduce_goal") {
+            goalReduction += entryHours > 0 ? entryHours : dailyGoal;
+          } else if ((behavior == null ? void 0 : behavior.flextimeEffect) !== "withdraw" && !(behavior == null ? void 0 : behavior.noHoursRequired)) {
             workHours += entryHours;
           }
         }
       });
     }
-    const specialDays = Object.entries(specialDayMap).filter(([, hours]) => hours > 0).map(([type, hours]) => {
-      const behavior = this.getSpecialDayBehavior(type);
-      return {
-        type,
-        hours,
-        color: (behavior == null ? void 0 : behavior.color) || "#e0e0e0"
-      };
-    });
-    return { workHours, specialDays };
+    return { workHours, goalReduction };
   }
   /**
-   * Get month hours with special day breakdown for bar chart visualization
+   * Get month hours with goal reduction for bar chart visualization
    */
   getMonthHoursWithBreakdown(year, month) {
     let workHours = 0;
-    const specialDayMap = {};
+    let goalReduction = 0;
+    const dailyGoal = this.workdayHours;
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     for (let day = 1; day <= daysInMonth; day++) {
       const d = new Date(year, month, day);
@@ -4740,24 +4730,15 @@ var DataManager = class {
         if (!entry.isActive) {
           const behavior = this.getSpecialDayBehavior(entry.name);
           const entryHours = entry.duration || 0;
-          if ((behavior == null ? void 0 : behavior.flextimeEffect) === "reduce_goal" || (behavior == null ? void 0 : behavior.noHoursRequired)) {
-            const typeId = entry.name.toLowerCase();
-            specialDayMap[typeId] = (specialDayMap[typeId] || 0) + entryHours;
-          } else if ((behavior == null ? void 0 : behavior.flextimeEffect) !== "withdraw") {
+          if ((behavior == null ? void 0 : behavior.flextimeEffect) === "reduce_goal") {
+            goalReduction += entryHours > 0 ? entryHours : dailyGoal;
+          } else if ((behavior == null ? void 0 : behavior.flextimeEffect) !== "withdraw" && !(behavior == null ? void 0 : behavior.noHoursRequired)) {
             workHours += entryHours;
           }
         }
       });
     }
-    const specialDays = Object.entries(specialDayMap).filter(([, hours]) => hours > 0).map(([type, hours]) => {
-      const behavior = this.getSpecialDayBehavior(type);
-      return {
-        type,
-        hours,
-        color: (behavior == null ? void 0 : behavior.color) || "#e0e0e0"
-      };
-    });
-    return { workHours, specialDays };
+    return { workHours, goalReduction };
   }
   /**
    * Get total hours for a specific month
@@ -4807,11 +4788,11 @@ var DataManager = class {
         weekStart.setDate(currentWeekStart.getDate() - i * 7);
         const weekNum = this.getISOWeekNumber(weekStart);
         const breakdown = this.getWeekHoursWithBreakdown(weekStart);
+        const adjustedTarget = Math.max(0, weeklyTarget - breakdown.goalReduction);
         data.push({
           label: `${weekPrefix}${weekNum}`,
           hours: breakdown.workHours,
-          target: weeklyTarget,
-          specialDays: breakdown.specialDays
+          target: adjustedTarget
         });
       }
     } else if (timeframe === "year") {
@@ -4820,11 +4801,11 @@ var DataManager = class {
       const monthlyTarget = weeklyTarget * 4.33;
       for (let month = 0; month < 12; month++) {
         const breakdown = this.getMonthHoursWithBreakdown(year, month);
+        const adjustedTarget = Math.max(0, monthlyTarget - breakdown.goalReduction);
         data.push({
           label: monthNames[month],
           hours: breakdown.workHours,
-          target: monthlyTarget,
-          specialDays: breakdown.specialDays
+          target: adjustedTarget
         });
       }
     } else {
@@ -6191,7 +6172,6 @@ var UIBuilder = class {
    * Render the hours bar chart at the bottom of the stats card section
    */
   renderHoursBarChart() {
-    var _a;
     if (!this.elements.statsCard) return;
     const contentWrapper = this.elements.statsCard.parentElement;
     if (!contentWrapper) return;
@@ -6206,10 +6186,7 @@ var UIBuilder = class {
     );
     if (chartData.length === 0) return;
     const maxHours = Math.max(
-      ...chartData.map((d) => {
-        var _a2;
-        return d.hours + (((_a2 = d.specialDays) == null ? void 0 : _a2.reduce((sum, sd) => sum + sd.hours, 0)) || 0);
-      }),
+      ...chartData.map((d) => d.hours),
       ...chartData.map((d) => d.target || 0)
     );
     if (maxHours === 0) return;
@@ -6236,53 +6213,25 @@ var UIBuilder = class {
     const barsArea = createDiv("tf-hours-bars-area");
     chartInner.appendChild(barsArea);
     const maxBarHeight = 80;
-    const bottomOffset = 20;
-    const target = (_a = chartData[0]) == null ? void 0 : _a.target;
-    if (target && target > 0) {
-      const targetHeight = target / maxHours * maxBarHeight;
-      const targetLine = createDiv("tf-hours-target-line");
-      targetLine.style.bottom = `${targetHeight + bottomOffset}px`;
-      const targetLabelLeft = createDiv("tf-hours-target-label-left", t("stats.target") || "M\xE5l");
-      const targetLabelRight = createDiv("tf-hours-target-label", `${target.toFixed(0)}t`);
-      targetLine.appendChild(targetLabelLeft);
-      targetLine.appendChild(targetLabelRight);
-      chartInner.appendChild(targetLine);
-    }
     chartData.forEach((item) => {
-      var _a2, _b;
       const barWrapper = createDiv("tf-hours-bar-wrapper");
-      const specialDayHours = ((_a2 = item.specialDays) == null ? void 0 : _a2.reduce((sum, sd) => sum + sd.hours, 0)) || 0;
-      const totalHours = item.hours + specialDayHours;
-      const valueLabel = createDiv("tf-hours-bar-value", totalHours > 0 ? `${totalHours.toFixed(0)}` : "");
+      const valueLabel = createDiv("tf-hours-bar-value", item.hours > 0 ? `${item.hours.toFixed(0)}` : "");
       barWrapper.appendChild(valueLabel);
       const barContainer = createDiv("tf-hours-bar-container");
+      if (item.target && item.target > 0 && maxHours > 0) {
+        const targetHeight = item.target / maxHours * maxBarHeight;
+        const targetMarker = createDiv("tf-hours-target-marker");
+        targetMarker.setCssProps({ "--target-height": `${targetHeight}px` });
+        targetMarker.style.bottom = "var(--target-height)";
+        targetMarker.title = `${t("stats.target") || "M\xE5l"}: ${item.target.toFixed(0)}t`;
+        barContainer.appendChild(targetMarker);
+      }
       const bar = createDiv("tf-hours-bar");
-      bar.style.display = "flex";
-      bar.style.flexDirection = "column-reverse";
-      const totalHeight = maxHours > 0 ? totalHours / maxHours * maxBarHeight : 0;
-      bar.style.height = `${Math.max(totalHeight, 2)}px`;
-      if (totalHours === 0) {
+      const barHeight = maxHours > 0 ? item.hours / maxHours * maxBarHeight : 0;
+      bar.setCssProps({ "--bar-height": `${Math.max(barHeight, 2)}px` });
+      bar.style.height = "var(--bar-height)";
+      if (item.hours === 0) {
         bar.classList.add("empty");
-      } else {
-        if (item.hours > 0) {
-          const workSegment = createDiv("tf-hours-bar-segment");
-          const workHeight = item.hours / totalHours * 100;
-          workSegment.style.height = `${workHeight}%`;
-          workSegment.style.background = "var(--interactive-accent)";
-          workSegment.title = `${t("ui.work") || "Jobb"}: ${item.hours.toFixed(1)}t`;
-          bar.appendChild(workSegment);
-        }
-        (_b = item.specialDays) == null ? void 0 : _b.forEach((sd) => {
-          if (sd.hours > 0) {
-            const segment = createDiv("tf-hours-bar-segment");
-            const segmentHeight = sd.hours / totalHours * 100;
-            segment.style.height = `${segmentHeight}%`;
-            segment.style.background = sd.color;
-            const behavior = this.settings.specialDayBehaviors.find((b) => b.id === sd.type);
-            segment.title = `${(behavior == null ? void 0 : behavior.label) || sd.type}: ${sd.hours.toFixed(1)}t`;
-            bar.appendChild(segment);
-          }
-        });
       }
       barContainer.appendChild(bar);
       barWrapper.appendChild(barContainer);

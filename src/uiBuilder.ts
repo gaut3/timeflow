@@ -1687,9 +1687,9 @@ export class UIBuilder {
 		// Skip if no data
 		if (chartData.length === 0) return;
 
-		// Find max value for scaling (include special day hours in total)
+		// Find max value for scaling
 		const maxHours = Math.max(
-			...chartData.map(d => d.hours + (d.specialDays?.reduce((sum, sd) => sum + sd.hours, 0) || 0)),
+			...chartData.map(d => d.hours),
 			...chartData.map(d => d.target || 0)
 		);
 		if (maxHours === 0) return; // No data to display
@@ -1727,67 +1727,35 @@ export class UIBuilder {
 
 		// Constants for bar sizing
 		const maxBarHeight = 80; // pixels
-		const bottomOffset = 20; // space for labels at bottom
 
-		// Add target line if applicable (inside chartInner for correct absolute positioning)
-		const target = chartData[0]?.target;
-		if (target && target > 0) {
-			const targetHeight = (target / maxHours) * maxBarHeight;
-			const targetLine = createDiv('tf-hours-target-line');
-			targetLine.style.bottom = `${targetHeight + bottomOffset}px`;
-			const targetLabelLeft = createDiv('tf-hours-target-label-left', t('stats.target') || 'Mål');
-			const targetLabelRight = createDiv('tf-hours-target-label', `${target.toFixed(0)}t`);
-			targetLine.appendChild(targetLabelLeft);
-			targetLine.appendChild(targetLabelRight);
-			chartInner.appendChild(targetLine);
-		}
-
-		// Render bars
+		// Render bars with individual target markers
 		chartData.forEach(item => {
 			const barWrapper = createDiv('tf-hours-bar-wrapper');
 
-			// Calculate total hours for this bar (work + special days)
-			const specialDayHours = item.specialDays?.reduce((sum, sd) => sum + sd.hours, 0) || 0;
-			const totalHours = item.hours + specialDayHours;
-
-			// Value label above bar (show total)
-			const valueLabel = createDiv('tf-hours-bar-value', totalHours > 0 ? `${totalHours.toFixed(0)}` : '');
+			// Value label above bar
+			const valueLabel = createDiv('tf-hours-bar-value', item.hours > 0 ? `${item.hours.toFixed(0)}` : '');
 			barWrapper.appendChild(valueLabel);
 
-			// Bar container with stacked segments
+			// Bar container (position relative for target marker)
 			const barContainer = createDiv('tf-hours-bar-container');
+
+			// Add target marker if target exists
+			if (item.target && item.target > 0 && maxHours > 0) {
+				const targetHeight = (item.target / maxHours) * maxBarHeight;
+				const targetMarker = createDiv('tf-hours-target-marker');
+				targetMarker.setCssProps({ '--target-height': `${targetHeight}px` });
+				targetMarker.style.bottom = 'var(--target-height)';
+				targetMarker.title = `${t('stats.target') || 'Mål'}: ${item.target.toFixed(0)}t`;
+				barContainer.appendChild(targetMarker);
+			}
+
 			const bar = createDiv('tf-hours-bar');
-			bar.style.display = 'flex';
-			bar.style.flexDirection = 'column-reverse'; // Stack from bottom
+			const barHeight = maxHours > 0 ? (item.hours / maxHours) * maxBarHeight : 0;
+			bar.setCssProps({ '--bar-height': `${Math.max(barHeight, 2)}px` });
+			bar.style.height = 'var(--bar-height)';
 
-			const totalHeight = maxHours > 0 ? (totalHours / maxHours) * maxBarHeight : 0;
-			bar.style.height = `${Math.max(totalHeight, 2)}px`;
-
-			if (totalHours === 0) {
+			if (item.hours === 0) {
 				bar.classList.add('empty');
-			} else {
-				// Work hours segment (bottom)
-				if (item.hours > 0) {
-					const workSegment = createDiv('tf-hours-bar-segment');
-					const workHeight = (item.hours / totalHours) * 100;
-					workSegment.style.height = `${workHeight}%`;
-					workSegment.style.background = 'var(--interactive-accent)';
-					workSegment.title = `${t('ui.work') || 'Jobb'}: ${item.hours.toFixed(1)}t`;
-					bar.appendChild(workSegment);
-				}
-
-				// Special day segments (stacked on top)
-				item.specialDays?.forEach(sd => {
-					if (sd.hours > 0) {
-						const segment = createDiv('tf-hours-bar-segment');
-						const segmentHeight = (sd.hours / totalHours) * 100;
-						segment.style.height = `${segmentHeight}%`;
-						segment.style.background = sd.color;
-						const behavior = this.settings.specialDayBehaviors.find(b => b.id === sd.type);
-						segment.title = `${behavior?.label || sd.type}: ${sd.hours.toFixed(1)}t`;
-						bar.appendChild(segment);
-					}
-				});
 			}
 
 			barContainer.appendChild(bar);
