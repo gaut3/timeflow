@@ -182,10 +182,10 @@ export class DataManager {
 					// - YYYY-MM-DD: annet:templateId: description (annet with template, full day)
 					// - YYYY-MM-DD: annet:HH:MM-HH:MM: description (annet without template, with time)
 					// - YYYY-MM-DD: annet: description (annet without template, full day)
-					const match = line.match(/^-\s*(\d{4}-\d{2}-\d{2}):\s*(\w+)(?::(half|\d{2}:\d{2}-\d{2}:\d{2})?)?:\s*(.+)$/);
+					const match = line.match(/^-\s*(\d{4}-\d{2}-\d{2}):\s*(\w+)(?::(half|\d{2}:\d{2}-\d{2}:\d{2})?)?:\s*(.*)$/);
 
 					// Special handling for annet entries with more complex format
-					const annetMatch = line.match(/^-\s*(\d{4}-\d{2}-\d{2}):\s*annet(?::([^:]+))?(?::(\d{2}:\d{2}-\d{2}:\d{2}))?:\s*(.+)$/);
+					const annetMatch = line.match(/^-\s*(\d{4}-\d{2}-\d{2}):\s*annet(?::([^:]+))?(?::(\d{2}:\d{2}-\d{2}:\d{2}))?:\s*(.*)$/);
 
 					if (annetMatch) {
 						const [, date, templateOrTime, timeRange, description] = annetMatch;
@@ -230,7 +230,9 @@ export class DataManager {
 						};
 					} else if (match) {
 						const [, date, type, modifier, description] = match;
-						const isHalfDay = modifier === 'half';
+						const typeLower = type.trim().toLowerCase();
+						// Half day if modifier is 'half' OR if the type itself is 'half'
+						const isHalfDay = modifier === 'half' || typeLower === 'half';
 
 						// Parse time range (e.g., "14:00-16:00")
 						let startTime: string | undefined;
@@ -252,7 +254,7 @@ export class DataManager {
 						}
 
 						this.holidays[date] = {
-							type: type.trim().toLowerCase(),
+							type: typeLower,
 							description: description.trim(),
 							halfDay: isHalfDay,
 							startTime,
@@ -508,8 +510,8 @@ export class DataManager {
 				return 0;
 			}
 
-			// For days that require hours (like kurs, studie),
-			// apply regular workday goal or half-day goal
+			// Check for half-day - either via halfDay flag or 'half' type
+			// This applies regardless of whether the type has a defined behavior
 			if (holidayInfo.halfDay) {
 				// Calculate half-day hours based on schedule settings
 				const halfDayHours = this.settings.halfDayMode === 'percentage'
@@ -1331,6 +1333,7 @@ export class DataManager {
 			});
 
 			// Check for overlapping entries on the same day
+			// Only flag as error if same type OR both are accumulate types
 			if (dayEntries.length > 1) {
 				const sortedEntries = [...dayEntries]
 					.filter((e): e is TimeEntry & { startTime: string; endTime: string } => Boolean(e.startTime && e.endTime))
@@ -1349,19 +1352,36 @@ export class DataManager {
 						const nextStart = new Date(next.startTime);
 
 						if (currentEnd > nextStart) {
-							const overlapMinutes = Math.round((currentEnd.getTime() - nextStart.getTime()) / 60000);
-							issues.errors.push({
-								severity: 'error',
-								type: 'Overlapping Entries',
-								description: `Entries overlap by ${overlapMinutes} minutes`,
-								date: dayKey,
-								entry: {
-									name: `${current.name} → ${next.name}`,
-									startTime: current.startTime,
-									endTime: next.endTime
-								}
-							});
-							issues.stats.entriesWithIssues++;
+							// Check if overlap should be flagged as error
+							// Different types can overlap (e.g., work + avspasering)
+							const currentBehavior = this.getSpecialDayBehavior(current.name);
+							const nextBehavior = this.getSpecialDayBehavior(next.name);
+							const currentType = current.name.toLowerCase();
+							const nextType = next.name.toLowerCase();
+
+							// Only flag as error if:
+							// 1. Same entry type (case-insensitive), OR
+							// 2. Both have flextimeEffect === 'accumulate'
+							const isSameType = currentType === nextType;
+							const bothAccumulate =
+								currentBehavior?.flextimeEffect === 'accumulate' &&
+								nextBehavior?.flextimeEffect === 'accumulate';
+
+							if (isSameType || bothAccumulate) {
+								const overlapMinutes = Math.round((currentEnd.getTime() - nextStart.getTime()) / 60000);
+								issues.errors.push({
+									severity: 'error',
+									type: 'Overlapping Entries',
+									description: `Entries overlap by ${overlapMinutes} minutes`,
+									date: dayKey,
+									entry: {
+										name: `${current.name} → ${next.name}`,
+										startTime: current.startTime,
+										endTime: next.endTime
+									}
+								});
+								issues.stats.entriesWithIssues++;
+							}
 						}
 					}
 				}
@@ -1688,17 +1708,47 @@ export class DataManager {
 
 	/**
 	 * Get week hours with goal reduction for bar chart visualization
+	 * Accounts for holidays, ferie, avspasering, etc. (but NOT weekends - they're already excluded from weeklyTarget)
 	 */
 	getWeekHoursWithBreakdown(weekStart: Date): { workHours: number; goalReduction: number } {
 		let workHours = 0;
 		let goalReduction = 0;
 		const dailyGoal = this.workdayHours;
+		// Calculate half-day hours based on settings (same logic as getDailyGoal)
+		const halfDayHours = this.settings.halfDayMode === 'percentage'
+			? this.settings.baseWorkday / 2
+			: this.settings.halfDayHours;
 
 		for (let i = 0; i < 7; i++) {
 			const d = new Date(weekStart);
 			d.setDate(weekStart.getDate() + i);
 			const dayKey = Utils.toLocalDateStr(d);
 			const dayEntries = this.daily[dayKey] || [];
+
+			// Skip weekends - they're already not included in weeklyTarget
+			const isWeekend = Utils.isWeekend(d, this.settings);
+			if (isWeekend) {
+				continue;
+			}
+
+			// Check if holiday from holidays.md - reduces goal based on type
+			const holidayInfo = this.getHolidayInfo(dayKey);
+			let dayGoalReduced = false;
+			if (holidayInfo) {
+				const behavior = holidayInfo.type === 'annet'
+					? this.getAnnetBehavior(holidayInfo)
+					: this.getSpecialDayBehavior(holidayInfo.type);
+
+				// Half-day entries (either 'half' type or :half modifier) reduce by half-day hours
+				if (holidayInfo.halfDay) {
+					goalReduction += dailyGoal - halfDayHours;
+					dayGoalReduced = true;
+				} else if (behavior?.noHoursRequired || behavior?.flextimeEffect === 'reduce_goal') {
+					// Full day holidays/special days reduce by full day
+					goalReduction += dailyGoal;
+					dayGoalReduced = true;
+				}
+			}
 
 			dayEntries.forEach(entry => {
 				if (!entry.isActive) {
@@ -1707,7 +1757,15 @@ export class DataManager {
 
 					if (behavior?.flextimeEffect === 'reduce_goal') {
 						// Sick days reduce the goal - full day (0 duration) = full daily goal reduction
+						if (!dayGoalReduced) {
+							goalReduction += (entryHours > 0) ? entryHours : dailyGoal;
+							dayGoalReduced = true;
+						}
+					} else if (behavior?.noHoursRequired && !dayGoalReduced) {
+						// noHoursRequired entries (ferie, avspasering) that aren't already counted via holidays
+						// Full day (0 duration) = full daily goal reduction
 						goalReduction += (entryHours > 0) ? entryHours : dailyGoal;
+						dayGoalReduced = true;
 					} else if (behavior?.flextimeEffect !== 'withdraw' && !behavior?.noHoursRequired) {
 						// Regular work hours (exclude withdraw like avspasering, and noHoursRequired like ferie/helligdag)
 						workHours += entryHours;
@@ -1721,17 +1779,48 @@ export class DataManager {
 
 	/**
 	 * Get month hours with goal reduction for bar chart visualization
+	 * Accounts for holidays, ferie, avspasering, etc.
+	 * For monthly view, we calculate the actual number of workdays and reduce for special days
 	 */
 	getMonthHoursWithBreakdown(year: number, month: number): { workHours: number; goalReduction: number } {
 		let workHours = 0;
 		let goalReduction = 0;
 		const dailyGoal = this.workdayHours;
+		// Calculate half-day hours based on settings (same logic as getDailyGoal)
+		const halfDayHours = this.settings.halfDayMode === 'percentage'
+			? this.settings.baseWorkday / 2
+			: this.settings.halfDayHours;
 		const daysInMonth = new Date(year, month + 1, 0).getDate();
 
 		for (let day = 1; day <= daysInMonth; day++) {
 			const d = new Date(year, month, day);
 			const dayKey = Utils.toLocalDateStr(d);
 			const dayEntries = this.daily[dayKey] || [];
+
+			// Skip weekends - they don't contribute to target
+			const isWeekend = Utils.isWeekend(d, this.settings);
+			if (isWeekend) {
+				continue;
+			}
+
+			// Check if holiday from holidays.md - reduces goal based on type
+			const holidayInfo = this.getHolidayInfo(dayKey);
+			let dayGoalReduced = false;
+			if (holidayInfo) {
+				const behavior = holidayInfo.type === 'annet'
+					? this.getAnnetBehavior(holidayInfo)
+					: this.getSpecialDayBehavior(holidayInfo.type);
+
+				// Half-day entries (either 'half' type or :half modifier) reduce by half-day hours
+				if (holidayInfo.halfDay) {
+					goalReduction += dailyGoal - halfDayHours;
+					dayGoalReduced = true;
+				} else if (behavior?.noHoursRequired || behavior?.flextimeEffect === 'reduce_goal') {
+					// Full day holidays/special days reduce by full day
+					goalReduction += dailyGoal;
+					dayGoalReduced = true;
+				}
+			}
 
 			dayEntries.forEach(entry => {
 				if (!entry.isActive) {
@@ -1740,7 +1829,15 @@ export class DataManager {
 
 					if (behavior?.flextimeEffect === 'reduce_goal') {
 						// Sick days reduce the goal - full day (0 duration) = full daily goal reduction
+						if (!dayGoalReduced) {
+							goalReduction += (entryHours > 0) ? entryHours : dailyGoal;
+							dayGoalReduced = true;
+						}
+					} else if (behavior?.noHoursRequired && !dayGoalReduced) {
+						// noHoursRequired entries (ferie, avspasering) that aren't already counted via holidays
+						// Full day (0 duration) = full daily goal reduction
 						goalReduction += (entryHours > 0) ? entryHours : dailyGoal;
+						dayGoalReduced = true;
 					} else if (behavior?.flextimeEffect !== 'withdraw' && !behavior?.noHoursRequired) {
 						// Regular work hours (exclude withdraw like avspasering, and noHoursRequired like ferie/helligdag)
 						workHours += entryHours;
@@ -1820,10 +1917,19 @@ export class DataManager {
 			// All 12 months for selected year
 			const year = selectedYear || today.getFullYear();
 			const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Des'];
-			const monthlyTarget = weeklyTarget * 4.33; // Approximate weeks per month
 			for (let month = 0; month < 12; month++) {
+				// Calculate actual workdays in the month (excluding weekends)
+				const daysInMonth = new Date(year, month + 1, 0).getDate();
+				let workdaysInMonth = 0;
+				for (let day = 1; day <= daysInMonth; day++) {
+					const d = new Date(year, month, day);
+					if (!Utils.isWeekend(d, this.settings)) {
+						workdaysInMonth++;
+					}
+				}
+				const monthlyTarget = workdaysInMonth * this.workdayHours;
 				const breakdown = this.getMonthHoursWithBreakdown(year, month);
-				// Adjust target by goal reduction from sick days
+				// Adjust target by goal reduction from holidays, ferie, etc.
 				const adjustedTarget = Math.max(0, monthlyTarget - breakdown.goalReduction);
 				data.push({
 					label: monthNames[month],

@@ -498,24 +498,26 @@ ${timekeepBlock}${settingsBlock}
 	async convertPastPlannedDays(holidays: Record<string, { type: string; description: string; halfDay: boolean; startTime?: string; endTime?: string }>, settings: TimeFlowSettings): Promise<number> {
 		const today = new Date();
 		today.setHours(0, 0, 0, 0);
+		const todayStr = Utils.toLocalDateStr(today);
 		let converted = 0;
 
 		for (const [dateStr, info] of Object.entries(holidays)) {
-			const plannedDate = new Date(dateStr);
-			if (plannedDate >= today) continue; // Skip future/today
+			// Compare date strings directly to avoid timezone issues
+			if (dateStr >= todayStr) continue; // Skip future/today
 
 			// Skip types that don't auto-convert
-			// 'annet' entries always convert (both full day and partial day)
-			let shouldConvert = false;
-			if (info.type === 'annet') {
-				// All annet entries should be converted to history
-				shouldConvert = true;
-			} else {
+			// Types that should convert: ferie, avspasering, egenmelding, sykemelding, velferdspermisjon, annet
+			// Types that should NOT convert: helligdag (system), studie, kurs
+			const knownConvertTypes = ['ferie', 'avspasering', 'egenmelding', 'sykemelding', 'velferdspermisjon', 'annet'];
+			let shouldConvert = knownConvertTypes.includes(info.type);
+
+			// Also check behavior in case of custom types
+			if (!shouldConvert) {
 				const behavior = settings.specialDayBehaviors.find(b => b.id === info.type);
-				// Convert if noHoursRequired (ferie, avspasering, helligdag) OR reduce_goal (egenmelding, sykemelding, velferdspermisjon)
-				shouldConvert = behavior?.noHoursRequired || behavior?.flextimeEffect === 'reduce_goal';
+				shouldConvert = !!(behavior?.noHoursRequired || behavior?.flextimeEffect === 'reduce_goal');
 			}
-			if (!shouldConvert) continue; // studie, kurs don't convert
+
+			if (!shouldConvert) continue; // studie, kurs, unknown types don't convert
 			if (info.type === 'helligdag') continue; // System holiday
 
 			// Check if entry of same type already exists for this date

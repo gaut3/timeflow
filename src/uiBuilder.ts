@@ -1695,17 +1695,7 @@ export class UIBuilder {
 		if (maxHours === 0) return; // No data to display
 
 		// Create chart container and append to content wrapper (not stats grid)
-		const chartContainer = document.createElement('div');
-		chartContainer.className = 'tf-hours-chart';
-		contentWrapper.appendChild(chartContainer);
-
-		// Helper to create div elements
-		const createDiv = (className: string, text?: string): HTMLDivElement => {
-			const div = document.createElement('div');
-			div.className = className;
-			if (text) div.textContent = text;
-			return div;
-		};
+		const chartContainer = contentWrapper.createEl('div', { cls: 'tf-hours-chart' });
 
 		// Title based on timeframe
 		let title = '';
@@ -1716,54 +1706,47 @@ export class UIBuilder {
 		} else {
 			title = t('stats.yearlyHours') || 'Årstimer';
 		}
-		chartContainer.appendChild(createDiv('tf-hours-chart-title', title));
+		chartContainer.createEl('div', { cls: 'tf-hours-chart-title', text: title });
 
-		const chartInner = createDiv('tf-hours-chart-container');
-		chartContainer.appendChild(chartInner);
+		const chartInner = chartContainer.createEl('div', { cls: 'tf-hours-chart-container' });
 
 		// Create bars area (where bars go)
-		const barsArea = createDiv('tf-hours-bars-area');
-		chartInner.appendChild(barsArea);
+		const barsArea = chartInner.createEl('div', { cls: 'tf-hours-bars-area' });
 
 		// Constants for bar sizing
 		const maxBarHeight = 80; // pixels
 
 		// Render bars with individual target markers
 		chartData.forEach(item => {
-			const barWrapper = createDiv('tf-hours-bar-wrapper');
+			const barWrapper = barsArea.createEl('div', { cls: 'tf-hours-bar-wrapper' });
 
 			// Value label above bar
-			const valueLabel = createDiv('tf-hours-bar-value', item.hours > 0 ? `${item.hours.toFixed(0)}` : '');
-			barWrapper.appendChild(valueLabel);
+			barWrapper.createEl('div', {
+				cls: 'tf-hours-bar-value',
+				text: item.hours > 0 ? `${item.hours.toFixed(0)}` : ''
+			});
 
 			// Bar container (position relative for target marker)
-			const barContainer = createDiv('tf-hours-bar-container');
+			const barContainer = barWrapper.createEl('div', { cls: 'tf-hours-bar-container' });
 
 			// Add target marker if target exists
 			if (item.target && item.target > 0 && maxHours > 0) {
 				const targetHeight = (item.target / maxHours) * maxBarHeight;
-				const targetMarker = createDiv('tf-hours-target-marker');
+				const targetMarker = barContainer.createEl('div', { cls: 'tf-hours-target-marker' });
 				targetMarker.setCssProps({ '--target-height': `${targetHeight}px` });
-				targetMarker.style.bottom = 'var(--target-height)';
 				targetMarker.title = `${t('stats.target') || 'Mål'}: ${item.target.toFixed(0)}t`;
-				barContainer.appendChild(targetMarker);
 			}
 
-			const bar = createDiv('tf-hours-bar');
+			const bar = barContainer.createEl('div', { cls: 'tf-hours-bar' });
 			const barHeight = maxHours > 0 ? (item.hours / maxHours) * maxBarHeight : 0;
 			bar.setCssProps({ '--bar-height': `${Math.max(barHeight, 2)}px` });
-			bar.style.height = 'var(--bar-height)';
 
 			if (item.hours === 0) {
-				bar.classList.add('empty');
+				bar.addClass('empty');
 			}
 
-			barContainer.appendChild(bar);
-			barWrapper.appendChild(barContainer);
-
 			// Label below bar
-			barWrapper.appendChild(createDiv('tf-hours-bar-label', item.label));
-			barsArea.appendChild(barWrapper);
+			barWrapper.createEl('div', { cls: 'tf-hours-bar-label', text: item.label });
 		});
 	}
 
@@ -2325,9 +2308,21 @@ export class UIBuilder {
 			const isWorkDay = this.settings.workDays.includes(day.getDay());
 			if (isWorkDay) {
 				// Check if this day has a special day that doesn't require hours (ferie, etc.)
+				// First check holidays.md
 				const holidayInfo = this.data.getHolidayInfo(dayKey);
-				const behavior = holidayInfo ? this.settings.specialDayBehaviors.find(b => b.id === holidayInfo.type) : null;
-				const isNoHoursDay = behavior?.noHoursRequired === true;
+				const holidayBehavior = holidayInfo ? this.settings.specialDayBehaviors.find(b => b.id === holidayInfo.type) : null;
+				let isNoHoursDay = holidayBehavior?.noHoursRequired === true;
+
+				// Also check timer entries for ferie/avspasering
+				if (!isNoHoursDay) {
+					const dayEntries = this.data.daily[dayKey] || [];
+					isNoHoursDay = dayEntries.some(entry => {
+						const name = entry.name.toLowerCase();
+						const behavior = this.settings.specialDayBehaviors.find(b => b.id === name);
+						// Check if it's a noHoursRequired type or a withdraw type (avspasering)
+						return behavior?.noHoursRequired === true || behavior?.flextimeEffect === 'withdraw';
+					});
+				}
 
 				if (!isNoHoursDay) {
 					workDaysInWeek++;
@@ -2415,9 +2410,21 @@ export class UIBuilder {
 			const isWorkDay = this.settings.workDays.includes(day.getDay());
 			if (isWorkDay) {
 				// Check if this day has a special day that doesn't require hours (ferie, etc.)
+				// First check holidays.md
 				const holidayInfo = this.data.getHolidayInfo(dayKey);
-				const behavior = holidayInfo ? this.settings.specialDayBehaviors.find(b => b.id === holidayInfo.type) : null;
-				const isNoHoursDay = behavior?.noHoursRequired === true;
+				const holidayBehavior = holidayInfo ? this.settings.specialDayBehaviors.find(b => b.id === holidayInfo.type) : null;
+				let isNoHoursDay = holidayBehavior?.noHoursRequired === true;
+
+				// Also check timer entries for ferie/avspasering
+				if (!isNoHoursDay) {
+					const dayEntries = this.data.daily[dayKey] || [];
+					isNoHoursDay = dayEntries.some(entry => {
+						const name = entry.name.toLowerCase();
+						const behavior = this.settings.specialDayBehaviors.find(b => b.id === name);
+						// Check if it's a noHoursRequired type or a withdraw type (avspasering)
+						return behavior?.noHoursRequired === true || behavior?.flextimeEffect === 'withdraw';
+					});
+				}
 
 				if (!isNoHoursDay) {
 					workDaysInWeek++;

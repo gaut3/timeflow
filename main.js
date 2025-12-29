@@ -3569,8 +3569,8 @@ var DataManager = class {
           if (!trimmedLine || trimmedLine.startsWith("#") || !trimmedLine.startsWith("-")) {
             return;
           }
-          const match = line.match(/^-\s*(\d{4}-\d{2}-\d{2}):\s*(\w+)(?::(half|\d{2}:\d{2}-\d{2}:\d{2})?)?:\s*(.+)$/);
-          const annetMatch = line.match(/^-\s*(\d{4}-\d{2}-\d{2}):\s*annet(?::([^:]+))?(?::(\d{2}:\d{2}-\d{2}:\d{2}))?:\s*(.+)$/);
+          const match = line.match(/^-\s*(\d{4}-\d{2}-\d{2}):\s*(\w+)(?::(half|\d{2}:\d{2}-\d{2}:\d{2})?)?:\s*(.*)$/);
+          const annetMatch = line.match(/^-\s*(\d{4}-\d{2}-\d{2}):\s*annet(?::([^:]+))?(?::(\d{2}:\d{2}-\d{2}:\d{2}))?:\s*(.*)$/);
           if (annetMatch) {
             const [, date, templateOrTime, timeRange, description] = annetMatch;
             let annetTemplateId;
@@ -3604,7 +3604,8 @@ var DataManager = class {
             };
           } else if (match) {
             const [, date, type, modifier, description] = match;
-            const isHalfDay = modifier === "half";
+            const typeLower = type.trim().toLowerCase();
+            const isHalfDay = modifier === "half" || typeLower === "half";
             let startTime;
             let endTime;
             if (modifier && modifier.includes("-") && modifier.includes(":")) {
@@ -3619,7 +3620,7 @@ var DataManager = class {
               duplicates.push(date);
             }
             this.holidays[date] = {
-              type: type.trim().toLowerCase(),
+              type: typeLower,
               description: description.trim(),
               halfDay: isHalfDay,
               startTime,
@@ -4424,19 +4425,27 @@ var DataManager = class {
             const currentEnd = new Date(current.endTime);
             const nextStart = new Date(next.startTime);
             if (currentEnd > nextStart) {
-              const overlapMinutes = Math.round((currentEnd.getTime() - nextStart.getTime()) / 6e4);
-              issues.errors.push({
-                severity: "error",
-                type: "Overlapping Entries",
-                description: `Entries overlap by ${overlapMinutes} minutes`,
-                date: dayKey,
-                entry: {
-                  name: `${current.name} \u2192 ${next.name}`,
-                  startTime: current.startTime,
-                  endTime: next.endTime
-                }
-              });
-              issues.stats.entriesWithIssues++;
+              const currentBehavior = this.getSpecialDayBehavior(current.name);
+              const nextBehavior = this.getSpecialDayBehavior(next.name);
+              const currentType = current.name.toLowerCase();
+              const nextType = next.name.toLowerCase();
+              const isSameType = currentType === nextType;
+              const bothAccumulate = (currentBehavior == null ? void 0 : currentBehavior.flextimeEffect) === "accumulate" && (nextBehavior == null ? void 0 : nextBehavior.flextimeEffect) === "accumulate";
+              if (isSameType || bothAccumulate) {
+                const overlapMinutes = Math.round((currentEnd.getTime() - nextStart.getTime()) / 6e4);
+                issues.errors.push({
+                  severity: "error",
+                  type: "Overlapping Entries",
+                  description: `Entries overlap by ${overlapMinutes} minutes`,
+                  date: dayKey,
+                  entry: {
+                    name: `${current.name} \u2192 ${next.name}`,
+                    startTime: current.startTime,
+                    endTime: next.endTime
+                  }
+                });
+                issues.stats.entriesWithIssues++;
+              }
             }
           }
         }
@@ -4696,22 +4705,46 @@ var DataManager = class {
   }
   /**
    * Get week hours with goal reduction for bar chart visualization
+   * Accounts for holidays, ferie, avspasering, etc. (but NOT weekends - they're already excluded from weeklyTarget)
    */
   getWeekHoursWithBreakdown(weekStart) {
     let workHours = 0;
     let goalReduction = 0;
     const dailyGoal = this.workdayHours;
+    const halfDayHours = this.settings.halfDayMode === "percentage" ? this.settings.baseWorkday / 2 : this.settings.halfDayHours;
     for (let i = 0; i < 7; i++) {
       const d = new Date(weekStart);
       d.setDate(weekStart.getDate() + i);
       const dayKey = Utils.toLocalDateStr(d);
       const dayEntries = this.daily[dayKey] || [];
+      const isWeekend = Utils.isWeekend(d, this.settings);
+      if (isWeekend) {
+        continue;
+      }
+      const holidayInfo = this.getHolidayInfo(dayKey);
+      let dayGoalReduced = false;
+      if (holidayInfo) {
+        const behavior = holidayInfo.type === "annet" ? this.getAnnetBehavior(holidayInfo) : this.getSpecialDayBehavior(holidayInfo.type);
+        if (holidayInfo.halfDay) {
+          goalReduction += dailyGoal - halfDayHours;
+          dayGoalReduced = true;
+        } else if ((behavior == null ? void 0 : behavior.noHoursRequired) || (behavior == null ? void 0 : behavior.flextimeEffect) === "reduce_goal") {
+          goalReduction += dailyGoal;
+          dayGoalReduced = true;
+        }
+      }
       dayEntries.forEach((entry) => {
         if (!entry.isActive) {
           const behavior = this.getSpecialDayBehavior(entry.name);
           const entryHours = entry.duration || 0;
           if ((behavior == null ? void 0 : behavior.flextimeEffect) === "reduce_goal") {
+            if (!dayGoalReduced) {
+              goalReduction += entryHours > 0 ? entryHours : dailyGoal;
+              dayGoalReduced = true;
+            }
+          } else if ((behavior == null ? void 0 : behavior.noHoursRequired) && !dayGoalReduced) {
             goalReduction += entryHours > 0 ? entryHours : dailyGoal;
+            dayGoalReduced = true;
           } else if ((behavior == null ? void 0 : behavior.flextimeEffect) !== "withdraw" && !(behavior == null ? void 0 : behavior.noHoursRequired)) {
             workHours += entryHours;
           }
@@ -4722,22 +4755,47 @@ var DataManager = class {
   }
   /**
    * Get month hours with goal reduction for bar chart visualization
+   * Accounts for holidays, ferie, avspasering, etc.
+   * For monthly view, we calculate the actual number of workdays and reduce for special days
    */
   getMonthHoursWithBreakdown(year, month) {
     let workHours = 0;
     let goalReduction = 0;
     const dailyGoal = this.workdayHours;
+    const halfDayHours = this.settings.halfDayMode === "percentage" ? this.settings.baseWorkday / 2 : this.settings.halfDayHours;
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     for (let day = 1; day <= daysInMonth; day++) {
       const d = new Date(year, month, day);
       const dayKey = Utils.toLocalDateStr(d);
       const dayEntries = this.daily[dayKey] || [];
+      const isWeekend = Utils.isWeekend(d, this.settings);
+      if (isWeekend) {
+        continue;
+      }
+      const holidayInfo = this.getHolidayInfo(dayKey);
+      let dayGoalReduced = false;
+      if (holidayInfo) {
+        const behavior = holidayInfo.type === "annet" ? this.getAnnetBehavior(holidayInfo) : this.getSpecialDayBehavior(holidayInfo.type);
+        if (holidayInfo.halfDay) {
+          goalReduction += dailyGoal - halfDayHours;
+          dayGoalReduced = true;
+        } else if ((behavior == null ? void 0 : behavior.noHoursRequired) || (behavior == null ? void 0 : behavior.flextimeEffect) === "reduce_goal") {
+          goalReduction += dailyGoal;
+          dayGoalReduced = true;
+        }
+      }
       dayEntries.forEach((entry) => {
         if (!entry.isActive) {
           const behavior = this.getSpecialDayBehavior(entry.name);
           const entryHours = entry.duration || 0;
           if ((behavior == null ? void 0 : behavior.flextimeEffect) === "reduce_goal") {
+            if (!dayGoalReduced) {
+              goalReduction += entryHours > 0 ? entryHours : dailyGoal;
+              dayGoalReduced = true;
+            }
+          } else if ((behavior == null ? void 0 : behavior.noHoursRequired) && !dayGoalReduced) {
             goalReduction += entryHours > 0 ? entryHours : dailyGoal;
+            dayGoalReduced = true;
           } else if ((behavior == null ? void 0 : behavior.flextimeEffect) !== "withdraw" && !(behavior == null ? void 0 : behavior.noHoursRequired)) {
             workHours += entryHours;
           }
@@ -4804,8 +4862,16 @@ var DataManager = class {
     } else if (timeframe === "year") {
       const year = selectedYear || today.getFullYear();
       const monthNames = ["Jan", "Feb", "Mar", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Des"];
-      const monthlyTarget = weeklyTarget * 4.33;
       for (let month = 0; month < 12; month++) {
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        let workdaysInMonth = 0;
+        for (let day = 1; day <= daysInMonth; day++) {
+          const d = new Date(year, month, day);
+          if (!Utils.isWeekend(d, this.settings)) {
+            workdaysInMonth++;
+          }
+        }
+        const monthlyTarget = workdaysInMonth * this.workdayHours;
         const breakdown = this.getMonthHoursWithBreakdown(year, month);
         const adjustedTarget = Math.max(0, monthlyTarget - breakdown.goalReduction);
         data.push({
@@ -6196,15 +6262,7 @@ var UIBuilder = class {
       ...chartData.map((d) => d.target || 0)
     );
     if (maxHours === 0) return;
-    const chartContainer = document.createElement("div");
-    chartContainer.className = "tf-hours-chart";
-    contentWrapper.appendChild(chartContainer);
-    const createDiv = (className, text) => {
-      const div = document.createElement("div");
-      div.className = className;
-      if (text) div.textContent = text;
-      return div;
-    };
+    const chartContainer = contentWrapper.createEl("div", { cls: "tf-hours-chart" });
     let title = "";
     if (this.statsTimeframe === "month") {
       title = t("stats.weeklyHours") || "Uketimer";
@@ -6213,36 +6271,30 @@ var UIBuilder = class {
     } else {
       title = t("stats.yearlyHours") || "\xC5rstimer";
     }
-    chartContainer.appendChild(createDiv("tf-hours-chart-title", title));
-    const chartInner = createDiv("tf-hours-chart-container");
-    chartContainer.appendChild(chartInner);
-    const barsArea = createDiv("tf-hours-bars-area");
-    chartInner.appendChild(barsArea);
+    chartContainer.createEl("div", { cls: "tf-hours-chart-title", text: title });
+    const chartInner = chartContainer.createEl("div", { cls: "tf-hours-chart-container" });
+    const barsArea = chartInner.createEl("div", { cls: "tf-hours-bars-area" });
     const maxBarHeight = 80;
     chartData.forEach((item) => {
-      const barWrapper = createDiv("tf-hours-bar-wrapper");
-      const valueLabel = createDiv("tf-hours-bar-value", item.hours > 0 ? `${item.hours.toFixed(0)}` : "");
-      barWrapper.appendChild(valueLabel);
-      const barContainer = createDiv("tf-hours-bar-container");
+      const barWrapper = barsArea.createEl("div", { cls: "tf-hours-bar-wrapper" });
+      barWrapper.createEl("div", {
+        cls: "tf-hours-bar-value",
+        text: item.hours > 0 ? `${item.hours.toFixed(0)}` : ""
+      });
+      const barContainer = barWrapper.createEl("div", { cls: "tf-hours-bar-container" });
       if (item.target && item.target > 0 && maxHours > 0) {
         const targetHeight = item.target / maxHours * maxBarHeight;
-        const targetMarker = createDiv("tf-hours-target-marker");
+        const targetMarker = barContainer.createEl("div", { cls: "tf-hours-target-marker" });
         targetMarker.setCssProps({ "--target-height": `${targetHeight}px` });
-        targetMarker.style.bottom = "var(--target-height)";
         targetMarker.title = `${t("stats.target") || "M\xE5l"}: ${item.target.toFixed(0)}t`;
-        barContainer.appendChild(targetMarker);
       }
-      const bar = createDiv("tf-hours-bar");
+      const bar = barContainer.createEl("div", { cls: "tf-hours-bar" });
       const barHeight = maxHours > 0 ? item.hours / maxHours * maxBarHeight : 0;
       bar.setCssProps({ "--bar-height": `${Math.max(barHeight, 2)}px` });
-      bar.style.height = "var(--bar-height)";
       if (item.hours === 0) {
-        bar.classList.add("empty");
+        bar.addClass("empty");
       }
-      barContainer.appendChild(bar);
-      barWrapper.appendChild(barContainer);
-      barWrapper.appendChild(createDiv("tf-hours-bar-label", item.label));
-      barsArea.appendChild(barWrapper);
+      barWrapper.createEl("div", { cls: "tf-hours-bar-label", text: item.label });
     });
   }
   updateMonthCard() {
@@ -6645,8 +6697,16 @@ var UIBuilder = class {
       const isWorkDay = this.settings.workDays.includes(day.getDay());
       if (isWorkDay) {
         const holidayInfo = this.data.getHolidayInfo(dayKey);
-        const behavior = holidayInfo ? this.settings.specialDayBehaviors.find((b) => b.id === holidayInfo.type) : null;
-        const isNoHoursDay = (behavior == null ? void 0 : behavior.noHoursRequired) === true;
+        const holidayBehavior = holidayInfo ? this.settings.specialDayBehaviors.find((b) => b.id === holidayInfo.type) : null;
+        let isNoHoursDay = (holidayBehavior == null ? void 0 : holidayBehavior.noHoursRequired) === true;
+        if (!isNoHoursDay) {
+          const dayEntries2 = this.data.daily[dayKey] || [];
+          isNoHoursDay = dayEntries2.some((entry) => {
+            const name = entry.name.toLowerCase();
+            const behavior = this.settings.specialDayBehaviors.find((b) => b.id === name);
+            return (behavior == null ? void 0 : behavior.noHoursRequired) === true || (behavior == null ? void 0 : behavior.flextimeEffect) === "withdraw";
+          });
+        }
         if (!isNoHoursDay) {
           workDaysInWeek++;
           if (day <= today) {
@@ -6704,8 +6764,16 @@ var UIBuilder = class {
       const isWorkDay = this.settings.workDays.includes(day.getDay());
       if (isWorkDay) {
         const holidayInfo = this.data.getHolidayInfo(dayKey);
-        const behavior = holidayInfo ? this.settings.specialDayBehaviors.find((b) => b.id === holidayInfo.type) : null;
-        const isNoHoursDay = (behavior == null ? void 0 : behavior.noHoursRequired) === true;
+        const holidayBehavior = holidayInfo ? this.settings.specialDayBehaviors.find((b) => b.id === holidayInfo.type) : null;
+        let isNoHoursDay = (holidayBehavior == null ? void 0 : holidayBehavior.noHoursRequired) === true;
+        if (!isNoHoursDay) {
+          const dayEntries2 = this.data.daily[dayKey] || [];
+          isNoHoursDay = dayEntries2.some((entry) => {
+            const name = entry.name.toLowerCase();
+            const behavior = this.settings.specialDayBehaviors.find((b) => b.id === name);
+            return (behavior == null ? void 0 : behavior.noHoursRequired) === true || (behavior == null ? void 0 : behavior.flextimeEffect) === "withdraw";
+          });
+        }
         if (!isNoHoursDay) {
           workDaysInWeek++;
           if (day <= today) {
@@ -10229,16 +10297,15 @@ ${timekeepBlock}${settingsBlock}
   async convertPastPlannedDays(holidays, settings) {
     const today = /* @__PURE__ */ new Date();
     today.setHours(0, 0, 0, 0);
+    const todayStr = Utils.toLocalDateStr(today);
     let converted = 0;
     for (const [dateStr, info] of Object.entries(holidays)) {
-      const plannedDate = new Date(dateStr);
-      if (plannedDate >= today) continue;
-      let shouldConvert = false;
-      if (info.type === "annet") {
-        shouldConvert = true;
-      } else {
+      if (dateStr >= todayStr) continue;
+      const knownConvertTypes = ["ferie", "avspasering", "egenmelding", "sykemelding", "velferdspermisjon", "annet"];
+      let shouldConvert = knownConvertTypes.includes(info.type);
+      if (!shouldConvert) {
         const behavior2 = settings.specialDayBehaviors.find((b) => b.id === info.type);
-        shouldConvert = (behavior2 == null ? void 0 : behavior2.noHoursRequired) || (behavior2 == null ? void 0 : behavior2.flextimeEffect) === "reduce_goal";
+        shouldConvert = !!((behavior2 == null ? void 0 : behavior2.noHoursRequired) || (behavior2 == null ? void 0 : behavior2.flextimeEffect) === "reduce_goal");
       }
       if (!shouldConvert) continue;
       if (info.type === "helligdag") continue;
