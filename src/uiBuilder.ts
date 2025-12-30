@@ -2292,6 +2292,7 @@ export class UIBuilder {
 		let workDaysInWeek = 0;
 		let workDaysPassed = 0;
 		let goalReduction = 0; // Track goal reduction from reduce_goal entries (sick days)
+		let halfDayReduction = 0; // Track goal reduction from half-day entries
 		const dailyGoal = this.settings.baseWorkday * this.settings.workPercent;
 
 		for (let i = 0; i < 7; i++) {
@@ -2312,6 +2313,15 @@ export class UIBuilder {
 				const holidayInfo = this.data.getHolidayInfo(dayKey);
 				const holidayBehavior = holidayInfo ? this.settings.specialDayBehaviors.find(b => b.id === holidayInfo.type) : null;
 				let isNoHoursDay = holidayBehavior?.noHoursRequired === true;
+
+				// Check for half-day entries and calculate reduction
+				if (holidayInfo?.halfDay && day <= today) {
+					const halfDayHours = this.settings.halfDayMode === 'percentage'
+						? this.settings.baseWorkday / 2
+						: this.settings.halfDayHours;
+					// Reduction = full day goal - half day hours
+					halfDayReduction += dailyGoal - halfDayHours;
+				}
 
 				// Also check timer entries for ferie/avspasering
 				if (!isNoHoursDay) {
@@ -2354,9 +2364,9 @@ export class UIBuilder {
 			return 'week-future';
 		}
 
-		// Calculate expected hours for days that have passed, minus goal reductions from sick days
+		// Calculate expected hours for days that have passed, minus goal reductions from sick days and half-days
 		const expectedHoursPerDay = this.settings.baseWorkday;
-		const expectedHours = Math.max(0, (workDaysPassed * expectedHoursPerDay * this.settings.workPercent) - goalReduction);
+		const expectedHours = Math.max(0, (workDaysPassed * expectedHoursPerDay * this.settings.workPercent) - goalReduction - halfDayReduction);
 
 		// Tolerance: within 0.5 hours of goal is considered "ok"
 		const tolerance = 0.5;
@@ -2398,6 +2408,7 @@ export class UIBuilder {
 		let workDaysInWeek = 0;
 		let workDaysPassed = 0;
 		let goalReduction = 0; // Track goal reduction from reduce_goal entries (sick days)
+		let halfDayReduction = 0; // Track goal reduction from half-day entries
 		const dailyGoal = this.settings.baseWorkday * this.settings.workPercent;
 
 		for (let i = 0; i < 7; i++) {
@@ -2414,6 +2425,15 @@ export class UIBuilder {
 				const holidayInfo = this.data.getHolidayInfo(dayKey);
 				const holidayBehavior = holidayInfo ? this.settings.specialDayBehaviors.find(b => b.id === holidayInfo.type) : null;
 				let isNoHoursDay = holidayBehavior?.noHoursRequired === true;
+
+				// Check for half-day entries and calculate reduction
+				if (holidayInfo?.halfDay && day <= today) {
+					const halfDayHours = this.settings.halfDayMode === 'percentage'
+						? this.settings.baseWorkday / 2
+						: this.settings.halfDayHours;
+					// Reduction = full day goal - half day hours
+					halfDayReduction += dailyGoal - halfDayHours;
+				}
 
 				// Also check timer entries for ferie/avspasering
 				if (!isNoHoursDay) {
@@ -2452,7 +2472,7 @@ export class UIBuilder {
 		}
 
 		const expectedHoursPerDay = this.settings.baseWorkday;
-		const expectedHours = Math.max(0, (workDaysPassed * expectedHoursPerDay * this.settings.workPercent) - goalReduction);
+		const expectedHours = Math.max(0, (workDaysPassed * expectedHoursPerDay * this.settings.workPercent) - goalReduction - halfDayReduction);
 		const isComplete = workDaysPassed >= workDaysInWeek || sundayOfWeek < today;
 
 		let status = 'ok';

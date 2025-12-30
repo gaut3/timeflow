@@ -6686,6 +6686,7 @@ var UIBuilder = class {
     let workDaysInWeek = 0;
     let workDaysPassed = 0;
     let goalReduction = 0;
+    let halfDayReduction = 0;
     const dailyGoal = this.settings.baseWorkday * this.settings.workPercent;
     for (let i = 0; i < 7; i++) {
       const day = new Date(mondayOfWeek);
@@ -6699,6 +6700,10 @@ var UIBuilder = class {
         const holidayInfo = this.data.getHolidayInfo(dayKey);
         const holidayBehavior = holidayInfo ? this.settings.specialDayBehaviors.find((b) => b.id === holidayInfo.type) : null;
         let isNoHoursDay = (holidayBehavior == null ? void 0 : holidayBehavior.noHoursRequired) === true;
+        if ((holidayInfo == null ? void 0 : holidayInfo.halfDay) && day <= today) {
+          const halfDayHours = this.settings.halfDayMode === "percentage" ? this.settings.baseWorkday / 2 : this.settings.halfDayHours;
+          halfDayReduction += dailyGoal - halfDayHours;
+        }
         if (!isNoHoursDay) {
           const dayEntries2 = this.data.daily[dayKey] || [];
           isNoHoursDay = dayEntries2.some((entry) => {
@@ -6729,7 +6734,7 @@ var UIBuilder = class {
       return "week-future";
     }
     const expectedHoursPerDay = this.settings.baseWorkday;
-    const expectedHours = Math.max(0, workDaysPassed * expectedHoursPerDay * this.settings.workPercent - goalReduction);
+    const expectedHours = Math.max(0, workDaysPassed * expectedHoursPerDay * this.settings.workPercent - goalReduction - halfDayReduction);
     const tolerance = 0.5;
     if (totalHours >= expectedHours - tolerance && totalHours <= expectedHours + tolerance) {
       return "week-ok";
@@ -6755,6 +6760,7 @@ var UIBuilder = class {
     let workDaysInWeek = 0;
     let workDaysPassed = 0;
     let goalReduction = 0;
+    let halfDayReduction = 0;
     const dailyGoal = this.settings.baseWorkday * this.settings.workPercent;
     for (let i = 0; i < 7; i++) {
       const day = new Date(mondayOfWeek);
@@ -6766,6 +6772,10 @@ var UIBuilder = class {
         const holidayInfo = this.data.getHolidayInfo(dayKey);
         const holidayBehavior = holidayInfo ? this.settings.specialDayBehaviors.find((b) => b.id === holidayInfo.type) : null;
         let isNoHoursDay = (holidayBehavior == null ? void 0 : holidayBehavior.noHoursRequired) === true;
+        if ((holidayInfo == null ? void 0 : holidayInfo.halfDay) && day <= today) {
+          const halfDayHours = this.settings.halfDayMode === "percentage" ? this.settings.baseWorkday / 2 : this.settings.halfDayHours;
+          halfDayReduction += dailyGoal - halfDayHours;
+        }
         if (!isNoHoursDay) {
           const dayEntries2 = this.data.daily[dayKey] || [];
           isNoHoursDay = dayEntries2.some((entry) => {
@@ -6793,7 +6803,7 @@ var UIBuilder = class {
       });
     }
     const expectedHoursPerDay = this.settings.baseWorkday;
-    const expectedHours = Math.max(0, workDaysPassed * expectedHoursPerDay * this.settings.workPercent - goalReduction);
+    const expectedHours = Math.max(0, workDaysPassed * expectedHoursPerDay * this.settings.workPercent - goalReduction - halfDayReduction);
     const isComplete = workDaysPassed >= workDaysInWeek || sundayOfWeek < today;
     let status = "ok";
     const tolerance = 0.5;
