@@ -12,6 +12,7 @@ export interface TimeEntry {
 	date?: Date;
 	subEntries?: TimeEntry[];
 	isActive?: boolean; // True if this is an ongoing timer entry
+	overtimePayout?: number; // Hours of overtime marked for payout instead of flextime
 }
 
 export interface HolidayInfo {
@@ -513,10 +514,10 @@ export class DataManager {
 			// Check for half-day - either via halfDay flag or 'half' type
 			// This applies regardless of whether the type has a defined behavior
 			if (holidayInfo.halfDay) {
-				// Calculate half-day hours based on schedule settings
+				// Calculate half-day hours based on schedule settings, accounting for work percent
 				const halfDayHours = this.settings.halfDayMode === 'percentage'
-					? schedule.baseWorkday / 2
-					: schedule.halfDayHours;
+					? (schedule.baseWorkday * schedule.workPercent) / 2
+					: schedule.halfDayHours * schedule.workPercent;
 				return halfDayHours;
 			}
 		}
@@ -728,11 +729,16 @@ export class DataManager {
 			let accumulateWorked = 0;  // Accumulate type hours (studie, kurs - only positive excess)
 			let avspaseringHours = 0;
 			let goalReduction = 0;  // Hours that reduce daily goal (sick days, etc.)
+			let overtimePayout = 0;  // Hours of overtime marked for payout (not counted as flextime)
 			let hasAccumulateEntry = false;  // Track if any accumulate entries exist
 			let hasActiveEntry = false;  // Track if any active entries exist
 			let hasRegularWork = false;  // Track if any regular work entries exist
 
 			dayEntries.forEach(e => {
+				// Track overtime payout
+				if (e.overtimePayout && e.overtimePayout > 0) {
+					overtimePayout += e.overtimePayout;
+				}
 				// Track active entries but include their current duration in balance
 				if (e.isActive) {
 					hasActiveEntry = true;
@@ -815,6 +821,9 @@ export class DataManager {
 			}
 
 			balance -= avspaseringHours;
+
+			// Subtract overtime payout (hours paid out instead of added to flextime)
+			balance -= overtimePayout;
 		}
 
 		return balance;
@@ -1714,10 +1723,10 @@ export class DataManager {
 		let workHours = 0;
 		let goalReduction = 0;
 		const dailyGoal = this.workdayHours;
-		// Calculate half-day hours based on settings (same logic as getDailyGoal)
+		// Calculate half-day hours based on settings (same logic as getDailyGoal), accounting for work percent
 		const halfDayHours = this.settings.halfDayMode === 'percentage'
-			? this.settings.baseWorkday / 2
-			: this.settings.halfDayHours;
+			? (this.settings.baseWorkday * this.settings.workPercent) / 2
+			: this.settings.halfDayHours * this.settings.workPercent;
 
 		for (let i = 0; i < 7; i++) {
 			const d = new Date(weekStart);
@@ -1786,10 +1795,10 @@ export class DataManager {
 		let workHours = 0;
 		let goalReduction = 0;
 		const dailyGoal = this.workdayHours;
-		// Calculate half-day hours based on settings (same logic as getDailyGoal)
+		// Calculate half-day hours based on settings (same logic as getDailyGoal), accounting for work percent
 		const halfDayHours = this.settings.halfDayMode === 'percentage'
-			? this.settings.baseWorkday / 2
-			: this.settings.halfDayHours;
+			? (this.settings.baseWorkday * this.settings.workPercent) / 2
+			: this.settings.halfDayHours * this.settings.workPercent;
 		const daysInMonth = new Date(year, month + 1, 0).getDate();
 
 		for (let day = 1; day <= daysInMonth; day++) {

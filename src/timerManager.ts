@@ -12,6 +12,7 @@ export interface Timer {
 	collapsed?: boolean;
 	subEntries: Timer[] | null;
 	comment?: string;
+	overtimePayout?: number; // Hours of overtime marked for payout instead of flextime
 }
 
 export interface TimekeepData {
@@ -375,7 +376,8 @@ ${timekeepBlock}${settingsBlock}
 					name: entry.name,
 					startTime: entry.startTime,
 					endTime: entry.endTime ?? undefined,
-					subEntries: undefined
+					subEntries: undefined,
+					overtimePayout: entry.overtimePayout
 				});
 			}
 		};

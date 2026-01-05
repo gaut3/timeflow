@@ -306,6 +306,11 @@ const translations: Record<Language, TranslationStrings> = {
 			overtimeExplanation: 'Du har jobbet {hours} over dagsmålet.',
 			commentPrompt: 'Vennligst forklar hvorfor:',
 			skip: 'Hopp over',
+			overtimePayout: 'Overtid til utbetaling',
+			hoursPayedOut: 'utbetalt',
+			overtimePayoutHours: 'Timer til utbetaling',
+			noOvertimeAvailable: 'Ingen overtid å betale ut',
+			payoutExceedsOvertime: 'Kan ikke betale ut mer enn overtiden ({hours}t)',
 		},
 		validation: {
 			endAfterStart: 'Sluttid må være etter starttid',
@@ -728,6 +733,11 @@ const translations: Record<Language, TranslationStrings> = {
 			overtimeExplanation: 'You worked {hours} over the daily goal.',
 			commentPrompt: 'Please explain why:',
 			skip: 'Skip',
+			overtimePayout: 'Overtime payout',
+			hoursPayedOut: 'paid out',
+			overtimePayoutHours: 'Hours for payout',
+			noOvertimeAvailable: 'No overtime available for payout',
+			payoutExceedsOvertime: 'Cannot pay out more than overtime ({hours}h)',
 		},
 		validation: {
 			endAfterStart: 'End time must be after start time',
@@ -1152,6 +1162,11 @@ interface TranslationStrings {
 		overtimeExplanation: string;
 		commentPrompt: string;
 		skip: string;
+		overtimePayout: string;
+		hoursPayedOut: string;
+		overtimePayoutHours: string;
+		noOvertimeAvailable: string;
+		payoutExceedsOvertime: string;
 	};
 	validation: {
 		endAfterStart: string;
