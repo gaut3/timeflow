@@ -2013,7 +2013,7 @@ var SpecialDayBehaviorModal = class extends import_obsidian2.Modal {
       showInTimerDropdown: (_u = (_s = this.behavior) == null ? void 0 : _s.showInTimerDropdown) != null ? _u : ["jobb", "studie", "kurs"].includes(((_t = this.behavior) == null ? void 0 : _t.id) || "")
     };
     if (!isWorkType) {
-      new import_obsidian2.Setting(contentEl).setName("Id").setDesc("Unique identifier (lowercase, no spaces). Used in holiday file format.").addText((text) => {
+      new import_obsidian2.Setting(contentEl).setName("ID").setDesc("Unique identifier (lowercase, no spaces). Used in holiday file format.").addText((text) => {
         text.setPlaceholder("Vacation").setValue(formData.id).onChange((value) => formData.id = value.toLowerCase().replace(/\s+/g, ""));
         if (this.behavior) {
           text.setDisabled(true);
@@ -2126,7 +2126,7 @@ var AnnetTemplateModal = class extends import_obsidian2.Modal {
       label: ((_b = this.template) == null ? void 0 : _b.label) || "",
       icon: ((_c = this.template) == null ? void 0 : _c.icon) || "\u{1F4CB}"
     };
-    new import_obsidian2.Setting(contentEl).setName("Id").setDesc(t("annet.idDesc")).addText((text) => {
+    new import_obsidian2.Setting(contentEl).setName("ID").setDesc(t("annet.idDesc")).addText((text) => {
       text.setPlaceholder("Doctor").setValue(formData.id).onChange((value) => formData.id = value.toLowerCase().replace(/\s+/g, ""));
       if (this.template) {
         text.setDisabled(true);
@@ -3458,7 +3458,7 @@ Note: Historical data using "annet:${template.id}" will still work but show a ge
       tags: (noteType == null ? void 0 : noteType.tags.join(", ")) || "",
       filenamePattern: (noteType == null ? void 0 : noteType.filenamePattern) || "{YYYY}-{MM}-{DD}"
     };
-    new import_obsidian2.Setting(contentEl).setName("Id").setDesc("Unique identifier for this note type (lowercase, no spaces)").addText((text) => {
+    new import_obsidian2.Setting(contentEl).setName("ID").setDesc("Unique identifier for this note type (lowercase, no spaces)").addText((text) => {
       text.setPlaceholder("Meeting").setValue(formData.id).onChange((value) => {
         formData.id = value.toLowerCase().replace(/\s+/g, "-");
       });
@@ -7522,7 +7522,7 @@ var UIBuilder = class {
         minutesInput.value = initialMinutes.toString();
         minutesInput.className = "tf-input-flex-p tf-input-w-50";
         const minutesLabel = document.createElement("span");
-        minutesLabel.textContent = "m";
+        minutesLabel.textContent = "min";
         overtimePayoutInput = document.createElement("input");
         overtimePayoutInput.type = "hidden";
         overtimePayoutInput.value = initialValue.toFixed(2);
@@ -9022,7 +9022,7 @@ ${noteType.tags.join(" ")}`;
             infoCell.className = "tf-comment-subtitle";
             const parts = [];
             if (hasComment) {
-              parts.push(`\u{1F4AC} ${matchingRaw.comment}`);
+              parts.push(`\u{1F4AC} ${hasComment}`);
             }
             if (hasOvertimePayout) {
               const payoutFormatted = Utils.formatHoursToHM(matchingRaw.overtimePayout, this.settings.hourUnit);

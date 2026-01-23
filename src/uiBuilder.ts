@@ -3434,7 +3434,7 @@ export class UIBuilder {
 				minutesInput.className = 'tf-input-flex-p tf-input-w-50';
 
 				const minutesLabel = document.createElement('span');
-				minutesLabel.textContent = 'm';
+				minutesLabel.textContent = 'min';
 
 				// Hidden input to store the decimal value (used by save logic)
 				overtimePayoutInput = document.createElement('input');
@@ -5455,10 +5455,10 @@ export class UIBuilder {
 
 						const parts: string[] = [];
 						if (hasComment) {
-							parts.push(`💬 ${matchingRaw!.comment}`);
+							parts.push(`💬 ${hasComment}`);
 						}
 						if (hasOvertimePayout) {
-							const payoutFormatted = Utils.formatHoursToHM(matchingRaw!.overtimePayout!, this.settings.hourUnit);
+							const payoutFormatted = Utils.formatHoursToHM(matchingRaw.overtimePayout!, this.settings.hourUnit);
 							parts.push(`${payoutFormatted} ${t('modals.hoursPayedOut')}`);
 						}
 						infoCell.textContent = parts.join(' | ');
@@ -5727,7 +5727,7 @@ export class UIBuilder {
 										container.appendChild(document.createTextNode(' '));
 									}
 									const payoutSpan = document.createElement('span');
-									const payoutFormatted = Utils.formatHoursToHM(matchingRaw!.overtimePayout!, this.settings.hourUnit);
+									const payoutFormatted = Utils.formatHoursToHM(matchingRaw.overtimePayout!, this.settings.hourUnit);
 									payoutSpan.textContent = `${payoutFormatted} ${t('modals.hoursPayedOut')}`;
 									payoutSpan.className = 'tf-overtime-payout-display tf-text-muted tf-text-small';
 									container.appendChild(payoutSpan);
