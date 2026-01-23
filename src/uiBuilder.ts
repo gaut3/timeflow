@@ -3434,7 +3434,7 @@ export class UIBuilder {
 				minutesInput.className = 'tf-input-flex-p tf-input-w-50';
 
 				const minutesLabel = document.createElement('span');
-				minutesLabel.textContent = 'min';
+				minutesLabel.textContent = 'Min';
 
 				// Hidden input to store the decimal value (used by save logic)
 				overtimePayoutInput = document.createElement('input');
