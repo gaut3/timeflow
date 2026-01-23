@@ -4241,3 +4241,28 @@
 	justify-content: flex-end;
 	gap: 10px;
 }
+
+/* Overtime payout section utilities */
+.tf-section-divider {
+	margin-top: 12px;
+	padding-top: 12px;
+	border-top: 1px solid var(--background-modifier-border);
+}
+
+.tf-input-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.tf-whitespace-nowrap {
+	white-space: nowrap;
+}
+
+.tf-input-w-50 {
+	width: 50px;
+}
+
+.tf-italic {
+	font-style: italic;
+}

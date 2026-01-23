@@ -2868,10 +2868,9 @@ export class UIBuilder {
 
 				// Show overtime payout if exists
 				if (matchingRaw?.overtimePayout && matchingRaw.overtimePayout > 0) {
-					const payoutSpan = entryP.createEl('span', { cls: 'tf-context-menu-payout' });
+					const payoutSpan = entryP.createEl('span', { cls: 'tf-context-menu-payout tf-text-muted' });
 					const payoutFormatted = Utils.formatHoursToHM(matchingRaw.overtimePayout, this.settings.hourUnit);
 					payoutSpan.appendText(` | ${payoutFormatted} ${t('modals.hoursPayedOut')}`);
-					payoutSpan.style.color = 'var(--text-muted)';
 				}
 			});
 
@@ -3381,15 +3380,10 @@ export class UIBuilder {
 
 			if (isLastEntry && dayOvertime > 0) {
 				const payoutSection = document.createElement('div');
-				payoutSection.className = 'tf-overtime-payout-section';
-				payoutSection.style.marginTop = '12px';
-				payoutSection.style.paddingTop = '12px';
-				payoutSection.style.borderTop = '1px solid var(--background-modifier-border)';
+				payoutSection.className = 'tf-overtime-payout-section tf-section-divider';
 
 				const checkboxRow = document.createElement('div');
-				checkboxRow.style.display = 'flex';
-				checkboxRow.style.alignItems = 'center';
-				checkboxRow.style.gap = '8px';
+				checkboxRow.className = 'tf-checkbox-row';
 
 				overtimePayoutCheckbox = document.createElement('input');
 				overtimePayoutCheckbox.type = 'checkbox';
@@ -3399,7 +3393,7 @@ export class UIBuilder {
 				const checkboxLabel = document.createElement('label');
 				checkboxLabel.htmlFor = `overtime-payout-${index}`;
 				checkboxLabel.textContent = t('modals.overtimePayout');
-				checkboxLabel.style.cursor = 'pointer';
+				checkboxLabel.className = 'tf-cursor-pointer';
 
 				checkboxRow.appendChild(overtimePayoutCheckbox);
 				checkboxRow.appendChild(checkboxLabel);
@@ -3407,15 +3401,14 @@ export class UIBuilder {
 
 				// Hours + minutes inputs (shown when checkbox is checked)
 				const inputRow = document.createElement('div');
-				inputRow.className = 'tf-overtime-payout-input-row';
-				inputRow.style.marginTop = '8px';
-				inputRow.style.display = overtimePayoutCheckbox.checked ? 'flex' : 'none';
-				inputRow.style.alignItems = 'center';
-				inputRow.style.gap = '8px';
+				inputRow.className = 'tf-overtime-payout-input-row tf-input-row tf-mt-8';
+				if (!overtimePayoutCheckbox.checked) {
+					inputRow.addClass('tf-hidden');
+				}
 
 				const inputLabel = document.createElement('label');
 				inputLabel.textContent = `${t('modals.overtimePayoutHours')}:`;
-				inputLabel.style.whiteSpace = 'nowrap';
+				inputLabel.className = 'tf-whitespace-nowrap';
 
 				// Convert decimal hours to hours and minutes
 				const initialValue = entry.overtimePayout ?? dayOvertime;
@@ -3427,8 +3420,7 @@ export class UIBuilder {
 				hoursInput.type = 'number';
 				hoursInput.min = '0';
 				hoursInput.value = initialHours.toString();
-				hoursInput.className = 'tf-input-flex-p';
-				hoursInput.style.width = '50px';
+				hoursInput.className = 'tf-input-flex-p tf-input-w-50';
 
 				const hoursLabel = document.createElement('span');
 				hoursLabel.textContent = this.settings.hourUnit;
@@ -3439,8 +3431,7 @@ export class UIBuilder {
 				minutesInput.min = '0';
 				minutesInput.max = '59';
 				minutesInput.value = initialMinutes.toString();
-				minutesInput.className = 'tf-input-flex-p';
-				minutesInput.style.width = '50px';
+				minutesInput.className = 'tf-input-flex-p tf-input-w-50';
 
 				const minutesLabel = document.createElement('span');
 				minutesLabel.textContent = 'm';
@@ -3450,12 +3441,16 @@ export class UIBuilder {
 				overtimePayoutInput.type = 'hidden';
 				overtimePayoutInput.value = initialValue.toFixed(2);
 
+				// Capture non-null references for closures
+				const payoutInput = overtimePayoutInput;
+				const checkbox = overtimePayoutCheckbox;
+
 				// Update hidden input when hours/minutes change
 				const updateHiddenValue = () => {
 					const hours = parseInt(hoursInput.value) || 0;
 					const minutes = parseInt(minutesInput.value) || 0;
 					const decimalValue = hours + (minutes / 60);
-					overtimePayoutInput!.value = decimalValue.toFixed(2);
+					payoutInput.value = decimalValue.toFixed(2);
 				};
 				hoursInput.onchange = updateHiddenValue;
 				hoursInput.oninput = updateHiddenValue;
@@ -3464,8 +3459,7 @@ export class UIBuilder {
 
 				const maxLabel = document.createElement('span');
 				maxLabel.textContent = `(max ${Utils.formatHoursToHM(dayOvertime, this.settings.hourUnit)})`;
-				maxLabel.style.color = 'var(--text-muted)';
-				maxLabel.style.fontSize = '0.9em';
+				maxLabel.className = 'tf-text-muted tf-text-small';
 
 				inputRow.appendChild(inputLabel);
 				inputRow.appendChild(hoursInput);
@@ -3477,16 +3471,16 @@ export class UIBuilder {
 				payoutSection.appendChild(inputRow);
 
 				// Toggle input visibility when checkbox changes
-				overtimePayoutCheckbox.onchange = () => {
-					inputRow.style.display = overtimePayoutCheckbox!.checked ? 'flex' : 'none';
-					if (overtimePayoutCheckbox!.checked && overtimePayoutInput) {
+				checkbox.onchange = () => {
+					inputRow.toggleClass('tf-hidden', !checkbox.checked);
+					if (checkbox.checked && payoutInput) {
 						// Auto-populate with current overtime if not already set
 						if (!entry.overtimePayout) {
 							const hours = Math.floor(dayOvertime);
 							const minutes = Math.round((dayOvertime - hours) * 60);
 							hoursInput.value = hours.toString();
 							minutesInput.value = minutes.toString();
-							overtimePayoutInput.value = dayOvertime.toFixed(2);
+							payoutInput.value = dayOvertime.toFixed(2);
 						}
 					}
 				};
@@ -3495,11 +3489,7 @@ export class UIBuilder {
 			} else if (isLastEntry && dayOvertime === 0) {
 				// Show disabled message when there's no overtime
 				const noOvertimeDiv = document.createElement('div');
-				noOvertimeDiv.style.marginTop = '12px';
-				noOvertimeDiv.style.paddingTop = '12px';
-				noOvertimeDiv.style.borderTop = '1px solid var(--background-modifier-border)';
-				noOvertimeDiv.style.color = 'var(--text-muted)';
-				noOvertimeDiv.style.fontStyle = 'italic';
+				noOvertimeDiv.className = 'tf-section-divider tf-text-muted tf-italic';
 				noOvertimeDiv.textContent = t('modals.noOvertimeAvailable');
 				editDiv.appendChild(noOvertimeDiv);
 			}
@@ -5739,9 +5729,7 @@ export class UIBuilder {
 									const payoutSpan = document.createElement('span');
 									const payoutFormatted = Utils.formatHoursToHM(matchingRaw!.overtimePayout!, this.settings.hourUnit);
 									payoutSpan.textContent = `${payoutFormatted} ${t('modals.hoursPayedOut')}`;
-									payoutSpan.className = 'tf-overtime-payout-display';
-									payoutSpan.style.color = 'var(--text-muted)';
-									payoutSpan.style.fontSize = '0.9em';
+									payoutSpan.className = 'tf-overtime-payout-display tf-text-muted tf-text-small';
 									container.appendChild(payoutSpan);
 								}
 

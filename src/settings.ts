@@ -501,7 +501,7 @@ export class SpecialDayBehaviorModal extends Modal {
 		// ID field (readonly if editing, hidden for work types)
 		if (!isWorkType) {
 			new Setting(contentEl)
-				.setName('ID')
+				.setName('Id')
 				.setDesc('Unique identifier (lowercase, no spaces). Used in holiday file format.')
 				.addText(text => {
 					text
@@ -766,7 +766,7 @@ export class AnnetTemplateModal extends Modal {
 
 		// ID field (readonly if editing)
 		new Setting(contentEl)
-			.setName('ID')
+			.setName('Id')
 			.setDesc(t('annet.idDesc'))
 			.addText(text => {
 				text
@@ -2842,7 +2842,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 
 		// ID field (only for new notes, readonly for existing)
 		new Setting(contentEl)
-			.setName('ID')
+			.setName('Id')
 			.setDesc('Unique identifier for this note type (lowercase, no spaces)')
 			.addText(text => {
 				text.setPlaceholder('Meeting')

@@ -2013,7 +2013,7 @@ var SpecialDayBehaviorModal = class extends import_obsidian2.Modal {
       showInTimerDropdown: (_u = (_s = this.behavior) == null ? void 0 : _s.showInTimerDropdown) != null ? _u : ["jobb", "studie", "kurs"].includes(((_t = this.behavior) == null ? void 0 : _t.id) || "")
     };
     if (!isWorkType) {
-      new import_obsidian2.Setting(contentEl).setName("ID").setDesc("Unique identifier (lowercase, no spaces). Used in holiday file format.").addText((text) => {
+      new import_obsidian2.Setting(contentEl).setName("Id").setDesc("Unique identifier (lowercase, no spaces). Used in holiday file format.").addText((text) => {
         text.setPlaceholder("Vacation").setValue(formData.id).onChange((value) => formData.id = value.toLowerCase().replace(/\s+/g, ""));
         if (this.behavior) {
           text.setDisabled(true);
@@ -2126,7 +2126,7 @@ var AnnetTemplateModal = class extends import_obsidian2.Modal {
       label: ((_b = this.template) == null ? void 0 : _b.label) || "",
       icon: ((_c = this.template) == null ? void 0 : _c.icon) || "\u{1F4CB}"
     };
-    new import_obsidian2.Setting(contentEl).setName("ID").setDesc(t("annet.idDesc")).addText((text) => {
+    new import_obsidian2.Setting(contentEl).setName("Id").setDesc(t("annet.idDesc")).addText((text) => {
       text.setPlaceholder("Doctor").setValue(formData.id).onChange((value) => formData.id = value.toLowerCase().replace(/\s+/g, ""));
       if (this.template) {
         text.setDisabled(true);
@@ -3458,7 +3458,7 @@ Note: Historical data using "annet:${template.id}" will still work but show a ge
       tags: (noteType == null ? void 0 : noteType.tags.join(", ")) || "",
       filenamePattern: (noteType == null ? void 0 : noteType.filenamePattern) || "{YYYY}-{MM}-{DD}"
     };
-    new import_obsidian2.Setting(contentEl).setName("ID").setDesc("Unique identifier for this note type (lowercase, no spaces)").addText((text) => {
+    new import_obsidian2.Setting(contentEl).setName("Id").setDesc("Unique identifier for this note type (lowercase, no spaces)").addText((text) => {
       text.setPlaceholder("Meeting").setValue(formData.id).onChange((value) => {
         formData.id = value.toLowerCase().replace(/\s+/g, "-");
       });
@@ -7098,10 +7098,9 @@ var UIBuilder = class {
           commentSpan.title = matchingRaw.comment;
         }
         if ((matchingRaw == null ? void 0 : matchingRaw.overtimePayout) && matchingRaw.overtimePayout > 0) {
-          const payoutSpan = entryP.createEl("span", { cls: "tf-context-menu-payout" });
+          const payoutSpan = entryP.createEl("span", { cls: "tf-context-menu-payout tf-text-muted" });
           const payoutFormatted = Utils.formatHoursToHM(matchingRaw.overtimePayout, this.settings.hourUnit);
           payoutSpan.appendText(` | ${payoutFormatted} ${t("modals.hoursPayedOut")}`);
-          payoutSpan.style.color = "var(--text-muted)";
         }
       });
       if (!isFutureDay) {
@@ -7484,14 +7483,9 @@ var UIBuilder = class {
       const isLastEntry = item.entry === lastEntryItem.entry;
       if (isLastEntry && dayOvertime > 0) {
         const payoutSection = document.createElement("div");
-        payoutSection.className = "tf-overtime-payout-section";
-        payoutSection.style.marginTop = "12px";
-        payoutSection.style.paddingTop = "12px";
-        payoutSection.style.borderTop = "1px solid var(--background-modifier-border)";
+        payoutSection.className = "tf-overtime-payout-section tf-section-divider";
         const checkboxRow = document.createElement("div");
-        checkboxRow.style.display = "flex";
-        checkboxRow.style.alignItems = "center";
-        checkboxRow.style.gap = "8px";
+        checkboxRow.className = "tf-checkbox-row";
         overtimePayoutCheckbox = document.createElement("input");
         overtimePayoutCheckbox.type = "checkbox";
         overtimePayoutCheckbox.id = `overtime-payout-${index}`;
@@ -7499,19 +7493,18 @@ var UIBuilder = class {
         const checkboxLabel = document.createElement("label");
         checkboxLabel.htmlFor = `overtime-payout-${index}`;
         checkboxLabel.textContent = t("modals.overtimePayout");
-        checkboxLabel.style.cursor = "pointer";
+        checkboxLabel.className = "tf-cursor-pointer";
         checkboxRow.appendChild(overtimePayoutCheckbox);
         checkboxRow.appendChild(checkboxLabel);
         payoutSection.appendChild(checkboxRow);
         const inputRow = document.createElement("div");
-        inputRow.className = "tf-overtime-payout-input-row";
-        inputRow.style.marginTop = "8px";
-        inputRow.style.display = overtimePayoutCheckbox.checked ? "flex" : "none";
-        inputRow.style.alignItems = "center";
-        inputRow.style.gap = "8px";
+        inputRow.className = "tf-overtime-payout-input-row tf-input-row tf-mt-8";
+        if (!overtimePayoutCheckbox.checked) {
+          inputRow.addClass("tf-hidden");
+        }
         const inputLabel = document.createElement("label");
         inputLabel.textContent = `${t("modals.overtimePayoutHours")}:`;
-        inputLabel.style.whiteSpace = "nowrap";
+        inputLabel.className = "tf-whitespace-nowrap";
         const initialValue = (_b = entry.overtimePayout) != null ? _b : dayOvertime;
         const initialHours = Math.floor(initialValue);
         const initialMinutes = Math.round((initialValue - initialHours) * 60);
@@ -7519,8 +7512,7 @@ var UIBuilder = class {
         hoursInput.type = "number";
         hoursInput.min = "0";
         hoursInput.value = initialHours.toString();
-        hoursInput.className = "tf-input-flex-p";
-        hoursInput.style.width = "50px";
+        hoursInput.className = "tf-input-flex-p tf-input-w-50";
         const hoursLabel = document.createElement("span");
         hoursLabel.textContent = this.settings.hourUnit;
         const minutesInput = document.createElement("input");
@@ -7528,18 +7520,19 @@ var UIBuilder = class {
         minutesInput.min = "0";
         minutesInput.max = "59";
         minutesInput.value = initialMinutes.toString();
-        minutesInput.className = "tf-input-flex-p";
-        minutesInput.style.width = "50px";
+        minutesInput.className = "tf-input-flex-p tf-input-w-50";
         const minutesLabel = document.createElement("span");
         minutesLabel.textContent = "m";
         overtimePayoutInput = document.createElement("input");
         overtimePayoutInput.type = "hidden";
         overtimePayoutInput.value = initialValue.toFixed(2);
+        const payoutInput = overtimePayoutInput;
+        const checkbox = overtimePayoutCheckbox;
         const updateHiddenValue = () => {
           const hours = parseInt(hoursInput.value) || 0;
           const minutes = parseInt(minutesInput.value) || 0;
           const decimalValue = hours + minutes / 60;
-          overtimePayoutInput.value = decimalValue.toFixed(2);
+          payoutInput.value = decimalValue.toFixed(2);
         };
         hoursInput.onchange = updateHiddenValue;
         hoursInput.oninput = updateHiddenValue;
@@ -7547,8 +7540,7 @@ var UIBuilder = class {
         minutesInput.oninput = updateHiddenValue;
         const maxLabel = document.createElement("span");
         maxLabel.textContent = `(max ${Utils.formatHoursToHM(dayOvertime, this.settings.hourUnit)})`;
-        maxLabel.style.color = "var(--text-muted)";
-        maxLabel.style.fontSize = "0.9em";
+        maxLabel.className = "tf-text-muted tf-text-small";
         inputRow.appendChild(inputLabel);
         inputRow.appendChild(hoursInput);
         inputRow.appendChild(hoursLabel);
@@ -7557,26 +7549,22 @@ var UIBuilder = class {
         inputRow.appendChild(maxLabel);
         inputRow.appendChild(overtimePayoutInput);
         payoutSection.appendChild(inputRow);
-        overtimePayoutCheckbox.onchange = () => {
-          inputRow.style.display = overtimePayoutCheckbox.checked ? "flex" : "none";
-          if (overtimePayoutCheckbox.checked && overtimePayoutInput) {
+        checkbox.onchange = () => {
+          inputRow.toggleClass("tf-hidden", !checkbox.checked);
+          if (checkbox.checked && payoutInput) {
             if (!entry.overtimePayout) {
               const hours = Math.floor(dayOvertime);
               const minutes = Math.round((dayOvertime - hours) * 60);
               hoursInput.value = hours.toString();
               minutesInput.value = minutes.toString();
-              overtimePayoutInput.value = dayOvertime.toFixed(2);
+              payoutInput.value = dayOvertime.toFixed(2);
             }
           }
         };
         editDiv.appendChild(payoutSection);
       } else if (isLastEntry && dayOvertime === 0) {
         const noOvertimeDiv = document.createElement("div");
-        noOvertimeDiv.style.marginTop = "12px";
-        noOvertimeDiv.style.paddingTop = "12px";
-        noOvertimeDiv.style.borderTop = "1px solid var(--background-modifier-border)";
-        noOvertimeDiv.style.color = "var(--text-muted)";
-        noOvertimeDiv.style.fontStyle = "italic";
+        noOvertimeDiv.className = "tf-section-divider tf-text-muted tf-italic";
         noOvertimeDiv.textContent = t("modals.noOvertimeAvailable");
         editDiv.appendChild(noOvertimeDiv);
       }
@@ -9240,9 +9228,7 @@ ${noteType.tags.join(" ")}`;
                   const payoutSpan = document.createElement("span");
                   const payoutFormatted = Utils.formatHoursToHM(matchingRaw.overtimePayout, this.settings.hourUnit);
                   payoutSpan.textContent = `${payoutFormatted} ${t("modals.hoursPayedOut")}`;
-                  payoutSpan.className = "tf-overtime-payout-display";
-                  payoutSpan.style.color = "var(--text-muted)";
-                  payoutSpan.style.fontSize = "0.9em";
+                  payoutSpan.className = "tf-overtime-payout-display tf-text-muted tf-text-small";
                   container2.appendChild(payoutSpan);
                 }
                 commentCell.appendChild(container2);
