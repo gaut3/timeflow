@@ -3602,6 +3602,17 @@ var DataManager = class {
               invalidTimeRanges.push(date);
             }
             if (this.holidays[date]) {
+              if (this.holidays[date].type === "half") {
+                this.holidays[date] = {
+                  type: "annet",
+                  description: description.trim(),
+                  halfDay: true,
+                  startTime,
+                  endTime,
+                  annetTemplateId
+                };
+                return;
+              }
               duplicates.push(date);
             }
             this.holidays[date] = {
@@ -3627,6 +3638,19 @@ var DataManager = class {
               }
             }
             if (this.holidays[date]) {
+              if (isHalfDay && typeLower === "half") {
+                this.holidays[date].halfDay = true;
+                return;
+              } else if (this.holidays[date].type === "half") {
+                this.holidays[date] = {
+                  type: typeLower,
+                  description: description.trim(),
+                  halfDay: true,
+                  startTime,
+                  endTime
+                };
+                return;
+              }
               duplicates.push(date);
             }
             this.holidays[date] = {
@@ -3691,16 +3715,16 @@ var DataManager = class {
   checkCommentRequired(dateStr, entryType, additionalDuration) {
     var _a, _b;
     if (!this.settings.enableOvertimeComments) {
-      return { required: false, hoursOverThreshold: 0, dailyGoal: 0 };
+      return { required: false, hoursOverThreshold: 0, hoursOverGoal: 0, dailyGoal: 0 };
     }
     const threshold = (_a = this.settings.overtimeCommentThreshold) != null ? _a : 0.5;
     const effectiveDate = (_b = this.settings.overtimeCommentEffectiveDate) != null ? _b : "2025-01-01";
     if (dateStr < effectiveDate) {
-      return { required: false, hoursOverThreshold: 0, dailyGoal: 0 };
+      return { required: false, hoursOverThreshold: 0, hoursOverGoal: 0, dailyGoal: 0 };
     }
     const behavior = this.getSpecialDayBehavior(entryType);
     if (!(behavior == null ? void 0 : behavior.isWorkType) && (behavior == null ? void 0 : behavior.flextimeEffect) !== "accumulate") {
-      return { required: false, hoursOverThreshold: 0, dailyGoal: 0 };
+      return { required: false, hoursOverThreshold: 0, hoursOverGoal: 0, dailyGoal: 0 };
     }
     const dailyGoal = this.getDailyGoal(dateStr);
     const dayEntries = this.daily[dateStr] || [];
@@ -3719,6 +3743,7 @@ var DataManager = class {
     return {
       required: hoursOverThreshold > 0,
       hoursOverThreshold: Math.max(0, hoursOverThreshold),
+      hoursOverGoal: Math.max(0, dayWorkTotal - dailyGoal),
       dailyGoal
     };
   }
@@ -5231,7 +5256,7 @@ var UIBuilder = class {
         this.app,
         timer,
         commentCheck.required,
-        commentCheck.hoursOverThreshold,
+        commentCheck.hoursOverGoal,
         async (comment) => {
           timer.comment = comment || void 0;
           await this.timerManager.stopTimer(timer);
@@ -7522,7 +7547,7 @@ var UIBuilder = class {
         minutesInput.value = initialMinutes.toString();
         minutesInput.className = "tf-input-flex-p tf-input-w-50";
         const minutesLabel = document.createElement("span");
-        minutesLabel.textContent = "min";
+        minutesLabel.textContent = "Min";
         overtimePayoutInput = document.createElement("input");
         overtimePayoutInput.type = "hidden";
         overtimePayoutInput.value = initialValue.toFixed(2);

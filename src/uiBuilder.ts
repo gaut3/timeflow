@@ -303,7 +303,7 @@ export class UIBuilder {
 				this.app,
 				timer,
 				commentCheck.required,
-				commentCheck.hoursOverThreshold,
+				commentCheck.hoursOverGoal,
 				async (comment: string) => {
 					// Save comment and stop timer
 					timer.comment = comment || undefined;

@@ -216,8 +216,20 @@ export class DataManager {
 							invalidTimeRanges.push(date);
 						}
 
-						// Check for duplicate
+						// Check for duplicate — merge if one side is a half-day marker
 						if (this.holidays[date]) {
+							if (this.holidays[date].type === 'half') {
+								// Existing is half-day marker, new is annet: merge halfDay flag
+								this.holidays[date] = {
+									type: 'annet',
+									description: description.trim(),
+									halfDay: true,
+									startTime,
+									endTime,
+									annetTemplateId
+								};
+								return;
+							}
 							duplicates.push(date);
 						}
 
@@ -249,8 +261,23 @@ export class DataManager {
 							}
 						}
 
-						// Check for duplicate
+						// Check for duplicate — merge if one side is a half-day marker
 						if (this.holidays[date]) {
+							if (isHalfDay && typeLower === 'half') {
+								// New entry is a pure half-day marker: apply halfDay to existing entry
+								this.holidays[date].halfDay = true;
+								return;
+							} else if (this.holidays[date].type === 'half') {
+								// Existing is half-day marker, new is a real type: merge halfDay flag
+								this.holidays[date] = {
+									type: typeLower,
+									description: description.trim(),
+									halfDay: true,
+									startTime,
+									endTime
+								};
+								return;
+							}
 							duplicates.push(date);
 						}
 
@@ -330,10 +357,10 @@ export class DataManager {
 		dateStr: string,
 		entryType: string,
 		additionalDuration: number
-	): { required: boolean; hoursOverThreshold: number; dailyGoal: number } {
+	): { required: boolean; hoursOverThreshold: number; hoursOverGoal: number; dailyGoal: number } {
 		// Check if overtime comments feature is enabled
 		if (!this.settings.enableOvertimeComments) {
-			return { required: false, hoursOverThreshold: 0, dailyGoal: 0 };
+			return { required: false, hoursOverThreshold: 0, hoursOverGoal: 0, dailyGoal: 0 };
 		}
 
 		const threshold = this.settings.overtimeCommentThreshold ?? 0.5;
@@ -341,13 +368,13 @@ export class DataManager {
 
 		// Check if date >= effective date
 		if (dateStr < effectiveDate) {
-			return { required: false, hoursOverThreshold: 0, dailyGoal: 0 };
+			return { required: false, hoursOverThreshold: 0, hoursOverGoal: 0, dailyGoal: 0 };
 		}
 
 		// Check if entry type requires comments (work/accumulate only)
 		const behavior = this.getSpecialDayBehavior(entryType);
 		if (!behavior?.isWorkType && behavior?.flextimeEffect !== 'accumulate') {
-			return { required: false, hoursOverThreshold: 0, dailyGoal: 0 };
+			return { required: false, hoursOverThreshold: 0, hoursOverGoal: 0, dailyGoal: 0 };
 		}
 
 		// Calculate day's work total
@@ -375,6 +402,7 @@ export class DataManager {
 		return {
 			required: hoursOverThreshold > 0,
 			hoursOverThreshold: Math.max(0, hoursOverThreshold),
+			hoursOverGoal: Math.max(0, dayWorkTotal - dailyGoal),
 			dailyGoal
 		};
 	}
