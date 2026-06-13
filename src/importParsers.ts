@@ -14,6 +14,26 @@ export interface ImportParser {
 	parse(content: string): ParseResult;
 }
 
+interface RawTimekeepEntry {
+	name?: string;
+	startTime?: string | number | Date;
+	endTime?: string | number | Date;
+	collapsed?: boolean;
+	subEntries?: RawTimekeepEntry[] | null;
+}
+
+interface RawTimekeepData {
+	entries?: RawTimekeepEntry[];
+	settings?: unknown;
+}
+
+interface GenericJsonRow {
+	date?: string; dato?: string; day?: string; dag?: string;
+	start?: string; startTime?: string; starttid?: string; fra?: string; from?: string;
+	end?: string; endTime?: string; slutt?: string; sluttid?: string; til?: string; to?: string;
+	name?: string; navn?: string; activity?: string; aktivitet?: string; type?: string;
+}
+
 /**
  * Timekeep JSON Parser
  * Expects format: {"entries": [...]}
@@ -25,8 +45,8 @@ export class TimekeepParser implements ImportParser {
 		try {
 			const trimmed = content.trim();
 			if (!trimmed.startsWith('{')) return false;
-			const data = JSON.parse(trimmed);
-			return data.entries && Array.isArray(data.entries);
+			const data = JSON.parse(trimmed) as RawTimekeepData;
+			return Boolean(data.entries) && Array.isArray(data.entries);
 		} catch {
 			return false;
 		}
@@ -41,7 +61,7 @@ export class TimekeepParser implements ImportParser {
 		};
 
 		try {
-			const data = JSON.parse(content.trim());
+			const data = JSON.parse(content.trim()) as RawTimekeepData;
 
 			if (!data.entries || !Array.isArray(data.entries)) {
 				result.errors.push(`${t('import.errors.invalidFormat')}: ${t('import.errors.missingEntries')}`);
@@ -49,7 +69,7 @@ export class TimekeepParser implements ImportParser {
 			}
 
 			for (let i = 0; i < data.entries.length; i++) {
-				const entry = data.entries[i];
+				const entry: RawTimekeepEntry = data.entries[i];
 
 				if (!entry.name || !entry.startTime) {
 					result.warnings.push(`${t('import.errors.entry')} ${i + 1}: ${t('import.errors.missingFields')} (name, startTime)`);
@@ -72,11 +92,11 @@ export class TimekeepParser implements ImportParser {
 				}
 
 				result.entries.push({
-					name: entry.name,
-					startTime: entry.startTime,
-					endTime: entry.endTime || null,
+					name: entry.name ?? '',
+					startTime: entry.startTime != null ? String(entry.startTime) : null,
+					endTime: entry.endTime != null ? String(entry.endTime) : null,
 					collapsed: entry.collapsed ?? false,
-					subEntries: entry.subEntries || null
+					subEntries: (entry.subEntries as Timer[] | null) ?? null
 				});
 			}
 
@@ -358,7 +378,7 @@ export class GenericJSONParser implements ImportParser {
 		};
 
 		try {
-			const data = JSON.parse(content.trim());
+			const data = JSON.parse(content.trim()) as GenericJsonRow[];
 
 			if (!Array.isArray(data)) {
 				result.errors.push(t('import.errors.expectedJsonArray'));
@@ -366,7 +386,7 @@ export class GenericJSONParser implements ImportParser {
 			}
 
 			for (let i = 0; i < data.length; i++) {
-				const item = data[i];
+				const item: GenericJsonRow = data[i];
 
 				// Try to find date/time fields with various names
 				const dateField = item.date || item.dato || item.day || item.dag;

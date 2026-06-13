@@ -12,7 +12,7 @@ export default class TimeFlowPlugin extends Plugin {
 
 	async onload() {
 		// Load settings (without migration yet)
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData() as Partial<TimeFlowSettings>);
 
 		// Initialize timer manager
 		this.timerManager = new TimerManager(this.app, this.settings);
@@ -123,7 +123,7 @@ export default class TimeFlowPlugin extends Plugin {
 
 	async loadSettings() {
 		// This is called when settings tab is opened - just reload from storage
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData() as Partial<TimeFlowSettings>);
 	}
 
 	migrateSpecialDayBehaviors(): boolean {

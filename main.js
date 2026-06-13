@@ -1097,13 +1097,13 @@ var TimekeepParser = class {
       const trimmed = content.trim();
       if (!trimmed.startsWith("{")) return false;
       const data = JSON.parse(trimmed);
-      return data.entries && Array.isArray(data.entries);
+      return Boolean(data.entries) && Array.isArray(data.entries);
     } catch (e) {
       return false;
     }
   }
   parse(content) {
-    var _a;
+    var _a, _b, _c;
     const result = {
       success: false,
       entries: [],
@@ -1135,11 +1135,11 @@ var TimekeepParser = class {
           }
         }
         result.entries.push({
-          name: entry.name,
-          startTime: entry.startTime,
-          endTime: entry.endTime || null,
-          collapsed: (_a = entry.collapsed) != null ? _a : false,
-          subEntries: entry.subEntries || null
+          name: (_a = entry.name) != null ? _a : "",
+          startTime: entry.startTime != null ? String(entry.startTime) : null,
+          endTime: entry.endTime != null ? String(entry.endTime) : null,
+          collapsed: (_b = entry.collapsed) != null ? _b : false,
+          subEntries: (_c = entry.subEntries) != null ? _c : null
         });
       }
       result.success = result.entries.length > 0;
@@ -1492,8 +1492,8 @@ var ImportModal = class extends import_obsidian.Modal {
     });
     const uploadBtn = uploadDiv.createEl("button", { text: "\u{1F4C1} " + t("import.selectFile"), cls: "tf-import-upload-btn" });
     uploadBtn.onclick = () => fileInput.click();
-    const fileNameSpan = uploadDiv.createEl("span", { text: t("import.noFile"), cls: "tf-import-file-name" });
-    contentEl.createEl("div", { text: t("import.orPasteData"), cls: "tf-import-textarea-label" });
+    const fileNameSpan = uploadDiv.createSpan({ text: t("import.noFile"), cls: "tf-import-file-name" });
+    contentEl.createDiv({ text: t("import.orPasteData"), cls: "tf-import-textarea-label" });
     const textArea = contentEl.createEl("textarea", {
       cls: "tf-import-textarea",
       attr: {
@@ -1522,7 +1522,7 @@ var ImportModal = class extends import_obsidian.Modal {
     };
     let parseTimeout;
     textArea.oninput = () => {
-      clearTimeout(parseTimeout);
+      activeWindow.clearTimeout(parseTimeout);
       parseTimeout = window.setTimeout(() => {
         if (textArea.value.trim().length > 50) {
           this.updatePreview(textArea.value, previewDiv, importBtn);
@@ -1605,17 +1605,17 @@ var ImportModal = class extends import_obsidian.Modal {
       result = { ...parser.parse(content), format: parser.name };
     }
     previewDiv.addClass("is-visible");
-    const formatInfo = previewDiv.createEl("div", { cls: "tf-import-format-info" });
+    const formatInfo = previewDiv.createDiv({ cls: "tf-import-format-info" });
     formatInfo.createEl("strong", { text: t("import.format") });
     formatInfo.appendText(" " + (result.format || "?"));
     if (result.errors.length > 0) {
-      const errorDiv = previewDiv.createEl("div", { cls: "tf-import-error" });
+      const errorDiv = previewDiv.createDiv({ cls: "tf-import-error" });
       errorDiv.createEl("strong", { text: "\u274C " + t("import.errors_label") + ":" });
       const errorList = errorDiv.createEl("ul");
       result.errors.forEach((err) => errorList.createEl("li", { text: err }));
     }
     if (result.warnings.length > 0) {
-      const warnDiv = previewDiv.createEl("div", { cls: "tf-import-warning" });
+      const warnDiv = previewDiv.createDiv({ cls: "tf-import-warning" });
       warnDiv.createEl("strong", { text: "\u26A0\uFE0F " + t("import.warnings") + ":" });
       const warnList = warnDiv.createEl("ul");
       result.warnings.slice(0, 5).forEach((warn) => warnList.createEl("li", { text: warn }));
@@ -1626,7 +1626,7 @@ var ImportModal = class extends import_obsidian.Modal {
     if (result.entries.length > 0) {
       this.parsedEntries = result.entries;
       importBtn.disabled = false;
-      const successDiv = previewDiv.createEl("div", { cls: "tf-import-success" });
+      const successDiv = previewDiv.createDiv({ cls: "tf-import-success" });
       successDiv.createEl("strong", { text: "\u2705 " + result.entries.length + " " + t("import.entriesFound") });
       const previewTable = previewDiv.createEl("table", { cls: "tf-import-preview-table" });
       const thead = previewTable.createEl("thead");
@@ -2252,7 +2252,7 @@ var WorkSchedulePeriodModal = class extends import_obsidian2.Modal {
       var _a2;
       impactPreview.empty();
       if (!/^\d{4}-\d{2}-\d{2}$/.test(formData.effectiveFrom)) {
-        impactPreview.createEl("div", {
+        impactPreview.createDiv({
           text: "Enter a valid date to see impact preview",
           cls: "setting-item-description"
         });
@@ -2262,7 +2262,7 @@ var WorkSchedulePeriodModal = class extends import_obsidian2.Modal {
       const history = this.plugin.settings.workScheduleHistory || [];
       const timerManager = this.plugin.timerManager;
       if (!timerManager || !timerManager.data || !timerManager.data.entries) {
-        impactPreview.createEl("div", { text: "Loading data..." });
+        impactPreview.createDiv({ text: "Loading data..." });
         return;
       }
       const entries = timerManager.data.entries;
@@ -2295,29 +2295,29 @@ var WorkSchedulePeriodModal = class extends import_obsidian2.Modal {
         if (currentWorkDays.includes(dayOfWeek)) oldWorkdays++;
         if (formData.workDays.includes(dayOfWeek)) newWorkdays++;
       });
-      const title = impactPreview.createEl("div", { cls: "tf-settings-impact-title" });
+      const title = impactPreview.createDiv({ cls: "tf-settings-impact-title" });
       title.textContent = `Impact preview`;
-      const affectedText = impactPreview.createEl("div", { cls: "tf-settings-impact-item" });
+      const affectedText = impactPreview.createDiv({ cls: "tf-settings-impact-item" });
       affectedText.textContent = `\u2022 Affects ${affectedDays.size} days with existing data`;
       if (affectedDays.size > 0) {
-        const workdayChange = impactPreview.createEl("div", { cls: "tf-settings-impact-item" });
+        const workdayChange = impactPreview.createDiv({ cls: "tf-settings-impact-item" });
         if (oldWorkdays !== newWorkdays) {
           workdayChange.textContent = `\u2022 Workdays in period: ${oldWorkdays} \u2192 ${newWorkdays}`;
         } else {
           workdayChange.textContent = `\u2022 Workdays in period: ${newWorkdays}`;
         }
         if (Math.abs(goalDifference) > 0.1) {
-          const goalChange = impactPreview.createEl("div", { cls: "tf-settings-impact-item" });
+          const goalChange = impactPreview.createDiv({ cls: "tf-settings-impact-item" });
           const sign = goalDifference > 0 ? "+" : "";
           goalChange.textContent = `\u2022 Daily goal: ${currentDailyGoal.toFixed(1)}h \u2192 ${newDailyGoal.toFixed(1)}h (${sign}${goalDifference.toFixed(1)}h)`;
         }
         const requiredHoursChange = (newWorkdays - oldWorkdays) * newDailyGoal + oldWorkdays * goalDifference;
         if (Math.abs(requiredHoursChange) > 0.5) {
-          const changeEl = impactPreview.createEl("div", { cls: "tf-settings-impact-item" });
+          const changeEl = impactPreview.createDiv({ cls: "tf-settings-impact-item" });
           const sign = requiredHoursChange > 0 ? "+" : "";
           changeEl.textContent = `\u2022 Required hours change: ${sign}${requiredHoursChange.toFixed(1)}h`;
           const balanceImpact = -requiredHoursChange;
-          const balanceEl = impactPreview.createEl("div", {
+          const balanceEl = impactPreview.createDiv({
             cls: balanceImpact > 0 ? "tf-settings-impact-balance-positive" : "tf-settings-impact-balance-negative"
           });
           const balanceSign = balanceImpact > 0 ? "+" : "";
@@ -2325,7 +2325,7 @@ var WorkSchedulePeriodModal = class extends import_obsidian2.Modal {
         }
       }
       if (periodDate > today) {
-        const futureNote = impactPreview.createEl("div", { cls: "tf-settings-future-note" });
+        const futureNote = impactPreview.createDiv({ cls: "tf-settings-future-note" });
         futureNote.textContent = "This is a future period - will apply from " + periodDate;
       }
     };
@@ -2647,22 +2647,22 @@ var TimeFlowSettingTab = class extends import_obsidian2.PluginSettingTab {
     const scheduleHistory = [...this.plugin.settings.workScheduleHistory || []];
     scheduleHistory.sort((a, b) => b.effectiveFrom.localeCompare(a.effectiveFrom));
     const currentSettingsInfo = scheduleHistorySection.content.createDiv({ cls: "tf-settings-current-info" });
-    const currentLabel = currentSettingsInfo.createEl("div", { cls: "tf-settings-current-label" });
+    const currentLabel = currentSettingsInfo.createDiv({ cls: "tf-settings-current-label" });
     currentLabel.textContent = "Current settings (active)";
-    const currentDetails = currentSettingsInfo.createEl("div", { cls: "tf-settings-current-details" });
+    const currentDetails = currentSettingsInfo.createDiv({ cls: "tf-settings-current-details" });
     const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     const currentWorkDaysStr = this.plugin.settings.workDays.map((d) => dayNames[d]).join(", ");
     currentDetails.textContent = `${(this.plugin.settings.workPercent * 100).toFixed(0)}% \xB7 ${this.plugin.settings.baseWorkday}h/day \xB7 ${this.plugin.settings.baseWorkweek}h/week \xB7 ${currentWorkDaysStr}`;
     if (scheduleHistory.length > 0) {
-      scheduleHistory.forEach((period, arrayIndex) => {
+      scheduleHistory.forEach((period, _arrayIndex) => {
         const originalIndex = this.plugin.settings.workScheduleHistory.findIndex(
           (p) => p.effectiveFrom === period.effectiveFrom
         );
         const periodDiv = scheduleHistorySection.content.createDiv({ cls: "tf-settings-period-item" });
         const infoDiv = periodDiv.createDiv();
-        const dateLabel = infoDiv.createEl("div", { cls: "tf-settings-period-date" });
+        const dateLabel = infoDiv.createDiv({ cls: "tf-settings-period-date" });
         dateLabel.textContent = `From ${period.effectiveFrom}`;
-        const details = infoDiv.createEl("div", { cls: "tf-settings-period-details" });
+        const details = infoDiv.createDiv({ cls: "tf-settings-period-details" });
         const workDaysStr = period.workDays.map((d) => dayNames[d]).join(", ");
         details.textContent = `${(period.workPercent * 100).toFixed(0)}% \xB7 ${period.baseWorkday}h/day \xB7 ${period.baseWorkweek}h/week \xB7 ${workDaysStr}`;
         const buttonsDiv = periodDiv.createDiv({ cls: "tf-settings-period-buttons" });
@@ -3266,29 +3266,29 @@ Note: Historical data using "annet:${template.id}" will still work but show a ge
     const now = /* @__PURE__ */ new Date();
     const currentYearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
     const defaultMonth = availableMonths.includes(currentYearMonth) ? currentYearMonth : availableMonths[0];
-    const overlay = document.createElement("div");
+    const overlay = createDiv();
     overlay.className = "modal-container mod-dim";
-    const modal = document.createElement("div");
+    const modal = createDiv();
     modal.className = "modal tf-export-modal";
-    const title = document.createElement("h3");
+    const title = createEl("h3");
     title.className = "tf-export-modal-title";
     title.textContent = t("export.selectMonth");
     modal.appendChild(title);
-    const selectContainer = document.createElement("div");
+    const selectContainer = createDiv();
     selectContainer.className = "tf-export-select-container";
-    const label = document.createElement("label");
+    const label = createEl("label");
     label.textContent = t("export.month") + ":";
     selectContainer.appendChild(label);
-    const select = document.createElement("select");
+    const select = createEl("select");
     select.className = "tf-export-select";
-    const allOption = document.createElement("option");
+    const allOption = createEl("option");
     allOption.value = "all";
     allOption.textContent = t("export.allMonths");
     select.appendChild(allOption);
     availableMonths.forEach((yearMonth) => {
       const [year, month] = yearMonth.split("-").map(Number);
       const monthName = getMonthName(new Date(year, month - 1, 1));
-      const option = document.createElement("option");
+      const option = createEl("option");
       option.value = yearMonth;
       option.textContent = monthName;
       if (yearMonth === defaultMonth) option.selected = true;
@@ -3296,13 +3296,13 @@ Note: Historical data using "annet:${template.id}" will still work but show a ge
     });
     selectContainer.appendChild(select);
     modal.appendChild(selectContainer);
-    const buttonDiv = document.createElement("div");
+    const buttonDiv = createDiv();
     buttonDiv.className = "tf-export-buttons";
-    const cancelBtn = document.createElement("button");
+    const cancelBtn = createEl("button");
     cancelBtn.textContent = t("buttons.cancel");
     cancelBtn.onclick = () => overlay.remove();
     buttonDiv.appendChild(cancelBtn);
-    const exportBtn = document.createElement("button");
+    const exportBtn = createEl("button");
     exportBtn.className = "mod-cta";
     exportBtn.textContent = `\u{1F4E5} ${t("buttons.export")}`;
     exportBtn.onclick = () => {
@@ -3316,7 +3316,7 @@ Note: Historical data using "annet:${template.id}" will still work but show a ge
     overlay.onclick = (e) => {
       if (e.target === overlay) overlay.remove();
     };
-    document.body.appendChild(overlay);
+    activeDocument.body.appendChild(overlay);
   }
   downloadMonthCSV(yearMonth, allEntries) {
     const BOM = "\uFEFF";
@@ -3354,7 +3354,7 @@ Note: Historical data using "annet:${template.id}" will still work but show a ge
     }
     const blob = new Blob([BOM + csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
+    const link = createEl("a");
     link.href = url;
     link.download = filename;
     link.click();
@@ -3683,7 +3683,7 @@ var DataManager = class {
     return status;
   }
   isHoliday(dateStr) {
-    return Object.prototype.hasOwnProperty.call(this.holidays, dateStr);
+    return dateStr in this.holidays;
   }
   getHolidayInfo(dateStr) {
     return this.holidays[dateStr] || null;
@@ -4880,7 +4880,7 @@ var DataManager = class {
    * Get historical hours data for bar chart
    * Returns array of { label, hours, target?, specialDays? }
    */
-  getHistoricalHoursData(timeframe, selectedYear, selectedMonth) {
+  getHistoricalHoursData(timeframe, selectedYear, _selectedMonth) {
     const data = [];
     const today = /* @__PURE__ */ new Date();
     const weeklyTarget = this.workweekHours;
@@ -5110,7 +5110,7 @@ var UIBuilder = class {
    * Uses a regular text input instead of type="time" to avoid clock pickers on mobile.
    */
   createTimeInput(initialValue, onChange) {
-    const input = document.createElement("input");
+    const input = createEl("input");
     input.type = "text";
     input.value = initialValue;
     input.placeholder = "Hh:mm";
@@ -5165,24 +5165,24 @@ var UIBuilder = class {
     }
   }
   createContainer() {
-    const container = document.createElement("div");
+    const container = createDiv();
     container.className = "tf-container";
     return container;
   }
   // Note: Styles are now in styles.css instead of being injected dynamically
   buildBadgeSection() {
-    const section = document.createElement("div");
+    const section = createDiv();
     section.className = "tf-badge-section";
-    const badge = document.createElement("div");
+    const badge = createDiv();
     badge.className = "tf-badge";
     this.elements.badge = badge;
-    const clock = document.createElement("div");
+    const clock = createDiv();
     clock.className = "tf-clock";
     this.elements.clock = clock;
-    const complianceBadge = document.createElement("div");
+    const complianceBadge = createDiv();
     complianceBadge.className = "tf-compliance-badge";
     this.elements.complianceBadge = complianceBadge;
-    const timerBadge = document.createElement("button");
+    const timerBadge = createEl("button");
     timerBadge.className = "tf-timer-badge";
     this.elements.timerBadge = timerBadge;
     if (!this.settings.enableGoalTracking) {
@@ -5206,7 +5206,7 @@ var UIBuilder = class {
       this.elements.timerBadge.empty();
       this.elements.timerBadge.className = "tf-timer-badge tf-bg-transparent tf-inline-flex tf-items-stretch tf-gap-0 tf-p-0 tf-relative";
       this.elements.timerBadge.onclick = null;
-      const startBtn = document.createElement("div");
+      const startBtn = createDiv();
       startBtn.textContent = "Start";
       startBtn.className = "tf-timer-start-btn";
       startBtn.onclick = async (e) => {
@@ -5216,7 +5216,7 @@ var UIBuilder = class {
         await this.timerManager.startTimer(timerName);
         this.updateTimerBadge();
       };
-      const arrowBtn = document.createElement("div");
+      const arrowBtn = createDiv();
       arrowBtn.textContent = "\u25BC";
       arrowBtn.className = "tf-timer-dropdown-btn";
       arrowBtn.onclick = (e) => {
@@ -5271,12 +5271,12 @@ var UIBuilder = class {
     });
   }
   showTimerTypeMenu(button) {
-    const existingMenu = document.querySelector(".tf-timer-type-menu");
+    const existingMenu = activeDocument.querySelector(".tf-timer-type-menu");
     if (existingMenu) {
       existingMenu.remove();
       return;
     }
-    const menu = document.createElement("div");
+    const menu = createDiv();
     menu.className = "tf-timer-type-menu";
     const defaultTimerTypes = ["jobb", "studie", "kurs"];
     const timerTypes = this.settings.specialDayBehaviors.filter((b) => {
@@ -5288,7 +5288,7 @@ var UIBuilder = class {
       label: translateSpecialDayName(b.id, b.label)
     }));
     timerTypes.forEach((type) => {
-      const item = document.createElement("div");
+      const item = createDiv();
       item.className = "tf-menu-item";
       item.createSpan({ text: type.icon });
       item.createSpan({ text: type.label });
@@ -5299,7 +5299,7 @@ var UIBuilder = class {
       };
       menu.appendChild(item);
     });
-    document.body.appendChild(menu);
+    activeDocument.body.appendChild(menu);
     const rect = button.getBoundingClientRect();
     const menuRect = menu.getBoundingClientRect();
     const viewportWidth = window.innerWidth;
@@ -5324,13 +5324,13 @@ var UIBuilder = class {
     const closeMenu = (e) => {
       if (!menu.contains(e.target)) {
         menu.remove();
-        document.removeEventListener("click", closeMenu);
+        activeDocument.removeEventListener("click", closeMenu);
       }
     };
-    setTimeout(() => document.addEventListener("click", closeMenu), 0);
+    activeWindow.setTimeout(() => activeDocument.addEventListener("click", closeMenu), 0);
   }
   buildSummaryCards() {
-    const container = document.createElement("div");
+    const container = createDiv();
     container.className = "tf-summary-cards";
     container.appendChild(this.createDayCard());
     container.appendChild(this.createWeekCard());
@@ -5338,44 +5338,44 @@ var UIBuilder = class {
     return container;
   }
   createDayCard() {
-    const card = document.createElement("div");
+    const card = createDiv();
     card.className = "tf-card tf-card-day";
     this.elements.dayCard = card;
     this.updateDayCard();
     return card;
   }
   createWeekCard() {
-    const card = document.createElement("div");
+    const card = createDiv();
     card.className = "tf-card tf-card-week";
     this.elements.weekCard = card;
     this.updateWeekCard();
     return card;
   }
   createMonthCard() {
-    const card = document.createElement("div");
+    const card = createDiv();
     card.className = "tf-card tf-card-month";
-    const header = document.createElement("div");
+    const header = createDiv();
     header.className = "tf-card-header";
-    const title = document.createElement("h3");
+    const title = createEl("h3");
     title.textContent = t("ui.calendar");
     title.className = "tf-card-title";
-    const controls = document.createElement("div");
+    const controls = createDiv();
     controls.className = "tf-card-controls";
-    const prevBtn = document.createElement("button");
+    const prevBtn = createEl("button");
     prevBtn.textContent = "\u25C4";
     prevBtn.className = "tf-button";
     prevBtn.onclick = () => {
       this.currentMonthOffset--;
       this.updateMonthCard();
     };
-    const todayBtn = document.createElement("button");
+    const todayBtn = createEl("button");
     todayBtn.textContent = t("ui.today");
     todayBtn.className = "tf-button";
     todayBtn.onclick = () => {
       this.currentMonthOffset = 0;
       this.updateMonthCard();
     };
-    const nextBtn = document.createElement("button");
+    const nextBtn = createEl("button");
     nextBtn.textContent = "\u25BA";
     nextBtn.className = "tf-button";
     nextBtn.onclick = () => {
@@ -5388,32 +5388,32 @@ var UIBuilder = class {
     header.appendChild(title);
     header.appendChild(controls);
     card.appendChild(header);
-    const gridContainer = document.createElement("div");
+    const gridContainer = createDiv();
     this.elements.monthCard = gridContainer;
     card.appendChild(gridContainer);
-    const futureDaysContainer = document.createElement("div");
+    const futureDaysContainer = createDiv();
     futureDaysContainer.className = "tf-future-days-list";
     card.appendChild(futureDaysContainer);
     this.updateMonthCard();
     return card;
   }
   createStatsCard() {
-    const card = document.createElement("div");
+    const card = createDiv();
     card.className = "tf-card tf-card-stats";
-    const contentWrapper = document.createElement("div");
+    const contentWrapper = createDiv();
     contentWrapper.className = "tf-collapsible-content open";
-    const headerRow = document.createElement("div");
+    const headerRow = createDiv();
     headerRow.className = "tf-collapsible tf-stats-header";
-    const header = document.createElement("h3");
+    const header = createEl("h3");
     header.textContent = t("ui.statistics");
     header.className = "tf-m-0";
     headerRow.appendChild(header);
-    const tabs = document.createElement("div");
+    const tabs = createDiv();
     tabs.className = "tf-tabs tf-tabs-inline";
     const timeframes = ["month", "year", "total"];
     const labels = { month: t("timeframes.month"), year: t("timeframes.year"), total: t("timeframes.total") };
     timeframes.forEach((tf) => {
-      const tab = document.createElement("button");
+      const tab = createEl("button");
       tab.className = `tf-tab ${tf === this.statsTimeframe ? "active" : ""}`;
       tab.textContent = labels[tf];
       tab.onclick = () => {
@@ -5429,10 +5429,10 @@ var UIBuilder = class {
     });
     headerRow.appendChild(tabs);
     card.appendChild(headerRow);
-    const timeframeSelectorContainer = document.createElement("div");
+    const timeframeSelectorContainer = createDiv();
     timeframeSelectorContainer.className = "tf-timeframe-selector";
     contentWrapper.appendChild(timeframeSelectorContainer);
-    const statsContainer = document.createElement("div");
+    const statsContainer = createDiv();
     statsContainer.className = "tf-stats-grid";
     this.elements.statsCard = statsContainer;
     contentWrapper.appendChild(statsContainer);
@@ -5446,13 +5446,13 @@ var UIBuilder = class {
   }
   buildInfoCard() {
     var _a, _b, _c, _d;
-    const card = document.createElement("div");
+    const card = createDiv();
     card.className = "tf-card tf-card-spaced";
-    const header = document.createElement("div");
+    const header = createDiv();
     header.className = "tf-collapsible";
     const h3 = header.createEl("h3", { text: t("ui.information") });
     h3.className = "tf-m-0";
-    const content = document.createElement("div");
+    const content = createDiv();
     content.className = "tf-collapsible-content";
     const specialDayInfo = this.settings.specialDayBehaviors.filter((b) => !b.isWorkType).map((behavior) => ({
       key: behavior.id,
@@ -5550,21 +5550,21 @@ var UIBuilder = class {
     return card;
   }
   buildHistoryCard() {
-    const card = document.createElement("div");
+    const card = createDiv();
     card.className = "tf-card tf-card-history tf-card-spaced";
-    const header = document.createElement("div");
+    const header = createDiv();
     header.className = "tf-collapsible tf-history-header";
-    const title = document.createElement("h3");
+    const title = createEl("h3");
     title.textContent = t("ui.history");
     title.className = "tf-history-title";
     header.appendChild(title);
-    const rightControls = document.createElement("div");
+    const rightControls = createDiv();
     rightControls.className = "tf-history-controls";
-    const content = document.createElement("div");
+    const content = createDiv();
     content.className = "tf-collapsible-content";
-    const detailsElement = document.createElement("div");
+    const detailsElement = createDiv();
     detailsElement.className = "tf-history-content";
-    const exportBtn = document.createElement("button");
+    const exportBtn = createEl("button");
     exportBtn.className = "tf-history-export-btn";
     exportBtn.textContent = `\u{1F4E5} ${t("buttons.export")}`;
     exportBtn.title = t("export.csvTooltip");
@@ -5573,7 +5573,7 @@ var UIBuilder = class {
       this.exportHistoryToCSV();
     };
     rightControls.appendChild(exportBtn);
-    const editToggle = document.createElement("button");
+    const editToggle = createEl("button");
     editToggle.className = `tf-history-edit-btn ${this.inlineEditMode ? "active" : ""}`;
     editToggle.textContent = this.inlineEditMode ? `\u2713 ${t("buttons.done")}` : `\u270F\uFE0F ${t("buttons.edit")}`;
     editToggle.onclick = (e) => {
@@ -5584,14 +5584,14 @@ var UIBuilder = class {
       this.refreshHistoryView(detailsElement);
     };
     rightControls.appendChild(editToggle);
-    const tabs = document.createElement("div");
+    const tabs = createDiv();
     tabs.className = "tf-tabs tf-tabs-inline";
     const views = [
       { id: "list", label: t("buttons.list") },
       { id: "heatmap", label: t("buttons.heatmap") }
     ];
     views.forEach((view) => {
-      const tab = document.createElement("button");
+      const tab = createEl("button");
       tab.textContent = view.label;
       tab.className = `tf-tab ${this.historyView === view.id ? "active" : ""}`;
       tab.onclick = (e) => {
@@ -5637,7 +5637,7 @@ var UIBuilder = class {
   }
   buildStatusBar() {
     var _a, _b, _c, _d, _e, _f, _g, _h, _i;
-    const bar = document.createElement("div");
+    const bar = createDiv();
     bar.className = "tf-status-bar";
     const status = this.systemStatus;
     const hasErrors = ((_a = status.validation) == null ? void 0 : _a.hasErrors) || status.dataParseError;
@@ -5710,7 +5710,7 @@ var UIBuilder = class {
         }
       }
     };
-    const header = document.createElement("div");
+    const header = createDiv();
     header.className = "tf-status-header";
     header.createSpan({ text: statusIcon });
     const headerContent = header.createDiv();
@@ -5732,7 +5732,7 @@ var UIBuilder = class {
     }
     bar.appendChild(header);
     if (hasIssues) {
-      const details = document.createElement("div");
+      const details = createDiv();
       details.className = "tf-status-details";
       const detailsInner = details.createDiv();
       detailsInner.className = "tf-status-details-inner";
@@ -5755,9 +5755,9 @@ var UIBuilder = class {
     return bar;
   }
   buildViewToggle() {
-    const container = document.createElement("div");
+    const container = createDiv();
     container.className = "tf-view-toggle-container";
-    const viewToggle = document.createElement("button");
+    const viewToggle = createEl("button");
     const isInSidebar = this.isViewInSidebar();
     viewToggle.className = "tf-view-toggle-btn";
     const iconSpan = viewToggle.createSpan({ cls: "tf-view-toggle-icon" });
@@ -5883,7 +5883,7 @@ var UIBuilder = class {
    */
   showComplianceInfoPanel() {
     var _a, _b, _c, _d, _e, _f;
-    const existingPanel = document.querySelector(".tf-compliance-info-panel");
+    const existingPanel = activeDocument.querySelector(".tf-compliance-info-panel");
     if (existingPanel) {
       existingPanel.remove();
       return;
@@ -5897,7 +5897,7 @@ var UIBuilder = class {
     const minimumRest = (_f = (_e = this.settings.complianceSettings) == null ? void 0 : _e.minimumRestHours) != null ? _f : 11;
     const { dailyStatus, weeklyStatus } = this.getComplianceStatus();
     const restCheck = this.data.checkRestPeriodViolation(todayStr);
-    const panel = document.createElement("div");
+    const panel = createDiv();
     panel.className = "tf-compliance-info-panel";
     panel.createEl("h4", { text: `\u2696\uFE0F ${t("compliance.title")}` });
     const dailyIcon = dailyStatus === "ok" ? "\u{1F7E9}" : dailyStatus === "approaching" ? "\u{1F7E8}" : "\u{1F7E5}";
@@ -5928,7 +5928,7 @@ var UIBuilder = class {
     }
     panel.createEl("p", { text: statusText, cls: "tf-compliance-status-text" });
     const badgeRect = this.elements.complianceBadge.getBoundingClientRect();
-    document.body.appendChild(panel);
+    activeDocument.body.appendChild(panel);
     const panelRect = panel.getBoundingClientRect();
     const padding = 10;
     let top = badgeRect.bottom + 8;
@@ -5943,10 +5943,10 @@ var UIBuilder = class {
     const closeHandler = (e) => {
       if (!panel.contains(e.target) && e.target !== this.elements.complianceBadge) {
         panel.remove();
-        document.removeEventListener("click", closeHandler);
+        activeDocument.removeEventListener("click", closeHandler);
       }
     };
-    setTimeout(() => document.addEventListener("click", closeHandler), 0);
+    activeWindow.setTimeout(() => activeDocument.addEventListener("click", closeHandler), 0);
   }
   /**
    * Generate compliance warning HTML for daily hours
@@ -6101,10 +6101,10 @@ var UIBuilder = class {
       if (this.statsTimeframe === "year") {
         const availableYears = this.data.getAvailableYears();
         if (availableYears.length > 0) {
-          const yearSelect = document.createElement("select");
+          const yearSelect = createEl("select");
           yearSelect.className = "tf-select";
           availableYears.forEach((year) => {
-            const option = document.createElement("option");
+            const option = createEl("option");
             option.value = year.toString();
             option.textContent = year.toString();
             option.selected = year === this.selectedYear;
@@ -6119,10 +6119,10 @@ var UIBuilder = class {
       } else if (this.statsTimeframe === "month") {
         const availableYears = this.data.getAvailableYears();
         if (availableYears.length > 0) {
-          const yearSelect = document.createElement("select");
+          const yearSelect = createEl("select");
           yearSelect.className = "tf-select";
           availableYears.forEach((year) => {
-            const option = document.createElement("option");
+            const option = createEl("option");
             option.value = year.toString();
             option.textContent = year.toString();
             option.selected = year === this.selectedYear;
@@ -6139,7 +6139,7 @@ var UIBuilder = class {
           selectorContainer.appendChild(yearSelect);
           const availableMonths = this.data.getAvailableMonthsForYear(this.selectedYear);
           if (availableMonths.length > 0) {
-            const monthSelect = document.createElement("select");
+            const monthSelect = createEl("select");
             monthSelect.className = "tf-select";
             const monthNames = [
               "Januar",
@@ -6156,7 +6156,7 @@ var UIBuilder = class {
               "Desember"
             ];
             availableMonths.forEach((month) => {
-              const option = document.createElement("option");
+              const option = createEl("option");
               option.value = month.toString();
               option.textContent = monthNames[month];
               option.selected = month === this.selectedMonth;
@@ -6170,7 +6170,7 @@ var UIBuilder = class {
           }
         }
       } else {
-        const label = document.createElement("div");
+        const label = createDiv();
         label.className = "tf-text-lg tf-font-bold";
         label.textContent = t("ui.total");
         selectorContainer.appendChild(label);
@@ -6302,7 +6302,7 @@ var UIBuilder = class {
       ...chartData.map((d) => d.target || 0)
     );
     if (maxHours === 0) return;
-    const chartContainer = contentWrapper.createEl("div", { cls: "tf-hours-chart" });
+    const chartContainer = contentWrapper.createDiv({ cls: "tf-hours-chart" });
     let title = "";
     if (this.statsTimeframe === "month") {
       title = t("stats.weeklyHours") || "Uketimer";
@@ -6311,30 +6311,30 @@ var UIBuilder = class {
     } else {
       title = t("stats.yearlyHours") || "\xC5rstimer";
     }
-    chartContainer.createEl("div", { cls: "tf-hours-chart-title", text: title });
-    const chartInner = chartContainer.createEl("div", { cls: "tf-hours-chart-container" });
-    const barsArea = chartInner.createEl("div", { cls: "tf-hours-bars-area" });
+    chartContainer.createDiv({ cls: "tf-hours-chart-title", text: title });
+    const chartInner = chartContainer.createDiv({ cls: "tf-hours-chart-container" });
+    const barsArea = chartInner.createDiv({ cls: "tf-hours-bars-area" });
     const maxBarHeight = 80;
     chartData.forEach((item) => {
-      const barWrapper = barsArea.createEl("div", { cls: "tf-hours-bar-wrapper" });
-      barWrapper.createEl("div", {
+      const barWrapper = barsArea.createDiv({ cls: "tf-hours-bar-wrapper" });
+      barWrapper.createDiv({
         cls: "tf-hours-bar-value",
         text: item.hours > 0 ? `${item.hours.toFixed(0)}` : ""
       });
-      const barContainer = barWrapper.createEl("div", { cls: "tf-hours-bar-container" });
+      const barContainer = barWrapper.createDiv({ cls: "tf-hours-bar-container" });
       if (item.target && item.target > 0 && maxHours > 0) {
         const targetHeight = item.target / maxHours * maxBarHeight;
-        const targetMarker = barContainer.createEl("div", { cls: "tf-hours-target-marker" });
+        const targetMarker = barContainer.createDiv({ cls: "tf-hours-target-marker" });
         targetMarker.setCssProps({ "--target-height": `${targetHeight}px` });
         targetMarker.title = `${t("stats.target") || "M\xE5l"}: ${item.target.toFixed(0)}t`;
       }
-      const bar = barContainer.createEl("div", { cls: "tf-hours-bar" });
+      const bar = barContainer.createDiv({ cls: "tf-hours-bar" });
       const barHeight = maxHours > 0 ? item.hours / maxHours * maxBarHeight : 0;
       bar.setCssProps({ "--bar-height": `${Math.max(barHeight, 2)}px` });
       if (item.hours === 0) {
         bar.addClass("empty");
       }
-      barWrapper.createEl("div", { cls: "tf-hours-bar-label", text: item.label });
+      barWrapper.createDiv({ cls: "tf-hours-bar-label", text: item.label });
     });
   }
   updateMonthCard() {
@@ -6415,22 +6415,22 @@ var UIBuilder = class {
     const month = displayDate.getMonth();
     const monthName = getMonthName(displayDate);
     const showWeekNumbers = (_a = this.settings.showWeekNumbers) != null ? _a : true;
-    const container = document.createElement("div");
-    const monthTitle = document.createElement("div");
+    const container = createDiv();
+    const monthTitle = createDiv();
     monthTitle.textContent = monthName;
     monthTitle.className = "tf-month-title";
     container.appendChild(monthTitle);
-    const grid = document.createElement("div");
+    const grid = createDiv();
     grid.className = showWeekNumbers ? "tf-month-grid with-week-numbers" : "tf-month-grid";
     if (showWeekNumbers) {
-      const weekHeader = document.createElement("div");
+      const weekHeader = createDiv();
       weekHeader.className = "tf-week-number-header";
       weekHeader.textContent = t("ui.week");
       grid.appendChild(weekHeader);
     }
     const dayNames = getDayNamesShort();
     dayNames.forEach((name) => {
-      const header = document.createElement("div");
+      const header = createDiv();
       header.textContent = name;
       header.className = "tf-day-header";
       grid.appendChild(header);
@@ -6439,7 +6439,7 @@ var UIBuilder = class {
     let firstDayOfWeek = firstDay.getDay() - 1;
     if (firstDayOfWeek === -1) firstDayOfWeek = 6;
     if (showWeekNumbers) {
-      const weekNumCell = document.createElement("div");
+      const weekNumCell = createDiv();
       const dayOfWeek = firstDay.getDay();
       const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
       const mondayOfWeek = new Date(firstDay);
@@ -6458,7 +6458,7 @@ var UIBuilder = class {
       grid.appendChild(weekNumCell);
     }
     for (let i = 0; i < firstDayOfWeek; i++) {
-      const emptyCell = document.createElement("div");
+      const emptyCell = createDiv();
       grid.appendChild(emptyCell);
     }
     const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -6467,7 +6467,7 @@ var UIBuilder = class {
       const date = new Date(year, month, day);
       const dateKey = Utils.toLocalDateStr(date);
       if (showWeekNumbers && day > 1 && date.getDay() === 1) {
-        const weekNumCell = document.createElement("div");
+        const weekNumCell = createDiv();
         const complianceClass = this.getWeekComplianceClass(date);
         weekNumCell.className = `tf-week-number-cell ${complianceClass}`;
         weekNumCell.textContent = Utils.getWeekNumber(date).toString();
@@ -6481,7 +6481,7 @@ var UIBuilder = class {
         }
         grid.appendChild(weekNumCell);
       }
-      const cell = document.createElement("div");
+      const cell = createDiv();
       cell.className = "tf-day-cell";
       cell.textContent = day.toString();
       const holidayInfo = this.data.getHolidayInfo(dateKey);
@@ -6560,7 +6560,7 @@ var UIBuilder = class {
           });
           const dayFlextime = dayEntries.reduce((sum, e) => sum + (e.flextime || 0), 0);
           const stripeColor = !this.settings.enableGoalTracking ? ((_b = this.settings.specialDayBehaviors.find((b) => b.isWorkType)) == null ? void 0 : _b.simpleColor) || "#90caf9" : this.flextimeColor(dayFlextime);
-          const stripe = document.createElement("div");
+          const stripe = createDiv();
           stripe.className = "secondary-type-stripe";
           stripe.setCssProps({ "--tf-bg": stripeColor });
           cell.appendChild(stripe);
@@ -6600,7 +6600,7 @@ var UIBuilder = class {
           stripeColor = this.flextimeColor(dayFlextime);
         }
         if (stripeColor) {
-          const stripe = document.createElement("div");
+          const stripe = createDiv();
           stripe.className = "secondary-type-stripe";
           stripe.setCssProps({ "--tf-bg": stripeColor });
           cell.appendChild(stripe);
@@ -6617,7 +6617,7 @@ var UIBuilder = class {
       }
       const hasActiveEntry = dayEntries == null ? void 0 : dayEntries.some((e) => !e.endTime);
       if (hasActiveEntry) {
-        const indicator = document.createElement("div");
+        const indicator = createDiv();
         indicator.className = "tf-active-entry-indicator";
         cell.appendChild(indicator);
       }
@@ -6869,7 +6869,7 @@ var UIBuilder = class {
    * Show week compliance info panel when clicking on a week number
    */
   showWeekCompliancePanel(cellRect, mondayOfWeek) {
-    const existingPanel = document.querySelector(".tf-week-compliance-panel");
+    const existingPanel = activeDocument.querySelector(".tf-week-compliance-panel");
     if (existingPanel) {
       const existingWeek = existingPanel.dataset.weekMonday;
       existingPanel.remove();
@@ -6878,7 +6878,7 @@ var UIBuilder = class {
       }
     }
     const data = this.getWeekComplianceData(mondayOfWeek);
-    const panel = document.createElement("div");
+    const panel = createDiv();
     panel.className = "tf-week-compliance-panel";
     panel.dataset.weekMonday = Utils.toLocalDateStr(mondayOfWeek);
     let statusIcon = "\u{1F7E9}";
@@ -6919,7 +6919,7 @@ var UIBuilder = class {
     }
     panel.style.left = `${cellRect.right + 8}px`;
     panel.style.top = `${cellRect.top}px`;
-    document.body.appendChild(panel);
+    activeDocument.body.appendChild(panel);
     const panelRect = panel.getBoundingClientRect();
     if (panelRect.right > window.innerWidth - 10) {
       panel.style.left = `${cellRect.left - panelRect.width - 8}px`;
@@ -6930,14 +6930,14 @@ var UIBuilder = class {
     const closeHandler = (e) => {
       if (!panel.contains(e.target)) {
         panel.remove();
-        document.removeEventListener("click", closeHandler);
+        activeDocument.removeEventListener("click", closeHandler);
       }
     };
-    setTimeout(() => document.addEventListener("click", closeHandler), 0);
+    activeWindow.setTimeout(() => activeDocument.addEventListener("click", closeHandler), 0);
   }
   showNoteTypeMenu(cellRect, dateObj) {
     var _a, _b, _c, _d, _e;
-    const existingMenu = document.querySelector(".tf-context-menu");
+    const existingMenu = activeDocument.querySelector(".tf-context-menu");
     if (existingMenu) {
       const existingDate = existingMenu.dataset.menuDate;
       existingMenu.remove();
@@ -6945,14 +6945,14 @@ var UIBuilder = class {
         return;
       }
     }
-    const menu = document.createElement("div");
+    const menu = createDiv();
     menu.className = "tf-context-menu";
     menu.dataset.menuDate = Utils.toLocalDateStr(dateObj);
-    const menuMain = document.createElement("div");
+    const menuMain = createDiv();
     menuMain.className = "tf-context-menu-main";
     let menuLeft = cellRect.right;
     let menuTop = cellRect.top;
-    document.body.appendChild(menu);
+    activeDocument.body.appendChild(menu);
     const isMobile = window.innerWidth <= 500;
     if (isMobile) {
       menuLeft = 10;
@@ -6967,7 +6967,7 @@ var UIBuilder = class {
       }
       menu.style.left = `${menuLeft}px`;
     }
-    setTimeout(() => {
+    activeWindow.setTimeout(() => {
       const menuHeight = menu.offsetHeight;
       if (menuTop + menuHeight > window.innerHeight) {
         menuTop = Math.max(10, window.innerHeight - menuHeight - 10);
@@ -6987,7 +6987,7 @@ var UIBuilder = class {
       return Utils.toLocalDateStr(entryDate) === dateStr;
     });
     const hasWorkEntries = hasWorkEntriesInDaily || hasRunningTimerForDate;
-    const workTimeItem = document.createElement("div");
+    const workTimeItem = createDiv();
     workTimeItem.className = "tf-menu-item";
     workTimeItem.createSpan({ text: "\u23F1\uFE0F" });
     workTimeItem.createSpan({ text: t("menu.logWork") });
@@ -6997,7 +6997,7 @@ var UIBuilder = class {
     };
     menuMain.appendChild(workTimeItem);
     if (hasWorkEntries) {
-      const editItem = document.createElement("div");
+      const editItem = createDiv();
       editItem.className = "tf-menu-item";
       editItem.createSpan({ text: "\u270F\uFE0F" });
       editItem.createSpan({ text: t("menu.editWork") });
@@ -7007,7 +7007,7 @@ var UIBuilder = class {
       };
       menuMain.appendChild(editItem);
     }
-    const specialDayItem = document.createElement("div");
+    const specialDayItem = createDiv();
     specialDayItem.className = "tf-menu-item";
     specialDayItem.createSpan({ text: "\u{1F4C5}" });
     specialDayItem.createSpan({ text: t("menu.registerSpecialDay") });
@@ -7025,7 +7025,7 @@ var UIBuilder = class {
           typeName = translateAnnetTemplateName(template.id, template.label);
         }
       }
-      const editPlannedItem = document.createElement("div");
+      const editPlannedItem = createDiv();
       editPlannedItem.className = "tf-menu-item";
       editPlannedItem.createSpan({ text: "\u270F\uFE0F" });
       editPlannedItem.createSpan({ text: `${t("menu.editPlannedDay")} ${typeName}` });
@@ -7035,11 +7035,11 @@ var UIBuilder = class {
       };
       menuMain.appendChild(editPlannedItem);
     }
-    const separator1 = document.createElement("div");
+    const separator1 = createDiv();
     separator1.className = "tf-menu-separator";
     menuMain.appendChild(separator1);
     this.settings.noteTypes.forEach((noteType) => {
-      const item = document.createElement("div");
+      const item = createDiv();
       item.className = "tf-menu-item";
       item.createSpan({ text: noteType.icon });
       item.createSpan({ text: translateNoteTypeName(noteType.id, noteType.label) });
@@ -7050,7 +7050,7 @@ var UIBuilder = class {
       menuMain.appendChild(item);
     });
     menu.appendChild(menuMain);
-    const menuInfo = document.createElement("div");
+    const menuInfo = createDiv();
     menuInfo.className = "tf-context-menu-info";
     const allEntries = dateEntries || [];
     const plannedInfo = this.data.getHolidayInfo(dateStr);
@@ -7118,12 +7118,12 @@ var UIBuilder = class {
         const entryP = menuInfo.createEl("p", { cls: "tf-ml-8" });
         entryP.appendText(emoji + " " + translateSpecialDayName(e.name.toLowerCase(), e.name) + durationText);
         if (matchingRaw == null ? void 0 : matchingRaw.comment) {
-          const commentSpan = entryP.createEl("span", { cls: "tf-context-menu-comment" });
+          const commentSpan = entryP.createSpan({ cls: "tf-context-menu-comment" });
           commentSpan.appendText(" \u{1F4AC} " + (matchingRaw.comment.length > 40 ? matchingRaw.comment.substring(0, 37) + "..." : matchingRaw.comment));
           commentSpan.title = matchingRaw.comment;
         }
         if ((matchingRaw == null ? void 0 : matchingRaw.overtimePayout) && matchingRaw.overtimePayout > 0) {
-          const payoutSpan = entryP.createEl("span", { cls: "tf-context-menu-payout tf-text-muted" });
+          const payoutSpan = entryP.createSpan({ cls: "tf-context-menu-payout tf-text-muted" });
           const payoutFormatted = Utils.formatHoursToHM(matchingRaw.overtimePayout, this.settings.hourUnit);
           payoutSpan.appendText(` | ${payoutFormatted} ${t("modals.hoursPayedOut")}`);
         }
@@ -7156,44 +7156,44 @@ var UIBuilder = class {
     }
     menuInfo.createEl("p", { text: `\u{1F4A1} ${t("menu.selectOption")}`, cls: "tf-tip-paragraph" });
     menu.appendChild(menuInfo);
-    setTimeout(() => {
+    activeWindow.setTimeout(() => {
       const closeMenu = (e) => {
         if (!menu.contains(e.target)) {
           menu.remove();
-          document.removeEventListener("click", closeMenu);
+          activeDocument.removeEventListener("click", closeMenu);
         }
       };
-      document.addEventListener("click", closeMenu);
+      activeDocument.addEventListener("click", closeMenu);
     }, 0);
   }
   /**
    * Show confirmation dialog for overnight shift detection.
    */
   showOvernightShiftConfirmation(onConfirm) {
-    const modal = document.createElement("div");
+    const modal = createDiv();
     modal.className = "modal-container mod-dim tf-modal-z1001";
-    const modalBg = document.createElement("div");
+    const modalBg = createDiv();
     modalBg.className = "modal-bg";
     modalBg.onclick = () => modal.remove();
     modal.appendChild(modalBg);
-    const modalContent = document.createElement("div");
+    const modalContent = createDiv();
     modalContent.className = "modal tf-modal-content-350";
-    const title = document.createElement("div");
+    const title = createDiv();
     title.className = "modal-title";
     title.textContent = t("confirm.overnightShiftTitle");
     modalContent.appendChild(title);
-    const content = document.createElement("div");
+    const content = createDiv();
     content.className = "modal-content tf-modal-content-padded";
-    const message = document.createElement("p");
+    const message = createEl("p");
     message.textContent = t("confirm.overnightShift");
     content.appendChild(message);
-    const buttonDiv = document.createElement("div");
+    const buttonDiv = createDiv();
     buttonDiv.className = "tf-btn-row-end-mt";
-    const cancelBtn = document.createElement("button");
+    const cancelBtn = createEl("button");
     cancelBtn.textContent = t("buttons.cancel");
     cancelBtn.onclick = () => modal.remove();
     buttonDiv.appendChild(cancelBtn);
-    const confirmBtn = document.createElement("button");
+    const confirmBtn = createEl("button");
     confirmBtn.textContent = t("buttons.confirm");
     confirmBtn.className = "mod-cta";
     confirmBtn.onclick = () => {
@@ -7204,7 +7204,7 @@ var UIBuilder = class {
     content.appendChild(buttonDiv);
     modalContent.appendChild(content);
     modal.appendChild(modalContent);
-    document.body.appendChild(modal);
+    activeDocument.body.appendChild(modal);
   }
   /**
    * Show a generic confirmation dialog that replaces browser confirm().
@@ -7213,30 +7213,30 @@ var UIBuilder = class {
    * @param title Optional title (defaults to "Confirm")
    */
   showConfirmDialog(message, onConfirm, title) {
-    const modal = document.createElement("div");
+    const modal = createDiv();
     modal.className = "modal-container mod-dim tf-modal-z1001";
-    const modalBg = document.createElement("div");
+    const modalBg = createDiv();
     modalBg.className = "modal-bg";
     modalBg.onclick = () => modal.remove();
     modal.appendChild(modalBg);
-    const modalContent = document.createElement("div");
+    const modalContent = createDiv();
     modalContent.className = "modal tf-modal-content-350";
-    const titleEl = document.createElement("div");
+    const titleEl = createDiv();
     titleEl.className = "modal-title";
     titleEl.textContent = title || t("buttons.confirm");
     modalContent.appendChild(titleEl);
-    const content = document.createElement("div");
+    const content = createDiv();
     content.className = "modal-content tf-modal-content-padded";
-    const messageEl = document.createElement("p");
+    const messageEl = createEl("p");
     messageEl.textContent = message;
     content.appendChild(messageEl);
-    const buttonDiv = document.createElement("div");
+    const buttonDiv = createDiv();
     buttonDiv.className = "tf-btn-row-end-mt";
-    const cancelBtn = document.createElement("button");
+    const cancelBtn = createEl("button");
     cancelBtn.textContent = t("buttons.cancel");
     cancelBtn.onclick = () => modal.remove();
     buttonDiv.appendChild(cancelBtn);
-    const confirmBtn = document.createElement("button");
+    const confirmBtn = createEl("button");
     confirmBtn.textContent = t("buttons.confirm");
     confirmBtn.className = "mod-cta mod-warning";
     confirmBtn.onclick = () => {
@@ -7247,7 +7247,7 @@ var UIBuilder = class {
     content.appendChild(buttonDiv);
     modalContent.appendChild(content);
     modal.appendChild(modalContent);
-    document.body.appendChild(modal);
+    activeDocument.body.appendChild(modal);
   }
   /**
    * Check if a new/edited entry would create a prohibited overlap.
@@ -7277,29 +7277,29 @@ var UIBuilder = class {
   showWorkTimeModal(dateObj) {
     const dateStr = Utils.toLocalDateStr(dateObj);
     this.isModalOpen = true;
-    const modal = document.createElement("div");
+    const modal = createDiv();
     modal.className = "modal-container mod-dim tf-modal-z";
-    const modalBg = document.createElement("div");
+    const modalBg = createDiv();
     modalBg.className = "modal-bg";
     modalBg.onclick = () => {
       this.isModalOpen = false;
       modal.remove();
     };
     modal.appendChild(modalBg);
-    const modalContent = document.createElement("div");
+    const modalContent = createDiv();
     modalContent.className = "modal tf-modal-w-400";
     modalContent.addEventListener("keydown", (e) => e.stopPropagation());
     modalContent.addEventListener("keyup", (e) => e.stopPropagation());
     modalContent.addEventListener("keypress", (e) => e.stopPropagation());
     modalContent.addEventListener("beforeinput", (e) => e.stopPropagation());
     modalContent.addEventListener("input", (e) => e.stopPropagation());
-    const title = document.createElement("div");
+    const title = createDiv();
     title.className = "modal-title";
     title.textContent = `${t("modals.logWorkTitle")} ${dateStr}`;
     modalContent.appendChild(title);
-    const content = document.createElement("div");
+    const content = createDiv();
     content.className = "modal-content tf-modal-content-padded";
-    const startLabel = document.createElement("div");
+    const startLabel = createDiv();
     startLabel.textContent = t("modals.startTimeFormat");
     startLabel.className = "tf-form-label-bold";
     content.appendChild(startLabel);
@@ -7307,7 +7307,7 @@ var UIBuilder = class {
     });
     startInput.className = "tf-form-input-full tf-form-input-mb";
     content.appendChild(startInput);
-    const endLabel = document.createElement("div");
+    const endLabel = createDiv();
     endLabel.textContent = t("modals.endTimeFormat");
     endLabel.className = "tf-form-label-bold";
     content.appendChild(endLabel);
@@ -7315,16 +7315,16 @@ var UIBuilder = class {
     });
     endInput.className = "tf-form-input-full tf-form-input-mb-lg";
     content.appendChild(endInput);
-    const buttonDiv = document.createElement("div");
+    const buttonDiv = createDiv();
     buttonDiv.className = "tf-btn-row-end";
-    const cancelBtn = document.createElement("button");
+    const cancelBtn = createEl("button");
     cancelBtn.textContent = t("buttons.cancel");
     cancelBtn.onclick = () => {
       this.isModalOpen = false;
       modal.remove();
     };
     buttonDiv.appendChild(cancelBtn);
-    const addBtn = document.createElement("button");
+    const addBtn = createEl("button");
     addBtn.textContent = t("buttons.add");
     addBtn.className = "mod-cta";
     addBtn.onclick = () => {
@@ -7380,7 +7380,7 @@ var UIBuilder = class {
     content.appendChild(buttonDiv);
     modalContent.appendChild(content);
     modal.appendChild(modalContent);
-    document.body.appendChild(modal);
+    activeDocument.body.appendChild(modal);
     startInput.focus();
     startInput.select();
   }
@@ -7426,32 +7426,32 @@ var UIBuilder = class {
     });
     const dayOvertime = Math.max(0, totalWorkedHours - dayGoal);
     this.isModalOpen = true;
-    const modal = document.createElement("div");
+    const modal = createDiv();
     modal.className = "modal-container mod-dim tf-modal-z";
-    const modalBg = document.createElement("div");
+    const modalBg = createDiv();
     modalBg.className = "modal-bg";
     modalBg.onclick = () => {
       this.isModalOpen = false;
       modal.remove();
     };
     modal.appendChild(modalBg);
-    const modalContent = document.createElement("div");
+    const modalContent = createDiv();
     modalContent.className = "modal tf-modal-w-500";
     modalContent.addEventListener("keydown", (e) => e.stopPropagation());
     modalContent.addEventListener("keyup", (e) => e.stopPropagation());
     modalContent.addEventListener("keypress", (e) => e.stopPropagation());
     modalContent.addEventListener("beforeinput", (e) => e.stopPropagation());
     modalContent.addEventListener("input", (e) => e.stopPropagation());
-    const title = document.createElement("div");
+    const title = createDiv();
     title.className = "modal-title";
     title.textContent = `${t("modals.editWorkTitle")} ${dateStr}`;
     modalContent.appendChild(title);
-    const content = document.createElement("div");
+    const content = createDiv();
     content.className = "modal-content tf-modal-content-padded";
     workEntries.forEach((item, index) => {
       var _a, _b;
       const entry = item.entry;
-      const entryDiv = document.createElement("div");
+      const entryDiv = createDiv();
       entryDiv.className = "tf-entry-card";
       const startDate = new Date(entry.startTime);
       const endDate = entry.endTime ? new Date(entry.endTime) : null;
@@ -7461,7 +7461,7 @@ var UIBuilder = class {
       const endDateStr = endDate ? Utils.toLocalDateStr(endDate) : null;
       const isMultiDay = endDate && startDateStr !== endDateStr;
       const duration = endDate ? ((endDate.getTime() - startDate.getTime()) / (1e3 * 60 * 60)).toFixed(1) : "N/A";
-      const infoDiv = document.createElement("div");
+      const infoDiv = createDiv();
       infoDiv.className = "tf-info-mb";
       const entryLabel = item.parent ? `${item.parent.name} - ${entry.name}` : `Oppf\xF8ring ${index + 1}`;
       infoDiv.createDiv({ text: entryLabel, cls: "tf-title-bold" });
@@ -7469,15 +7469,15 @@ var UIBuilder = class {
       infoDiv.createDiv({ text: timeDisplay });
       infoDiv.createDiv({ text: `\u23F1\uFE0F ${duration} timer` });
       entryDiv.appendChild(infoDiv);
-      const editDiv = document.createElement("div");
+      const editDiv = createDiv();
       editDiv.className = "tf-edit-section tf-hidden";
-      const startLabel = document.createElement("div");
+      const startLabel = createDiv();
       startLabel.textContent = `${t("modals.startTime")}:`;
       startLabel.className = "tf-label-bold-mb";
       editDiv.appendChild(startLabel);
-      const startRow = document.createElement("div");
+      const startRow = createDiv();
       startRow.className = "tf-datetime-row";
-      const startDateInput = document.createElement("input");
+      const startDateInput = createEl("input");
       startDateInput.type = "date";
       startDateInput.value = startDateStr;
       startDateInput.className = "tf-input-flex-p";
@@ -7487,13 +7487,13 @@ var UIBuilder = class {
       startTimeInput.className = "tf-input-flex-p";
       startRow.appendChild(startTimeInput);
       editDiv.appendChild(startRow);
-      const endLabel = document.createElement("div");
+      const endLabel = createDiv();
       endLabel.textContent = `${t("modals.endTime")}:`;
       endLabel.className = "tf-label-bold-mb";
       editDiv.appendChild(endLabel);
-      const endRow = document.createElement("div");
+      const endRow = createDiv();
       endRow.className = "tf-datetime-row";
-      const endDateInput = document.createElement("input");
+      const endDateInput = createEl("input");
       endDateInput.type = "date";
       endDateInput.value = endDateStr || startDateStr;
       endDateInput.className = "tf-input-flex-p";
@@ -7507,48 +7507,48 @@ var UIBuilder = class {
       let overtimePayoutCheckbox = null;
       const isLastEntry = item.entry === lastEntryItem.entry;
       if (isLastEntry && dayOvertime > 0) {
-        const payoutSection = document.createElement("div");
+        const payoutSection = createDiv();
         payoutSection.className = "tf-overtime-payout-section tf-section-divider";
-        const checkboxRow = document.createElement("div");
+        const checkboxRow = createDiv();
         checkboxRow.className = "tf-checkbox-row";
-        overtimePayoutCheckbox = document.createElement("input");
+        overtimePayoutCheckbox = createEl("input");
         overtimePayoutCheckbox.type = "checkbox";
         overtimePayoutCheckbox.id = `overtime-payout-${index}`;
         overtimePayoutCheckbox.checked = ((_a = entry.overtimePayout) != null ? _a : 0) > 0;
-        const checkboxLabel = document.createElement("label");
+        const checkboxLabel = createEl("label");
         checkboxLabel.htmlFor = `overtime-payout-${index}`;
         checkboxLabel.textContent = t("modals.overtimePayout");
         checkboxLabel.className = "tf-cursor-pointer";
         checkboxRow.appendChild(overtimePayoutCheckbox);
         checkboxRow.appendChild(checkboxLabel);
         payoutSection.appendChild(checkboxRow);
-        const inputRow = document.createElement("div");
+        const inputRow = createDiv();
         inputRow.className = "tf-overtime-payout-input-row tf-input-row tf-mt-8";
         if (!overtimePayoutCheckbox.checked) {
           inputRow.addClass("tf-hidden");
         }
-        const inputLabel = document.createElement("label");
+        const inputLabel = createEl("label");
         inputLabel.textContent = `${t("modals.overtimePayoutHours")}:`;
         inputLabel.className = "tf-whitespace-nowrap";
         const initialValue = (_b = entry.overtimePayout) != null ? _b : dayOvertime;
         const initialHours = Math.floor(initialValue);
         const initialMinutes = Math.round((initialValue - initialHours) * 60);
-        const hoursInput = document.createElement("input");
+        const hoursInput = createEl("input");
         hoursInput.type = "number";
         hoursInput.min = "0";
         hoursInput.value = initialHours.toString();
         hoursInput.className = "tf-input-flex-p tf-input-w-50";
-        const hoursLabel = document.createElement("span");
+        const hoursLabel = createSpan();
         hoursLabel.textContent = this.settings.hourUnit;
-        const minutesInput = document.createElement("input");
+        const minutesInput = createEl("input");
         minutesInput.type = "number";
         minutesInput.min = "0";
         minutesInput.max = "59";
         minutesInput.value = initialMinutes.toString();
         minutesInput.className = "tf-input-flex-p tf-input-w-50";
-        const minutesLabel = document.createElement("span");
+        const minutesLabel = createSpan();
         minutesLabel.textContent = "Min";
-        overtimePayoutInput = document.createElement("input");
+        overtimePayoutInput = createEl("input");
         overtimePayoutInput.type = "hidden";
         overtimePayoutInput.value = initialValue.toFixed(2);
         const payoutInput = overtimePayoutInput;
@@ -7563,7 +7563,7 @@ var UIBuilder = class {
         hoursInput.oninput = updateHiddenValue;
         minutesInput.onchange = updateHiddenValue;
         minutesInput.oninput = updateHiddenValue;
-        const maxLabel = document.createElement("span");
+        const maxLabel = createSpan();
         maxLabel.textContent = `(max ${Utils.formatHoursToHM(dayOvertime, this.settings.hourUnit)})`;
         maxLabel.className = "tf-text-muted tf-text-small";
         inputRow.appendChild(inputLabel);
@@ -7588,15 +7588,15 @@ var UIBuilder = class {
         };
         editDiv.appendChild(payoutSection);
       } else if (isLastEntry && dayOvertime === 0) {
-        const noOvertimeDiv = document.createElement("div");
+        const noOvertimeDiv = createDiv();
         noOvertimeDiv.className = "tf-section-divider tf-text-muted tf-italic";
         noOvertimeDiv.textContent = t("modals.noOvertimeAvailable");
         editDiv.appendChild(noOvertimeDiv);
       }
       entryDiv.appendChild(editDiv);
-      const buttonDiv = document.createElement("div");
+      const buttonDiv = createDiv();
       buttonDiv.className = "tf-modal-btn-row";
-      const editBtn = document.createElement("button");
+      const editBtn = createEl("button");
       editBtn.textContent = `\u270F\uFE0F ${t("buttons.edit")}`;
       editBtn.onclick = () => {
         if (editDiv.hasClass("tf-hidden")) {
@@ -7664,7 +7664,7 @@ var UIBuilder = class {
         }
       };
       buttonDiv.appendChild(editBtn);
-      const deleteBtn = document.createElement("button");
+      const deleteBtn = createEl("button");
       deleteBtn.textContent = `\u{1F5D1}\uFE0F ${t("buttons.delete")}`;
       deleteBtn.onclick = () => {
         this.showDeleteConfirmation(entry, dateObj, async () => {
@@ -7701,9 +7701,9 @@ var UIBuilder = class {
       entryDiv.appendChild(buttonDiv);
       content.appendChild(entryDiv);
     });
-    const closeDiv = document.createElement("div");
+    const closeDiv = createDiv();
     closeDiv.className = "tf-modal-close-row";
-    const closeBtn = document.createElement("button");
+    const closeBtn = createEl("button");
     closeBtn.textContent = t("buttons.close");
     closeBtn.onclick = () => {
       this.isModalOpen = false;
@@ -7713,78 +7713,78 @@ var UIBuilder = class {
     content.appendChild(closeDiv);
     modalContent.appendChild(content);
     modal.appendChild(modalContent);
-    document.body.appendChild(modal);
+    activeDocument.body.appendChild(modal);
   }
   showSpecialDayModal(dateObj) {
     const dateStr = Utils.toLocalDateStr(dateObj);
     this.isModalOpen = true;
-    const modal = document.createElement("div");
+    const modal = createDiv();
     modal.className = "modal-container mod-dim tf-modal-z";
-    const modalBg = document.createElement("div");
+    const modalBg = createDiv();
     modalBg.className = "modal-bg";
     modalBg.onclick = () => {
       this.isModalOpen = false;
       modal.remove();
     };
     modal.appendChild(modalBg);
-    const modalContent = document.createElement("div");
+    const modalContent = createDiv();
     modalContent.className = "modal tf-modal-w-400";
     modalContent.addEventListener("keydown", (e) => e.stopPropagation());
     modalContent.addEventListener("keyup", (e) => e.stopPropagation());
     modalContent.addEventListener("keypress", (e) => e.stopPropagation());
     modalContent.addEventListener("beforeinput", (e) => e.stopPropagation());
     modalContent.addEventListener("input", (e) => e.stopPropagation());
-    const title = document.createElement("div");
+    const title = createDiv();
     title.className = "modal-title";
     title.textContent = t("modals.registerSpecialDayTitle");
     modalContent.appendChild(title);
-    const content = document.createElement("div");
+    const content = createDiv();
     content.className = "modal-content tf-modal-content-padded";
-    const dateDisplay = document.createElement("div");
+    const dateDisplay = createDiv();
     dateDisplay.textContent = `${t("ui.date")}: ${dateStr}`;
     dateDisplay.className = "tf-date-display";
     content.appendChild(dateDisplay);
-    const multiDayContainer = document.createElement("div");
+    const multiDayContainer = createDiv();
     multiDayContainer.className = "tf-mb-15";
-    const multiDayRow = document.createElement("div");
+    const multiDayRow = createDiv();
     multiDayRow.className = "tf-checkbox-row";
-    const multiDayCheckbox = document.createElement("input");
+    const multiDayCheckbox = createEl("input");
     multiDayCheckbox.type = "checkbox";
     multiDayCheckbox.id = "multiDayCheckbox";
     multiDayRow.appendChild(multiDayCheckbox);
-    const multiDayLabel = document.createElement("label");
+    const multiDayLabel = createEl("label");
     multiDayLabel.htmlFor = "multiDayCheckbox";
     multiDayLabel.textContent = t("ui.multipleDays");
     multiDayLabel.className = "tf-cursor-pointer";
     multiDayRow.appendChild(multiDayLabel);
     multiDayContainer.appendChild(multiDayRow);
-    const dateRangeContainer = document.createElement("div");
+    const dateRangeContainer = createDiv();
     dateRangeContainer.className = "tf-hidden";
-    const startDateRow = document.createElement("div");
+    const startDateRow = createDiv();
     startDateRow.className = "tf-date-row";
-    const startDateLabel = document.createElement("span");
+    const startDateLabel = createSpan();
     startDateLabel.textContent = t("ui.startDate") + ":";
     startDateLabel.className = "tf-date-label";
     startDateRow.appendChild(startDateLabel);
-    const startDateInput = document.createElement("input");
+    const startDateInput = createEl("input");
     startDateInput.type = "date";
     startDateInput.value = dateStr;
     startDateInput.className = "tf-input-grow";
     startDateRow.appendChild(startDateInput);
     dateRangeContainer.appendChild(startDateRow);
-    const endDateRow = document.createElement("div");
+    const endDateRow = createDiv();
     endDateRow.className = "tf-date-row tf-mb-0";
-    const endDateLabel = document.createElement("span");
+    const endDateLabel = createSpan();
     endDateLabel.textContent = t("ui.endDate") + ":";
     endDateLabel.className = "tf-date-label";
     endDateRow.appendChild(endDateLabel);
-    const endDateInput = document.createElement("input");
+    const endDateInput = createEl("input");
     endDateInput.type = "date";
     endDateInput.value = dateStr;
     endDateInput.className = "tf-input-grow";
     endDateRow.appendChild(endDateInput);
     dateRangeContainer.appendChild(endDateRow);
-    const daysCountDisplay = document.createElement("div");
+    const daysCountDisplay = createDiv();
     daysCountDisplay.className = "tf-days-count";
     const updateDaysCount = () => {
       const start = new Date(startDateInput.value);
@@ -7813,7 +7813,7 @@ var UIBuilder = class {
     };
     multiDayCheckbox.addEventListener("change", updateMultiDayVisibility);
     content.appendChild(multiDayContainer);
-    const typeLabel = document.createElement("div");
+    const typeLabel = createDiv();
     typeLabel.textContent = t("modals.dayType");
     typeLabel.className = "tf-label-bold-mb";
     content.appendChild(typeLabel);
@@ -7821,10 +7821,10 @@ var UIBuilder = class {
       type: behavior.id,
       label: `${behavior.icon} ${translateSpecialDayName(behavior.id, behavior.label)}`
     }));
-    const typeSelect = document.createElement("select");
+    const typeSelect = createEl("select");
     typeSelect.className = "tf-select-full";
     dayTypes.forEach(({ type, label }) => {
-      const option = document.createElement("option");
+      const option = createEl("option");
       option.value = type;
       option.textContent = label;
       typeSelect.appendChild(option);
@@ -7834,15 +7834,15 @@ var UIBuilder = class {
       const behavior = this.settings.specialDayBehaviors.find((b) => b.id === typeId);
       return (behavior == null ? void 0 : behavior.flextimeEffect) === "reduce_goal";
     };
-    const timeContainer = document.createElement("div");
+    const timeContainer = createDiv();
     timeContainer.className = "tf-mb-15 tf-hidden";
-    const timeLabel = document.createElement("div");
+    const timeLabel = createDiv();
     timeLabel.textContent = "Tidsperiode:";
     timeLabel.className = "tf-label-bold-mb";
     timeContainer.appendChild(timeLabel);
-    const timeInputRow = document.createElement("div");
+    const timeInputRow = createDiv();
     timeInputRow.className = "tf-time-input-row";
-    const fromLabel = document.createElement("span");
+    const fromLabel = createSpan();
     fromLabel.textContent = "Fra:";
     timeInputRow.appendChild(fromLabel);
     const workdayHours = this.settings.baseWorkday * this.settings.workPercent;
@@ -7854,7 +7854,7 @@ var UIBuilder = class {
     });
     fromTimeInput.className = "tf-time-input-styled";
     timeInputRow.appendChild(fromTimeInput);
-    const toLabel = document.createElement("span");
+    const toLabel = createSpan();
     toLabel.textContent = "Til:";
     timeInputRow.appendChild(toLabel);
     const toTimeInput = this.createTimeInput(defaultEndTime, () => {
@@ -7862,7 +7862,7 @@ var UIBuilder = class {
     toTimeInput.className = "tf-time-input-styled";
     timeInputRow.appendChild(toTimeInput);
     timeContainer.appendChild(timeInputRow);
-    const durationDisplay = document.createElement("div");
+    const durationDisplay = createDiv();
     durationDisplay.className = "tf-duration-display";
     const updateDuration = () => {
       const from = fromTimeInput.value;
@@ -7883,15 +7883,15 @@ var UIBuilder = class {
     toTimeInput.addEventListener("change", updateDuration);
     timeContainer.appendChild(durationDisplay);
     content.appendChild(timeContainer);
-    const sickTimeContainer = document.createElement("div");
+    const sickTimeContainer = createDiv();
     sickTimeContainer.className = "tf-mb-15 tf-hidden";
-    const sickTimeLabel = document.createElement("div");
+    const sickTimeLabel = createDiv();
     sickTimeLabel.textContent = t("modals.timePeriod") || "Tidsperiode:";
     sickTimeLabel.className = "tf-label-bold-mb";
     sickTimeContainer.appendChild(sickTimeLabel);
-    const sickTimeInputRow = document.createElement("div");
+    const sickTimeInputRow = createDiv();
     sickTimeInputRow.className = "tf-time-input-row";
-    const sickFromLabel = document.createElement("span");
+    const sickFromLabel = createSpan();
     sickFromLabel.textContent = t("modals.from") || "Fra:";
     sickTimeInputRow.appendChild(sickFromLabel);
     const sickDateStr = Utils.toLocalDateStr(dateObj);
@@ -7936,7 +7936,7 @@ var UIBuilder = class {
     });
     sickFromTimeInput.className = "tf-time-input-styled";
     sickTimeInputRow.appendChild(sickFromTimeInput);
-    const sickToLabel = document.createElement("span");
+    const sickToLabel = createSpan();
     sickToLabel.textContent = t("modals.to") || "Til:";
     sickTimeInputRow.appendChild(sickToLabel);
     const sickToTimeInput = this.createTimeInput(autoSickToTime, () => {
@@ -7944,7 +7944,7 @@ var UIBuilder = class {
     sickToTimeInput.className = "tf-time-input-styled";
     sickTimeInputRow.appendChild(sickToTimeInput);
     sickTimeContainer.appendChild(sickTimeInputRow);
-    const sickDurationDisplay = document.createElement("div");
+    const sickDurationDisplay = createDiv();
     sickDurationDisplay.className = "tf-duration-display";
     const updateSickDuration = () => {
       const from = sickFromTimeInput.value;
@@ -7966,14 +7966,14 @@ var UIBuilder = class {
     sickFromTimeInput.addEventListener("change", updateSickDuration);
     sickToTimeInput.addEventListener("change", updateSickDuration);
     sickTimeContainer.appendChild(sickDurationDisplay);
-    const fullDayRow = document.createElement("div");
+    const fullDayRow = createDiv();
     fullDayRow.className = "tf-checkbox-row-mt";
-    const fullDayCheckbox = document.createElement("input");
+    const fullDayCheckbox = createEl("input");
     fullDayCheckbox.type = "checkbox";
     fullDayCheckbox.id = "fullDayCheckbox";
     fullDayCheckbox.checked = workEntries.length === 0;
     fullDayRow.appendChild(fullDayCheckbox);
-    const fullDayLabel = document.createElement("label");
+    const fullDayLabel = createEl("label");
     fullDayLabel.htmlFor = "fullDayCheckbox";
     fullDayLabel.textContent = t("ui.fullDay") || "Hel dag";
     fullDayLabel.className = "tf-cursor-pointer";
@@ -7992,26 +7992,26 @@ var UIBuilder = class {
     fullDayCheckbox.addEventListener("change", updateSickTimeInputs);
     updateSickTimeInputs();
     content.appendChild(sickTimeContainer);
-    const annetContainer = document.createElement("div");
+    const annetContainer = createDiv();
     annetContainer.className = "tf-mb-15 tf-hidden";
-    const annetTemplateLabel = document.createElement("div");
+    const annetTemplateLabel = createDiv();
     annetTemplateLabel.textContent = t("annet.selectTemplate");
     annetTemplateLabel.className = "tf-label-bold-mb-8";
     annetContainer.appendChild(annetTemplateLabel);
-    const annetTemplateButtons = document.createElement("div");
+    const annetTemplateButtons = createDiv();
     annetTemplateButtons.className = "tf-template-btn-container";
     let selectedAnnetTemplate = null;
     const annetTemplates = this.settings.annetTemplates || [];
     const templateButtonRefs = [];
     annetTemplates.forEach((template) => {
-      const btn = document.createElement("button");
+      const btn = createEl("button");
       btn.textContent = `${template.icon} ${translateAnnetTemplateName(template.id, template.label)}`;
       btn.className = "tf-template-btn";
       btn.dataset.templateId = template.id;
       templateButtonRefs.push(btn);
       annetTemplateButtons.appendChild(btn);
     });
-    const customBtn = document.createElement("button");
+    const customBtn = createEl("button");
     customBtn.textContent = `\u{1F4CB} ${t("annet.custom")}`;
     customBtn.className = "tf-template-btn";
     customBtn.onclick = () => {
@@ -8024,39 +8024,39 @@ var UIBuilder = class {
     };
     annetTemplateButtons.appendChild(customBtn);
     annetContainer.appendChild(annetTemplateButtons);
-    const saveAsTemplateContainer = document.createElement("div");
+    const saveAsTemplateContainer = createDiv();
     saveAsTemplateContainer.className = "tf-save-template-container tf-hidden";
-    const templateNameRow = document.createElement("div");
+    const templateNameRow = createDiv();
     templateNameRow.className = "tf-flex-input-row";
-    const templateNameLabel = document.createElement("span");
+    const templateNameLabel = createSpan();
     templateNameLabel.textContent = t("annet.templateName") + ":";
     templateNameLabel.className = "tf-date-label";
     templateNameRow.appendChild(templateNameLabel);
-    const templateNameInput = document.createElement("input");
+    const templateNameInput = createEl("input");
     templateNameInput.type = "text";
     templateNameInput.className = "tf-input-grow";
     templateNameInput.placeholder = t("annet.labelPlaceholder");
     templateNameRow.appendChild(templateNameInput);
     saveAsTemplateContainer.appendChild(templateNameRow);
-    const templateIconRow = document.createElement("div");
+    const templateIconRow = createDiv();
     templateIconRow.className = "tf-flex-input-row";
-    const templateIconLabel = document.createElement("span");
+    const templateIconLabel = createSpan();
     templateIconLabel.textContent = t("annet.templateIcon") + ":";
     templateIconLabel.className = "tf-date-label";
     templateIconRow.appendChild(templateIconLabel);
-    const templateIconInput = document.createElement("input");
+    const templateIconInput = createEl("input");
     templateIconInput.type = "text";
     templateIconInput.className = "tf-icon-input";
     templateIconInput.placeholder = "\u{1F3E5}";
     templateIconRow.appendChild(templateIconInput);
     saveAsTemplateContainer.appendChild(templateIconRow);
-    const saveAsTemplateRow = document.createElement("div");
+    const saveAsTemplateRow = createDiv();
     saveAsTemplateRow.className = "tf-save-template-row";
-    const saveAsTemplateCheckbox = document.createElement("input");
+    const saveAsTemplateCheckbox = createEl("input");
     saveAsTemplateCheckbox.type = "checkbox";
     saveAsTemplateCheckbox.id = "saveAsTemplateCheckbox";
     saveAsTemplateRow.appendChild(saveAsTemplateCheckbox);
-    const saveAsTemplateLabel = document.createElement("label");
+    const saveAsTemplateLabel = createEl("label");
     saveAsTemplateLabel.htmlFor = "saveAsTemplateCheckbox";
     saveAsTemplateLabel.textContent = t("annet.saveAsTemplate");
     saveAsTemplateLabel.className = "tf-cursor-pointer";
@@ -8077,29 +8077,29 @@ var UIBuilder = class {
         templateIconInput.value = "";
       };
     });
-    const annetFullDayRow = document.createElement("div");
+    const annetFullDayRow = createDiv();
     annetFullDayRow.className = "tf-checkbox-row-mb";
-    const annetFullDayCheckbox = document.createElement("input");
+    const annetFullDayCheckbox = createEl("input");
     annetFullDayCheckbox.type = "checkbox";
     annetFullDayCheckbox.id = "annetFullDayCheckbox";
     annetFullDayCheckbox.checked = true;
     annetFullDayRow.appendChild(annetFullDayCheckbox);
-    const annetFullDayLabel = document.createElement("label");
+    const annetFullDayLabel = createEl("label");
     annetFullDayLabel.htmlFor = "annetFullDayCheckbox";
     annetFullDayLabel.textContent = t("annet.fullDay");
     annetFullDayLabel.className = "tf-cursor-pointer";
     annetFullDayRow.appendChild(annetFullDayLabel);
     annetContainer.appendChild(annetFullDayRow);
-    const annetTimeInputRow = document.createElement("div");
+    const annetTimeInputRow = createDiv();
     annetTimeInputRow.className = "tf-time-input-row tf-mb-12 tf-hidden";
-    const annetFromLabel = document.createElement("span");
+    const annetFromLabel = createSpan();
     annetFromLabel.textContent = t("annet.fromTime") + ":";
     annetTimeInputRow.appendChild(annetFromLabel);
     const annetFromTimeInput = this.createTimeInput("09:00", () => {
     });
     annetFromTimeInput.className = "tf-time-input-styled";
     annetTimeInputRow.appendChild(annetFromTimeInput);
-    const annetToLabel = document.createElement("span");
+    const annetToLabel = createSpan();
     annetToLabel.textContent = t("annet.toTime") + ":";
     annetTimeInputRow.appendChild(annetToLabel);
     const annetToTimeInput = this.createTimeInput("11:00", () => {
@@ -8107,7 +8107,7 @@ var UIBuilder = class {
     annetToTimeInput.className = "tf-time-input-styled";
     annetTimeInputRow.appendChild(annetToTimeInput);
     annetContainer.appendChild(annetTimeInputRow);
-    const annetDurationDisplay = document.createElement("div");
+    const annetDurationDisplay = createDiv();
     annetDurationDisplay.className = "tf-duration-display-mb tf-hidden";
     const updateAnnetDuration = () => {
       const from = annetFromTimeInput.value;
@@ -8140,11 +8140,11 @@ var UIBuilder = class {
     annetFullDayCheckbox.addEventListener("change", updateAnnetTimeInputs);
     updateAnnetTimeInputs();
     content.appendChild(annetContainer);
-    const noteLabel = document.createElement("div");
+    const noteLabel = createDiv();
     noteLabel.textContent = t("modals.commentOptional");
     noteLabel.className = "tf-label-bold-mb";
     content.appendChild(noteLabel);
-    const noteInput = document.createElement("input");
+    const noteInput = createEl("input");
     noteInput.type = "text";
     noteInput.className = "tf-text-input-full";
     content.appendChild(noteInput);
@@ -8182,16 +8182,16 @@ var UIBuilder = class {
     };
     typeSelect.addEventListener("change", updateFieldVisibility);
     updateFieldVisibility();
-    const buttonDiv = document.createElement("div");
+    const buttonDiv = createDiv();
     buttonDiv.className = "tf-btn-container";
-    const cancelBtn = document.createElement("button");
+    const cancelBtn = createEl("button");
     cancelBtn.textContent = t("buttons.cancel");
     cancelBtn.onclick = () => {
       this.isModalOpen = false;
       modal.remove();
     };
     buttonDiv.appendChild(cancelBtn);
-    const addBtn = document.createElement("button");
+    const addBtn = createEl("button");
     addBtn.textContent = t("buttons.add");
     addBtn.className = "mod-cta";
     addBtn.onclick = async () => {
@@ -8304,7 +8304,7 @@ var UIBuilder = class {
     content.appendChild(buttonDiv);
     modalContent.appendChild(content);
     modal.appendChild(modalContent);
-    document.body.appendChild(modal);
+    activeDocument.body.appendChild(modal);
     typeSelect.focus();
   }
   async addSpecialDay(dateObj, dayType, note = "", startTime, endTime) {
@@ -8422,23 +8422,23 @@ var UIBuilder = class {
     var _a;
     const dateStr = Utils.toLocalDateStr(dateObj);
     this.isModalOpen = true;
-    const modal = document.createElement("div");
+    const modal = createDiv();
     modal.className = "modal-container mod-dim tf-modal-z1000";
-    const modalBg = document.createElement("div");
+    const modalBg = createDiv();
     modalBg.className = "modal-bg";
     modalBg.onclick = () => {
       this.isModalOpen = false;
       modal.remove();
     };
     modal.appendChild(modalBg);
-    const modalContent = document.createElement("div");
+    const modalContent = createDiv();
     modalContent.className = "modal tf-modal-content-400";
     modalContent.addEventListener("keydown", (e) => e.stopPropagation());
     modalContent.addEventListener("keyup", (e) => e.stopPropagation());
     modalContent.addEventListener("keypress", (e) => e.stopPropagation());
     modalContent.addEventListener("beforeinput", (e) => e.stopPropagation());
     modalContent.addEventListener("input", (e) => e.stopPropagation());
-    const title = document.createElement("div");
+    const title = createDiv();
     title.className = "modal-title";
     const emoji = Utils.getEmoji({ name: plannedInfo.type, date: dateObj });
     let typeName = translateSpecialDayName(plannedInfo.type);
@@ -8450,15 +8450,15 @@ var UIBuilder = class {
     }
     title.textContent = `${t("menu.editPlannedDay")} ${emoji} ${typeName}`;
     modalContent.appendChild(title);
-    const content = document.createElement("div");
+    const content = createDiv();
     content.className = "modal-content tf-modal-content-padded";
-    const dateDisplay = document.createElement("div");
+    const dateDisplay = createDiv();
     dateDisplay.textContent = `${t("ui.date")}: ${dateStr}`;
     dateDisplay.className = "tf-date-display";
     content.appendChild(dateDisplay);
-    const typeDisplay = document.createElement("div");
+    const typeDisplay = createDiv();
     typeDisplay.className = "tf-type-display";
-    const typeLabel = document.createElement("strong");
+    const typeLabel = createEl("strong");
     typeLabel.textContent = `${t("ui.type")}:`;
     typeDisplay.appendChild(typeLabel);
     typeDisplay.appendText(` ${emoji} ${typeName}`);
@@ -8467,29 +8467,29 @@ var UIBuilder = class {
     }
     content.appendChild(typeDisplay);
     if (plannedInfo.startTime && plannedInfo.endTime) {
-      const timeDisplay = document.createElement("div");
+      const timeDisplay = createDiv();
       timeDisplay.className = "tf-mb-15";
-      const timeLabel = document.createElement("strong");
+      const timeLabel = createEl("strong");
       timeLabel.textContent = `${t("ui.start")} - ${t("ui.end")}:`;
       timeDisplay.appendChild(timeLabel);
       timeDisplay.appendText(` ${plannedInfo.startTime} - ${plannedInfo.endTime}`);
       content.appendChild(timeDisplay);
     }
-    const descRow = document.createElement("div");
+    const descRow = createDiv();
     descRow.className = "tf-desc-row";
-    const descLabel = document.createElement("label");
+    const descLabel = createEl("label");
     descLabel.textContent = `${t("ui.comment")} (${t("ui.optional")}):`;
     descLabel.className = "tf-label-block";
     descRow.appendChild(descLabel);
-    const descInput = document.createElement("input");
+    const descInput = createEl("input");
     descInput.type = "text";
     descInput.value = plannedInfo.description || "";
     descInput.className = "tf-input-full";
     descRow.appendChild(descInput);
     content.appendChild(descRow);
-    const buttonDiv = document.createElement("div");
+    const buttonDiv = createDiv();
     buttonDiv.className = "tf-btn-space-between";
-    const deleteBtn = document.createElement("button");
+    const deleteBtn = createEl("button");
     deleteBtn.textContent = `\u{1F5D1}\uFE0F ${t("buttons.delete")}`;
     deleteBtn.className = "mod-warning tf-delete-btn";
     deleteBtn.onclick = () => {
@@ -8500,16 +8500,16 @@ var UIBuilder = class {
       });
     };
     buttonDiv.appendChild(deleteBtn);
-    const rightButtons = document.createElement("div");
+    const rightButtons = createDiv();
     rightButtons.className = "tf-flex tf-gap-10";
-    const cancelBtn = document.createElement("button");
+    const cancelBtn = createEl("button");
     cancelBtn.textContent = t("buttons.cancel");
     cancelBtn.onclick = () => {
       this.isModalOpen = false;
       modal.remove();
     };
     rightButtons.appendChild(cancelBtn);
-    const saveBtn = document.createElement("button");
+    const saveBtn = createEl("button");
     saveBtn.textContent = t("buttons.save");
     saveBtn.className = "mod-cta";
     saveBtn.onclick = async () => {
@@ -8523,7 +8523,7 @@ var UIBuilder = class {
     content.appendChild(buttonDiv);
     modalContent.appendChild(content);
     modal.appendChild(modalContent);
-    document.body.appendChild(modal);
+    activeDocument.body.appendChild(modal);
     descInput.focus();
   }
   /**
@@ -8744,9 +8744,9 @@ ${noteType.tags.join(" ")}`;
     });
   }
   renderFilterBar(container) {
-    const filterBar = document.createElement("div");
+    const filterBar = createDiv();
     filterBar.className = "tf-history-filters";
-    const alleChip = document.createElement("button");
+    const alleChip = createEl("button");
     alleChip.className = `tf-filter-chip ${this.historyFilter.length === 0 ? "active" : ""}`;
     alleChip.textContent = t("ui.all");
     alleChip.onclick = () => {
@@ -8755,7 +8755,7 @@ ${noteType.tags.join(" ")}`;
     };
     filterBar.appendChild(alleChip);
     this.settings.specialDayBehaviors.forEach((behavior) => {
-      const chip = document.createElement("button");
+      const chip = createEl("button");
       const isActive = this.historyFilter.includes(behavior.id);
       chip.className = `tf-filter-chip ${isActive ? "active" : ""}`;
       chip.textContent = `${behavior.icon} ${translateSpecialDayName(behavior.id, behavior.label)}`;
@@ -8776,14 +8776,14 @@ ${noteType.tags.join(" ")}`;
     container.appendChild(section);
   }
   createActiveEntriesSection(activeEntries, containerForWidth) {
-    const section = document.createElement("div");
+    const section = createDiv();
     section.className = "tf-active-entries-section tf-active-section-container";
-    const header = document.createElement("div");
+    const header = createDiv();
     header.className = "tf-active-section-header";
     header.textContent = `\u23F1\uFE0F ${t("ui.activeTimers")} (${activeEntries.length})`;
     section.appendChild(header);
     const isWide = containerForWidth ? containerForWidth.offsetWidth >= 450 : false;
-    const table = document.createElement("table");
+    const table = createEl("table");
     table.className = isWide ? "tf-history-table-wide tf-w-full" : "tf-history-table-narrow tf-w-full";
     const rawEntries = this.timerManager.data.entries;
     const flatRawEntries = [];
@@ -8798,38 +8798,38 @@ ${noteType.tags.join(" ")}`;
         flatRawEntries.push({ entry });
       }
     });
-    const thead = document.createElement("thead");
-    const headerRow = document.createElement("tr");
+    const thead = createEl("thead");
+    const headerRow = createEl("tr");
     const headers = isWide ? this.inlineEditMode ? [t("ui.date"), t("ui.type"), t("ui.start"), t("ui.hours"), t("ui.flextime"), ""] : [t("ui.date"), t("ui.type"), t("ui.start"), t("ui.hours"), t("ui.flextime")] : [t("ui.date"), t("ui.type"), t("ui.hours"), ""];
     headers.forEach((h) => {
-      const th = document.createElement("th");
+      const th = createEl("th");
       th.textContent = h;
       headerRow.appendChild(th);
     });
     thead.appendChild(headerRow);
     table.appendChild(thead);
-    const tbody = document.createElement("tbody");
+    const tbody = createEl("tbody");
     activeEntries.forEach((e) => {
-      const row = document.createElement("tr");
+      const row = createEl("tr");
       row.className = "tf-history-row-active";
       const dateStr = e.date ? Utils.toLocalDateStr(e.date) : "";
       const matchingItem = flatRawEntries.find(
         (item) => item.entry.name.toLowerCase() === e.name.toLowerCase() && !item.entry.endTime && Utils.toLocalDateStr(new Date(item.entry.startTime)) === dateStr
       );
       const matchingRaw = matchingItem == null ? void 0 : matchingItem.entry;
-      const dateCell = document.createElement("td");
-      const activeIcon = document.createElement("span");
+      const dateCell = createEl("td");
+      const activeIcon = createSpan();
       activeIcon.textContent = "\u23F1\uFE0F ";
       activeIcon.title = t("ui.activeTimer");
       activeIcon.className = "tf-cursor-help";
       dateCell.appendChild(activeIcon);
-      dateCell.appendChild(document.createTextNode(dateStr));
+      dateCell.appendChild(activeDocument.createTextNode(dateStr));
       row.appendChild(dateCell);
-      const typeCell = document.createElement("td");
+      const typeCell = createEl("td");
       if (isWide && this.inlineEditMode && matchingRaw) {
-        const select = document.createElement("select");
+        const select = createEl("select");
         this.settings.specialDayBehaviors.forEach((behavior) => {
-          const option = document.createElement("option");
+          const option = createEl("option");
           option.value = behavior.id;
           option.textContent = `${behavior.icon} ${translateSpecialDayName(behavior.id, behavior.label)}`;
           if (behavior.id === e.name.toLowerCase()) {
@@ -8849,7 +8849,7 @@ ${noteType.tags.join(" ")}`;
       }
       row.appendChild(typeCell);
       if (isWide) {
-        const startCell = document.createElement("td");
+        const startCell = createEl("td");
         if (matchingRaw == null ? void 0 : matchingRaw.startTime) {
           const startDate = new Date(matchingRaw.startTime);
           const startTimeStr = `${startDate.getHours().toString().padStart(2, "0")}:${startDate.getMinutes().toString().padStart(2, "0")}`;
@@ -8873,19 +8873,19 @@ ${noteType.tags.join(" ")}`;
         }
         row.appendChild(startCell);
       }
-      const hoursCell = document.createElement("td");
+      const hoursCell = createEl("td");
       const hoursText = Utils.formatHoursToHM(e.duration || 0, this.settings.hourUnit);
       hoursCell.textContent = `${hoursText}...`;
       row.appendChild(hoursCell);
       if (isWide) {
-        const flextimeCell = document.createElement("td");
+        const flextimeCell = createEl("td");
         flextimeCell.textContent = Utils.formatHoursToHM(e.flextime || 0, this.settings.hourUnit);
         row.appendChild(flextimeCell);
       }
       if (isWide && this.inlineEditMode) {
-        const actionCell = document.createElement("td");
+        const actionCell = createEl("td");
         if (matchingItem) {
-          const deleteBtn = document.createElement("button");
+          const deleteBtn = createEl("button");
           deleteBtn.className = "tf-history-delete-btn";
           deleteBtn.textContent = "\u{1F5D1}\uFE0F";
           deleteBtn.title = t("menu.deleteEntry");
@@ -8915,8 +8915,8 @@ ${noteType.tags.join(" ")}`;
         }
         row.appendChild(actionCell);
       } else if (!isWide) {
-        const actionCell = document.createElement("td");
-        const editBtn = document.createElement("button");
+        const actionCell = createEl("td");
+        const editBtn = createEl("button");
         editBtn.textContent = "\u270F\uFE0F";
         editBtn.className = "tf-edit-btn";
         editBtn.title = t("menu.editWork");
@@ -8937,40 +8937,40 @@ ${noteType.tags.join(" ")}`;
   renderNarrowListView(container, years) {
     const currentYear = (/* @__PURE__ */ new Date()).getFullYear().toString();
     Object.keys(years).sort().reverse().forEach((year, index) => {
-      const yearSection = document.createElement("details");
+      const yearSection = createEl("details");
       yearSection.className = "tf-history-year-section";
       yearSection.open = year === currentYear || index === 0 && !years[currentYear];
-      const summary = document.createElement("summary");
+      const summary = createEl("summary");
       summary.className = "tf-year-summary";
-      const arrow = document.createElement("span");
+      const arrow = createSpan();
       arrow.className = "tf-mr-8";
       arrow.textContent = yearSection.open ? "\u25BC" : "\u25B6";
       summary.appendChild(arrow);
-      summary.appendChild(document.createTextNode(year.toString()));
+      summary.appendChild(activeDocument.createTextNode(year.toString()));
       yearSection.appendChild(summary);
       yearSection.addEventListener("toggle", () => {
         arrow.textContent = yearSection.open ? "\u25BC" : "\u25B6";
       });
-      const yearDiv = document.createElement("div");
+      const yearDiv = createDiv();
       yearDiv.className = "tf-year-content";
       Object.keys(years[year]).sort().reverse().forEach((month) => {
         const monthEntries = years[year][month];
-        const monthHeader = document.createElement("h5");
+        const monthHeader = createEl("h5");
         monthHeader.textContent = getMonthName(new Date(parseInt(year), parseInt(month) - 1, 1));
         monthHeader.className = "tf-month-header";
         yearDiv.appendChild(monthHeader);
-        const table = document.createElement("table");
+        const table = createEl("table");
         table.className = "tf-history-table-narrow";
-        const thead = document.createElement("thead");
-        const headerRow = document.createElement("tr");
+        const thead = createEl("thead");
+        const headerRow = createEl("tr");
         [t("ui.date"), t("ui.type"), t("ui.hours"), t("ui.flextime"), ""].forEach((h) => {
-          const th = document.createElement("th");
+          const th = createEl("th");
           th.textContent = h;
           headerRow.appendChild(th);
         });
         thead.appendChild(headerRow);
         table.appendChild(thead);
-        const tbody = document.createElement("tbody");
+        const tbody = createEl("tbody");
         const rawEntries = this.timerManager.data.entries;
         const flatRawEntries = [];
         rawEntries.forEach((entry) => {
@@ -8983,14 +8983,14 @@ ${noteType.tags.join(" ")}`;
           }
         });
         monthEntries.forEach((e) => {
-          const row = document.createElement("tr");
+          const row = createEl("tr");
           if (e.isActive) {
             row.className = "tf-history-row-active";
           }
           const matchingRaw = flatRawEntries.find(
             (item) => item.name.toLowerCase() === e.name.toLowerCase() && item.startTime === e.startTime
           );
-          const dateCell = document.createElement("td");
+          const dateCell = createEl("td");
           const dateStr = e.date ? Utils.toLocalDateStr(e.date) : "";
           const holidayInfo = dateStr ? this.data.getHolidayInfo(dateStr) : null;
           const entryBehavior = this.settings.specialDayBehaviors.find(
@@ -8999,34 +8999,34 @@ ${noteType.tags.join(" ")}`;
           const isWorkEntry = (entryBehavior == null ? void 0 : entryBehavior.isWorkType) || ["jobb", "kurs", "studie"].includes(e.name.toLowerCase());
           const hasConflict = holidayInfo && ["ferie", "helligdag", "egenmelding", "sykemelding", "velferdspermisjon"].includes(holidayInfo.type) && isWorkEntry;
           if (e.isActive) {
-            const activeIcon = document.createElement("span");
+            const activeIcon = createSpan();
             activeIcon.textContent = "\u23F1\uFE0F ";
             activeIcon.title = t("ui.activeTimer");
             activeIcon.className = "tf-cursor-help";
             dateCell.appendChild(activeIcon);
           } else if (hasConflict && holidayInfo) {
-            const flagIcon = document.createElement("span");
+            const flagIcon = createSpan();
             flagIcon.textContent = "\u26A0\uFE0F ";
             flagIcon.title = t("info.workRegisteredOnSpecialDay").replace("{dayType}", translateSpecialDayName(holidayInfo.type));
             flagIcon.className = "tf-cursor-help";
             dateCell.appendChild(flagIcon);
           }
-          dateCell.appendChild(document.createTextNode(dateStr));
+          dateCell.appendChild(activeDocument.createTextNode(dateStr));
           row.appendChild(dateCell);
-          const typeCell = document.createElement("td");
+          const typeCell = createEl("td");
           const entryNameLower = e.name.toLowerCase();
           typeCell.textContent = translateSpecialDayName(entryNameLower, e.name);
           row.appendChild(typeCell);
-          const hoursCell = document.createElement("td");
+          const hoursCell = createEl("td");
           const hoursText = Utils.formatHoursToHM(e.duration || 0, this.settings.hourUnit);
           hoursCell.textContent = e.isActive ? `${hoursText}...` : hoursText;
           row.appendChild(hoursCell);
-          const flextimeCell = document.createElement("td");
+          const flextimeCell = createEl("td");
           const netFlextime = (e.flextime || 0) - ((matchingRaw == null ? void 0 : matchingRaw.overtimePayout) || 0);
           flextimeCell.textContent = Utils.formatHoursToHM(netFlextime, this.settings.hourUnit);
           row.appendChild(flextimeCell);
-          const actionCell = document.createElement("td");
-          const editBtn = document.createElement("button");
+          const actionCell = createEl("td");
+          const editBtn = createEl("button");
           editBtn.textContent = "\u270F\uFE0F";
           editBtn.className = "tf-edit-btn";
           editBtn.title = t("menu.editWork");
@@ -9041,8 +9041,8 @@ ${noteType.tags.join(" ")}`;
           const hasComment = matchingRaw == null ? void 0 : matchingRaw.comment;
           const hasOvertimePayout = (matchingRaw == null ? void 0 : matchingRaw.overtimePayout) && matchingRaw.overtimePayout > 0;
           if (hasComment || hasOvertimePayout) {
-            const infoRow = document.createElement("tr");
-            const infoCell = document.createElement("td");
+            const infoRow = createEl("tr");
+            const infoCell = createEl("td");
             infoCell.colSpan = 5;
             infoCell.className = "tf-comment-subtitle";
             const parts = [];
@@ -9068,41 +9068,41 @@ ${noteType.tags.join(" ")}`;
   renderWideListView(container, years) {
     const currentYear = (/* @__PURE__ */ new Date()).getFullYear().toString();
     Object.keys(years).sort().reverse().forEach((year, index) => {
-      const yearSection = document.createElement("details");
+      const yearSection = createEl("details");
       yearSection.className = "tf-history-year-section";
       yearSection.open = year === currentYear || index === 0 && !years[currentYear];
-      const summary = document.createElement("summary");
+      const summary = createEl("summary");
       summary.className = "tf-year-summary";
-      const arrow = document.createElement("span");
+      const arrow = createSpan();
       arrow.className = "tf-mr-8";
       arrow.textContent = yearSection.open ? "\u25BC" : "\u25B6";
       summary.appendChild(arrow);
-      summary.appendChild(document.createTextNode(year.toString()));
+      summary.appendChild(activeDocument.createTextNode(year.toString()));
       yearSection.appendChild(summary);
       yearSection.addEventListener("toggle", () => {
         arrow.textContent = yearSection.open ? "\u25BC" : "\u25B6";
       });
-      const yearDiv = document.createElement("div");
+      const yearDiv = createDiv();
       yearDiv.className = "tf-year-content";
       Object.keys(years[year]).sort().reverse().forEach((month) => {
         const monthEntries = years[year][month];
-        const monthHeader = document.createElement("h5");
+        const monthHeader = createEl("h5");
         monthHeader.textContent = getMonthName(new Date(parseInt(year), parseInt(month) - 1, 1));
         monthHeader.className = "tf-month-header";
         yearDiv.appendChild(monthHeader);
-        const table = document.createElement("table");
+        const table = createEl("table");
         table.className = "tf-history-table-wide";
-        const thead = document.createElement("thead");
-        const headerRow = document.createElement("tr");
+        const thead = createEl("thead");
+        const headerRow = createEl("tr");
         const headers = this.inlineEditMode ? [t("ui.date"), t("ui.type"), t("ui.comment"), t("ui.start"), t("ui.end"), t("ui.hours"), t("ui.flextime"), ""] : [t("ui.date"), t("ui.type"), t("ui.comment"), t("ui.start"), t("ui.end"), t("ui.hours"), t("ui.flextime")];
         headers.forEach((h) => {
-          const th = document.createElement("th");
+          const th = createEl("th");
           th.textContent = h;
           headerRow.appendChild(th);
         });
         thead.appendChild(headerRow);
         table.appendChild(thead);
-        const tbody = document.createElement("tbody");
+        const tbody = createEl("tbody");
         const entriesByDate = {};
         monthEntries.forEach((e) => {
           const dateStr = e.date ? Utils.toLocalDateStr(e.date) : "";
@@ -9131,8 +9131,8 @@ ${noteType.tags.join(" ")}`;
             return Utils.toLocalDateStr(entryDate) === dateStr;
           });
           const usedRawEntries = /* @__PURE__ */ new Set();
-          dayEntries.forEach((e, idx) => {
-            const row = document.createElement("tr");
+          dayEntries.forEach((e, _idx) => {
+            const row = createEl("tr");
             if (e.isActive) {
               row.className = "tf-history-row-active";
             }
@@ -9143,7 +9143,7 @@ ${noteType.tags.join(" ")}`;
             );
             const matchingRaw = matchingItem == null ? void 0 : matchingItem.entry;
             if (matchingRaw) usedRawEntries.add(matchingRaw);
-            const dateCell = document.createElement("td");
+            const dateCell = createEl("td");
             const holidayInfo = this.data.getHolidayInfo(dateStr);
             const entryBehavior = this.settings.specialDayBehaviors.find(
               (b) => b.id === e.name.toLowerCase()
@@ -9170,31 +9170,31 @@ ${noteType.tags.join(" ")}`;
               }
             }
             if (e.isActive) {
-              const activeIcon = document.createElement("span");
+              const activeIcon = createSpan();
               activeIcon.textContent = "\u23F1\uFE0F ";
               activeIcon.title = t("ui.activeTimer");
               activeIcon.className = "tf-cursor-help";
               dateCell.appendChild(activeIcon);
             } else if (hasTimeOverlap) {
-              const overlapIcon = document.createElement("span");
+              const overlapIcon = createSpan();
               overlapIcon.textContent = "\u{1F534} ";
               overlapIcon.title = `Overlapper med: ${overlapDetails}`;
               overlapIcon.className = "tf-cursor-help";
               dateCell.appendChild(overlapIcon);
             } else if (hasSpecialDayConflict && holidayInfo) {
-              const flagIcon = document.createElement("span");
+              const flagIcon = createSpan();
               flagIcon.textContent = "\u26A0\uFE0F ";
               flagIcon.title = t("info.workRegisteredOnSpecialDay").replace("{dayType}", translateSpecialDayName(holidayInfo.type));
               flagIcon.className = "tf-cursor-help";
               dateCell.appendChild(flagIcon);
             }
-            dateCell.appendChild(document.createTextNode(dateStr));
+            dateCell.appendChild(activeDocument.createTextNode(dateStr));
             row.appendChild(dateCell);
-            const typeCell = document.createElement("td");
+            const typeCell = createEl("td");
             if (this.inlineEditMode && matchingRaw) {
-              const select = document.createElement("select");
+              const select = createEl("select");
               this.settings.specialDayBehaviors.forEach((behavior) => {
-                const option = document.createElement("option");
+                const option = createEl("option");
                 option.value = behavior.id;
                 option.textContent = `${behavior.icon} ${translateSpecialDayName(behavior.id, behavior.label)}`;
                 if (behavior.id === e.name.toLowerCase()) {
@@ -9213,9 +9213,9 @@ ${noteType.tags.join(" ")}`;
               typeCell.textContent = translateSpecialDayName(entryNameLower, e.name);
             }
             row.appendChild(typeCell);
-            const commentCell = document.createElement("td");
+            const commentCell = createEl("td");
             if (this.inlineEditMode && matchingRaw) {
-              const textarea = document.createElement("textarea");
+              const textarea = createEl("textarea");
               textarea.value = matchingRaw.comment || "";
               textarea.placeholder = t("ui.optional");
               textarea.rows = 1;
@@ -9237,10 +9237,10 @@ ${noteType.tags.join(" ")}`;
               const comment = (matchingRaw == null ? void 0 : matchingRaw.comment) || "";
               const hasOvertimePayout = (matchingRaw == null ? void 0 : matchingRaw.overtimePayout) && matchingRaw.overtimePayout > 0;
               if (comment || hasOvertimePayout) {
-                const container2 = document.createElement("div");
+                const container2 = createDiv();
                 container2.className = "tf-comment-payout-container";
                 if (comment) {
-                  const span = document.createElement("span");
+                  const span = createSpan();
                   span.textContent = comment.length > 30 ? comment.substring(0, 27) + "..." : comment;
                   span.title = comment;
                   span.className = "tf-comment-display";
@@ -9248,9 +9248,9 @@ ${noteType.tags.join(" ")}`;
                 }
                 if (hasOvertimePayout) {
                   if (comment) {
-                    container2.appendChild(document.createTextNode(" "));
+                    container2.appendChild(activeDocument.createTextNode(" "));
                   }
-                  const payoutSpan = document.createElement("span");
+                  const payoutSpan = createSpan();
                   const payoutFormatted = Utils.formatHoursToHM(matchingRaw.overtimePayout, this.settings.hourUnit);
                   payoutSpan.textContent = `${payoutFormatted} ${t("modals.hoursPayedOut")}`;
                   payoutSpan.className = "tf-overtime-payout-display tf-text-muted tf-text-small";
@@ -9262,7 +9262,7 @@ ${noteType.tags.join(" ")}`;
               }
             }
             row.appendChild(commentCell);
-            const startCell = document.createElement("td");
+            const startCell = createEl("td");
             if (matchingRaw == null ? void 0 : matchingRaw.startTime) {
               const startDate = new Date(matchingRaw.startTime);
               const startDateStr = Utils.toLocalDateStr(startDate);
@@ -9270,10 +9270,10 @@ ${noteType.tags.join(" ")}`;
               const endDateForCheck = matchingRaw.endTime ? new Date(matchingRaw.endTime) : null;
               const isMultiDay = endDateForCheck && Utils.toLocalDateStr(startDate) !== Utils.toLocalDateStr(endDateForCheck);
               if (this.inlineEditMode) {
-                const container2 = document.createElement("div");
+                const container2 = createDiv();
                 container2.className = "tf-inline-edit-container";
                 if (isMultiDay) {
-                  const dateInput = document.createElement("input");
+                  const dateInput = createEl("input");
                   dateInput.type = "date";
                   dateInput.value = startDateStr;
                   dateInput.className = "tf-text-12px";
@@ -9303,7 +9303,7 @@ ${noteType.tags.join(" ")}`;
               startCell.textContent = "-";
             }
             row.appendChild(startCell);
-            const endCell = document.createElement("td");
+            const endCell = createEl("td");
             const endDateParsed = (matchingRaw == null ? void 0 : matchingRaw.endTime) ? new Date(matchingRaw.endTime) : null;
             const hasValidEndTime = endDateParsed && !isNaN(endDateParsed.getTime());
             if (hasValidEndTime && matchingRaw) {
@@ -9313,10 +9313,10 @@ ${noteType.tags.join(" ")}`;
               const startDateForCheck = matchingRaw.startTime ? new Date(matchingRaw.startTime) : null;
               const isMultiDay = startDateForCheck && Utils.toLocalDateStr(startDateForCheck) !== Utils.toLocalDateStr(endDate);
               if (this.inlineEditMode) {
-                const container2 = document.createElement("div");
+                const container2 = createDiv();
                 container2.className = "tf-time-input-container";
                 if (isMultiDay) {
-                  const dateInput = document.createElement("input");
+                  const dateInput = createEl("input");
                   dateInput.type = "date";
                   dateInput.value = endDateStr;
                   dateInput.className = "tf-date-input-sm";
@@ -9344,7 +9344,7 @@ ${noteType.tags.join(" ")}`;
               }
             } else if (this.inlineEditMode && matchingRaw) {
               const startDate = matchingRaw.startTime ? new Date(matchingRaw.startTime) : /* @__PURE__ */ new Date();
-              const container2 = document.createElement("div");
+              const container2 = createDiv();
               container2.className = "tf-time-input-container";
               const timeInput = this.createTimeInput("", async (newValue) => {
                 const parsed = this.parseTimeInput(newValue);
@@ -9365,18 +9365,18 @@ ${noteType.tags.join(" ")}`;
               endCell.textContent = matchingRaw ? t("ui.ongoing") : "-";
             }
             row.appendChild(endCell);
-            const hoursCell = document.createElement("td");
+            const hoursCell = createEl("td");
             const hoursText = Utils.formatHoursToHM(e.duration || 0, this.settings.hourUnit);
             hoursCell.textContent = e.isActive ? `${hoursText}...` : hoursText;
             row.appendChild(hoursCell);
-            const flextimeCell = document.createElement("td");
+            const flextimeCell = createEl("td");
             const netFlextime = (e.flextime || 0) - ((matchingRaw == null ? void 0 : matchingRaw.overtimePayout) || 0);
             flextimeCell.textContent = Utils.formatHoursToHM(netFlextime, this.settings.hourUnit);
             row.appendChild(flextimeCell);
             if (this.inlineEditMode) {
-              const actionCell = document.createElement("td");
+              const actionCell = createEl("td");
               if (matchingItem) {
-                const deleteBtn = document.createElement("button");
+                const deleteBtn = createEl("button");
                 deleteBtn.className = "tf-history-delete-btn";
                 deleteBtn.textContent = "\u{1F5D1}\uFE0F";
                 deleteBtn.title = t("menu.deleteEntry");
@@ -9410,9 +9410,9 @@ ${noteType.tags.join(" ")}`;
           });
         });
         if (this.inlineEditMode) {
-          const addRow = document.createElement("tr");
+          const addRow = createEl("tr");
           addRow.className = "tf-history-add-row";
-          const addCell = document.createElement("td");
+          const addCell = createEl("td");
           addCell.colSpan = 7;
           addCell.textContent = t("ui.addNewEntry");
           addCell.onclick = () => {
@@ -9433,42 +9433,42 @@ ${noteType.tags.join(" ")}`;
   showAddEntryModal(targetDate) {
     const dateStr = Utils.toLocalDateStr(targetDate);
     this.isModalOpen = true;
-    const modal = document.createElement("div");
+    const modal = createDiv();
     modal.className = "modal-container mod-dim tf-modal-z1000";
-    const modalBg = document.createElement("div");
+    const modalBg = createDiv();
     modalBg.className = "modal-bg";
     modalBg.onclick = () => {
       this.isModalOpen = false;
       modal.remove();
     };
     modal.appendChild(modalBg);
-    const modalContent = document.createElement("div");
+    const modalContent = createDiv();
     modalContent.className = "modal tf-modal-content-400";
     modalContent.addEventListener("keydown", (e) => e.stopPropagation());
     modalContent.addEventListener("keyup", (e) => e.stopPropagation());
     modalContent.addEventListener("keypress", (e) => e.stopPropagation());
     modalContent.addEventListener("beforeinput", (e) => e.stopPropagation());
     modalContent.addEventListener("input", (e) => e.stopPropagation());
-    const title = document.createElement("div");
+    const title = createDiv();
     title.className = "modal-title";
     title.textContent = `${t("modals.addEntryTitle")} ${dateStr}`;
     modalContent.appendChild(title);
-    const content = document.createElement("div");
+    const content = createDiv();
     content.className = "modal-content tf-p-20";
-    const typeLabel = document.createElement("div");
+    const typeLabel = createDiv();
     typeLabel.textContent = t("ui.type") + ":";
     typeLabel.className = "tf-form-label";
     content.appendChild(typeLabel);
-    const typeSelect = document.createElement("select");
+    const typeSelect = createEl("select");
     typeSelect.className = "tf-form-input-mb";
     this.settings.specialDayBehaviors.forEach((behavior) => {
-      const option = document.createElement("option");
+      const option = createEl("option");
       option.value = behavior.id;
       option.textContent = `${behavior.icon} ${translateSpecialDayName(behavior.id, behavior.label)}`;
       typeSelect.appendChild(option);
     });
     content.appendChild(typeSelect);
-    const startLabel = document.createElement("div");
+    const startLabel = createDiv();
     startLabel.textContent = `${t("modals.startTime")}:`;
     startLabel.className = "tf-form-label";
     content.appendChild(startLabel);
@@ -9476,7 +9476,7 @@ ${noteType.tags.join(" ")}`;
     });
     startInput.className = "tf-form-input-mb";
     content.appendChild(startInput);
-    const endLabel = document.createElement("div");
+    const endLabel = createDiv();
     endLabel.textContent = `${t("modals.endTime")}:`;
     endLabel.className = "tf-form-label";
     content.appendChild(endLabel);
@@ -9484,13 +9484,13 @@ ${noteType.tags.join(" ")}`;
     });
     endInput.className = "tf-form-input-mb-lg";
     content.appendChild(endInput);
-    const durationContainer = document.createElement("div");
+    const durationContainer = createDiv();
     durationContainer.className = "tf-duration-container tf-hidden";
-    const durationLabel = document.createElement("div");
+    const durationLabel = createDiv();
     durationLabel.textContent = t("ui.duration") + ":";
     durationLabel.className = "tf-form-label";
     durationContainer.appendChild(durationLabel);
-    const durationInput = document.createElement("input");
+    const durationInput = createEl("input");
     durationInput.type = "number";
     durationInput.step = "0.5";
     durationInput.min = "0.5";
@@ -9498,7 +9498,7 @@ ${noteType.tags.join(" ")}`;
     durationInput.value = "3.5";
     durationInput.className = "tf-form-input";
     durationContainer.appendChild(durationInput);
-    const durationHint = document.createElement("div");
+    const durationHint = createDiv();
     durationHint.className = "tf-duration-hint";
     durationHint.textContent = t("modals.durationHint") || "Antall timer (f.eks. 3.5 for resten av dagen etter sykdom)";
     durationContainer.appendChild(durationHint);
@@ -9525,16 +9525,16 @@ ${noteType.tags.join(" ")}`;
     };
     typeSelect.onchange = updateInputVisibility;
     updateInputVisibility();
-    const buttonContainer = document.createElement("div");
+    const buttonContainer = createDiv();
     buttonContainer.className = "tf-btn-container";
-    const cancelBtn = document.createElement("button");
+    const cancelBtn = createEl("button");
     cancelBtn.textContent = t("buttons.cancel");
     cancelBtn.onclick = () => {
       this.isModalOpen = false;
       modal.remove();
     };
     buttonContainer.appendChild(cancelBtn);
-    const saveBtn = document.createElement("button");
+    const saveBtn = createEl("button");
     saveBtn.className = "mod-cta";
     saveBtn.textContent = t("buttons.save");
     saveBtn.onclick = async () => {
@@ -9583,16 +9583,16 @@ ${noteType.tags.join(" ")}`;
     content.appendChild(buttonContainer);
     modalContent.appendChild(content);
     modal.appendChild(modalContent);
-    document.body.appendChild(modal);
+    activeDocument.body.appendChild(modal);
   }
-  renderWeeklyView(container, years) {
+  renderWeeklyView(container, _years) {
     container.empty();
     const div = container.createDiv();
     div.className = "tf-heatmap-no-data";
     div.textContent = t("ui.weeklyViewComingSoon");
   }
-  renderHeatmapView(container, years) {
-    const heatmap = document.createElement("div");
+  renderHeatmapView(container, _years) {
+    const heatmap = createDiv();
     heatmap.className = "tf-heatmap";
     heatmap.style.gridTemplateColumns = `repeat(${this.settings.heatmapColumns}, 1fr)`;
     const today = /* @__PURE__ */ new Date();
@@ -9601,7 +9601,7 @@ ${noteType.tags.join(" ")}`;
       const date = new Date(today);
       date.setDate(today.getDate() - i);
       const dateKey = Utils.toLocalDateStr(date);
-      const cell = document.createElement("div");
+      const cell = createDiv();
       cell.className = "tf-heatmap-cell";
       cell.title = dateKey;
       const dayEntries = this.data.daily[dateKey];
@@ -9675,7 +9675,7 @@ ${noteType.tags.join(" ")}`;
     const csv = rows.map((row) => row.join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
+    const a = createEl("a");
     a.href = url;
     a.download = `timeflow-export-${Utils.toLocalDateStr(/* @__PURE__ */ new Date())}.csv`;
     a.click();
@@ -9779,19 +9779,19 @@ ${noteType.tags.join(" ")}`;
     this.updateStatsCard();
   }
   showDeleteConfirmation(entry, dateObj, onConfirm) {
-    const overlay = document.createElement("div");
+    const overlay = createDiv();
     overlay.className = "tf-confirm-overlay";
-    const dialog = document.createElement("div");
+    const dialog = createDiv();
     dialog.className = "tf-confirm-dialog";
-    const title = document.createElement("div");
+    const title = createDiv();
     title.className = "tf-confirm-title";
     title.textContent = "\u{1F5D1}\uFE0F " + t("modals.deleteEntryTitle");
     dialog.appendChild(title);
-    const message = document.createElement("div");
+    const message = createDiv();
     message.className = "tf-confirm-message";
     message.textContent = t("confirm.deleteEntry");
     dialog.appendChild(message);
-    const details = document.createElement("div");
+    const details = createDiv();
     details.className = "tf-confirm-details";
     const startDate = entry.startTime ? new Date(entry.startTime) : /* @__PURE__ */ new Date();
     const endDate = entry.endTime ? new Date(entry.endTime) : null;
@@ -9815,14 +9815,14 @@ ${noteType.tags.join(" ")}`;
     const durationDisplay = endDate ? `${duration} ${t("ui.hours").toLowerCase()}` : duration;
     durationRow.appendText(" " + durationDisplay);
     dialog.appendChild(details);
-    const buttons = document.createElement("div");
+    const buttons = createDiv();
     buttons.className = "tf-confirm-buttons";
-    const cancelBtn = document.createElement("button");
+    const cancelBtn = createEl("button");
     cancelBtn.className = "tf-confirm-cancel";
     cancelBtn.textContent = t("buttons.cancel");
     cancelBtn.onclick = () => overlay.remove();
     buttons.appendChild(cancelBtn);
-    const deleteBtn = document.createElement("button");
+    const deleteBtn = createEl("button");
     deleteBtn.className = "tf-confirm-delete";
     deleteBtn.textContent = "Slett";
     deleteBtn.onclick = () => {
@@ -9837,7 +9837,7 @@ ${noteType.tags.join(" ")}`;
         overlay.remove();
       }
     };
-    document.body.appendChild(overlay);
+    activeDocument.body.appendChild(overlay);
   }
   /**
    * Show export modal to select month
@@ -9858,9 +9858,9 @@ ${noteType.tags.join(" ")}`;
     const now = /* @__PURE__ */ new Date();
     const currentYearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
     const defaultMonth = availableMonths.includes(currentYearMonth) ? currentYearMonth : availableMonths[0];
-    const overlay = document.createElement("div");
+    const overlay = createDiv();
     overlay.className = "modal-container mod-dim";
-    const modal = document.createElement("div");
+    const modal = createDiv();
     modal.className = "modal tf-export-modal";
     modal.createEl("h3", { text: t("export.selectMonth"), cls: "tf-export-modal-title" });
     const selectContainer = modal.createDiv({ cls: "tf-export-select-container" });
@@ -9886,7 +9886,7 @@ ${noteType.tags.join(" ")}`;
     overlay.onclick = (e) => {
       if (e.target === overlay) overlay.remove();
     };
-    document.body.appendChild(overlay);
+    activeDocument.body.appendChild(overlay);
   }
   /**
    * Download CSV for a specific month or all months
@@ -9925,7 +9925,7 @@ ${noteType.tags.join(" ")}`;
     }
     const blob = new Blob([BOM + csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
+    const link = createEl("a");
     link.href = url;
     link.download = filename;
     link.click();
@@ -10013,12 +10013,12 @@ ${noteType.tags.join(" ")}`;
     return csvContent;
   }
   cleanup() {
-    this.intervals.forEach((interval) => clearInterval(interval));
+    this.intervals.forEach((interval) => activeWindow.clearInterval(interval));
     this.intervals = [];
   }
   build() {
     this.container.appendChild(this.buildBadgeSection());
-    const mainCardsWrapper = document.createElement("div");
+    const mainCardsWrapper = createDiv();
     mainCardsWrapper.className = "tf-main-cards-wrapper";
     mainCardsWrapper.appendChild(this.createDayCard());
     mainCardsWrapper.appendChild(this.createWeekCard());

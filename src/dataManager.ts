@@ -317,7 +317,7 @@ export class DataManager {
 	}
 
 	isHoliday(dateStr: string): boolean {
-		return Object.prototype.hasOwnProperty.call(this.holidays, dateStr);
+		return dateStr in this.holidays;
 	}
 
 	getHolidayInfo(dateStr: string): HolidayInfo | null {
@@ -1928,7 +1928,7 @@ export class DataManager {
 	 * Get historical hours data for bar chart
 	 * Returns array of { label, hours, target?, specialDays? }
 	 */
-	getHistoricalHoursData(timeframe: 'month' | 'year' | 'total', selectedYear?: number, selectedMonth?: number): BarChartData[] {
+	getHistoricalHoursData(timeframe: 'month' | 'year' | 'total', selectedYear?: number, _selectedMonth?: number): BarChartData[] {
 		const data: BarChartData[] = [];
 		const today = new Date();
 		const weeklyTarget = this.workweekHours;

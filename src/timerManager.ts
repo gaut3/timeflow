@@ -136,7 +136,7 @@ ${timekeepBlock}${settingsBlock}
 				return null;
 			}
 
-			const timekeepData = JSON.parse(timekeepMatch[1]);
+			const timekeepData = JSON.parse(timekeepMatch[1]) as { entries?: Timer[]; settings?: TimeFlowSettings };
 			const result: TimekeepData = {
 				entries: timekeepData.entries || []
 			};
@@ -144,7 +144,7 @@ ${timekeepBlock}${settingsBlock}
 			// Check for separate timeflow-settings block (new format)
 			const settingsMatch = content.match(/```timeflow-settings\s*\n([\s\S]*?)\n```/);
 			if (settingsMatch && settingsMatch[1]) {
-				result.settings = JSON.parse(settingsMatch[1]);
+				result.settings = JSON.parse(settingsMatch[1]) as TimeFlowSettings;
 			} else if (timekeepData.settings) {
 				// Fall back to settings inside timekeep block (legacy format)
 				result.settings = timekeepData.settings;

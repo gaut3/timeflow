@@ -996,7 +996,7 @@ export class WorkSchedulePeriodModal extends Modal {
 
 			// Validate date first
 			if (!/^\d{4}-\d{2}-\d{2}$/.test(formData.effectiveFrom)) {
-				impactPreview.createEl('div', {
+				impactPreview.createDiv({
 					text: 'Enter a valid date to see impact preview',
 					cls: 'setting-item-description'
 				});
@@ -1008,7 +1008,7 @@ export class WorkSchedulePeriodModal extends Modal {
 			const timerManager = this.plugin.timerManager;
 
 			if (!timerManager || !timerManager.data || !timerManager.data.entries) {
-				impactPreview.createEl('div', { text: 'Loading data...' });
+				impactPreview.createDiv({ text: 'Loading data...' });
 				return;
 			}
 
@@ -1054,14 +1054,14 @@ export class WorkSchedulePeriodModal extends Modal {
 			});
 
 			// Build preview
-			const title = impactPreview.createEl('div', { cls: 'tf-settings-impact-title' });
+			const title = impactPreview.createDiv({ cls: 'tf-settings-impact-title' });
 			title.textContent = `Impact preview`;
 
-			const affectedText = impactPreview.createEl('div', { cls: 'tf-settings-impact-item' });
+			const affectedText = impactPreview.createDiv({ cls: 'tf-settings-impact-item' });
 			affectedText.textContent = `• Affects ${affectedDays.size} days with existing data`;
 
 			if (affectedDays.size > 0) {
-				const workdayChange = impactPreview.createEl('div', { cls: 'tf-settings-impact-item' });
+				const workdayChange = impactPreview.createDiv({ cls: 'tf-settings-impact-item' });
 				if (oldWorkdays !== newWorkdays) {
 					workdayChange.textContent = `• Workdays in period: ${oldWorkdays} → ${newWorkdays}`;
 				} else {
@@ -1069,7 +1069,7 @@ export class WorkSchedulePeriodModal extends Modal {
 				}
 
 				if (Math.abs(goalDifference) > 0.1) {
-					const goalChange = impactPreview.createEl('div', { cls: 'tf-settings-impact-item' });
+					const goalChange = impactPreview.createDiv({ cls: 'tf-settings-impact-item' });
 					const sign = goalDifference > 0 ? '+' : '';
 					goalChange.textContent = `• Daily goal: ${currentDailyGoal.toFixed(1)}h → ${newDailyGoal.toFixed(1)}h (${sign}${goalDifference.toFixed(1)}h)`;
 				}
@@ -1077,13 +1077,13 @@ export class WorkSchedulePeriodModal extends Modal {
 				// Change in required hours (positive = more hours required, negative = fewer)
 				const requiredHoursChange = (newWorkdays - oldWorkdays) * newDailyGoal + oldWorkdays * goalDifference;
 				if (Math.abs(requiredHoursChange) > 0.5) {
-					const changeEl = impactPreview.createEl('div', { cls: 'tf-settings-impact-item' });
+					const changeEl = impactPreview.createDiv({ cls: 'tf-settings-impact-item' });
 					const sign = requiredHoursChange > 0 ? '+' : '';
 					changeEl.textContent = `• Required hours change: ${sign}${requiredHoursChange.toFixed(1)}h`;
 
 					// Flextime balance impact (inverse of required hours change)
 					const balanceImpact = -requiredHoursChange;
-					const balanceEl = impactPreview.createEl('div', {
+					const balanceEl = impactPreview.createDiv({
 						cls: balanceImpact > 0 ? 'tf-settings-impact-balance-positive' : 'tf-settings-impact-balance-negative'
 					});
 					const balanceSign = balanceImpact > 0 ? '+' : '';
@@ -1092,7 +1092,7 @@ export class WorkSchedulePeriodModal extends Modal {
 			}
 
 			if (periodDate > today) {
-				const futureNote = impactPreview.createEl('div', { cls: 'tf-settings-future-note' });
+				const futureNote = impactPreview.createDiv({ cls: 'tf-settings-future-note' });
 				futureNote.textContent = 'This is a future period - will apply from ' + periodDate;
 			}
 		};
@@ -1599,17 +1599,17 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 		// Display current settings as the active period
 		const currentSettingsInfo = scheduleHistorySection.content.createDiv({ cls: 'tf-settings-current-info' });
 
-		const currentLabel = currentSettingsInfo.createEl('div', { cls: 'tf-settings-current-label' });
+		const currentLabel = currentSettingsInfo.createDiv({ cls: 'tf-settings-current-label' });
 		currentLabel.textContent = 'Current settings (active)';
 
-		const currentDetails = currentSettingsInfo.createEl('div', { cls: 'tf-settings-current-details' });
+		const currentDetails = currentSettingsInfo.createDiv({ cls: 'tf-settings-current-details' });
 		const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 		const currentWorkDaysStr = this.plugin.settings.workDays.map(d => dayNames[d]).join(', ');
 		currentDetails.textContent = `${(this.plugin.settings.workPercent * 100).toFixed(0)}% · ${this.plugin.settings.baseWorkday}h/day · ${this.plugin.settings.baseWorkweek}h/week · ${currentWorkDaysStr}`;
 
 		// List historical periods
 		if (scheduleHistory.length > 0) {
-			scheduleHistory.forEach((period, arrayIndex) => {
+			scheduleHistory.forEach((period, _arrayIndex) => {
 				// Find the actual index in the settings array
 				const originalIndex = this.plugin.settings.workScheduleHistory!.findIndex(
 					p => p.effectiveFrom === period.effectiveFrom
@@ -1618,10 +1618,10 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 				const periodDiv = scheduleHistorySection.content.createDiv({ cls: 'tf-settings-period-item' });
 
 				const infoDiv = periodDiv.createDiv();
-				const dateLabel = infoDiv.createEl('div', { cls: 'tf-settings-period-date' });
+				const dateLabel = infoDiv.createDiv({ cls: 'tf-settings-period-date' });
 				dateLabel.textContent = `From ${period.effectiveFrom}`;
 
-				const details = infoDiv.createEl('div', { cls: 'tf-settings-period-details' });
+				const details = infoDiv.createDiv({ cls: 'tf-settings-period-details' });
 				const workDaysStr = period.workDays.map(d => dayNames[d]).join(', ');
 				details.textContent = `${(period.workPercent * 100).toFixed(0)}% · ${period.baseWorkday}h/day · ${period.baseWorkweek}h/week · ${workDaysStr}`;
 
@@ -2596,31 +2596,31 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 		const defaultMonth = availableMonths.includes(currentYearMonth) ? currentYearMonth : availableMonths[0];
 
 		// Create modal
-		const overlay = document.createElement('div');
+		const overlay = createDiv();
 		overlay.className = 'modal-container mod-dim';
 
-		const modal = document.createElement('div');
+		const modal = createDiv();
 		modal.className = 'modal tf-export-modal';
 
 		// Title
-		const title = document.createElement('h3');
+		const title = createEl('h3');
 		title.className = 'tf-export-modal-title';
 		title.textContent = t('export.selectMonth');
 		modal.appendChild(title);
 
 		// Month selector
-		const selectContainer = document.createElement('div');
+		const selectContainer = createDiv();
 		selectContainer.className = 'tf-export-select-container';
 
-		const label = document.createElement('label');
+		const label = createEl('label');
 		label.textContent = t('export.month') + ':';
 		selectContainer.appendChild(label);
 
-		const select = document.createElement('select');
+		const select = createEl('select');
 		select.className = 'tf-export-select';
 
 		// Add "All months" option first
-		const allOption = document.createElement('option');
+		const allOption = createEl('option');
 		allOption.value = 'all';
 		allOption.textContent = t('export.allMonths');
 		select.appendChild(allOption);
@@ -2628,7 +2628,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 		availableMonths.forEach(yearMonth => {
 			const [year, month] = yearMonth.split('-').map(Number);
 			const monthName = getMonthName(new Date(year, month - 1, 1));
-			const option = document.createElement('option');
+			const option = createEl('option');
 			option.value = yearMonth;
 			option.textContent = monthName;
 			if (yearMonth === defaultMonth) option.selected = true;
@@ -2639,15 +2639,15 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 		modal.appendChild(selectContainer);
 
 		// Buttons
-		const buttonDiv = document.createElement('div');
+		const buttonDiv = createDiv();
 		buttonDiv.className = 'tf-export-buttons';
 
-		const cancelBtn = document.createElement('button');
+		const cancelBtn = createEl('button');
 		cancelBtn.textContent = t('buttons.cancel');
 		cancelBtn.onclick = () => overlay.remove();
 		buttonDiv.appendChild(cancelBtn);
 
-		const exportBtn = document.createElement('button');
+		const exportBtn = createEl('button');
 		exportBtn.className = 'mod-cta';
 		exportBtn.textContent = `📥 ${t('buttons.export')}`;
 		exportBtn.onclick = () => {
@@ -2665,7 +2665,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 			if (e.target === overlay) overlay.remove();
 		};
 
-		document.body.appendChild(overlay);
+		activeDocument.body.appendChild(overlay);
 	}
 
 	private downloadMonthCSV(yearMonth: string, allEntries: typeof this.plugin.timerManager.data.entries): void {
@@ -2712,7 +2712,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 		// Create and download the file
 		const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
 		const url = URL.createObjectURL(blob);
-		const link = document.createElement('a');
+		const link = createEl('a');
 		link.href = url;
 		link.download = filename;
 		link.click();

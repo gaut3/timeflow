@@ -63,10 +63,10 @@ export class ImportModal extends Modal {
 		const uploadBtn = uploadDiv.createEl('button', { text: '📁 ' + t('import.selectFile'), cls: 'tf-import-upload-btn' });
 		uploadBtn.onclick = () => fileInput.click();
 
-		const fileNameSpan = uploadDiv.createEl('span', { text: t('import.noFile'), cls: 'tf-import-file-name' });
+		const fileNameSpan = uploadDiv.createSpan({ text: t('import.noFile'), cls: 'tf-import-file-name' });
 
 		// Text area for manual input
-		contentEl.createEl('div', { text: t('import.orPasteData'), cls: 'tf-import-textarea-label' });
+		contentEl.createDiv({ text: t('import.orPasteData'), cls: 'tf-import-textarea-label' });
 
 		const textArea = contentEl.createEl('textarea', {
 			cls: 'tf-import-textarea',
@@ -102,7 +102,7 @@ export class ImportModal extends Modal {
 		// Also parse on text change after a delay
 		let parseTimeout: number;
 		textArea.oninput = () => {
-			clearTimeout(parseTimeout);
+			activeWindow.clearTimeout(parseTimeout);
 			parseTimeout = window.setTimeout(() => {
 				if (textArea.value.trim().length > 50) {
 					this.updatePreview(textArea.value, previewDiv, importBtn);
@@ -210,13 +210,13 @@ export class ImportModal extends Modal {
 		previewDiv.addClass('is-visible');
 
 		// Show format detected
-		const formatInfo = previewDiv.createEl('div', { cls: 'tf-import-format-info' });
+		const formatInfo = previewDiv.createDiv({ cls: 'tf-import-format-info' });
 		formatInfo.createEl('strong', { text: t('import.format') });
 		formatInfo.appendText(' ' + (result.format || '?'));
 
 		// Show errors
 		if (result.errors.length > 0) {
-			const errorDiv = previewDiv.createEl('div', { cls: 'tf-import-error' });
+			const errorDiv = previewDiv.createDiv({ cls: 'tf-import-error' });
 			errorDiv.createEl('strong', { text: '❌ ' + t('import.errors_label') + ':' });
 			const errorList = errorDiv.createEl('ul');
 			result.errors.forEach(err => errorList.createEl('li', { text: err }));
@@ -224,7 +224,7 @@ export class ImportModal extends Modal {
 
 		// Show warnings
 		if (result.warnings.length > 0) {
-			const warnDiv = previewDiv.createEl('div', { cls: 'tf-import-warning' });
+			const warnDiv = previewDiv.createDiv({ cls: 'tf-import-warning' });
 			warnDiv.createEl('strong', { text: '⚠️ ' + t('import.warnings') + ':' });
 			const warnList = warnDiv.createEl('ul');
 			// Show max 5 warnings
@@ -239,7 +239,7 @@ export class ImportModal extends Modal {
 			this.parsedEntries = result.entries;
 			importBtn.disabled = false;
 
-			const successDiv = previewDiv.createEl('div', { cls: 'tf-import-success' });
+			const successDiv = previewDiv.createDiv({ cls: 'tf-import-success' });
 			successDiv.createEl('strong', { text: '✅ ' + result.entries.length + ' ' + t('import.entriesFound') });
 
 			// Show first 5 entries as preview
