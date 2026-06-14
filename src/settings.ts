@@ -108,7 +108,7 @@ export const DEFAULT_SPECIAL_DAY_BEHAVIORS: SpecialDayBehavior[] = [
 		id: 'jobb',
 		label: 'Jobb',
 		icon: '💼',
-		color: '#4caf50',           // Green for positive flextime (over goal)
+		color: '#4d8c6f',           // v3 accent green for work bars
 		textColor: '#ffffff',
 		negativeColor: '#64b5f6',   // Blue for negative flextime (under goal)
 		negativeTextColor: '#ffffff',
@@ -124,8 +124,8 @@ export const DEFAULT_SPECIAL_DAY_BEHAVIORS: SpecialDayBehavior[] = [
 		id: 'ferie',
 		label: 'Ferie',
 		icon: '🏖️',
-		color: '#b3e5fc',
-		textColor: '#000000',
+		color: '#4a6fa0',           // v3 vacation blue
+		textColor: '#ffffff',
 		noHoursRequired: true,
 		flextimeEffect: 'none',
 		includeInStats: true,
@@ -135,8 +135,8 @@ export const DEFAULT_SPECIAL_DAY_BEHAVIORS: SpecialDayBehavior[] = [
 		id: 'avspasering',
 		label: 'Avspasering',
 		icon: '🛌',
-		color: '#ffe0b2',
-		textColor: '#000000',
+		color: '#8a6b20',           // v3 comp-time gold
+		textColor: '#ffffff',
 		noHoursRequired: true,
 		flextimeEffect: 'withdraw',
 		includeInStats: true
@@ -145,8 +145,8 @@ export const DEFAULT_SPECIAL_DAY_BEHAVIORS: SpecialDayBehavior[] = [
 		id: 'egenmelding',
 		label: 'Egenmelding',
 		icon: '🤒',
-		color: '#c8e6c9',
-		textColor: '#000000',
+		color: '#9b7ab5',           // v3 sick purple
+		textColor: '#ffffff',
 		noHoursRequired: false,  // Can have hours (partial sick day)
 		flextimeEffect: 'reduce_goal',  // Hours reduce daily goal
 		includeInStats: true,
@@ -157,8 +157,8 @@ export const DEFAULT_SPECIAL_DAY_BEHAVIORS: SpecialDayBehavior[] = [
 		id: 'sykemelding',
 		label: 'Sykemelding',
 		icon: '🏥',
-		color: '#c8e6c9',
-		textColor: '#000000',
+		color: '#9b7ab5',           // v3 sick purple
+		textColor: '#ffffff',
 		noHoursRequired: false,  // Can have hours (partial sick day)
 		flextimeEffect: 'reduce_goal',  // Hours reduce daily goal
 		includeInStats: true
@@ -167,8 +167,8 @@ export const DEFAULT_SPECIAL_DAY_BEHAVIORS: SpecialDayBehavior[] = [
 		id: 'velferdspermisjon',
 		label: 'Velferdspermisjon',
 		icon: '🏥',
-		color: '#e1bee7',
-		textColor: '#000000',
+		color: '#9b7ab5',           // v3 sick purple
+		textColor: '#ffffff',
 		noHoursRequired: false,  // Can have hours (partial day)
 		flextimeEffect: 'reduce_goal',  // Hours reduce daily goal
 		includeInStats: true
@@ -199,7 +199,7 @@ export const DEFAULT_SPECIAL_DAY_BEHAVIORS: SpecialDayBehavior[] = [
 		id: 'helligdag',
 		label: 'Helligdag',
 		icon: '🎉',
-		color: '#ef5350',
+		color: '#a05040',           // v3 public-holiday red
 		textColor: '#ffffff',
 		noHoursRequired: true,
 		flextimeEffect: 'none',

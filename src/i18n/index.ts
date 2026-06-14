@@ -582,6 +582,38 @@ const translations: Record<Language, TranslationStrings> = {
 			noFlextimeEffect: 'Påvirker ikke fleksitid',
 			workRegisteredOnSpecialDay: 'Arbeid registrert på {dayType}',
 		},
+		v3: {
+			flexBalance: 'Fleksitidsaldo',
+			addedToday: 'lagt til i dag',
+			startTimer: 'Start timer',
+			comingUp: 'Kommende dager',
+			thisMonth: 'Denne måneden',
+			perDay: 'Per dag',
+			perWeek: 'Per uke',
+			workload: 'Intensitet',
+			hoursLogged: 'Timer logget',
+			dailyAverage: 'Snitt per dag',
+			weeklyAverage: 'Snitt per uke',
+			workDays: 'Arbeidsdager',
+			compTimeUsed: 'Avspasering brukt',
+			leaveUsedThisYear: 'Fravær brukt i år',
+			weeklyHoursLabel: 'Uketimer',
+			weekLabelPrefix: 'Uke',
+			goalSub: 'mål {value}',
+			limitSub: 'grense {value}',
+			ofNormalWeek: 'av normaluke',
+			thisMonthSub: 'denne måneden',
+			thisYearSub: 'i år',
+			totalSub: 'totalt',
+			weekendsSub: '+ {count} helger',
+			allGood: 'Alt ok',
+			noActiveTimers: '0 aktive timere',
+			activeTimers: '{count} aktive timere',
+			editTime: 'Rediger tid',
+			addAbsence: 'Legg til fravær',
+			note: 'Notat',
+			dailyBalance: 'Dagsbalanse',
+		},
 	},
 	en: {
 		dates: {
@@ -1008,6 +1040,38 @@ const translations: Record<Language, TranslationStrings> = {
 			countsAsFlextime: 'Counts as flextime above {hours}h',
 			noFlextimeEffect: 'Does not affect flextime',
 			workRegisteredOnSpecialDay: 'Work registered on {dayType}',
+		},
+		v3: {
+			flexBalance: 'Flex balance',
+			addedToday: 'added today',
+			startTimer: 'Start timer',
+			comingUp: 'Coming up',
+			thisMonth: 'This month',
+			perDay: 'Per day',
+			perWeek: 'Per week',
+			workload: 'Workload',
+			hoursLogged: 'Hours logged',
+			dailyAverage: 'Daily average',
+			weeklyAverage: 'Weekly average',
+			workDays: 'Work days',
+			compTimeUsed: 'Comp time used',
+			leaveUsedThisYear: 'Leave used this year',
+			weeklyHoursLabel: 'Weekly hours',
+			weekLabelPrefix: 'Wk',
+			goalSub: 'goal {value}',
+			limitSub: 'limit {value}',
+			ofNormalWeek: 'of normal week',
+			thisMonthSub: 'this month',
+			thisYearSub: 'this year',
+			totalSub: 'total',
+			weekendsSub: '+ {count} weekends',
+			allGood: 'All good',
+			noActiveTimers: '0 active timers',
+			activeTimers: '{count} active timers',
+			editTime: 'Edit time',
+			addAbsence: 'Add absence',
+			note: 'Note',
+			dailyBalance: 'Daily balance',
 		},
 	},
 };
@@ -1437,5 +1501,37 @@ interface TranslationStrings {
 		countsAsFlextime: string;
 		noFlextimeEffect: string;
 		workRegisteredOnSpecialDay: string;
+	};
+	v3: {
+		flexBalance: string;
+		addedToday: string;
+		startTimer: string;
+		comingUp: string;
+		thisMonth: string;
+		perDay: string;
+		perWeek: string;
+		workload: string;
+		hoursLogged: string;
+		dailyAverage: string;
+		weeklyAverage: string;
+		workDays: string;
+		compTimeUsed: string;
+		leaveUsedThisYear: string;
+		weeklyHoursLabel: string;
+		weekLabelPrefix: string;
+		goalSub: string;
+		limitSub: string;
+		ofNormalWeek: string;
+		thisMonthSub: string;
+		thisYearSub: string;
+		totalSub: string;
+		weekendsSub: string;
+		allGood: string;
+		noActiveTimers: string;
+		activeTimers: string;
+		editTime: string;
+		addAbsence: string;
+		note: string;
+		dailyBalance: string;
 	};
 }

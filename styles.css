@@ -1129,7 +1129,7 @@
 
 .tf-time-input {
 	text-align: center;
-	font-family: var(--font-monospace);
+	font-family: var(--font-interface);
 }
 
 .tf-history-table-wide select {
@@ -1458,7 +1458,7 @@
 
 .timeflow-import-modal .tf-import-textarea {
 	width: 100%;
-	font-family: monospace;
+	font-family: var(--font-interface);
 	font-size: 12px;
 	margin-bottom: 15px;
 	resize: vertical;
@@ -4266,3 +4266,424 @@
 .tf-italic {
 	font-style: italic;
 }
+
+/* ========================================
+   Timeflow v3 — Design Tokens
+   ======================================== */
+
+/* Structural tokens map onto Obsidian's theme variables so the dashboard
+   inherits the user's chosen theme (light / dark / community). */
+.timeflow-dashboard {
+	--color-bg:      var(--background-primary);
+	--color-raised:  var(--background-primary-alt);
+	--color-card:    var(--background-secondary);
+	--color-sep:     var(--background-modifier-border);
+	--color-hair:    var(--background-modifier-border);
+	--color-text:    var(--text-normal);
+	--color-muted:   var(--text-muted);
+	--color-faint:   var(--text-faint);
+	--color-accent:  var(--interactive-accent);
+}
+
+/* Timeflow-specific semantics (balance states + day types) have no Obsidian
+   equivalent, so they stay hardcoded — split by theme via Obsidian's body class. */
+.theme-light .timeflow-dashboard {
+	--color-ok:      #3d7a5f;
+	--color-warn:    #b87a1a;
+	--color-alert:   #c05540;
+	--color-vac:     #4a6fa0;
+	--color-vac-bg:  rgba(74, 111, 160, 0.13);
+	--color-hol:     #a05040;
+	--color-hol-bg:  rgba(160, 80, 64, 0.13);
+	--color-comp:    #8a6b20;
+	--color-comp-bg: rgba(138, 107, 32, 0.13);
+	--color-sick:    #9b7ab5;
+	--color-sick-bg: rgba(155, 122, 181, 0.13);
+}
+
+.theme-dark .timeflow-dashboard {
+	--color-ok:      #74a36b;
+	--color-warn:    #d6a740;
+	--color-alert:   #cf6a5e;
+	--color-vac:     #7188b6;
+	--color-vac-bg:  rgba(113, 136, 182, 0.18);
+	--color-hol:     #c47d72;
+	--color-hol-bg:  rgba(196, 125, 114, 0.18);
+	--color-comp:    #c39a55;
+	--color-comp-bg: rgba(195, 154, 85, 0.18);
+	--color-sick:    #9b7ab5;
+	--color-sick-bg: rgba(155, 122, 181, 0.18);
+}
+
+/* ========================================
+   v3 — Balance Hero
+   ======================================== */
+
+.tf-balance-hero { padding: 20px 20px 16px; border-bottom: 1px solid var(--color-sep); font-family: var(--font-interface); }
+.tf-balance-hero-row1 { display: flex; align-items: flex-start; justify-content: space-between; }
+.tf-balance-left  { display: flex; flex-direction: column; }
+.tf-balance-label { font-size: 13px; font-weight: 500; color: var(--color-faint); margin-bottom: 6px; }
+.tf-balance-number { font-size: 42px; font-weight: 800; letter-spacing: -0.03em; line-height: 1; margin-bottom: 10px; color: var(--color-text); font-family: inherit; }
+.tf-balance-number.tf-ok    { color: var(--color-ok); }
+.tf-balance-number.tf-warn  { color: var(--color-warn); }
+.tf-balance-number.tf-alert { color: var(--color-alert); }
+.tf-balance-badge { display: inline-block; font-size: 13px; font-weight: 600; border-radius: 20px; padding: 4px 10px; }
+.tf-balance-badge.tf-ok    { background: rgba(61, 122, 95, 0.12); color: var(--color-ok); }
+.tf-balance-badge.tf-warn  { background: rgba(184, 122, 26, 0.12); color: var(--color-warn); }
+.tf-balance-badge.tf-alert { background: rgba(192, 85, 64, 0.12);  color: var(--color-alert); }
+.tf-balance-right { display: flex; flex-direction: column; align-items: flex-end; }
+.tf-balance-clock { font-size: 14px; font-weight: 500; color: var(--color-faint); font-variant-numeric: tabular-nums; font-family: inherit; }
+.tf-hero-timer-wrap { display: flex; gap: 8px; margin-top: 16px; }
+.tf-hero-start-main { flex: 1; background: var(--color-accent); color: var(--text-on-accent); padding: 12px 16px; border-radius: 14px; font-size: 15px; font-weight: 700; border: none; cursor: pointer; font-family: inherit; text-align: center; }
+.tf-hero-start-arrow { width: 46px; background: var(--color-raised); border: 1.5px solid var(--color-sep); border-radius: 14px; font-size: 13px; color: var(--color-muted); cursor: pointer; font-family: inherit; display: flex; align-items: center; justify-content: center; }
+.tf-hero-stop-btn { flex: 1; background: var(--color-accent); color: var(--text-on-accent); padding: 12px 16px; border-radius: 14px; font-size: 15px; font-weight: 700; border: none; cursor: pointer; font-family: inherit; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.tf-hero-pulse { width: 8px; height: 8px; border-radius: 50%; background: rgba(255, 255, 255, 0.9); animation: tf-pulse 1.2s ease-in-out infinite; }
+@keyframes tf-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+.tf-hero-start-main:hover, .tf-hero-stop-btn:hover { filter: brightness(1.08); }
+
+/* ========================================
+   v3 — Progress Strip
+   ======================================== */
+
+.tf-progress-strip { display: flex; flex-direction: column; gap: 11px; padding: 14px 20px; border-bottom: 1px solid var(--color-sep); font-family: var(--font-interface); }
+.tf-strip-row { display: flex; align-items: center; gap: 10px; }
+.tf-strip-label { width: 44px; flex-shrink: 0; font-size: 13px; font-weight: 500; color: var(--color-faint); }
+.tf-strip-label.current-week { color: var(--color-accent); font-weight: 700; }
+.tf-strip-hours { width: 62px; flex-shrink: 0; font-size: 14px; font-weight: 700; color: var(--color-text); font-family: inherit; }
+.tf-strip-bar-track { flex: 1; height: 8px; background: var(--color-sep); border-radius: 4px; overflow: hidden; }
+.tf-strip-bar-fill { height: 100%; border-radius: 4px; background: var(--color-accent); }
+.tf-strip-bar-fill.compliance-ok   { background: var(--color-ok); }
+.tf-strip-bar-fill.compliance-warn { background: var(--color-warn); }
+.tf-strip-bar-fill.compliance-over { background: var(--color-alert); }
+.tf-strip-limit { width: 32px; flex-shrink: 0; text-align: right; font-size: 12px; font-weight: 500; color: var(--color-faint); }
+
+/* ========================================
+   v3 — Bar Calendar
+   ======================================== */
+
+.tf-bar-calendar { display: flex; flex-direction: column; padding: 14px 20px 0; font-family: var(--font-interface); }
+.tf-bar-cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.tf-bar-cal-month { font-size: 15px; font-weight: 700; color: var(--color-text); }
+.tf-bar-cal-nav { display: flex; gap: 4px; align-items: center; }
+.tf-bar-cal-nav-btn { width: 30px; height: 30px; border: 1.5px solid var(--color-sep); border-radius: 8px; background: transparent; cursor: pointer; font-size: 11px; color: var(--color-muted); display: flex; align-items: center; justify-content: center; }
+.tf-bar-cal-nav-btn.today-btn { width: auto; padding: 0 10px; font-size: 12px; font-weight: 600; }
+.tf-bar-cal-nav-btn:hover { background: var(--color-raised); }
+.tf-bar-cal-day-headers { display: grid; gap: 2px; margin-bottom: 2px; }
+.tf-bar-cal-day-header { font-size: 11px; font-weight: 600; color: var(--color-faint); text-align: center; }
+.tf-bar-cal-week-row { display: grid; gap: 2px; margin-bottom: 3px; }
+.tf-bar-cal-week-num { font-size: 10px; font-weight: 600; color: var(--color-faint); display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding-bottom: 4px; gap: 4px; }
+.tf-bar-cal-week-num.current-week { color: var(--color-accent); font-weight: 800; }
+.tf-bar-cal-compliance-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+.tf-compliance-dot-ok   { background: var(--color-ok); }
+.tf-compliance-dot-warn { background: var(--color-warn); }
+.tf-compliance-dot-over { background: var(--color-alert); }
+.tf-bar-cal-cell { display: flex; flex-direction: column; align-items: stretch; padding: 5px 3px 4px; border-radius: 4px; gap: 4px; cursor: pointer; box-sizing: border-box; }
+.tf-bar-cal-cell:hover  { background: var(--color-raised); }
+.tf-bar-cal-cell.today  { outline: 2px solid var(--color-accent); outline-offset: -2px; border-radius: 5px; }
+.tf-bar-cal-cell.faded  { opacity: 0.35; }
+.tf-bar-cal-cell.future { opacity: 0.30; }
+.tf-bar-cal-day-num { font-size: 13px; font-weight: 600; color: var(--color-text); text-align: center; line-height: 1.1; font-family: inherit; }
+.tf-bar-cal-cell.today  .tf-bar-cal-day-num { color: var(--color-accent); font-weight: 800; }
+.tf-bar-cal-cell.faded  .tf-bar-cal-day-num,
+.tf-bar-cal-cell.future .tf-bar-cal-day-num { color: var(--color-faint); font-weight: 500; }
+.tf-bar-cal-bar-track { height: 4px; background: var(--color-sep); border-radius: 2px; overflow: hidden; }
+.tf-bar-cal-bar-fill { height: 100%; border-radius: 2px; }
+
+/* ========================================
+   v3 — Inline Day Drawer
+   ======================================== */
+
+.tf-inline-drawer { background: var(--color-bg); border: 2px solid var(--color-accent); border-radius: 12px; padding: 16px; margin: 6px 0 8px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08); font-family: var(--font-interface); }
+.tf-drawer-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.tf-drawer-date { font-size: 15px; font-weight: 700; color: var(--color-text); }
+.tf-drawer-close { width: 28px; height: 28px; border-radius: 50%; background: var(--color-raised); border: 1.5px solid var(--color-sep); font-size: 14px; color: var(--color-muted); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.tf-drawer-close:hover { background: var(--color-card); }
+.tf-drawer-work-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.tf-drawer-work-left { display: flex; align-items: center; gap: 8px; }
+.tf-drawer-type-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background: var(--color-accent); }
+.tf-drawer-work-label { font-size: 14px; font-weight: 600; color: var(--color-text); }
+.tf-drawer-time-range { font-size: 13px; font-weight: 500; color: var(--color-faint); }
+.tf-drawer-balance-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-top: 1px solid var(--color-sep); margin-bottom: 12px; }
+.tf-drawer-balance-label { font-size: 13px; font-weight: 500; color: var(--color-faint); }
+.tf-drawer-balance-value { font-size: 14px; font-weight: 700; }
+.tf-drawer-balance-value.tf-ok    { color: var(--color-ok); }
+.tf-drawer-balance-value.tf-warn  { color: var(--color-warn); }
+.tf-drawer-balance-value.tf-alert { color: var(--color-alert); }
+.tf-drawer-actions { display: flex; gap: 6px; }
+.tf-drawer-action-btn { flex: 1; padding: 10px 0; background: var(--color-raised); border: 1.5px solid var(--color-sep); border-radius: 10px; font-size: 13px; font-weight: 600; color: var(--color-text); cursor: pointer; text-align: center; font-family: inherit; }
+.tf-drawer-action-btn:hover { background: var(--color-card); }
+
+/* ========================================
+   v3 — Upcoming flat list
+   ======================================== */
+
+.tf-upcoming-flat { display: flex; flex-direction: column; padding: 0 20px 14px; border-top: 1px solid var(--color-sep); font-family: var(--font-interface); }
+.tf-upcoming-flat-title { font-size: 12px; font-weight: 600; color: var(--color-faint); margin: 14px 0 10px; }
+.tf-upcoming-flat-item { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--color-hair); }
+.tf-upcoming-date { font-size: 14px; font-weight: 500; color: var(--color-muted); }
+.tf-upcoming-chip { font-size: 13px; font-weight: 600; border-radius: 20px; padding: 3px 10px; }
+
+/* ========================================
+   v3 — Stats Footer (4-col, sidebar only)
+   ======================================== */
+
+.tf-stats-footer { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 12px 20px 14px; border-top: 1px solid var(--color-sep); font-family: var(--font-interface); }
+.tf-stats-footer-cell { display: flex; flex-direction: column; gap: 3px; }
+.tf-stats-footer-value { font-size: 17px; font-weight: 800; color: var(--color-text); letter-spacing: -0.02em; font-family: inherit; }
+.tf-stats-footer-label { font-size: 11px; font-weight: 500; color: var(--color-faint); }
+
+/* ========================================
+   v3 — Status Bar
+   ======================================== */
+
+.tf-status-bar { margin: 0 12px 12px; padding: 9px 14px; background: var(--color-raised); border-radius: 10px; border: 1.5px solid var(--color-sep); display: flex; justify-content: space-between; align-items: center; font-family: var(--font-interface); }
+.tf-status-bar-left { display: flex; align-items: center; gap: 8px; }
+.tf-status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--color-ok); flex-shrink: 0; }
+.tf-status-dot.warn  { background: var(--color-warn); }
+.tf-status-dot.alert { background: var(--color-alert); }
+.tf-status-text { font-size: 12px; font-weight: 500; color: var(--color-faint); }
+.tf-status-bar-right { display: flex; align-items: center; gap: 10px; }
+.tf-status-version { font-size: 12px; font-weight: 500; color: var(--color-faint); }
+.tf-status-help-btn { width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--color-sep); background: transparent; font-size: 11px; font-weight: 700; color: var(--color-muted); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.tf-status-help-btn:hover { background: var(--color-card); }
+
+/* Info overlay (? popup) */
+.tf-info-overlay { position: absolute; bottom: calc(100% + 6px); right: 0; background: var(--color-raised); border: 1.5px solid var(--color-sep); border-radius: 10px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15); padding: 14px; z-index: 1000; min-width: 220px; max-width: 280px; font-family: var(--font-interface); }
+.tf-info-overlay-section { margin-bottom: 12px; }
+.tf-info-overlay-section:last-child { margin-bottom: 0; }
+.tf-info-overlay-title { font-size: 11px; font-weight: 700; color: var(--color-faint); margin-bottom: 8px; }
+.tf-info-overlay-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; font-size: 13px; color: var(--color-text); }
+.tf-info-overlay-swatch { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+
+/* ========================================
+   v3 — Wide Mode Right Column
+   ======================================== */
+
+.tf-wide-section-heading { font-size: 15px; font-weight: 700; color: var(--color-text); font-family: var(--font-interface); margin-bottom: 8px; }
+.tf-stats-tabs { display: flex; gap: 2px; background: var(--color-raised); border: 1.5px solid var(--color-sep); border-radius: 8px; padding: 3px; margin-bottom: 10px; }
+.tf-stats-tab { padding: 4px 13px; border-radius: 6px; border: none; font-size: 12px; cursor: pointer; background: transparent; color: var(--color-faint); font-weight: 500; font-family: var(--font-interface); }
+.tf-stats-tab.active { background: var(--color-card); color: var(--color-text); font-weight: 700; }
+.tf-wide-stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--color-sep); border-radius: 10px; overflow: hidden; border: 1.5px solid var(--color-sep); margin-bottom: 16px; }
+.tf-wide-stats-cell { background: var(--color-raised); padding: 12px 14px; display: flex; flex-direction: column; gap: 3px; font-family: var(--font-interface); }
+.tf-wide-stats-value { font-size: 22px; font-weight: 800; color: var(--color-text); letter-spacing: -0.02em; }
+.tf-wide-stats-label { font-size: 12px; font-weight: 500; color: var(--color-faint); }
+.tf-wide-stats-sublabel { font-size: 11px; font-weight: 500; color: var(--color-faint); }
+.tf-leave-section-label { font-size: 12px; font-weight: 600; color: var(--color-faint); font-family: var(--font-interface); margin-bottom: 10px; }
+.tf-leave-section { display: flex; flex-direction: column; gap: 10px; }
+.tf-leave-row { display: flex; flex-direction: column; gap: 5px; }
+.tf-leave-row-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+.tf-leave-label-group { display: flex; align-items: center; gap: 8px; }
+.tf-leave-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+.tf-leave-label { font-size: 13px; font-weight: 600; color: var(--color-text); font-family: var(--font-interface); }
+.tf-leave-counts { font-size: 13px; font-weight: 700; }
+.tf-leave-bar-track { height: 8px; background: var(--color-sep); border-radius: 4px; overflow: hidden; }
+.tf-leave-bar-fill { height: 100%; border-radius: 4px; }
+.tf-weekly-chart-label { font-size: 12px; font-weight: 600; color: var(--color-faint); font-family: var(--font-interface); margin-bottom: 8px; }
+.tf-wide-weekly-chart { display: flex; gap: 6px; align-items: flex-end; min-height: 92px; position: relative; }
+.tf-wide-weekly-chart-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; }
+.tf-wide-weekly-chart-bar-wrap { width: 100%; min-height: 3px; border-radius: 3px 3px 0 0; background: var(--color-muted); opacity: 0.4; }
+.tf-wide-weekly-chart-bar-wrap.current { background: var(--color-accent); opacity: 1; }
+.tf-wide-weekly-chart-bar-wrap.over-limit { background: var(--color-warn); opacity: 0.55; }
+.tf-wide-weekly-chart-hour-label { font-size: 11px; color: var(--color-faint); font-family: var(--font-interface); }
+.tf-wide-weekly-chart-hour-label.current { color: var(--color-accent); }
+.tf-wide-weekly-chart-label-el { font-size: 11px; color: var(--color-faint); font-family: var(--font-interface); }
+.tf-wide-weekly-chart-label-el.current { color: var(--color-accent); font-weight: 700; }
+
+/* ========================================
+   v3 — Layout structure (data-layout based, no container queries)
+   ======================================== */
+
+.tf-v3-layout  { display: flex; flex-direction: column; }
+.tf-v3-top     { display: flex; flex-direction: column; }
+.tf-v3-content { display: flex; flex-direction: column; }
+.tf-v3-left-col { display: flex; flex-direction: column; }
+.tf-v3-right-col { display: none; flex-direction: column; gap: 20px; padding: 16px 20px; }
+
+[data-layout="wide"] .tf-v3-content  { display: grid; grid-template-columns: 360px 1fr; border-top: 1px solid var(--color-sep); }
+[data-layout="wide"] .tf-v3-right-col { display: flex; }
+[data-layout="wide"] .tf-v3-left-col  { border-right: 1px solid var(--color-sep); }
+[data-layout="wide"] .tf-stats-footer { display: none; }
+[data-layout="wide"] .tf-balance-number { font-size: 40px; }
+
+/* Wide header: balance + label + badge on one row, clock + Start button right */
+[data-layout="wide"] .tf-balance-hero { display: flex; align-items: center; gap: 12px; padding: 16px 22px 14px; }
+[data-layout="wide"] .tf-balance-hero-row1 { display: contents; }
+[data-layout="wide"] .tf-balance-left { flex-direction: row; align-items: center; gap: 10px; }
+[data-layout="wide"] .tf-balance-label { margin-bottom: 0; order: 1; }
+[data-layout="wide"] .tf-balance-number { margin-bottom: 0; order: 0; }
+[data-layout="wide"] .tf-balance-badge { order: 2; }
+[data-layout="wide"] .tf-balance-right { margin-left: auto; }
+[data-layout="wide"] .tf-hero-timer-wrap { margin-top: 0; flex: 0 0 auto; }
+[data-layout="wide"] .tf-hero-start-main,
+[data-layout="wide"] .tf-hero-stop-btn { flex: 0 0 auto; padding: 11px 18px; }
+
+/* Wide progress strips: two columns side-by-side */
+[data-layout="wide"] .tf-progress-strip { display: grid; grid-template-columns: 1fr 1fr; column-gap: 24px; row-gap: 11px; }
+
+/* ========================================
+   v3 — History section (wide only, full width)
+   ======================================== */
+
+/* History is hidden in the narrow sidebar layout */
+[data-layout="sidebar"] .tf-card-history { display: none; }
+
+.timeflow-dashboard .tf-card-history {
+	background: transparent;
+	border: none;
+	border-top: 1px solid var(--color-sep);
+	border-radius: 0;
+	box-shadow: none;
+	margin: 0;
+	padding: 16px 22px 20px;
+	font-family: var(--font-interface);
+}
+.timeflow-dashboard .tf-history-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 12px;
+	cursor: pointer;
+}
+.timeflow-dashboard .tf-history-title {
+	font-size: 15px;
+	font-weight: 700;
+	color: var(--color-text);
+	margin: 0;
+	font-family: inherit;
+}
+.timeflow-dashboard .tf-history-controls {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+.timeflow-dashboard .tf-history-export-btn,
+.timeflow-dashboard .tf-history-edit-btn {
+	background: var(--color-raised);
+	border: 1.5px solid var(--color-sep);
+	border-radius: 8px;
+	padding: 6px 12px;
+	font-size: 12px;
+	font-weight: 600;
+	color: var(--color-muted);
+	cursor: pointer;
+	font-family: inherit;
+}
+.timeflow-dashboard .tf-history-export-btn:hover,
+.timeflow-dashboard .tf-history-edit-btn:hover { background: var(--color-card); }
+.timeflow-dashboard .tf-history-edit-btn.active {
+	color: var(--color-accent);
+	border-color: var(--color-accent);
+}
+
+/* List / Heatmap pill toggle */
+.timeflow-dashboard .tf-tabs-inline {
+	display: flex;
+	gap: 2px;
+	background: var(--color-raised);
+	border: 1.5px solid var(--color-sep);
+	border-radius: 8px;
+	padding: 3px;
+}
+.timeflow-dashboard .tf-tabs-inline .tf-tab {
+	padding: 4px 13px;
+	border: none;
+	border-radius: 6px;
+	background: transparent;
+	color: var(--color-faint);
+	font-size: 12px;
+	font-weight: 500;
+	cursor: pointer;
+	font-family: inherit;
+}
+.timeflow-dashboard .tf-tabs-inline .tf-tab.active {
+	background: var(--color-card);
+	color: var(--color-text);
+	font-weight: 700;
+}
+
+/* Filter chips */
+.timeflow-dashboard .tf-history-filters {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin: 10px 0 12px;
+}
+.timeflow-dashboard .tf-filter-chip {
+	border: 1.5px solid var(--color-sep);
+	border-radius: 20px;
+	padding: 5px 13px;
+	font-size: 13px;
+	font-weight: 500;
+	background: transparent;
+	color: var(--color-muted);
+	cursor: pointer;
+	font-family: inherit;
+}
+.timeflow-dashboard .tf-filter-chip.active {
+	background: var(--color-accent);
+	border-color: var(--color-accent);
+	color: var(--text-on-accent);
+	font-weight: 700;
+}
+
+/* History table */
+.timeflow-dashboard .tf-history-table-wide,
+.timeflow-dashboard .tf-history-table-narrow {
+	width: 100%;
+	border-collapse: collapse;
+	border: 1.5px solid var(--color-sep);
+	border-radius: 10px;
+	overflow: hidden;
+	font-family: inherit;
+}
+.timeflow-dashboard .tf-history-table-wide th,
+.timeflow-dashboard .tf-history-table-narrow th {
+	background: var(--color-raised);
+	padding: 9px 14px;
+	font-size: 11px;
+	font-weight: 600;
+	color: var(--color-faint);
+	text-align: left;
+	border-bottom: 1px solid var(--color-sep);
+}
+.timeflow-dashboard .tf-history-table-wide td,
+.timeflow-dashboard .tf-history-table-narrow td {
+	padding: 11px 14px;
+	font-size: 13px;
+	font-weight: 500;
+	color: var(--color-text);
+	border-bottom: 1px solid var(--color-hair);
+}
+.timeflow-dashboard .tf-history-table-wide tbody tr:nth-child(even),
+.timeflow-dashboard .tf-history-table-narrow tbody tr:nth-child(even) {
+	background: var(--color-raised);
+}
+.timeflow-dashboard .tf-history-year-section { margin-bottom: 16px; }
+
+/* ========================================
+   v3 — Refinements (feedback pass)
+   ======================================== */
+
+/* Never wrap the balance number, progress values/goals, or footer numbers */
+.tf-balance-number { white-space: nowrap; }
+.tf-strip-hours, .tf-strip-limit { white-space: nowrap; }
+.tf-stats-footer-value { white-space: nowrap; }
+
+
+/* Statistics heading + period tabs share one row (heading left, tabs right) */
+[data-layout="wide"] .tf-v3-right-col .tf-v2-card-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 10px;
+}
+[data-layout="wide"] .tf-v3-right-col .tf-wide-section-heading { margin-bottom: 0; }
+
+/* Stats grid: slightly smaller so the calendar reads as the primary element */
+[data-layout="wide"] .tf-wide-stats-value { font-size: 19px; }
+[data-layout="wide"] .tf-wide-stats-cell { padding: 10px 12px; }
+
+/* Give the calendar a touch more breathing room in the wider left column */
+[data-layout="wide"] .tf-bar-calendar { padding: 14px 16px 0; }
+[data-layout="wide"] .tf-bar-cal-cell { padding: 6px 3px 5px; }
+

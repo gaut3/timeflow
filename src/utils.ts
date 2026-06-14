@@ -3,7 +3,7 @@ import { TimeFlowSettings } from './settings';
 
 // Constant colors for holidays (not configurable)
 export const FIXED_DAY_COLORS: Record<string, string> = {
-	helligdag: "#ef5350",
+	helligdag: "#a05040",
 	halfday: "#ffd54f",
 	"Ingen registrering": "#cccccc",
 };
