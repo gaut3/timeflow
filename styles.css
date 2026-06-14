@@ -1149,7 +1149,7 @@
 	border-color: var(--interactive-accent);
 }
 
-.tf-history-edit-btn {
+.timeflow-dashboard .tf-history-edit-btn {
 	padding: 4px 10px;
 	border-radius: 4px;
 	border: 1px solid var(--background-modifier-border);
@@ -1161,11 +1161,11 @@
 	min-width: 80px;
 }
 
-.tf-history-edit-btn:hover {
+.timeflow-dashboard .tf-history-edit-btn:hover {
 	background: var(--background-secondary);
 }
 
-.tf-history-edit-btn.active {
+.timeflow-dashboard .tf-history-edit-btn.active {
 	background: var(--interactive-accent);
 	color: var(--text-on-accent);
 	border-color: var(--interactive-accent);
@@ -4190,7 +4190,7 @@
 }
 
 /* History export button */
-.tf-history-export-btn {
+.timeflow-dashboard .tf-history-export-btn {
 	padding: 4px 8px;
 	border-radius: 4px;
 	border: 1px solid var(--background-modifier-border);
@@ -4202,7 +4202,7 @@
 	transition: background-color 0.15s ease;
 }
 
-.tf-history-export-btn:hover {
+.timeflow-dashboard .tf-history-export-btn:hover {
 	background: var(--background-modifier-hover);
 }
 
@@ -4288,9 +4288,9 @@
 /* Timeflow-specific semantics (balance states + day types) have no Obsidian
    equivalent, so they stay hardcoded — split by theme via Obsidian's body class. */
 .theme-light .timeflow-dashboard {
-	--color-ok:      #3d7a5f;
-	--color-warn:    #b87a1a;
-	--color-alert:   #c05540;
+	--color-ok:      #2f9e63;
+	--color-warn:    #db8a0c;
+	--color-alert:   #d8452c;
 	--color-vac:     #4a6fa0;
 	--color-vac-bg:  rgba(74, 111, 160, 0.13);
 	--color-hol:     #a05040;
@@ -4302,9 +4302,9 @@
 }
 
 .theme-dark .timeflow-dashboard {
-	--color-ok:      #74a36b;
-	--color-warn:    #d6a740;
-	--color-alert:   #cf6a5e;
+	--color-ok:      #5cc285;
+	--color-warn:    #e6b24a;
+	--color-alert:   #e07565;
 	--color-vac:     #7188b6;
 	--color-vac-bg:  rgba(113, 136, 182, 0.18);
 	--color-hol:     #c47d72;
@@ -4333,13 +4333,14 @@
 .tf-balance-badge.tf-alert { background: rgba(192, 85, 64, 0.12);  color: var(--color-alert); }
 .tf-balance-right { display: flex; flex-direction: column; align-items: flex-end; }
 .tf-balance-clock { font-size: 14px; font-weight: 500; color: var(--color-faint); font-variant-numeric: tabular-nums; font-family: inherit; }
-.tf-hero-timer-wrap { display: flex; gap: 8px; margin-top: 16px; }
-.tf-hero-start-main { flex: 1; background: var(--color-accent); color: var(--text-on-accent); padding: 12px 16px; border-radius: 14px; font-size: 15px; font-weight: 700; border: none; cursor: pointer; font-family: inherit; text-align: center; }
-.tf-hero-start-arrow { width: 46px; background: var(--color-raised); border: 1.5px solid var(--color-sep); border-radius: 14px; font-size: 13px; color: var(--color-muted); cursor: pointer; font-family: inherit; display: flex; align-items: center; justify-content: center; }
-.tf-hero-stop-btn { flex: 1; background: var(--color-accent); color: var(--text-on-accent); padding: 12px 16px; border-radius: 14px; font-size: 15px; font-weight: 700; border: none; cursor: pointer; font-family: inherit; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.tf-hero-timer-wrap { display: flex; gap: 0; margin-top: 16px; }
+/* Start button + dropdown arrow form a single accent pill (arrow on the right) */
+.timeflow-dashboard .tf-hero-start-main { flex: 1; background: var(--color-accent); color: var(--text-on-accent); padding: 12px 16px; border-radius: 10px 0 0 10px; font-size: 15px; font-weight: 700; border: none; cursor: pointer; font-family: inherit; text-align: center; }
+.timeflow-dashboard .tf-hero-start-arrow { flex: 0 0 auto; width: 40px; background: var(--color-accent); border: none; border-left: 1px solid rgba(255, 255, 255, 0.25); border-radius: 0 10px 10px 0; font-size: 13px; color: var(--text-on-accent); cursor: pointer; font-family: inherit; display: flex; align-items: center; justify-content: center; }
+.timeflow-dashboard .tf-hero-stop-btn { flex: 1; background: var(--color-accent); color: var(--text-on-accent); padding: 12px 16px; border-radius: 10px; font-size: 15px; font-weight: 700; border: none; cursor: pointer; font-family: inherit; display: flex; align-items: center; justify-content: center; gap: 8px; }
 .tf-hero-pulse { width: 8px; height: 8px; border-radius: 50%; background: rgba(255, 255, 255, 0.9); animation: tf-pulse 1.2s ease-in-out infinite; }
 @keyframes tf-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
-.tf-hero-start-main:hover, .tf-hero-stop-btn:hover { filter: brightness(1.08); }
+.timeflow-dashboard .tf-hero-start-main:hover, .timeflow-dashboard .tf-hero-start-arrow:hover, .timeflow-dashboard .tf-hero-stop-btn:hover { filter: brightness(1.08); }
 
 /* ========================================
    v3 — Progress Strip
@@ -4363,11 +4364,11 @@
 
 .tf-bar-calendar { display: flex; flex-direction: column; padding: 14px 20px 0; font-family: var(--font-interface); }
 .tf-bar-cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-.tf-bar-cal-month { font-size: 15px; font-weight: 700; color: var(--color-text); }
+.tf-bar-cal-month { font-size: 17px; font-weight: 700; color: var(--color-text); }
 .tf-bar-cal-nav { display: flex; gap: 4px; align-items: center; }
-.tf-bar-cal-nav-btn { width: 30px; height: 30px; border: 1.5px solid var(--color-sep); border-radius: 8px; background: transparent; cursor: pointer; font-size: 11px; color: var(--color-muted); display: flex; align-items: center; justify-content: center; }
-.tf-bar-cal-nav-btn.today-btn { width: auto; padding: 0 10px; font-size: 12px; font-weight: 600; }
-.tf-bar-cal-nav-btn:hover { background: var(--color-raised); }
+.timeflow-dashboard .tf-bar-cal-nav-btn { width: 30px; height: 30px; border: 1.5px solid var(--color-sep); border-radius: 8px; background: transparent; cursor: pointer; font-size: 11px; color: var(--color-muted); display: flex; align-items: center; justify-content: center; }
+.timeflow-dashboard .tf-bar-cal-nav-btn.today-btn { width: auto; padding: 0 10px; font-size: 12px; font-weight: 600; }
+.timeflow-dashboard .tf-bar-cal-nav-btn:hover { background: var(--color-raised); }
 .tf-bar-cal-day-headers { display: grid; gap: 2px; margin-bottom: 2px; }
 .tf-bar-cal-day-header { font-size: 11px; font-weight: 600; color: var(--color-faint); text-align: center; }
 .tf-bar-cal-week-row { display: grid; gap: 2px; margin-bottom: 3px; }
@@ -4396,8 +4397,8 @@
 .tf-inline-drawer { background: var(--color-bg); border: 2px solid var(--color-accent); border-radius: 12px; padding: 16px; margin: 6px 0 8px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08); font-family: var(--font-interface); }
 .tf-drawer-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
 .tf-drawer-date { font-size: 15px; font-weight: 700; color: var(--color-text); }
-.tf-drawer-close { width: 28px; height: 28px; border-radius: 50%; background: var(--color-raised); border: 1.5px solid var(--color-sep); font-size: 14px; color: var(--color-muted); cursor: pointer; display: flex; align-items: center; justify-content: center; }
-.tf-drawer-close:hover { background: var(--color-card); }
+.timeflow-dashboard .tf-drawer-close { width: 28px; height: 28px; border-radius: 50%; background: var(--color-raised); border: 1.5px solid var(--color-sep); font-size: 14px; color: var(--color-muted); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.timeflow-dashboard .tf-drawer-close:hover { background: var(--color-card); }
 .tf-drawer-work-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
 .tf-drawer-work-left { display: flex; align-items: center; gap: 8px; }
 .tf-drawer-type-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background: var(--color-accent); }
@@ -4410,15 +4411,36 @@
 .tf-drawer-balance-value.tf-warn  { color: var(--color-warn); }
 .tf-drawer-balance-value.tf-alert { color: var(--color-alert); }
 .tf-drawer-actions { display: flex; gap: 6px; }
-.tf-drawer-action-btn { flex: 1; padding: 10px 0; background: var(--color-raised); border: 1.5px solid var(--color-sep); border-radius: 10px; font-size: 13px; font-weight: 600; color: var(--color-text); cursor: pointer; text-align: center; font-family: inherit; }
-.tf-drawer-action-btn:hover { background: var(--color-card); }
+.timeflow-dashboard .tf-drawer-action-btn { flex: 1; padding: 10px 0; background: var(--color-raised); border: 1.5px solid var(--color-sep); border-radius: 10px; font-size: 13px; font-weight: 600; color: var(--color-text); cursor: pointer; text-align: center; font-family: inherit; }
+.timeflow-dashboard .tf-drawer-action-btn:hover { background: var(--color-card); }
+.timeflow-dashboard .tf-drawer-action-btn.active { background: var(--color-card); border-color: var(--color-accent); color: var(--color-accent); }
+
+/* Inline day edit (replaces the edit modal) */
+.timeflow-dashboard .tf-drawer-edit-section { margin-top: 10px; display: flex; flex-direction: column; gap: 10px; }
+.timeflow-dashboard .tf-drawer-edit-empty { font-size: 12px; color: var(--color-faint); font-style: italic; padding: 4px 0; }
+.timeflow-dashboard .tf-drawer-edit-card { background: var(--color-raised); border: 1.5px solid var(--color-sep); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+.timeflow-dashboard .tf-drawer-edit-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.timeflow-dashboard .tf-drawer-edit-label { font-size: 12px; font-weight: 700; color: var(--color-text); }
+.timeflow-dashboard .tf-drawer-edit-del { display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; padding: 0; border: 1.5px solid var(--color-sep); border-radius: 8px; background: transparent; color: var(--color-muted); cursor: pointer; box-shadow: none; -webkit-appearance: none; appearance: none; }
+.timeflow-dashboard .tf-drawer-edit-del:hover { color: var(--color-alert); border-color: var(--color-alert); }
+.timeflow-dashboard .tf-drawer-edit-row { display: flex; align-items: center; gap: 8px; }
+.timeflow-dashboard .tf-drawer-edit-row-label { flex: 0 0 64px; font-size: 12px; color: var(--color-muted); }
+.timeflow-dashboard .tf-drawer-edit-date { flex: 1 1 0; min-width: 0; }
+.timeflow-dashboard .tf-drawer-edit-time { flex: 1 1 0; min-width: 0; max-width: 140px; }
+.timeflow-dashboard .tf-drawer-edit-payout { border-top: 1px solid var(--color-sep); padding-top: 8px; display: flex; flex-direction: column; gap: 6px; }
+.timeflow-dashboard .tf-drawer-edit-payout-row { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--color-text); }
+.timeflow-dashboard .tf-drawer-edit-payout-inputs { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12px; color: var(--color-muted); }
+.timeflow-dashboard .tf-drawer-edit-num { width: 52px; }
+.timeflow-dashboard .tf-drawer-edit-payout-max { color: var(--color-faint); font-size: 11px; }
+.timeflow-dashboard .tf-drawer-edit-save-row { display: flex; }
+.timeflow-dashboard .tf-drawer-edit-save { flex: 1; background: var(--color-accent); color: var(--text-on-accent); border-color: var(--color-accent); }
 
 /* ========================================
    v3 — Upcoming flat list
    ======================================== */
 
 .tf-upcoming-flat { display: flex; flex-direction: column; padding: 0 20px 14px; border-top: 1px solid var(--color-sep); font-family: var(--font-interface); }
-.tf-upcoming-flat-title { font-size: 12px; font-weight: 600; color: var(--color-faint); margin: 14px 0 10px; }
+.tf-upcoming-flat-title { font-size: 13px; font-weight: 600; color: var(--color-muted); margin: 14px 0 10px; }
 .tf-upcoming-flat-item { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--color-hair); }
 .tf-upcoming-date { font-size: 14px; font-weight: 500; color: var(--color-muted); }
 .tf-upcoming-chip { font-size: 13px; font-weight: 600; border-radius: 20px; padding: 3px 10px; }
@@ -4444,8 +4466,8 @@
 .tf-status-text { font-size: 12px; font-weight: 500; color: var(--color-faint); }
 .tf-status-bar-right { display: flex; align-items: center; gap: 10px; }
 .tf-status-version { font-size: 12px; font-weight: 500; color: var(--color-faint); }
-.tf-status-help-btn { width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--color-sep); background: transparent; font-size: 11px; font-weight: 700; color: var(--color-muted); cursor: pointer; display: flex; align-items: center; justify-content: center; }
-.tf-status-help-btn:hover { background: var(--color-card); }
+.timeflow-dashboard .tf-status-help-btn { width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--color-sep); background: transparent; font-size: 11px; font-weight: 700; color: var(--color-muted); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.timeflow-dashboard .tf-status-help-btn:hover { background: var(--color-card); }
 
 /* Info overlay (? popup) */
 .tf-info-overlay { position: absolute; bottom: calc(100% + 6px); right: 0; background: var(--color-raised); border: 1.5px solid var(--color-sep); border-radius: 10px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15); padding: 14px; z-index: 1000; min-width: 220px; max-width: 280px; font-family: var(--font-interface); }
@@ -4459,35 +4481,77 @@
    v3 — Wide Mode Right Column
    ======================================== */
 
-.tf-wide-section-heading { font-size: 15px; font-weight: 700; color: var(--color-text); font-family: var(--font-interface); margin-bottom: 8px; }
-.tf-stats-tabs { display: flex; gap: 2px; background: var(--color-raised); border: 1.5px solid var(--color-sep); border-radius: 8px; padding: 3px; margin-bottom: 10px; }
-.tf-stats-tab { padding: 4px 13px; border-radius: 6px; border: none; font-size: 12px; cursor: pointer; background: transparent; color: var(--color-faint); font-weight: 500; font-family: var(--font-interface); }
-.tf-stats-tab.active { background: var(--color-card); color: var(--color-text); font-weight: 700; }
+.tf-wide-section-heading { font-size: 17px; font-weight: 700; color: var(--color-text); font-family: var(--font-interface); margin-bottom: 8px; }
+.timeflow-dashboard .tf-stats-tabs { display: flex; gap: 2px; background: var(--color-raised); border: 1.5px solid var(--color-sep); border-radius: 8px; padding: 3px; margin-bottom: 10px; }
+.timeflow-dashboard .tf-stats-tab { padding: 4px 13px; border-radius: 6px; border: none; font-size: 12px; cursor: pointer; background: transparent; color: var(--color-faint); font-weight: 500; font-family: var(--font-interface); }
+.timeflow-dashboard .tf-stats-tab.active { background: var(--color-card); color: var(--color-text); font-weight: 700; }
+.timeflow-dashboard .tf-stats-period { display: flex; gap: 8px; margin-bottom: 12px; }
+.timeflow-dashboard .tf-stats-period-select { flex: 1; min-width: 0; padding: 5px 8px; border-radius: 8px; border: 1.5px solid var(--color-sep); background: var(--color-raised); color: var(--color-text); font-size: 13px; font-family: var(--font-interface); cursor: pointer; box-shadow: none; }
 .tf-wide-stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--color-sep); border-radius: 10px; overflow: hidden; border: 1.5px solid var(--color-sep); margin-bottom: 16px; }
 .tf-wide-stats-cell { background: var(--color-raised); padding: 12px 14px; display: flex; flex-direction: column; gap: 3px; font-family: var(--font-interface); }
 .tf-wide-stats-value { font-size: 22px; font-weight: 800; color: var(--color-text); letter-spacing: -0.02em; }
 .tf-wide-stats-label { font-size: 12px; font-weight: 500; color: var(--color-faint); }
 .tf-wide-stats-sublabel { font-size: 11px; font-weight: 500; color: var(--color-faint); }
-.tf-leave-section-label { font-size: 12px; font-weight: 600; color: var(--color-faint); font-family: var(--font-interface); margin-bottom: 10px; }
+.tf-leave-section-label { font-size: 13px; font-weight: 600; color: var(--color-muted); font-family: var(--font-interface); margin-bottom: 10px; }
 .tf-leave-section { display: flex; flex-direction: column; gap: 10px; }
 .tf-leave-row { display: flex; flex-direction: column; gap: 5px; }
 .tf-leave-row-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
 .tf-leave-label-group { display: flex; align-items: center; gap: 8px; }
-.tf-leave-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+.tf-leave-dot { width: 11px; height: 11px; border-radius: 3px; flex-shrink: 0; }
 .tf-leave-label { font-size: 13px; font-weight: 600; color: var(--color-text); font-family: var(--font-interface); }
 .tf-leave-counts { font-size: 13px; font-weight: 700; }
 .tf-leave-bar-track { height: 8px; background: var(--color-sep); border-radius: 4px; overflow: hidden; }
 .tf-leave-bar-fill { height: 100%; border-radius: 4px; }
-.tf-weekly-chart-label { font-size: 12px; font-weight: 600; color: var(--color-faint); font-family: var(--font-interface); margin-bottom: 8px; }
+.tf-weekly-chart-label { font-size: 13px; font-weight: 600; color: var(--color-muted); font-family: var(--font-interface); margin-bottom: 8px; }
 .tf-wide-weekly-chart { display: flex; gap: 6px; align-items: flex-end; min-height: 92px; position: relative; }
 .tf-wide-weekly-chart-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; }
-.tf-wide-weekly-chart-bar-wrap { width: 100%; min-height: 3px; border-radius: 3px 3px 0 0; background: var(--color-muted); opacity: 0.4; }
+.tf-wide-weekly-chart-bar-wrap { width: 100%; min-height: 3px; border-radius: 3px 3px 0 0; background: var(--color-muted); opacity: 0.85; }
 .tf-wide-weekly-chart-bar-wrap.current { background: var(--color-accent); opacity: 1; }
-.tf-wide-weekly-chart-bar-wrap.over-limit { background: var(--color-warn); opacity: 0.55; }
+.tf-wide-weekly-chart-bar-wrap.over-limit { background: var(--color-warn); opacity: 1; }
 .tf-wide-weekly-chart-hour-label { font-size: 11px; color: var(--color-faint); font-family: var(--font-interface); }
 .tf-wide-weekly-chart-hour-label.current { color: var(--color-accent); }
-.tf-wide-weekly-chart-label-el { font-size: 11px; color: var(--color-faint); font-family: var(--font-interface); }
+.tf-wide-weekly-chart-label-el { font-size: 11px; height: 14px; line-height: 14px; color: var(--color-faint); font-family: var(--font-interface); }
 .tf-wide-weekly-chart-label-el.current { color: var(--color-accent); font-weight: 700; }
+/* Goal/limit reference lines behind the weekly bars (positioned in JS via bottom px) */
+.timeflow-dashboard .tf-wide-weekly-ref { position: absolute; left: 0; right: 0; height: 0; border-top: 1px dashed var(--color-sep); pointer-events: none; }
+.timeflow-dashboard .tf-wide-weekly-ref-limit { border-top-color: var(--color-alert); }
+
+/* v3 controls are flat — clear Obsidian's default button shadow + native chrome */
+.timeflow-dashboard .tf-hero-start-main,
+.timeflow-dashboard .tf-hero-start-arrow,
+.timeflow-dashboard .tf-hero-stop-btn,
+.timeflow-dashboard .tf-bar-cal-nav-btn,
+.timeflow-dashboard .tf-stats-tab,
+.timeflow-dashboard .tf-tabs-inline .tf-tab,
+.timeflow-dashboard .tf-filter-chip,
+.timeflow-dashboard .tf-history-export-btn,
+.timeflow-dashboard .tf-history-edit-btn,
+.timeflow-dashboard .tf-drawer-action-btn,
+.timeflow-dashboard .tf-drawer-close,
+.timeflow-dashboard .tf-status-help-btn {
+	box-shadow: none;
+	-webkit-appearance: none;
+	appearance: none;
+}
+/* keep flat on interaction so the shadow doesn't reappear on hover/focus */
+.timeflow-dashboard .tf-hero-start-main:hover,
+.timeflow-dashboard .tf-hero-start-main:focus,
+.timeflow-dashboard .tf-hero-start-arrow:hover,
+.timeflow-dashboard .tf-hero-start-arrow:focus,
+.timeflow-dashboard .tf-bar-cal-nav-btn:hover,
+.timeflow-dashboard .tf-bar-cal-nav-btn:focus,
+.timeflow-dashboard .tf-stats-tab:focus,
+.timeflow-dashboard .tf-tabs-inline .tf-tab:focus,
+.timeflow-dashboard .tf-filter-chip:focus,
+.timeflow-dashboard .tf-history-export-btn:hover,
+.timeflow-dashboard .tf-history-edit-btn:hover {
+	box-shadow: none;
+}
+/* inactive segmented tabs: drop the mouse-focus ring but keep keyboard focus visible */
+.timeflow-dashboard .tf-stats-tab:focus:not(:focus-visible),
+.timeflow-dashboard .tf-tabs-inline .tf-tab:focus:not(:focus-visible) {
+	outline: none;
+}
 
 /* ========================================
    v3 — Layout structure (data-layout based, no container queries)
@@ -4499,14 +4563,14 @@
 .tf-v3-left-col { display: flex; flex-direction: column; }
 .tf-v3-right-col { display: none; flex-direction: column; gap: 20px; padding: 16px 20px; }
 
-[data-layout="wide"] .tf-v3-content  { display: grid; grid-template-columns: 360px 1fr; border-top: 1px solid var(--color-sep); }
+[data-layout="wide"] .tf-v3-content  { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); border-top: 1px solid var(--color-sep); }
 [data-layout="wide"] .tf-v3-right-col { display: flex; }
 [data-layout="wide"] .tf-v3-left-col  { border-right: 1px solid var(--color-sep); }
 [data-layout="wide"] .tf-stats-footer { display: none; }
 [data-layout="wide"] .tf-balance-number { font-size: 40px; }
 
 /* Wide header: balance + label + badge on one row, clock + Start button right */
-[data-layout="wide"] .tf-balance-hero { display: flex; align-items: center; gap: 12px; padding: 16px 22px 14px; }
+[data-layout="wide"] .tf-balance-hero { display: flex; align-items: center; gap: 12px; padding: 16px 22px 14px; border-bottom: none; }
 [data-layout="wide"] .tf-balance-hero-row1 { display: contents; }
 [data-layout="wide"] .tf-balance-left { flex-direction: row; align-items: center; gap: 10px; }
 [data-layout="wide"] .tf-balance-label { margin-bottom: 0; order: 1; }
@@ -4660,6 +4724,21 @@
 }
 .timeflow-dashboard .tf-history-year-section { margin-bottom: 16px; }
 
+/* History "Type" colored chip */
+.timeflow-dashboard .tf-history-type-chip {
+	display: inline-block;
+	padding: 3px 9px;
+	border-radius: 20px;
+	font-size: 12px;
+	font-weight: 700;
+	white-space: nowrap;
+}
+
+/* History "Fleksitid" signed/colored values */
+.timeflow-dashboard .tf-history-flex-pos  { color: var(--color-ok);    font-weight: 700; }
+.timeflow-dashboard .tf-history-flex-neg  { color: var(--color-alert); font-weight: 700; }
+.timeflow-dashboard .tf-history-flex-zero { color: var(--color-faint); }
+
 /* ========================================
    v3 — Refinements (feedback pass)
    ======================================== */
@@ -4675,15 +4754,21 @@
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
+	min-height: 36px;
 	margin-bottom: 10px;
 }
+/* Match the calendar header height so both column headers line up */
+[data-layout="wide"] .tf-bar-cal-header { min-height: 36px; }
 [data-layout="wide"] .tf-v3-right-col .tf-wide-section-heading { margin-bottom: 0; }
 
 /* Stats grid: slightly smaller so the calendar reads as the primary element */
-[data-layout="wide"] .tf-wide-stats-value { font-size: 19px; }
-[data-layout="wide"] .tf-wide-stats-cell { padding: 10px 12px; }
+[data-layout="wide"] .tf-wide-stats-value { font-size: 17px; }
+[data-layout="wide"] .tf-wide-stats-cell { padding: 8px 10px; }
 
 /* Give the calendar a touch more breathing room in the wider left column */
-[data-layout="wide"] .tf-bar-calendar { padding: 14px 16px 0; }
-[data-layout="wide"] .tf-bar-cal-cell { padding: 6px 3px 5px; }
+[data-layout="wide"] .tf-bar-calendar { padding: 16px 18px 4px; }
+[data-layout="wide"] .tf-bar-cal-cell { padding: 6px 4px 5px; min-height: 44px; justify-content: space-between; }
+[data-layout="wide"] .tf-bar-cal-day-num { font-size: 14px; }
+[data-layout="wide"] .tf-bar-cal-bar-track { height: 5px; }
+[data-layout="wide"] .tf-bar-cal-week-row { margin-bottom: 4px; }
 

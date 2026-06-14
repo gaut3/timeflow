@@ -2983,6 +2983,27 @@ Note: Historical data in your holidays file using "${behavior.id}" will no longe
         }
       ).open();
     }));
+    new import_obsidian2.Setting(settingsContainer).setName("Restore default colors").setDesc("Reset every day type's colors to the built-in defaults. Your day types, labels, icons and quotas are kept.").addButton((btn) => btn.setButtonText("Restore default colors").setWarning().onClick(() => {
+      new ConfirmModal(
+        this.app,
+        "Reset all day-type colors to the built-in defaults? Labels, icons and quotas are kept.",
+        async () => {
+          this.plugin.settings.specialDayBehaviors.forEach((b) => {
+            const def = DEFAULT_SPECIAL_DAY_BEHAVIORS.find((d) => d.id === b.id);
+            if (!def) return;
+            b.color = def.color;
+            b.textColor = def.textColor;
+            b.negativeColor = def.negativeColor;
+            b.negativeTextColor = def.negativeTextColor;
+            b.simpleColor = def.simpleColor;
+            b.simpleTextColor = def.simpleTextColor;
+          });
+          await this.plugin.saveSettings();
+          await this.refreshView();
+          this.display();
+        }
+      ).open();
+    }));
     new import_obsidian2.Setting(settingsContainer).setName(t("annet.templatesSection")).setDesc(t("annet.templatesDesc")).setHeading();
     this.plugin.settings.annetTemplates.forEach((template, index) => {
       const translatedName = translateAnnetTemplateName(template.id, template.label);
@@ -7463,27 +7484,25 @@ var UIBuilder = class {
     startInput.focus();
     startInput.select();
   }
-  showEditEntriesModal(dateObj) {
-    const dateStr = Utils.toLocalDateStr(dateObj);
-    const allEntries = this.timerManager.data.entries;
+  // Collect all work entries for a date (including subEntries from collapsed Timekeep entries).
+  getWorkEntriesForDate(dateStr) {
     const workEntries = [];
-    allEntries.forEach((entry) => {
+    this.timerManager.data.entries.forEach((entry) => {
       if (entry.collapsed && Array.isArray(entry.subEntries)) {
         entry.subEntries.forEach((sub, idx) => {
-          if (sub.startTime) {
-            const entryDate = new Date(sub.startTime);
-            if (Utils.toLocalDateStr(entryDate) === dateStr) {
-              workEntries.push({ entry: sub, parent: entry, subIndex: idx });
-            }
+          if (sub.startTime && Utils.toLocalDateStr(new Date(sub.startTime)) === dateStr) {
+            workEntries.push({ entry: sub, parent: entry, subIndex: idx });
           }
         });
-      } else if (entry.startTime) {
-        const entryDate = new Date(entry.startTime);
-        if (Utils.toLocalDateStr(entryDate) === dateStr) {
-          workEntries.push({ entry });
-        }
+      } else if (entry.startTime && Utils.toLocalDateStr(new Date(entry.startTime)) === dateStr) {
+        workEntries.push({ entry });
       }
     });
+    return workEntries;
+  }
+  showEditEntriesModal(dateObj) {
+    const dateStr = Utils.toLocalDateStr(dateObj);
+    const workEntries = this.getWorkEntriesForDate(dateStr);
     if (workEntries.length === 0) {
       new import_obsidian5.Notice(t("notifications.noWorkEntriesFound"));
       return;
@@ -8840,7 +8859,6 @@ ${noteType.tags.join(" ")}`;
       chip.textContent = translateSpecialDayName(behavior.id, behavior.label);
       if (!isActive) {
         chip.style.color = behavior.color;
-        chip.style.borderColor = behavior.color;
       }
       chip.onclick = () => {
         if (isActive) {
@@ -8906,7 +8924,7 @@ ${noteType.tags.join(" ")}`;
       activeIcon.title = t("ui.activeTimer");
       activeIcon.className = "tf-cursor-help";
       dateCell.appendChild(activeIcon);
-      dateCell.appendChild(activeDocument.createTextNode(dateStr));
+      dateCell.appendChild(activeDocument.createTextNode(formatDate(/* @__PURE__ */ new Date(dateStr + "T00:00:00"), "long")));
       row.appendChild(dateCell);
       const typeCell = createEl("td");
       if (isWide && this.inlineEditMode && matchingRaw) {
@@ -8928,7 +8946,16 @@ ${noteType.tags.join(" ")}`;
         };
         typeCell.appendChild(select);
       } else {
-        typeCell.textContent = translateSpecialDayName(e.name.toLowerCase(), e.name);
+        const entryNameLower = e.name.toLowerCase();
+        const typeBehavior = this.settings.specialDayBehaviors.find((b) => b.id === entryNameLower);
+        const typeChip = typeCell.createSpan({ cls: "tf-history-type-chip", text: translateSpecialDayName(entryNameLower, e.name) });
+        if ((typeBehavior == null ? void 0 : typeBehavior.color) && /^#[0-9a-f]{6}$/i.test(typeBehavior.color)) {
+          typeChip.style.color = typeBehavior.textColor || "#fff";
+          typeChip.style.background = typeBehavior.color;
+        } else {
+          typeChip.style.color = "var(--color-muted)";
+          typeChip.style.background = "var(--color-raised)";
+        }
       }
       row.appendChild(typeCell);
       if (isWide) {
@@ -8962,7 +8989,18 @@ ${noteType.tags.join(" ")}`;
       row.appendChild(hoursCell);
       if (isWide) {
         const flextimeCell = createEl("td");
-        flextimeCell.textContent = Utils.formatHoursToHM(e.flextime || 0, this.settings.hourUnit);
+        const netFlextime = (e.flextime || 0) - ((matchingRaw == null ? void 0 : matchingRaw.overtimePayout) || 0);
+        const flexMag = Utils.formatHoursToHM(Math.abs(netFlextime), this.settings.hourUnit);
+        if (netFlextime > 1 / 60) {
+          flextimeCell.textContent = `+${flexMag}`;
+          flextimeCell.addClass("tf-history-flex-pos");
+        } else if (netFlextime < -1 / 60) {
+          flextimeCell.textContent = `\u2212${flexMag}`;
+          flextimeCell.addClass("tf-history-flex-neg");
+        } else {
+          flextimeCell.textContent = flexMag;
+          flextimeCell.addClass("tf-history-flex-zero");
+        }
         row.appendChild(flextimeCell);
       }
       if (isWide && this.inlineEditMode) {
@@ -8970,7 +9008,7 @@ ${noteType.tags.join(" ")}`;
         if (matchingItem) {
           const deleteBtn = createEl("button");
           deleteBtn.className = "tf-history-delete-btn";
-          deleteBtn.textContent = "\u{1F5D1}\uFE0F";
+          (0, import_obsidian5.setIcon)(deleteBtn, "trash-2");
           deleteBtn.title = t("menu.deleteEntry");
           deleteBtn.onclick = () => {
             this.showConfirmDialog(`${t("confirm.deleteEntryFor")} ${dateStr}?`, async () => {
@@ -9094,11 +9132,19 @@ ${noteType.tags.join(" ")}`;
             flagIcon.className = "tf-cursor-help";
             dateCell.appendChild(flagIcon);
           }
-          dateCell.appendChild(activeDocument.createTextNode(dateStr));
+          dateCell.appendChild(activeDocument.createTextNode(formatDate(/* @__PURE__ */ new Date(dateStr + "T00:00:00"), "long")));
           row.appendChild(dateCell);
           const typeCell = createEl("td");
           const entryNameLower = e.name.toLowerCase();
-          typeCell.textContent = translateSpecialDayName(entryNameLower, e.name);
+          const typeBehavior = this.settings.specialDayBehaviors.find((b) => b.id === entryNameLower);
+          const typeChip = typeCell.createSpan({ cls: "tf-history-type-chip", text: translateSpecialDayName(entryNameLower, e.name) });
+          if ((typeBehavior == null ? void 0 : typeBehavior.color) && /^#[0-9a-f]{6}$/i.test(typeBehavior.color)) {
+            typeChip.style.color = typeBehavior.textColor || "#fff";
+            typeChip.style.background = typeBehavior.color;
+          } else {
+            typeChip.style.color = "var(--color-muted)";
+            typeChip.style.background = "var(--color-raised)";
+          }
           row.appendChild(typeCell);
           const hoursCell = createEl("td");
           const hoursText = Utils.formatHoursToHM(e.duration || 0, this.settings.hourUnit);
@@ -9106,7 +9152,17 @@ ${noteType.tags.join(" ")}`;
           row.appendChild(hoursCell);
           const flextimeCell = createEl("td");
           const netFlextime = (e.flextime || 0) - ((matchingRaw == null ? void 0 : matchingRaw.overtimePayout) || 0);
-          flextimeCell.textContent = Utils.formatHoursToHM(netFlextime, this.settings.hourUnit);
+          const flexMag = Utils.formatHoursToHM(Math.abs(netFlextime), this.settings.hourUnit);
+          if (netFlextime > 1 / 60) {
+            flextimeCell.textContent = `+${flexMag}`;
+            flextimeCell.addClass("tf-history-flex-pos");
+          } else if (netFlextime < -1 / 60) {
+            flextimeCell.textContent = `\u2212${flexMag}`;
+            flextimeCell.addClass("tf-history-flex-neg");
+          } else {
+            flextimeCell.textContent = flexMag;
+            flextimeCell.addClass("tf-history-flex-zero");
+          }
           row.appendChild(flextimeCell);
           const actionCell = createEl("td");
           const editBtn = createEl("button");
@@ -9271,7 +9327,7 @@ ${noteType.tags.join(" ")}`;
               flagIcon.className = "tf-cursor-help";
               dateCell.appendChild(flagIcon);
             }
-            dateCell.appendChild(activeDocument.createTextNode(dateStr));
+            dateCell.appendChild(activeDocument.createTextNode(formatDate(/* @__PURE__ */ new Date(dateStr + "T00:00:00"), "long")));
             row.appendChild(dateCell);
             const typeCell = createEl("td");
             if (this.inlineEditMode && matchingRaw) {
@@ -9293,7 +9349,15 @@ ${noteType.tags.join(" ")}`;
               typeCell.appendChild(select);
             } else {
               const entryNameLower = e.name.toLowerCase();
-              typeCell.textContent = translateSpecialDayName(entryNameLower, e.name);
+              const typeBehavior = this.settings.specialDayBehaviors.find((b) => b.id === entryNameLower);
+              const typeChip = typeCell.createSpan({ cls: "tf-history-type-chip", text: translateSpecialDayName(entryNameLower, e.name) });
+              if ((typeBehavior == null ? void 0 : typeBehavior.color) && /^#[0-9a-f]{6}$/i.test(typeBehavior.color)) {
+                typeChip.style.color = typeBehavior.textColor || "#fff";
+                typeChip.style.background = typeBehavior.color;
+              } else {
+                typeChip.style.color = "var(--color-muted)";
+                typeChip.style.background = "var(--color-raised)";
+              }
             }
             row.appendChild(typeCell);
             const commentCell = createEl("td");
@@ -9454,14 +9518,24 @@ ${noteType.tags.join(" ")}`;
             row.appendChild(hoursCell);
             const flextimeCell = createEl("td");
             const netFlextime = (e.flextime || 0) - ((matchingRaw == null ? void 0 : matchingRaw.overtimePayout) || 0);
-            flextimeCell.textContent = Utils.formatHoursToHM(netFlextime, this.settings.hourUnit);
+            const flexMag = Utils.formatHoursToHM(Math.abs(netFlextime), this.settings.hourUnit);
+            if (netFlextime > 1 / 60) {
+              flextimeCell.textContent = `+${flexMag}`;
+              flextimeCell.addClass("tf-history-flex-pos");
+            } else if (netFlextime < -1 / 60) {
+              flextimeCell.textContent = `\u2212${flexMag}`;
+              flextimeCell.addClass("tf-history-flex-neg");
+            } else {
+              flextimeCell.textContent = flexMag;
+              flextimeCell.addClass("tf-history-flex-zero");
+            }
             row.appendChild(flextimeCell);
             if (this.inlineEditMode) {
               const actionCell = createEl("td");
               if (matchingItem) {
                 const deleteBtn = createEl("button");
                 deleteBtn.className = "tf-history-delete-btn";
-                deleteBtn.textContent = "\u{1F5D1}\uFE0F";
+                (0, import_obsidian5.setIcon)(deleteBtn, "trash-2");
                 deleteBtn.title = t("menu.deleteEntry");
                 deleteBtn.onclick = () => {
                   this.showConfirmDialog(`${t("confirm.deleteEntryFor")} ${dateStr}?`, async () => {
@@ -10342,7 +10416,7 @@ ${noteType.tags.join(" ")}`;
         weekNumCell.createDiv({ text: Utils.getWeekNumber(currentDate).toString() });
         const monday = this._getMondayOfWeek(new Date(currentDate));
         const compClass = this.getWeekComplianceClass(monday);
-        if (compClass && compClass !== "week-future") {
+        if (compClass && compClass !== "week-future" && compClass !== "week-partial") {
           const dot = weekNumCell.createDiv({ cls: "tf-bar-cal-compliance-dot" });
           if (compClass === "week-ok") dot.addClass("tf-compliance-dot-ok");
           else if (compClass === "week-over") dot.addClass("tf-compliance-dot-over");
@@ -10460,10 +10534,18 @@ ${noteType.tags.join(" ")}`;
       balRow.createEl("span", { cls: `tf-drawer-balance-value ${flexColorClass}`, text: `${sign}${Utils.formatHoursToHM(Math.abs(dayFlex), this.settings.hourUnit)}` });
     }
     const actions = drawer.createDiv({ cls: "tf-drawer-actions" });
+    const editSection = drawer.createDiv({ cls: "tf-drawer-edit-section tf-hidden" });
     const editBtn = actions.createEl("button", { cls: "tf-drawer-action-btn", text: t("v3.editTime") });
     editBtn.onclick = () => {
-      this.selectedDayDate = null;
-      this.showEditEntriesModal(dateObj);
+      if (editSection.hasClass("tf-hidden")) {
+        this._renderDayEditFields(editSection, dateObj, calContainer);
+        editSection.removeClass("tf-hidden");
+        editBtn.addClass("active");
+      } else {
+        editSection.empty();
+        editSection.addClass("tf-hidden");
+        editBtn.removeClass("active");
+      }
     };
     const absenceBtn = actions.createEl("button", { cls: "tf-drawer-action-btn", text: t("v3.addAbsence") });
     absenceBtn.onclick = () => {
@@ -10479,6 +10561,183 @@ ${noteType.tags.join(" ")}`;
       };
     }
     return drawer;
+  }
+  // Render inline editable fields for a day's work entries inside the drawer (replaces the modal).
+  _renderDayEditFields(container, dateObj, calContainer) {
+    container.empty();
+    const dateStr = Utils.toLocalDateStr(dateObj);
+    const workEntries = this.getWorkEntriesForDate(dateStr);
+    if (workEntries.length === 0) {
+      container.createDiv({ cls: "tf-drawer-edit-empty", text: t("notifications.noWorkEntriesFound") });
+      return;
+    }
+    const sorted = [...workEntries].sort((a, b) => {
+      const ea = a.entry.endTime ? new Date(a.entry.endTime).getTime() : Date.now();
+      const eb = b.entry.endTime ? new Date(b.entry.endTime).getTime() : Date.now();
+      return ea - eb;
+    });
+    const lastEntry = sorted[sorted.length - 1].entry;
+    const dayGoal = this.data.getDailyGoal(dateStr);
+    let totalWorked = 0;
+    workEntries.forEach((item) => {
+      if (item.entry.endTime) {
+        totalWorked += (new Date(item.entry.endTime).getTime() - new Date(item.entry.startTime).getTime()) / 36e5;
+      }
+    });
+    const dayOvertime = Math.max(0, totalWorked - dayGoal);
+    const pad = (n) => n.toString().padStart(2, "0");
+    const appliers = [];
+    workEntries.forEach((item, index) => {
+      var _a, _b;
+      const entry = item.entry;
+      const startDate = new Date(entry.startTime);
+      const endDate = entry.endTime ? new Date(entry.endTime) : null;
+      const startDateStr = Utils.toLocalDateStr(startDate);
+      const endDateStr = endDate ? Utils.toLocalDateStr(endDate) : startDateStr;
+      const card = container.createDiv({ cls: "tf-drawer-edit-card" });
+      const head = card.createDiv({ cls: "tf-drawer-edit-head" });
+      const label = item.parent ? `${item.parent.name} \u2013 ${entry.name}` : translateSpecialDayName(entry.name.toLowerCase(), entry.name) + (workEntries.length > 1 ? ` #${index + 1}` : "");
+      head.createSpan({ cls: "tf-drawer-edit-label", text: label });
+      const delBtn = head.createEl("button", { cls: "tf-drawer-edit-del" });
+      (0, import_obsidian5.setIcon)(delBtn, "trash-2");
+      delBtn.title = t("buttons.delete");
+      delBtn.onclick = () => {
+        this.showDeleteConfirmation(entry, dateObj, async () => {
+          var _a2, _b2;
+          let deleted = false;
+          if (item.parent && item.subIndex !== void 0 && item.parent.subEntries) {
+            item.parent.subEntries.splice(item.subIndex, 1);
+            if (item.parent.subEntries.length === 0) {
+              const pIdx = this.timerManager.data.entries.indexOf(item.parent);
+              if (pIdx > -1) this.timerManager.data.entries.splice(pIdx, 1);
+            }
+            deleted = true;
+          } else {
+            const eIdx = this.timerManager.data.entries.indexOf(entry);
+            if (eIdx > -1) {
+              this.timerManager.data.entries.splice(eIdx, 1);
+              deleted = true;
+            }
+          }
+          if (deleted) {
+            await this.saveWithErrorHandling();
+            new import_obsidian5.Notice(`\u2705 ${t("notifications.deleted")}`);
+            (_b2 = (_a2 = this.timerManager).onTimerChange) == null ? void 0 : _b2.call(_a2);
+          }
+        });
+      };
+      const isMultiDay = !!endDate && startDateStr !== endDateStr;
+      const startRow = card.createDiv({ cls: "tf-drawer-edit-row" });
+      startRow.createSpan({ cls: "tf-drawer-edit-row-label", text: t("modals.startTime") });
+      let startDateInput = null;
+      if (isMultiDay) {
+        startDateInput = startRow.createEl("input", { cls: "tf-drawer-edit-date" });
+        startDateInput.type = "date";
+        startDateInput.value = startDateStr;
+      }
+      const startTimeInput = this.createTimeInput(`${pad(startDate.getHours())}:${pad(startDate.getMinutes())}`, () => {
+      });
+      startTimeInput.addClass("tf-drawer-edit-time");
+      startRow.appendChild(startTimeInput);
+      const endRow = card.createDiv({ cls: "tf-drawer-edit-row" });
+      endRow.createSpan({ cls: "tf-drawer-edit-row-label", text: t("modals.endTime") });
+      let endDateInput = null;
+      if (isMultiDay) {
+        endDateInput = endRow.createEl("input", { cls: "tf-drawer-edit-date" });
+        endDateInput.type = "date";
+        endDateInput.value = endDateStr;
+      }
+      const endTimeInput = this.createTimeInput(endDate ? `${pad(endDate.getHours())}:${pad(endDate.getMinutes())}` : "", () => {
+      });
+      endTimeInput.addClass("tf-drawer-edit-time");
+      endRow.appendChild(endTimeInput);
+      let payoutCheckbox = null;
+      let payoutHoursInput = null;
+      let payoutMinutesInput = null;
+      if (entry === lastEntry && dayOvertime > 0) {
+        const payoutWrap = card.createDiv({ cls: "tf-drawer-edit-payout" });
+        const cbRow = payoutWrap.createDiv({ cls: "tf-drawer-edit-payout-row" });
+        payoutCheckbox = cbRow.createEl("input");
+        payoutCheckbox.type = "checkbox";
+        payoutCheckbox.id = `tf-inline-payout-${index}`;
+        payoutCheckbox.checked = ((_a = entry.overtimePayout) != null ? _a : 0) > 0;
+        const cbLabel = cbRow.createEl("label", { text: t("modals.overtimePayout") });
+        cbLabel.htmlFor = payoutCheckbox.id;
+        const inputsRow = payoutWrap.createDiv({ cls: "tf-drawer-edit-payout-inputs" });
+        if (!payoutCheckbox.checked) inputsRow.addClass("tf-hidden");
+        const initial = (_b = entry.overtimePayout) != null ? _b : dayOvertime;
+        payoutHoursInput = inputsRow.createEl("input", { cls: "tf-drawer-edit-num" });
+        payoutHoursInput.type = "number";
+        payoutHoursInput.min = "0";
+        payoutHoursInput.value = Math.floor(initial).toString();
+        inputsRow.createSpan({ text: this.settings.hourUnit });
+        payoutMinutesInput = inputsRow.createEl("input", { cls: "tf-drawer-edit-num" });
+        payoutMinutesInput.type = "number";
+        payoutMinutesInput.min = "0";
+        payoutMinutesInput.max = "59";
+        payoutMinutesInput.value = Math.round((initial - Math.floor(initial)) * 60).toString();
+        inputsRow.createSpan({ text: "min" });
+        inputsRow.createSpan({ cls: "tf-drawer-edit-payout-max", text: `(max ${Utils.formatHoursToHM(dayOvertime, this.settings.hourUnit)})` });
+        const cb = payoutCheckbox;
+        payoutCheckbox.onchange = () => inputsRow.toggleClass("tf-hidden", !cb.checked);
+      }
+      appliers.push(() => {
+        const sDate = startDateInput ? startDateInput.value : startDateStr;
+        const sTime = startTimeInput.value;
+        const eDate = endDateInput ? endDateInput.value : endDateStr;
+        const eTime = endTimeInput.value;
+        if (!sDate || !sTime) return t("validation.startTimeRequired");
+        const newStart = /* @__PURE__ */ new Date(`${sDate}T${sTime}:00`);
+        if (isNaN(newStart.getTime())) return t("validation.invalidStartDateTime");
+        let newEnd = null;
+        if (eTime) {
+          newEnd = /* @__PURE__ */ new Date(`${eDate}T${eTime}:00`);
+          if (isNaN(newEnd.getTime())) return t("validation.invalidEndDateTime");
+          if (newEnd <= newStart) return t("validation.endAfterStart");
+          if (this.checkProhibitedOverlap(Utils.toLocalDateStr(newStart), entry.name, newStart, newEnd, entry)) {
+            return t("validation.overlappingEntry");
+          }
+        }
+        if (payoutCheckbox) {
+          if (payoutCheckbox.checked) {
+            const h = parseInt(payoutHoursInput.value) || 0;
+            const m = parseInt(payoutMinutesInput.value) || 0;
+            const payout = h + m / 60;
+            if (payout > dayOvertime + 0.01) {
+              return t("modals.payoutExceedsOvertime").replace("{hours}", dayOvertime.toFixed(2));
+            }
+            entry.overtimePayout = payout;
+          } else {
+            delete entry.overtimePayout;
+          }
+        }
+        entry.startTime = Utils.toLocalISOString(newStart);
+        entry.endTime = newEnd ? Utils.toLocalISOString(newEnd) : null;
+        return null;
+      });
+    });
+    const saveRow = container.createDiv({ cls: "tf-drawer-edit-save-row" });
+    const saveBtn = saveRow.createEl("button", { cls: "tf-drawer-action-btn tf-drawer-edit-save", text: t("buttons.save") });
+    saveBtn.onclick = async () => {
+      var _a, _b;
+      const snapshot = workEntries.map((item) => ({ entry: item.entry, startTime: item.entry.startTime, endTime: item.entry.endTime, overtimePayout: item.entry.overtimePayout }));
+      for (const apply of appliers) {
+        const err = apply();
+        if (err) {
+          snapshot.forEach((s) => {
+            s.entry.startTime = s.startTime;
+            s.entry.endTime = s.endTime;
+            if (s.overtimePayout === void 0) delete s.entry.overtimePayout;
+            else s.entry.overtimePayout = s.overtimePayout;
+          });
+          new import_obsidian5.Notice(`\u274C ${err}`);
+          return;
+        }
+      }
+      await this.saveWithErrorHandling();
+      new import_obsidian5.Notice(`\u2705 ${t("notifications.entryUpdated")}`);
+      (_b = (_a = this.timerManager).onTimerChange) == null ? void 0 : _b.call(_a);
+    };
   }
   // =====================================================================
   // Timeflow 2.0 — Upcoming flat list
@@ -10499,7 +10758,7 @@ ${noteType.tags.join(" ")}`;
       }
     });
     futureDays.sort((a, b) => a.date.localeCompare(b.date));
-    const display = futureDays.slice(0, 8);
+    const display = futureDays.slice(0, 4);
     if (display.length === 0) return;
     const wrap = container.createDiv({ cls: "tf-upcoming-flat" });
     wrap.createDiv({ cls: "tf-upcoming-flat-title", text: t("v3.comingUp") });
@@ -10508,8 +10767,8 @@ ${noteType.tags.join(" ")}`;
       const d = /* @__PURE__ */ new Date(day.date + "T00:00:00");
       item.createDiv({ cls: "tf-upcoming-date", text: formatDate(d, "long") });
       const chip = item.createDiv({ cls: "tf-upcoming-chip", text: day.label });
-      chip.style.background = `${day.color}26`;
-      chip.style.color = day.color;
+      chip.style.background = day.color;
+      chip.style.color = day.textColor;
     });
   }
   // =====================================================================
@@ -10654,6 +10913,10 @@ ${noteType.tags.join(" ")}`;
     const statsSection = col.createDiv();
     const statsHeadRow = statsSection.createDiv({ cls: "tf-v2-card-header" });
     statsHeadRow.createDiv({ cls: "tf-wide-section-heading", text: t("ui.statistics") });
+    const rerender = () => {
+      col.empty();
+      this._fillWideRightColumn(col);
+    };
     const tabs = statsHeadRow.createDiv({ cls: "tf-stats-tabs" });
     const timeframeLabels = { month: t("timeframes.month"), year: t("timeframes.year"), total: t("timeframes.total") };
     ["month", "year", "total"].forEach((tf) => {
@@ -10664,24 +10927,56 @@ ${noteType.tags.join(" ")}`;
       });
       tab.onclick = () => {
         this.statsTimeframe = tf;
-        tabs.querySelectorAll(".tf-stats-tab").forEach((el) => el.classList.remove("active"));
-        tab.classList.add("active");
-        gridEl.empty();
-        this._fillWideStatsGrid(gridEl);
+        rerender();
       };
     });
+    this._fillStatsPeriodSelector(statsSection, rerender);
     const gridEl = statsSection.createDiv({ cls: "tf-wide-stats-grid" });
     this._fillWideStatsGrid(gridEl);
-    const leaveItems = this.settings.specialDayBehaviors.filter((b) => !b.isWorkType && b.flextimeEffect !== "none");
-    if (leaveItems.length > 0) {
-      const leaveSection = col.createDiv();
-      leaveSection.createDiv({ cls: "tf-leave-section-label", text: t("v3.leaveUsedThisYear") });
-      const leaveRows = leaveSection.createDiv({ cls: "tf-leave-section" });
-      this._fillLeaveTracking(leaveRows, leaveItems);
-    }
+    const leaveItems = this.settings.specialDayBehaviors.filter((b) => !b.isWorkType && b.id !== "jobb");
+    const leaveSection = col.createDiv();
+    this._fillLeaveTracking(leaveSection, leaveItems);
     const chartSection = col.createDiv();
     chartSection.createDiv({ cls: "tf-weekly-chart-label", text: t("v3.weeklyHoursLabel") });
     this._fillWideWeeklyChart(chartSection);
+  }
+  // Year (and month) dropdowns so stats can look back at previous periods.
+  _fillStatsPeriodSelector(container, onChange) {
+    if (this.statsTimeframe === "total") return;
+    const availableYears = this.data.getAvailableYears();
+    if (availableYears.length === 0) return;
+    const row = container.createDiv({ cls: "tf-stats-period" });
+    const yearSelect = row.createEl("select", { cls: "tf-stats-period-select" });
+    availableYears.forEach((y) => {
+      const opt = yearSelect.createEl("option", { text: String(y) });
+      opt.value = String(y);
+      if (y === this.selectedYear) opt.selected = true;
+    });
+    yearSelect.onchange = () => {
+      this.selectedYear = parseInt(yearSelect.value);
+      if (this.statsTimeframe === "month") {
+        const months = this.data.getAvailableMonthsForYear(this.selectedYear);
+        if (months.length > 0 && !months.includes(this.selectedMonth)) {
+          this.selectedMonth = months[months.length - 1];
+        }
+      }
+      onChange();
+    };
+    if (this.statsTimeframe === "month") {
+      const months = this.data.getAvailableMonthsForYear(this.selectedYear);
+      if (months.length > 0) {
+        const monthSelect = row.createEl("select", { cls: "tf-stats-period-select" });
+        months.forEach((m) => {
+          const opt = monthSelect.createEl("option", { text: getMonthName(new Date(this.selectedYear, m, 1)) });
+          opt.value = String(m);
+          if (m === this.selectedMonth) opt.selected = true;
+        });
+        monthSelect.onchange = () => {
+          this.selectedMonth = parseInt(monthSelect.value);
+          onChange();
+        };
+      }
+    }
   }
   _fillWideStatsGrid(grid) {
     var _a, _b, _c, _d, _e;
@@ -10706,7 +11001,7 @@ ${noteType.tags.join(" ")}`;
     addCell(String((_d = stats.workDays) != null ? _d : 0), t("v3.workDays"), t("v3.weekendsSub").replace("{count}", String((_e = stats.weekendDays) != null ? _e : 0)));
     const compBehavior = this.settings.specialDayBehaviors.find((b) => !b.isWorkType && b.flextimeEffect === "withdraw");
     if (compBehavior) {
-      const usedComp = this._getLeaveUsedHours(compBehavior.id, (/* @__PURE__ */ new Date()).getFullYear());
+      const usedComp = this._getLeaveUsedHours(compBehavior.id, { timeframe: this.statsTimeframe, year: this.selectedYear, month: this.selectedMonth });
       const cell = grid.createDiv({ cls: "tf-wide-stats-cell" });
       const valEl = cell.createDiv({ cls: "tf-wide-stats-value", text: Utils.formatHoursToHM(usedComp, unit) });
       valEl.style.color = compBehavior.color;
@@ -10715,20 +11010,39 @@ ${noteType.tags.join(" ")}`;
     }
   }
   _fillLeaveTracking(section, behaviors) {
-    const year = (/* @__PURE__ */ new Date()).getFullYear();
     const unit = this.settings.hourUnit;
-    behaviors.slice(0, 4).forEach((b) => {
-      const used = this._getLeaveUsedHours(b.id, year);
+    const year = this.selectedYear;
+    const dailyGoal = this.settings.baseWorkday * this.settings.workPercent;
+    const rows = [];
+    behaviors.forEach((b) => {
       const hasQuota = b.maxDaysPerYear != null;
-      const quota = hasQuota ? b.maxDaysPerYear * this.settings.baseWorkday * this.settings.workPercent : 0;
-      const pct = hasQuota && quota > 0 ? Math.min(used / quota * 100, 100) : 0;
-      const row = section.createDiv({ cls: "tf-leave-row" });
+      if (b.flextimeEffect === "withdraw") {
+        const used = this._getLeaveUsedHours(b.id, { timeframe: "year", year });
+        if (used <= 0) return;
+        const quota = hasQuota ? b.maxDaysPerYear * dailyGoal : 0;
+        const pct = hasQuota && quota > 0 ? Math.min(used / quota * 100, 100) : 0;
+        const countsText = hasQuota ? `${Utils.formatHoursToHM(used, unit)} / ${Utils.formatHoursToHM(quota, unit)}` : Utils.formatHoursToHM(used, unit);
+        rows.push({ b, pct, countsText });
+      } else {
+        const usedDays = this._getLeaveUsedDays(b.id, year);
+        if (usedDays <= 0) return;
+        const quotaDays = hasQuota ? b.maxDaysPerYear : 0;
+        const pct = hasQuota && quotaDays > 0 ? Math.min(usedDays / quotaDays * 100, 100) : 0;
+        const fmtDays = (d) => `${Number.isInteger(d) ? d : d.toFixed(1)} ${t("ui.days")}`;
+        const countsText = hasQuota ? `${fmtDays(usedDays)} / ${fmtDays(quotaDays)}` : fmtDays(usedDays);
+        rows.push({ b, pct, countsText });
+      }
+    });
+    if (rows.length === 0) return;
+    section.createDiv({ cls: "tf-leave-section-label", text: t("v3.leaveUsedThisYear") });
+    const rowsWrap = section.createDiv({ cls: "tf-leave-section" });
+    rows.forEach(({ b, pct, countsText }) => {
+      const row = rowsWrap.createDiv({ cls: "tf-leave-row" });
       const top = row.createDiv({ cls: "tf-leave-row-top" });
       const labelGroup = top.createDiv({ cls: "tf-leave-label-group" });
       const dot = labelGroup.createDiv({ cls: "tf-leave-dot" });
       dot.style.background = b.color;
       labelGroup.createDiv({ cls: "tf-leave-label", text: translateSpecialDayName(b.id, b.label) });
-      const countsText = hasQuota ? `${Utils.formatHoursToHM(used, unit)} / ${Utils.formatHoursToHM(quota, unit)}` : Utils.formatHoursToHM(used, unit);
       const counts = top.createDiv({ cls: "tf-leave-counts", text: countsText });
       counts.style.color = b.color;
       const track = row.createDiv({ cls: "tf-leave-bar-track" });
@@ -10737,10 +11051,40 @@ ${noteType.tags.join(" ")}`;
       fill.style.background = b.color;
     });
   }
-  _getLeaveUsedHours(behaviorId, year) {
+  // Days of a day-based leave type booked this year (taken + planned), from the absence
+  // flow (holidays store) plus any leave logged as timer entries, deduped per date.
+  _getLeaveUsedDays(behaviorId, year) {
+    const dailyGoal = this.settings.baseWorkday * this.settings.workPercent;
+    const perDate = {};
+    Object.entries(this.data.holidays).forEach(([dateKey, info]) => {
+      var _a;
+      if (info.type !== behaviorId) return;
+      if ((/* @__PURE__ */ new Date(dateKey + "T12:00:00")).getFullYear() !== year) return;
+      perDate[dateKey] = Math.max((_a = perDate[dateKey]) != null ? _a : 0, info.halfDay ? 0.5 : 1);
+    });
+    Object.entries(this.data.daily).forEach(([dateKey, entries]) => {
+      var _a;
+      if ((/* @__PURE__ */ new Date(dateKey + "T12:00:00")).getFullYear() !== year) return;
+      const hours = entries.reduce((s, e) => e.name === behaviorId ? s + (e.duration || 0) : s, 0);
+      if (hours <= 0) return;
+      const frac = dailyGoal > 0 ? Math.min(hours / dailyGoal, 1) : 0;
+      perDate[dateKey] = Math.max((_a = perDate[dateKey]) != null ? _a : 0, frac);
+    });
+    return Object.values(perDate).reduce((s, v) => s + v, 0);
+  }
+  _getLeaveUsedHours(behaviorId, opts = {}) {
+    var _a, _b, _c;
+    const timeframe = (_a = opts.timeframe) != null ? _a : "year";
+    const today = /* @__PURE__ */ new Date();
+    const year = (_b = opts.year) != null ? _b : today.getFullYear();
+    const month = (_c = opts.month) != null ? _c : today.getMonth();
     let total = 0;
     Object.entries(this.data.daily).forEach(([dateKey, entries]) => {
-      if (!dateKey.startsWith(String(year))) return;
+      if (timeframe !== "total") {
+        const d = /* @__PURE__ */ new Date(dateKey + "T12:00:00");
+        if (d.getFullYear() !== year) return;
+        if (timeframe === "month" && d.getMonth() !== month) return;
+      }
       entries.forEach((e) => {
         if (e.name === behaviorId) total += e.duration || 0;
       });
@@ -10756,6 +11100,14 @@ ${noteType.tags.join(" ")}`;
     const currentWeekNum = Utils.getWeekNumber(today);
     const maxHours = Math.max(...weekTotals, weekGoal, 1);
     const chart = container.createDiv({ cls: "tf-wide-weekly-chart" });
+    const refBarPx = 60;
+    const baselinePx = 18;
+    const goalPx = Math.min(Math.round(weekGoal / maxHours * refBarPx), refBarPx);
+    chart.createDiv({ cls: "tf-wide-weekly-ref tf-wide-weekly-ref-goal" }).style.bottom = `${goalPx + baselinePx}px`;
+    if (weekLimit > weekGoal) {
+      const limitPx = Math.min(Math.round(weekLimit / maxHours * refBarPx), refBarPx);
+      chart.createDiv({ cls: "tf-wide-weekly-ref tf-wide-weekly-ref-limit" }).style.bottom = `${limitPx + baselinePx}px`;
+    }
     weekTotals.forEach((hours, i) => {
       const d = new Date(today);
       d.setDate(today.getDate() - (6 - i) * 7);

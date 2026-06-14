@@ -1967,6 +1967,35 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 					).open();
 				}));
 
+		// Restore the built-in v3 colors for all day types (keeps labels, icons, quotas)
+		new Setting(settingsContainer)
+			.setName('Restore default colors')
+			.setDesc('Reset every day type\'s colors to the built-in defaults. Your day types, labels, icons and quotas are kept.')
+			.addButton(btn => btn
+				.setButtonText('Restore default colors')
+				.setWarning()
+				.onClick(() => {
+					new ConfirmModal(
+						this.app,
+						'Reset all day-type colors to the built-in defaults? Labels, icons and quotas are kept.',
+						async () => {
+							this.plugin.settings.specialDayBehaviors.forEach(b => {
+								const def = DEFAULT_SPECIAL_DAY_BEHAVIORS.find(d => d.id === b.id);
+								if (!def) return; // user-added type: leave its colors untouched
+								b.color = def.color;
+								b.textColor = def.textColor;
+								b.negativeColor = def.negativeColor;
+								b.negativeTextColor = def.negativeTextColor;
+								b.simpleColor = def.simpleColor;
+								b.simpleTextColor = def.simpleTextColor;
+							});
+							await this.plugin.saveSettings();
+							await this.refreshView();
+							this.display();
+						}
+					).open();
+				}));
+
 		// Annet Templates section
 		new Setting(settingsContainer)
 			.setName(t('annet.templatesSection'))

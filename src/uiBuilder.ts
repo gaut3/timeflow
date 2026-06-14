@@ -1,4 +1,4 @@
-import { App, TFile, Notice, normalizePath } from 'obsidian';
+import { App, TFile, Notice, normalizePath, setIcon } from 'obsidian';
 import { DataManager, HolidayInfo, ValidationResults, ValidationIssue, TimeEntry } from './dataManager';
 import { TimeFlowSettings, SpecialDayBehavior, NoteType } from './settings';
 import { TimerManager, Timer } from './timerManager';
@@ -3216,32 +3216,28 @@ export class UIBuilder {
 		startInput.select();
 	}
 
+	// Collect all work entries for a date (including subEntries from collapsed Timekeep entries).
+	private getWorkEntriesForDate(dateStr: string): { entry: Timer; parent?: Timer; subIndex?: number }[] {
+		const workEntries: { entry: Timer; parent?: Timer; subIndex?: number }[] = [];
+		this.timerManager.data.entries.forEach(entry => {
+			if (entry.collapsed && Array.isArray(entry.subEntries)) {
+				entry.subEntries.forEach((sub, idx) => {
+					if (sub.startTime && Utils.toLocalDateStr(new Date(sub.startTime)) === dateStr) {
+						workEntries.push({ entry: sub, parent: entry, subIndex: idx });
+					}
+				});
+			} else if (entry.startTime && Utils.toLocalDateStr(new Date(entry.startTime)) === dateStr) {
+				workEntries.push({ entry });
+			}
+		});
+		return workEntries;
+	}
+
 	showEditEntriesModal(dateObj: Date): void {
 		const dateStr = Utils.toLocalDateStr(dateObj);
 
-		// Get all work entries for this date from the timer manager
-		// Include subEntries from collapsed Timekeep entries
-		const allEntries = this.timerManager.data.entries;
-		const workEntries: { entry: Timer; parent?: Timer; subIndex?: number }[] = [];
-
-		allEntries.forEach(entry => {
-			if (entry.collapsed && Array.isArray(entry.subEntries)) {
-				// For collapsed entries, add each subEntry with reference to parent
-				entry.subEntries.forEach((sub, idx) => {
-					if (sub.startTime) {
-						const entryDate = new Date(sub.startTime);
-						if (Utils.toLocalDateStr(entryDate) === dateStr) {
-							workEntries.push({ entry: sub, parent: entry, subIndex: idx });
-						}
-					}
-				});
-			} else if (entry.startTime) {
-				const entryDate = new Date(entry.startTime);
-				if (Utils.toLocalDateStr(entryDate) === dateStr) {
-					workEntries.push({ entry });
-				}
-			}
-		});
+		// Get all work entries for this date (incl. collapsed Timekeep subEntries)
+		const workEntries = this.getWorkEntriesForDate(dateStr);
 
 		if (workEntries.length === 0) {
 			new Notice(t('notifications.noWorkEntriesFound'));
@@ -5094,7 +5090,6 @@ export class UIBuilder {
 			// Inactive chips take the type colour (active chips use the accent via CSS)
 			if (!isActive) {
 				chip.style.color = behavior.color;
-				chip.style.borderColor = behavior.color;
 			}
 			chip.onclick = () => {
 				if (isActive) {
@@ -5187,7 +5182,7 @@ export class UIBuilder {
 			activeIcon.title = t('ui.activeTimer');
 			activeIcon.className = 'tf-cursor-help';
 			dateCell.appendChild(activeIcon);
-			dateCell.appendChild(activeDocument.createTextNode(dateStr));
+			dateCell.appendChild(activeDocument.createTextNode(formatDate(new Date(dateStr + 'T00:00:00'), 'long')));
 			row.appendChild(dateCell);
 
 			// Type cell - with inline editing in wide mode
@@ -5210,7 +5205,16 @@ export class UIBuilder {
 				};
 				typeCell.appendChild(select);
 			} else {
-				typeCell.textContent = translateSpecialDayName(e.name.toLowerCase(), e.name);
+				const entryNameLower = e.name.toLowerCase();
+				const typeBehavior = this.settings.specialDayBehaviors.find(b => b.id === entryNameLower);
+				const typeChip = typeCell.createSpan({ cls: 'tf-history-type-chip', text: translateSpecialDayName(entryNameLower, e.name) });
+				if (typeBehavior?.color && /^#[0-9a-f]{6}$/i.test(typeBehavior.color)) {
+					typeChip.style.color = typeBehavior.textColor || '#fff';
+					typeChip.style.background = typeBehavior.color;
+				} else {
+					typeChip.style.color = 'var(--color-muted)';
+					typeChip.style.background = 'var(--color-raised)';
+				}
 			}
 			row.appendChild(typeCell);
 
@@ -5250,7 +5254,18 @@ export class UIBuilder {
 			// Flextime cell (only in wide mode)
 			if (isWide) {
 				const flextimeCell = createEl('td');
-				flextimeCell.textContent = Utils.formatHoursToHM(e.flextime || 0, this.settings.hourUnit);
+				const netFlextime = (e.flextime || 0) - (matchingRaw?.overtimePayout || 0);
+				const flexMag = Utils.formatHoursToHM(Math.abs(netFlextime), this.settings.hourUnit);
+				if (netFlextime > 1 / 60) {
+					flextimeCell.textContent = `+${flexMag}`;
+					flextimeCell.addClass('tf-history-flex-pos');
+				} else if (netFlextime < -1 / 60) {
+					flextimeCell.textContent = `−${flexMag}`;
+					flextimeCell.addClass('tf-history-flex-neg');
+				} else {
+					flextimeCell.textContent = flexMag;
+					flextimeCell.addClass('tf-history-flex-zero');
+				}
 				row.appendChild(flextimeCell);
 			}
 
@@ -5260,7 +5275,7 @@ export class UIBuilder {
 				if (matchingItem) {
 					const deleteBtn = createEl('button');
 					deleteBtn.className = 'tf-history-delete-btn';
-					deleteBtn.textContent = '🗑️';
+					setIcon(deleteBtn, 'trash-2');
 					deleteBtn.title = t('menu.deleteEntry');
 					deleteBtn.onclick = () => {
 						this.showConfirmDialog(`${t('confirm.deleteEntryFor')} ${dateStr}?`, async () => {
@@ -5420,13 +5435,21 @@ export class UIBuilder {
 						flagIcon.className = 'tf-cursor-help';
 						dateCell.appendChild(flagIcon);
 					}
-					dateCell.appendChild(activeDocument.createTextNode(dateStr));
+					dateCell.appendChild(activeDocument.createTextNode(formatDate(new Date(dateStr + 'T00:00:00'), 'long')));
 					row.appendChild(dateCell);
 
 					// Type cell
 					const typeCell = createEl('td');
 					const entryNameLower = e.name.toLowerCase();
-					typeCell.textContent = translateSpecialDayName(entryNameLower, e.name);
+					const typeBehavior = this.settings.specialDayBehaviors.find(b => b.id === entryNameLower);
+						const typeChip = typeCell.createSpan({ cls: 'tf-history-type-chip', text: translateSpecialDayName(entryNameLower, e.name) });
+						if (typeBehavior?.color && /^#[0-9a-f]{6}$/i.test(typeBehavior.color)) {
+							typeChip.style.color = typeBehavior.textColor || '#fff';
+							typeChip.style.background = typeBehavior.color;
+						} else {
+							typeChip.style.color = 'var(--color-muted)';
+							typeChip.style.background = 'var(--color-raised)';
+						}
 					row.appendChild(typeCell);
 
 					// Hours cell
@@ -5438,7 +5461,17 @@ export class UIBuilder {
 					// Flextime cell (subtract overtime payout if present)
 					const flextimeCell = createEl('td');
 					const netFlextime = (e.flextime || 0) - (matchingRaw?.overtimePayout || 0);
-					flextimeCell.textContent = Utils.formatHoursToHM(netFlextime, this.settings.hourUnit);
+					const flexMag = Utils.formatHoursToHM(Math.abs(netFlextime), this.settings.hourUnit);
+						if (netFlextime > 1 / 60) {
+							flextimeCell.textContent = `+${flexMag}`;
+							flextimeCell.addClass('tf-history-flex-pos');
+						} else if (netFlextime < -1 / 60) {
+							flextimeCell.textContent = `−${flexMag}`;
+							flextimeCell.addClass('tf-history-flex-neg');
+						} else {
+							flextimeCell.textContent = flexMag;
+							flextimeCell.addClass('tf-history-flex-zero');
+						}
 					row.appendChild(flextimeCell);
 
 					// Action cell
@@ -5668,7 +5701,7 @@ export class UIBuilder {
 							flagIcon.className = 'tf-cursor-help';
 							dateCell.appendChild(flagIcon);
 						}
-						dateCell.appendChild(activeDocument.createTextNode(dateStr));
+						dateCell.appendChild(activeDocument.createTextNode(formatDate(new Date(dateStr + 'T00:00:00'), 'long')));
 						row.appendChild(dateCell);
 
 						// Type cell
@@ -5692,7 +5725,15 @@ export class UIBuilder {
 							typeCell.appendChild(select);
 						} else {
 							const entryNameLower = e.name.toLowerCase();
-							typeCell.textContent = translateSpecialDayName(entryNameLower, e.name);
+							const typeBehavior = this.settings.specialDayBehaviors.find(b => b.id === entryNameLower);
+						const typeChip = typeCell.createSpan({ cls: 'tf-history-type-chip', text: translateSpecialDayName(entryNameLower, e.name) });
+						if (typeBehavior?.color && /^#[0-9a-f]{6}$/i.test(typeBehavior.color)) {
+							typeChip.style.color = typeBehavior.textColor || '#fff';
+							typeChip.style.background = typeBehavior.color;
+						} else {
+							typeChip.style.color = 'var(--color-muted)';
+							typeChip.style.background = 'var(--color-raised)';
+						}
 						}
 						row.appendChild(typeCell);
 
@@ -5890,7 +5931,17 @@ export class UIBuilder {
 						// Flextime cell (always read-only, subtract overtime payout if present)
 						const flextimeCell = createEl('td');
 						const netFlextime = (e.flextime || 0) - (matchingRaw?.overtimePayout || 0);
-						flextimeCell.textContent = Utils.formatHoursToHM(netFlextime, this.settings.hourUnit);
+						const flexMag = Utils.formatHoursToHM(Math.abs(netFlextime), this.settings.hourUnit);
+						if (netFlextime > 1 / 60) {
+							flextimeCell.textContent = `+${flexMag}`;
+							flextimeCell.addClass('tf-history-flex-pos');
+						} else if (netFlextime < -1 / 60) {
+							flextimeCell.textContent = `−${flexMag}`;
+							flextimeCell.addClass('tf-history-flex-neg');
+						} else {
+							flextimeCell.textContent = flexMag;
+							flextimeCell.addClass('tf-history-flex-zero');
+						}
 						row.appendChild(flextimeCell);
 
 						// Delete button (only in edit mode)
@@ -5899,7 +5950,7 @@ export class UIBuilder {
 							if (matchingItem) {
 								const deleteBtn = createEl('button');
 								deleteBtn.className = 'tf-history-delete-btn';
-								deleteBtn.textContent = '🗑️';
+								setIcon(deleteBtn, 'trash-2');
 								deleteBtn.title = t('menu.deleteEntry');
 								deleteBtn.onclick = () => {
 									this.showConfirmDialog(`${t('confirm.deleteEntryFor')} ${dateStr}?`, async () => {
@@ -7035,7 +7086,7 @@ export class UIBuilder {
 				// Compliance dot
 				const monday = this._getMondayOfWeek(new Date(currentDate));
 				const compClass = this.getWeekComplianceClass(monday);
-				if (compClass && compClass !== 'week-future') {
+				if (compClass && compClass !== 'week-future' && compClass !== 'week-partial') {
 					const dot = weekNumCell.createDiv({ cls: 'tf-bar-cal-compliance-dot' });
 					if (compClass === 'week-ok') dot.addClass('tf-compliance-dot-ok');
 					else if (compClass === 'week-over') dot.addClass('tf-compliance-dot-over');
@@ -7191,10 +7242,20 @@ export class UIBuilder {
 		// Actions
 		const actions = drawer.createDiv({ cls: 'tf-drawer-actions' });
 
+		// Inline edit section, toggled by the edit button (replaces the old modal popup)
+		const editSection = drawer.createDiv({ cls: 'tf-drawer-edit-section tf-hidden' });
+
 		const editBtn = actions.createEl('button', { cls: 'tf-drawer-action-btn', text: t('v3.editTime') });
 		editBtn.onclick = () => {
-			this.selectedDayDate = null;
-			this.showEditEntriesModal(dateObj);
+			if (editSection.hasClass('tf-hidden')) {
+				this._renderDayEditFields(editSection, dateObj, calContainer);
+				editSection.removeClass('tf-hidden');
+				editBtn.addClass('active');
+			} else {
+				editSection.empty();
+				editSection.addClass('tf-hidden');
+				editBtn.removeClass('active');
+			}
 		};
 
 		const absenceBtn = actions.createEl('button', { cls: 'tf-drawer-action-btn', text: t('v3.addAbsence') });
@@ -7213,6 +7274,206 @@ export class UIBuilder {
 		}
 
 		return drawer;
+	}
+
+	// Render inline editable fields for a day's work entries inside the drawer (replaces the modal).
+	private _renderDayEditFields(container: HTMLElement, dateObj: Date, calContainer: HTMLElement): void {
+		container.empty();
+		const dateStr = Utils.toLocalDateStr(dateObj);
+		const workEntries = this.getWorkEntriesForDate(dateStr);
+
+		if (workEntries.length === 0) {
+			container.createDiv({ cls: 'tf-drawer-edit-empty', text: t('notifications.noWorkEntriesFound') });
+			return;
+		}
+
+		// The last entry by end time gets the overtime-payout control.
+		const sorted = [...workEntries].sort((a, b) => {
+			const ea = a.entry.endTime ? new Date(a.entry.endTime).getTime() : Date.now();
+			const eb = b.entry.endTime ? new Date(b.entry.endTime).getTime() : Date.now();
+			return ea - eb;
+		});
+		const lastEntry = sorted[sorted.length - 1].entry;
+
+		const dayGoal = this.data.getDailyGoal(dateStr);
+		let totalWorked = 0;
+		workEntries.forEach(item => {
+			if (item.entry.endTime) {
+				totalWorked += (new Date(item.entry.endTime).getTime() - new Date(item.entry.startTime!).getTime()) / 3600000;
+			}
+		});
+		const dayOvertime = Math.max(0, totalWorked - dayGoal);
+
+		const pad = (n: number) => n.toString().padStart(2, '0');
+
+		// Each entry contributes an "apply" function that validates its inputs and, on success,
+		// stages the new values onto the entry object. It returns an error message or null.
+		const appliers: Array<() => string | null> = [];
+
+		workEntries.forEach((item, index) => {
+			const entry = item.entry;
+			const startDate = new Date(entry.startTime!);
+			const endDate = entry.endTime ? new Date(entry.endTime) : null;
+			const startDateStr = Utils.toLocalDateStr(startDate);
+			const endDateStr = endDate ? Utils.toLocalDateStr(endDate) : startDateStr;
+
+			const card = container.createDiv({ cls: 'tf-drawer-edit-card' });
+
+			// Header: label + delete
+			const head = card.createDiv({ cls: 'tf-drawer-edit-head' });
+			const label = item.parent
+				? `${item.parent.name} – ${entry.name}`
+				: translateSpecialDayName(entry.name.toLowerCase(), entry.name) + (workEntries.length > 1 ? ` #${index + 1}` : '');
+			head.createSpan({ cls: 'tf-drawer-edit-label', text: label });
+			const delBtn = head.createEl('button', { cls: 'tf-drawer-edit-del' });
+			setIcon(delBtn, 'trash-2');
+			delBtn.title = t('buttons.delete');
+			delBtn.onclick = () => {
+				this.showDeleteConfirmation(entry, dateObj, async () => {
+					let deleted = false;
+					if (item.parent && item.subIndex !== undefined && item.parent.subEntries) {
+						item.parent.subEntries.splice(item.subIndex, 1);
+						if (item.parent.subEntries.length === 0) {
+							const pIdx = this.timerManager.data.entries.indexOf(item.parent);
+							if (pIdx > -1) this.timerManager.data.entries.splice(pIdx, 1);
+						}
+						deleted = true;
+					} else {
+						const eIdx = this.timerManager.data.entries.indexOf(entry);
+						if (eIdx > -1) { this.timerManager.data.entries.splice(eIdx, 1); deleted = true; }
+					}
+					if (deleted) {
+						await this.saveWithErrorHandling();
+						new Notice(`✅ ${t('notifications.deleted')}`);
+						this.timerManager.onTimerChange?.();
+					}
+				});
+			};
+
+			// Date inputs are only shown for multi-day entries; normal days edit times only.
+			const isMultiDay = !!endDate && startDateStr !== endDateStr;
+
+			// Start row: time (+ date when the entry spans multiple days)
+			const startRow = card.createDiv({ cls: 'tf-drawer-edit-row' });
+			startRow.createSpan({ cls: 'tf-drawer-edit-row-label', text: t('modals.startTime') });
+			let startDateInput: HTMLInputElement | null = null;
+			if (isMultiDay) {
+				startDateInput = startRow.createEl('input', { cls: 'tf-drawer-edit-date' });
+				startDateInput.type = 'date';
+				startDateInput.value = startDateStr;
+			}
+			const startTimeInput = this.createTimeInput(`${pad(startDate.getHours())}:${pad(startDate.getMinutes())}`, () => {});
+			startTimeInput.addClass('tf-drawer-edit-time');
+			startRow.appendChild(startTimeInput);
+
+			// End row: time (+ date when the entry spans multiple days)
+			const endRow = card.createDiv({ cls: 'tf-drawer-edit-row' });
+			endRow.createSpan({ cls: 'tf-drawer-edit-row-label', text: t('modals.endTime') });
+			let endDateInput: HTMLInputElement | null = null;
+			if (isMultiDay) {
+				endDateInput = endRow.createEl('input', { cls: 'tf-drawer-edit-date' });
+				endDateInput.type = 'date';
+				endDateInput.value = endDateStr;
+			}
+			const endTimeInput = this.createTimeInput(endDate ? `${pad(endDate.getHours())}:${pad(endDate.getMinutes())}` : '', () => {});
+			endTimeInput.addClass('tf-drawer-edit-time');
+			endRow.appendChild(endTimeInput);
+
+			// Overtime payout (last entry only, when there is overtime)
+			let payoutCheckbox: HTMLInputElement | null = null;
+			let payoutHoursInput: HTMLInputElement | null = null;
+			let payoutMinutesInput: HTMLInputElement | null = null;
+			if (entry === lastEntry && dayOvertime > 0) {
+				const payoutWrap = card.createDiv({ cls: 'tf-drawer-edit-payout' });
+				const cbRow = payoutWrap.createDiv({ cls: 'tf-drawer-edit-payout-row' });
+				payoutCheckbox = cbRow.createEl('input');
+				payoutCheckbox.type = 'checkbox';
+				payoutCheckbox.id = `tf-inline-payout-${index}`;
+				payoutCheckbox.checked = (entry.overtimePayout ?? 0) > 0;
+				const cbLabel = cbRow.createEl('label', { text: t('modals.overtimePayout') });
+				cbLabel.htmlFor = payoutCheckbox.id;
+
+				const inputsRow = payoutWrap.createDiv({ cls: 'tf-drawer-edit-payout-inputs' });
+				if (!payoutCheckbox.checked) inputsRow.addClass('tf-hidden');
+				const initial = entry.overtimePayout ?? dayOvertime;
+				payoutHoursInput = inputsRow.createEl('input', { cls: 'tf-drawer-edit-num' });
+				payoutHoursInput.type = 'number';
+				payoutHoursInput.min = '0';
+				payoutHoursInput.value = Math.floor(initial).toString();
+				inputsRow.createSpan({ text: this.settings.hourUnit });
+				payoutMinutesInput = inputsRow.createEl('input', { cls: 'tf-drawer-edit-num' });
+				payoutMinutesInput.type = 'number';
+				payoutMinutesInput.min = '0';
+				payoutMinutesInput.max = '59';
+				payoutMinutesInput.value = Math.round((initial - Math.floor(initial)) * 60).toString();
+				inputsRow.createSpan({ text: 'min' });
+				inputsRow.createSpan({ cls: 'tf-drawer-edit-payout-max', text: `(max ${Utils.formatHoursToHM(dayOvertime, this.settings.hourUnit)})` });
+				const cb = payoutCheckbox;
+				payoutCheckbox.onchange = () => inputsRow.toggleClass('tf-hidden', !cb.checked);
+			}
+
+			appliers.push(() => {
+				const sDate = startDateInput ? startDateInput.value : startDateStr;
+				const sTime = startTimeInput.value;
+				const eDate = endDateInput ? endDateInput.value : endDateStr;
+				const eTime = endTimeInput.value;
+				if (!sDate || !sTime) return t('validation.startTimeRequired');
+				const newStart = new Date(`${sDate}T${sTime}:00`);
+				if (isNaN(newStart.getTime())) return t('validation.invalidStartDateTime');
+
+				let newEnd: Date | null = null;
+				if (eTime) {
+					newEnd = new Date(`${eDate}T${eTime}:00`);
+					if (isNaN(newEnd.getTime())) return t('validation.invalidEndDateTime');
+					if (newEnd <= newStart) return t('validation.endAfterStart');
+					if (this.checkProhibitedOverlap(Utils.toLocalDateStr(newStart), entry.name, newStart, newEnd, entry)) {
+						return t('validation.overlappingEntry');
+					}
+				}
+
+				if (payoutCheckbox) {
+					if (payoutCheckbox.checked) {
+						const h = parseInt(payoutHoursInput!.value) || 0;
+						const m = parseInt(payoutMinutesInput!.value) || 0;
+						const payout = h + m / 60;
+						if (payout > dayOvertime + 0.01) {
+							return t('modals.payoutExceedsOvertime').replace('{hours}', dayOvertime.toFixed(2));
+						}
+						entry.overtimePayout = payout;
+					} else {
+						delete entry.overtimePayout;
+					}
+				}
+
+				entry.startTime = Utils.toLocalISOString(newStart);
+				entry.endTime = newEnd ? Utils.toLocalISOString(newEnd) : null;
+				return null;
+			});
+		});
+
+		// Save button — applies every entry's changes atomically, then refreshes the dashboard.
+		const saveRow = container.createDiv({ cls: 'tf-drawer-edit-save-row' });
+		const saveBtn = saveRow.createEl('button', { cls: 'tf-drawer-action-btn tf-drawer-edit-save', text: t('buttons.save') });
+		saveBtn.onclick = async () => {
+			// Snapshot originals so a mid-list validation failure doesn't half-apply.
+			const snapshot = workEntries.map(item => ({ entry: item.entry, startTime: item.entry.startTime, endTime: item.entry.endTime, overtimePayout: item.entry.overtimePayout }));
+			for (const apply of appliers) {
+				const err = apply();
+				if (err) {
+					snapshot.forEach(s => {
+						s.entry.startTime = s.startTime;
+						s.entry.endTime = s.endTime;
+						if (s.overtimePayout === undefined) delete s.entry.overtimePayout;
+						else s.entry.overtimePayout = s.overtimePayout;
+					});
+					new Notice(`❌ ${err}`);
+					return;
+				}
+			}
+			await this.saveWithErrorHandling();
+			new Notice(`✅ ${t('notifications.entryUpdated')}`);
+			this.timerManager.onTimerChange?.();
+		};
 	}
 
 	// =====================================================================
@@ -7237,7 +7498,7 @@ export class UIBuilder {
 		});
 
 		futureDays.sort((a, b) => a.date.localeCompare(b.date));
-		const display = futureDays.slice(0, 8);
+		const display = futureDays.slice(0, 4);
 		if (display.length === 0) return;
 
 		const wrap = container.createDiv({ cls: 'tf-upcoming-flat' });
@@ -7248,8 +7509,8 @@ export class UIBuilder {
 			const d = new Date(day.date + 'T00:00:00');
 			item.createDiv({ cls: 'tf-upcoming-date', text: formatDate(d, 'long') });
 			const chip = item.createDiv({ cls: 'tf-upcoming-chip', text: day.label });
-			chip.style.background = `${day.color}26`; // ~15% opacity
-			chip.style.color = day.color;
+			chip.style.background = day.color;
+			chip.style.color = day.textColor;
 		});
 	}
 
@@ -7427,6 +7688,10 @@ export class UIBuilder {
 		const statsHeadRow = statsSection.createDiv({ cls: 'tf-v2-card-header' });
 		statsHeadRow.createDiv({ cls: 'tf-wide-section-heading', text: t('ui.statistics') });
 
+		// Re-render the whole column so the period selector, stats grid and leave
+		// tracking all reflect the new timeframe/year/month together.
+		const rerender = () => { col.empty(); this._fillWideRightColumn(col); };
+
 		const tabs = statsHeadRow.createDiv({ cls: 'tf-stats-tabs' });
 		const timeframeLabels: Record<string, string> = { month: t('timeframes.month'), year: t('timeframes.year'), total: t('timeframes.total') };
 		['month', 'year', 'total'].forEach(tf => {
@@ -7436,29 +7701,67 @@ export class UIBuilder {
 			});
 			tab.onclick = () => {
 				this.statsTimeframe = tf;
-				tabs.querySelectorAll('.tf-stats-tab').forEach(el => el.classList.remove('active'));
-				tab.classList.add('active');
-				gridEl.empty();
-				this._fillWideStatsGrid(gridEl);
+				rerender();
 			};
 		});
+
+		// Year / month selector (hidden for the all-time "total" view)
+		this._fillStatsPeriodSelector(statsSection, rerender);
 
 		const gridEl = statsSection.createDiv({ cls: 'tf-wide-stats-grid' });
 		this._fillWideStatsGrid(gridEl);
 
-		// Leave tracking
-		const leaveItems = this.settings.specialDayBehaviors.filter(b => !b.isWorkType && b.flextimeEffect !== 'none');
-		if (leaveItems.length > 0) {
-			const leaveSection = col.createDiv();
-			leaveSection.createDiv({ cls: 'tf-leave-section-label', text: t('v3.leaveUsedThisYear') });
-			const leaveRows = leaveSection.createDiv({ cls: 'tf-leave-section' });
-			this._fillLeaveTracking(leaveRows, leaveItems);
-		}
+		// Leave tracking — all absence types; only those with booked days/hours render.
+		const leaveItems = this.settings.specialDayBehaviors.filter(b => !b.isWorkType && b.id !== 'jobb');
+		const leaveSection = col.createDiv();
+		this._fillLeaveTracking(leaveSection, leaveItems);
 
 		// Weekly hours chart
 		const chartSection = col.createDiv();
 		chartSection.createDiv({ cls: 'tf-weekly-chart-label', text: t('v3.weeklyHoursLabel') });
 		this._fillWideWeeklyChart(chartSection);
+	}
+
+	// Year (and month) dropdowns so stats can look back at previous periods.
+	private _fillStatsPeriodSelector(container: HTMLElement, onChange: () => void): void {
+		if (this.statsTimeframe === 'total') return; // all-time has no period to pick
+		const availableYears = this.data.getAvailableYears();
+		if (availableYears.length === 0) return;
+
+		const row = container.createDiv({ cls: 'tf-stats-period' });
+
+		const yearSelect = row.createEl('select', { cls: 'tf-stats-period-select' });
+		availableYears.forEach(y => {
+			const opt = yearSelect.createEl('option', { text: String(y) });
+			opt.value = String(y);
+			if (y === this.selectedYear) opt.selected = true;
+		});
+		yearSelect.onchange = () => {
+			this.selectedYear = parseInt(yearSelect.value);
+			if (this.statsTimeframe === 'month') {
+				const months = this.data.getAvailableMonthsForYear(this.selectedYear);
+				if (months.length > 0 && !months.includes(this.selectedMonth)) {
+					this.selectedMonth = months[months.length - 1];
+				}
+			}
+			onChange();
+		};
+
+		if (this.statsTimeframe === 'month') {
+			const months = this.data.getAvailableMonthsForYear(this.selectedYear);
+			if (months.length > 0) {
+				const monthSelect = row.createEl('select', { cls: 'tf-stats-period-select' });
+				months.forEach(m => {
+					const opt = monthSelect.createEl('option', { text: getMonthName(new Date(this.selectedYear, m, 1)) });
+					opt.value = String(m);
+					if (m === this.selectedMonth) opt.selected = true;
+				});
+				monthSelect.onchange = () => {
+					this.selectedMonth = parseInt(monthSelect.value);
+					onChange();
+				};
+			}
+		}
 	}
 
 	private _fillWideStatsGrid(grid: HTMLElement): void {
@@ -7490,7 +7793,7 @@ export class UIBuilder {
 		// Comp-time cell: resolve the comp-time type by its flextime effect, not a hardcoded id.
 		const compBehavior = this.settings.specialDayBehaviors.find(b => !b.isWorkType && b.flextimeEffect === 'withdraw');
 		if (compBehavior) {
-			const usedComp = this._getLeaveUsedHours(compBehavior.id, new Date().getFullYear());
+			const usedComp = this._getLeaveUsedHours(compBehavior.id, { timeframe: this.statsTimeframe, year: this.selectedYear, month: this.selectedMonth });
 			const cell = grid.createDiv({ cls: 'tf-wide-stats-cell' });
 			const valEl = cell.createDiv({ cls: 'tf-wide-stats-value', text: Utils.formatHoursToHM(usedComp, unit) });
 			valEl.style.color = compBehavior.color;
@@ -7500,25 +7803,46 @@ export class UIBuilder {
 	}
 
 	private _fillLeaveTracking(section: HTMLElement, behaviors: SpecialDayBehavior[]): void {
-		const year = new Date().getFullYear();
-
 		const unit = this.settings.hourUnit;
-		behaviors.slice(0, 4).forEach(b => {
-			const used = this._getLeaveUsedHours(b.id, year);
-			// Only show a quota/bar when the type actually defines one in settings.
-			const hasQuota = b.maxDaysPerYear != null;
-			const quota = hasQuota ? (b.maxDaysPerYear as number) * this.settings.baseWorkday * this.settings.workPercent : 0;
-			const pct = hasQuota && quota > 0 ? Math.min((used / quota) * 100, 100) : 0;
+		const year = this.selectedYear;
+		const dailyGoal = this.settings.baseWorkday * this.settings.workPercent;
 
-			const row = section.createDiv({ cls: 'tf-leave-row' });
+		// Build render rows, skipping any type with no booked days/hours for the year.
+		const rows: { b: SpecialDayBehavior; pct: number; countsText: string }[] = [];
+		behaviors.forEach(b => {
+			const hasQuota = b.maxDaysPerYear != null;
+			// Comp-time / withdraw types are inherently hours-based; everything else counts in days.
+			if (b.flextimeEffect === 'withdraw') {
+				const used = this._getLeaveUsedHours(b.id, { timeframe: 'year', year });
+				if (used <= 0) return;
+				const quota = hasQuota ? (b.maxDaysPerYear as number) * dailyGoal : 0;
+				const pct = hasQuota && quota > 0 ? Math.min((used / quota) * 100, 100) : 0;
+				const countsText = hasQuota
+					? `${Utils.formatHoursToHM(used, unit)} / ${Utils.formatHoursToHM(quota, unit)}`
+					: Utils.formatHoursToHM(used, unit);
+				rows.push({ b, pct, countsText });
+			} else {
+				const usedDays = this._getLeaveUsedDays(b.id, year);
+				if (usedDays <= 0) return;
+				const quotaDays = hasQuota ? (b.maxDaysPerYear as number) : 0;
+				const pct = hasQuota && quotaDays > 0 ? Math.min((usedDays / quotaDays) * 100, 100) : 0;
+				const fmtDays = (d: number) => `${Number.isInteger(d) ? d : d.toFixed(1)} ${t('ui.days')}`;
+				const countsText = hasQuota ? `${fmtDays(usedDays)} / ${fmtDays(quotaDays)}` : fmtDays(usedDays);
+				rows.push({ b, pct, countsText });
+			}
+		});
+
+		if (rows.length === 0) return;
+
+		section.createDiv({ cls: 'tf-leave-section-label', text: t('v3.leaveUsedThisYear') });
+		const rowsWrap = section.createDiv({ cls: 'tf-leave-section' });
+		rows.forEach(({ b, pct, countsText }) => {
+			const row = rowsWrap.createDiv({ cls: 'tf-leave-row' });
 			const top = row.createDiv({ cls: 'tf-leave-row-top' });
 			const labelGroup = top.createDiv({ cls: 'tf-leave-label-group' });
 			const dot = labelGroup.createDiv({ cls: 'tf-leave-dot' });
 			dot.style.background = b.color;
 			labelGroup.createDiv({ cls: 'tf-leave-label', text: translateSpecialDayName(b.id, b.label) });
-			const countsText = hasQuota
-				? `${Utils.formatHoursToHM(used, unit)} / ${Utils.formatHoursToHM(quota, unit)}`
-				: Utils.formatHoursToHM(used, unit);
 			const counts = top.createDiv({ cls: 'tf-leave-counts', text: countsText });
 			counts.style.color = b.color;
 			const track = row.createDiv({ cls: 'tf-leave-bar-track' });
@@ -7528,10 +7852,38 @@ export class UIBuilder {
 		});
 	}
 
-	private _getLeaveUsedHours(behaviorId: string, year: number): number {
+	// Days of a day-based leave type booked this year (taken + planned), from the absence
+	// flow (holidays store) plus any leave logged as timer entries, deduped per date.
+	private _getLeaveUsedDays(behaviorId: string, year: number): number {
+		const dailyGoal = this.settings.baseWorkday * this.settings.workPercent;
+		const perDate: Record<string, number> = {};
+		Object.entries(this.data.holidays).forEach(([dateKey, info]) => {
+			if (info.type !== behaviorId) return;
+			if (new Date(dateKey + 'T12:00:00').getFullYear() !== year) return;
+			perDate[dateKey] = Math.max(perDate[dateKey] ?? 0, info.halfDay ? 0.5 : 1);
+		});
+		Object.entries(this.data.daily).forEach(([dateKey, entries]) => {
+			if (new Date(dateKey + 'T12:00:00').getFullYear() !== year) return;
+			const hours = entries.reduce((s, e) => e.name === behaviorId ? s + (e.duration || 0) : s, 0);
+			if (hours <= 0) return;
+			const frac = dailyGoal > 0 ? Math.min(hours / dailyGoal, 1) : 0;
+			perDate[dateKey] = Math.max(perDate[dateKey] ?? 0, frac);
+		});
+		return Object.values(perDate).reduce((s, v) => s + v, 0);
+	}
+
+	private _getLeaveUsedHours(behaviorId: string, opts: { timeframe?: string; year?: number; month?: number } = {}): number {
+		const timeframe = opts.timeframe ?? 'year';
+		const today = new Date();
+		const year = opts.year ?? today.getFullYear();
+		const month = opts.month ?? today.getMonth();
 		let total = 0;
 		Object.entries(this.data.daily).forEach(([dateKey, entries]) => {
-			if (!dateKey.startsWith(String(year))) return;
+			if (timeframe !== 'total') {
+				const d = new Date(dateKey + 'T12:00:00');
+				if (d.getFullYear() !== year) return;
+				if (timeframe === 'month' && d.getMonth() !== month) return;
+			}
 			entries.forEach(e => {
 				if (e.name === behaviorId) total += (e.duration || 0);
 			});
@@ -7548,6 +7900,18 @@ export class UIBuilder {
 		const maxHours = Math.max(...weekTotals, weekGoal, 1);
 
 		const chart = container.createDiv({ cls: 'tf-wide-weekly-chart' });
+
+		// Goal/limit reference lines, scaled by the same maxHours/maxBarPx (60) the bars use.
+		// Bars sit above the week-label row, so offset the lines by that baseline (label 14px + 4px gap).
+		const refBarPx = 60;
+		const baselinePx = 18;
+		const goalPx = Math.min(Math.round((weekGoal / maxHours) * refBarPx), refBarPx);
+		chart.createDiv({ cls: 'tf-wide-weekly-ref tf-wide-weekly-ref-goal' }).style.bottom = `${goalPx + baselinePx}px`;
+		if (weekLimit > weekGoal) {
+			const limitPx = Math.min(Math.round((weekLimit / maxHours) * refBarPx), refBarPx);
+			chart.createDiv({ cls: 'tf-wide-weekly-ref tf-wide-weekly-ref-limit' }).style.bottom = `${limitPx + baselinePx}px`;
+		}
+
 		weekTotals.forEach((hours, i) => {
 			const d = new Date(today);
 			d.setDate(today.getDate() - (6 - i) * 7);
