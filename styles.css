@@ -302,7 +302,7 @@
 .tf-stat-colored div,
 .tf-stat-colored .tf-stat-label,
 .tf-stat-colored .tf-stat-value {
-	color: white !important;
+	color: white;
 }
 
 /* ========================================
@@ -756,6 +756,7 @@
 
 .tf-heatmap {
 	display: grid;
+	grid-template-columns: repeat(var(--tf-heatmap-cols, 7), 1fr);
 	gap: 2px;
 	margin-top: 15px;
 	padding-right: 1px;
@@ -776,7 +777,7 @@
 
 @media (max-width: 600px) {
 	.tf-heatmap {
-		grid-template-columns: repeat(20, 1fr) !important;
+		grid-template-columns: repeat(20, 1fr);
 	}
 }
 
@@ -3669,9 +3670,9 @@
 	opacity: 0.8;
 }
 
-/* Hidden element - display none */
-.tf-hidden {
-	display: none !important;
+/* Hidden element - display none (doubled class keeps precedence without !important) */
+.tf-hidden.tf-hidden {
+	display: none;
 }
 
 /* Block display */
@@ -4571,7 +4572,7 @@
 
 /* Wide header: balance + label + badge on one row, clock + Start button right */
 [data-layout="wide"] .tf-balance-hero { display: flex; align-items: center; gap: 12px; padding: 16px 22px 14px; border-bottom: none; }
-[data-layout="wide"] .tf-balance-hero-row1 { display: contents; }
+[data-layout="wide"] .tf-balance-hero-row1 { display: flex; flex: 1; align-items: center; justify-content: space-between; }
 [data-layout="wide"] .tf-balance-left { flex-direction: row; align-items: center; gap: 10px; }
 [data-layout="wide"] .tf-balance-label { margin-bottom: 0; order: 1; }
 [data-layout="wide"] .tf-balance-number { margin-bottom: 0; order: 0; }
@@ -4582,7 +4583,7 @@
 [data-layout="wide"] .tf-hero-stop-btn { flex: 0 0 auto; padding: 11px 18px; }
 
 /* Wide progress strips: two columns side-by-side */
-[data-layout="wide"] .tf-progress-strip { display: grid; grid-template-columns: 1fr 1fr; column-gap: 24px; row-gap: 11px; }
+[data-layout="wide"] .tf-progress-strip { display: grid; grid-template-columns: 1fr 1fr; gap: 11px 24px; }
 
 /* ========================================
    v3 — History section (wide only, full width)

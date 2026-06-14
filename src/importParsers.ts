@@ -362,7 +362,7 @@ export class GenericJSONParser implements ImportParser {
 		try {
 			const trimmed = content.trim();
 			if (!trimmed.startsWith('[')) return false;
-			const data = JSON.parse(trimmed);
+			const data = JSON.parse(trimmed) as unknown;
 			return Array.isArray(data) && data.length > 0;
 		} catch {
 			return false;

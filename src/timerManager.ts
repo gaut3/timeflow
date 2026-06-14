@@ -450,7 +450,7 @@ ${timekeepBlock}${settingsBlock}
 	// Import from Timekeep JSON
 	async importTimekeepData(jsonData: string): Promise<boolean> {
 		try {
-			const parsed: TimekeepData = JSON.parse(jsonData);
+			const parsed = JSON.parse(jsonData) as TimekeepData;
 			if (parsed && parsed.entries) {
 				// Merge with current data, avoiding duplicates
 				const currentEntries = this.data.entries;

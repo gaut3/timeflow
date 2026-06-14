@@ -409,7 +409,7 @@ export class UIBuilder {
 				activeDocument.removeEventListener('click', closeMenu);
 			}
 		};
-		activeWindow.setTimeout(() => activeDocument.addEventListener('click', closeMenu), 0);
+		window.setTimeout(() => activeDocument.addEventListener('click', closeMenu), 0);
 	}
 
 	buildSummaryCards(): HTMLElement {
@@ -811,7 +811,7 @@ export class UIBuilder {
 		this.refreshHistoryView(detailsElement);
 
 		// Use requestAnimationFrame to check width after render
-		requestAnimationFrame(() => {
+		window.requestAnimationFrame(() => {
 			this.updateEditToggleVisibility(detailsElement);
 		});
 
@@ -1226,7 +1226,7 @@ export class UIBuilder {
 				activeDocument.removeEventListener('click', closeHandler);
 			}
 		};
-		activeWindow.setTimeout(() => activeDocument.addEventListener('click', closeHandler), 0);
+		window.setTimeout(() => activeDocument.addEventListener('click', closeHandler), 0);
 	}
 
 	/**
@@ -2598,7 +2598,7 @@ export class UIBuilder {
 				activeDocument.removeEventListener('click', closeHandler);
 			}
 		};
-		activeWindow.setTimeout(() => activeDocument.addEventListener('click', closeHandler), 0);
+		window.setTimeout(() => activeDocument.addEventListener('click', closeHandler), 0);
 	}
 
 	showNoteTypeMenu(cellRect: DOMRect, dateObj: Date): void {
@@ -2656,7 +2656,7 @@ export class UIBuilder {
 
 		// Check if menu goes off the bottom edge of the window
 		// Estimate menu height (will be adjusted after content is added)
-		activeWindow.setTimeout(() => {
+		window.setTimeout(() => {
 			const menuHeight = menu.offsetHeight;
 			if (menuTop + menuHeight > window.innerHeight) {
 				// Position so bottom of menu is 10px from bottom of viewport
@@ -2921,7 +2921,7 @@ export class UIBuilder {
 		menu.appendChild(menuInfo);
 
 		// Close menu on click outside
-		activeWindow.setTimeout(() => {
+		window.setTimeout(() => {
 			const closeMenu = (e: MouseEvent) => {
 				if (!menu.contains(e.target as Node)) {
 					menu.remove();
@@ -5046,7 +5046,7 @@ export class UIBuilder {
 		}
 
 		// Check width again after render - container may not have final width on first render
-		requestAnimationFrame(() => {
+		window.requestAnimationFrame(() => {
 			const actualWidth = container.offsetWidth;
 			const shouldBeWide = actualWidth >= 450;
 
@@ -5209,11 +5209,9 @@ export class UIBuilder {
 				const typeBehavior = this.settings.specialDayBehaviors.find(b => b.id === entryNameLower);
 				const typeChip = typeCell.createSpan({ cls: 'tf-history-type-chip', text: translateSpecialDayName(entryNameLower, e.name) });
 				if (typeBehavior?.color && /^#[0-9a-f]{6}$/i.test(typeBehavior.color)) {
-					typeChip.style.color = typeBehavior.textColor || '#fff';
-					typeChip.style.background = typeBehavior.color;
+					typeChip.setCssStyles({ color: typeBehavior.textColor || '#fff', background: typeBehavior.color });
 				} else {
-					typeChip.style.color = 'var(--color-muted)';
-					typeChip.style.background = 'var(--color-raised)';
+					typeChip.setCssStyles({ color: 'var(--color-muted)', background: 'var(--color-raised)' });
 				}
 			}
 			row.appendChild(typeCell);
@@ -5444,11 +5442,9 @@ export class UIBuilder {
 					const typeBehavior = this.settings.specialDayBehaviors.find(b => b.id === entryNameLower);
 						const typeChip = typeCell.createSpan({ cls: 'tf-history-type-chip', text: translateSpecialDayName(entryNameLower, e.name) });
 						if (typeBehavior?.color && /^#[0-9a-f]{6}$/i.test(typeBehavior.color)) {
-							typeChip.style.color = typeBehavior.textColor || '#fff';
-							typeChip.style.background = typeBehavior.color;
+							typeChip.setCssStyles({ color: typeBehavior.textColor || '#fff', background: typeBehavior.color });
 						} else {
-							typeChip.style.color = 'var(--color-muted)';
-							typeChip.style.background = 'var(--color-raised)';
+							typeChip.setCssStyles({ color: 'var(--color-muted)', background: 'var(--color-raised)' });
 						}
 					row.appendChild(typeCell);
 
@@ -5728,11 +5724,9 @@ export class UIBuilder {
 							const typeBehavior = this.settings.specialDayBehaviors.find(b => b.id === entryNameLower);
 						const typeChip = typeCell.createSpan({ cls: 'tf-history-type-chip', text: translateSpecialDayName(entryNameLower, e.name) });
 						if (typeBehavior?.color && /^#[0-9a-f]{6}$/i.test(typeBehavior.color)) {
-							typeChip.style.color = typeBehavior.textColor || '#fff';
-							typeChip.style.background = typeBehavior.color;
+							typeChip.setCssStyles({ color: typeBehavior.textColor || '#fff', background: typeBehavior.color });
 						} else {
-							typeChip.style.color = 'var(--color-muted)';
-							typeChip.style.background = 'var(--color-raised)';
+							typeChip.setCssStyles({ color: 'var(--color-muted)', background: 'var(--color-raised)' });
 						}
 						}
 						row.appendChild(typeCell);
@@ -6220,7 +6214,7 @@ export class UIBuilder {
 	renderHeatmapView(container: HTMLElement, _years: Record<string, Record<string, TimeEntry[]>>): void {
 		const heatmap = createDiv();
 		heatmap.className = 'tf-heatmap';
-		heatmap.style.gridTemplateColumns = `repeat(${this.settings.heatmapColumns}, 1fr)`;
+		heatmap.setCssProps({ '--tf-heatmap-cols': String(this.settings.heatmapColumns) });
 
 		const today = new Date();
 		const daysToShow = this.settings.heatmapColumns * 8; // ~1 year
@@ -6803,7 +6797,7 @@ export class UIBuilder {
 	}
 
 	cleanup(): void {
-		this.intervals.forEach(interval => activeWindow.clearInterval(interval));
+		this.intervals.forEach(interval => window.clearInterval(interval));
 		this.intervals = [];
 		this._resizeObserver?.disconnect();
 		this._resizeObserver = null;
@@ -6834,7 +6828,7 @@ export class UIBuilder {
 		this._updateBalanceHeroContent(numEl, badgeEl, timerWrap);
 		this._updateHeroClock(clockEl);
 
-		const clockInterval = activeWindow.setInterval(() => this._updateHeroClock(clockEl), 1000);
+		const clockInterval = window.setInterval(() => this._updateHeroClock(clockEl), 1000);
 		this.intervals.push(clockInterval);
 
 		return hero;
@@ -6913,7 +6907,7 @@ export class UIBuilder {
 			};
 		} else {
 			const stopBtn = timerWrap.createEl('button', { cls: 'tf-hero-stop-btn' });
-			const pulse = stopBtn.createDiv({ cls: 'tf-hero-pulse' });
+			stopBtn.createDiv({ cls: 'tf-hero-pulse' });
 			stopBtn.appendText(t('buttons.stop'));
 			stopBtn.onclick = async () => {
 				for (const timer of activeTimers) {
@@ -7070,7 +7064,6 @@ export class UIBuilder {
 		// Draw rows until we've covered all days in the month
 		const lastDay = new Date(year, month, daysInMonth);
 		let drawerInserted = false;
-		let drawerAfterWeekRow: HTMLElement | null = null;
 
 		while (currentDate <= lastDay || (currentDate.getMonth() <= month && currentDate.getFullYear() <= year)) {
 			const weekRow = cal.createDiv({ cls: 'tf-bar-cal-week-row' });
@@ -7141,7 +7134,7 @@ export class UIBuilder {
 					const barPct = dailyGoal > 0 ? Math.min((totalHours / dailyGoal) * 100, 100) : (totalHours > 0 ? 100 : 0);
 					barFill.style.width = `${barPct}%`;
 				} else {
-					barFill.style.width = '0%';
+					barFill.setCssStyles({ width: '0%' });
 				}
 
 				// Click handler
@@ -7220,7 +7213,7 @@ export class UIBuilder {
 		const typeLabel = typeBehavior ? translateSpecialDayName(typeBehavior.id, typeBehavior.label) : t('specialDays.work');
 		workLeft.createEl('span', { cls: 'tf-drawer-work-label', text: `${typeLabel} · ${Utils.formatHoursToHM(totalHours, this.settings.hourUnit)}` });
 
-		const starts = dayEntries.filter(e => e.startTime).map(e => e.startTime!).sort();
+		const starts = dayEntries.filter(e => e.startTime).map(e => e.startTime).sort();
 		const ends = dayEntries.filter(e => e.endTime).map(e => e.endTime!).sort();
 		if (starts.length > 0) {
 			const firstStart = starts[0].substring(11, 16);
@@ -7581,7 +7574,7 @@ export class UIBuilder {
 						activeDocument.removeEventListener('mousedown', closeOnOutside);
 					}
 				};
-				activeWindow.setTimeout(() => activeDocument.addEventListener('mousedown', closeOnOutside), 0);
+				window.setTimeout(() => activeDocument.addEventListener('mousedown', closeOnOutside), 0);
 			}
 		};
 
@@ -7653,10 +7646,8 @@ export class UIBuilder {
 				overlayEl = null;
 			} else {
 				overlayEl = this._buildInfoOverlayContent();
-				overlayEl.style.position = 'absolute';
-				overlayEl.style.bottom = 'calc(100% + 6px)';
-				overlayEl.style.right = '0';
-				bar.style.position = 'relative';
+				overlayEl.setCssStyles({ position: 'absolute', bottom: 'calc(100% + 6px)', right: '0' });
+				bar.setCssStyles({ position: 'relative' });
 				bar.appendChild(overlayEl);
 				const closeOnOutside = (ev: MouseEvent) => {
 					if (overlayEl && !bar.contains(ev.target as Node)) {
@@ -7665,7 +7656,7 @@ export class UIBuilder {
 						activeDocument.removeEventListener('mousedown', closeOnOutside);
 					}
 				};
-				activeWindow.setTimeout(() => activeDocument.addEventListener('mousedown', closeOnOutside), 0);
+				window.setTimeout(() => activeDocument.addEventListener('mousedown', closeOnOutside), 0);
 			}
 		};
 

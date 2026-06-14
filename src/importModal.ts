@@ -102,7 +102,7 @@ export class ImportModal extends Modal {
 		// Also parse on text change after a delay
 		let parseTimeout: number;
 		textArea.oninput = () => {
-			activeWindow.clearTimeout(parseTimeout);
+			window.clearTimeout(parseTimeout);
 			parseTimeout = window.setTimeout(() => {
 				if (textArea.value.trim().length > 50) {
 					this.updatePreview(textArea.value, previewDiv, importBtn);

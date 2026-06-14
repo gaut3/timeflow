@@ -1586,7 +1586,7 @@ var ImportModal = class extends import_obsidian.Modal {
     };
     let parseTimeout;
     textArea.oninput = () => {
-      activeWindow.clearTimeout(parseTimeout);
+      window.clearTimeout(parseTimeout);
       parseTimeout = window.setTimeout(() => {
         if (textArea.value.trim().length > 50) {
           this.updatePreview(textArea.value, previewDiv, importBtn);
@@ -5427,7 +5427,7 @@ var UIBuilder = class {
         activeDocument.removeEventListener("click", closeMenu);
       }
     };
-    activeWindow.setTimeout(() => activeDocument.addEventListener("click", closeMenu), 0);
+    window.setTimeout(() => activeDocument.addEventListener("click", closeMenu), 0);
   }
   buildSummaryCards() {
     const container = createDiv();
@@ -5720,7 +5720,7 @@ var UIBuilder = class {
     card.appendChild(header);
     card.appendChild(content);
     this.refreshHistoryView(detailsElement);
-    requestAnimationFrame(() => {
+    window.requestAnimationFrame(() => {
       this.updateEditToggleVisibility(detailsElement);
     });
     let lastWasWide = detailsElement.offsetWidth >= 450;
@@ -6046,7 +6046,7 @@ var UIBuilder = class {
         activeDocument.removeEventListener("click", closeHandler);
       }
     };
-    activeWindow.setTimeout(() => activeDocument.addEventListener("click", closeHandler), 0);
+    window.setTimeout(() => activeDocument.addEventListener("click", closeHandler), 0);
   }
   /**
    * Generate compliance warning HTML for daily hours
@@ -7033,7 +7033,7 @@ var UIBuilder = class {
         activeDocument.removeEventListener("click", closeHandler);
       }
     };
-    activeWindow.setTimeout(() => activeDocument.addEventListener("click", closeHandler), 0);
+    window.setTimeout(() => activeDocument.addEventListener("click", closeHandler), 0);
   }
   showNoteTypeMenu(cellRect, dateObj) {
     var _a, _b, _c, _d, _e;
@@ -7067,7 +7067,7 @@ var UIBuilder = class {
       }
       menu.style.left = `${menuLeft}px`;
     }
-    activeWindow.setTimeout(() => {
+    window.setTimeout(() => {
       const menuHeight = menu.offsetHeight;
       if (menuTop + menuHeight > window.innerHeight) {
         menuTop = Math.max(10, window.innerHeight - menuHeight - 10);
@@ -7256,7 +7256,7 @@ var UIBuilder = class {
     }
     menuInfo.createEl("p", { text: `\u{1F4A1} ${t("menu.selectOption")}`, cls: "tf-tip-paragraph" });
     menu.appendChild(menuInfo);
-    activeWindow.setTimeout(() => {
+    window.setTimeout(() => {
       const closeMenu = (e) => {
         if (!menu.contains(e.target)) {
           menu.remove();
@@ -8824,7 +8824,7 @@ ${noteType.tags.join(" ")}`;
     } else {
       this.renderNarrowListView(container, years);
     }
-    requestAnimationFrame(() => {
+    window.requestAnimationFrame(() => {
       const actualWidth = container.offsetWidth;
       const shouldBeWide = actualWidth >= 450;
       if (shouldBeWide !== isWide) {
@@ -8950,11 +8950,9 @@ ${noteType.tags.join(" ")}`;
         const typeBehavior = this.settings.specialDayBehaviors.find((b) => b.id === entryNameLower);
         const typeChip = typeCell.createSpan({ cls: "tf-history-type-chip", text: translateSpecialDayName(entryNameLower, e.name) });
         if ((typeBehavior == null ? void 0 : typeBehavior.color) && /^#[0-9a-f]{6}$/i.test(typeBehavior.color)) {
-          typeChip.style.color = typeBehavior.textColor || "#fff";
-          typeChip.style.background = typeBehavior.color;
+          typeChip.setCssStyles({ color: typeBehavior.textColor || "#fff", background: typeBehavior.color });
         } else {
-          typeChip.style.color = "var(--color-muted)";
-          typeChip.style.background = "var(--color-raised)";
+          typeChip.setCssStyles({ color: "var(--color-muted)", background: "var(--color-raised)" });
         }
       }
       row.appendChild(typeCell);
@@ -9139,11 +9137,9 @@ ${noteType.tags.join(" ")}`;
           const typeBehavior = this.settings.specialDayBehaviors.find((b) => b.id === entryNameLower);
           const typeChip = typeCell.createSpan({ cls: "tf-history-type-chip", text: translateSpecialDayName(entryNameLower, e.name) });
           if ((typeBehavior == null ? void 0 : typeBehavior.color) && /^#[0-9a-f]{6}$/i.test(typeBehavior.color)) {
-            typeChip.style.color = typeBehavior.textColor || "#fff";
-            typeChip.style.background = typeBehavior.color;
+            typeChip.setCssStyles({ color: typeBehavior.textColor || "#fff", background: typeBehavior.color });
           } else {
-            typeChip.style.color = "var(--color-muted)";
-            typeChip.style.background = "var(--color-raised)";
+            typeChip.setCssStyles({ color: "var(--color-muted)", background: "var(--color-raised)" });
           }
           row.appendChild(typeCell);
           const hoursCell = createEl("td");
@@ -9352,11 +9348,9 @@ ${noteType.tags.join(" ")}`;
               const typeBehavior = this.settings.specialDayBehaviors.find((b) => b.id === entryNameLower);
               const typeChip = typeCell.createSpan({ cls: "tf-history-type-chip", text: translateSpecialDayName(entryNameLower, e.name) });
               if ((typeBehavior == null ? void 0 : typeBehavior.color) && /^#[0-9a-f]{6}$/i.test(typeBehavior.color)) {
-                typeChip.style.color = typeBehavior.textColor || "#fff";
-                typeChip.style.background = typeBehavior.color;
+                typeChip.setCssStyles({ color: typeBehavior.textColor || "#fff", background: typeBehavior.color });
               } else {
-                typeChip.style.color = "var(--color-muted)";
-                typeChip.style.background = "var(--color-raised)";
+                typeChip.setCssStyles({ color: "var(--color-muted)", background: "var(--color-raised)" });
               }
             }
             row.appendChild(typeCell);
@@ -9751,7 +9745,7 @@ ${noteType.tags.join(" ")}`;
   renderHeatmapView(container, _years) {
     const heatmap = createDiv();
     heatmap.className = "tf-heatmap";
-    heatmap.style.gridTemplateColumns = `repeat(${this.settings.heatmapColumns}, 1fr)`;
+    heatmap.setCssProps({ "--tf-heatmap-cols": String(this.settings.heatmapColumns) });
     const today = /* @__PURE__ */ new Date();
     const daysToShow = this.settings.heatmapColumns * 8;
     for (let i = daysToShow; i >= 0; i--) {
@@ -10181,7 +10175,7 @@ ${noteType.tags.join(" ")}`;
   }
   cleanup() {
     var _a;
-    this.intervals.forEach((interval) => activeWindow.clearInterval(interval));
+    this.intervals.forEach((interval) => window.clearInterval(interval));
     this.intervals = [];
     (_a = this._resizeObserver) == null ? void 0 : _a.disconnect();
     this._resizeObserver = null;
@@ -10203,7 +10197,7 @@ ${noteType.tags.join(" ")}`;
     const timerWrap = hero.createDiv({ cls: "tf-hero-timer-wrap" });
     this._updateBalanceHeroContent(numEl, badgeEl, timerWrap);
     this._updateHeroClock(clockEl);
-    const clockInterval = activeWindow.setInterval(() => this._updateHeroClock(clockEl), 1e3);
+    const clockInterval = window.setInterval(() => this._updateHeroClock(clockEl), 1e3);
     this.intervals.push(clockInterval);
     return hero;
   }
@@ -10270,7 +10264,7 @@ ${noteType.tags.join(" ")}`;
       };
     } else {
       const stopBtn = timerWrap.createEl("button", { cls: "tf-hero-stop-btn" });
-      const pulse = stopBtn.createDiv({ cls: "tf-hero-pulse" });
+      stopBtn.createDiv({ cls: "tf-hero-pulse" });
       stopBtn.appendText(t("buttons.stop"));
       stopBtn.onclick = async () => {
         for (const timer of activeTimers) {
@@ -10406,7 +10400,6 @@ ${noteType.tags.join(" ")}`;
     currentDate.setDate(firstDay.getDate() - dow);
     const lastDay = new Date(year, month, daysInMonth);
     let drawerInserted = false;
-    let drawerAfterWeekRow = null;
     while (currentDate <= lastDay || currentDate.getMonth() <= month && currentDate.getFullYear() <= year) {
       const weekRow = cal.createDiv({ cls: "tf-bar-cal-week-row" });
       weekRow.style.gridTemplateColumns = cols;
@@ -10462,7 +10455,7 @@ ${noteType.tags.join(" ")}`;
           const barPct = dailyGoal > 0 ? Math.min(totalHours / dailyGoal * 100, 100) : totalHours > 0 ? 100 : 0;
           barFill.style.width = `${barPct}%`;
         } else {
-          barFill.style.width = "0%";
+          barFill.setCssStyles({ width: "0%" });
         }
         cell.onclick = (e) => {
           e.stopPropagation();
@@ -10828,7 +10821,7 @@ ${noteType.tags.join(" ")}`;
             activeDocument.removeEventListener("mousedown", closeOnOutside);
           }
         };
-        activeWindow.setTimeout(() => activeDocument.addEventListener("mousedown", closeOnOutside), 0);
+        window.setTimeout(() => activeDocument.addEventListener("mousedown", closeOnOutside), 0);
       }
     };
     return container;
@@ -10884,10 +10877,8 @@ ${noteType.tags.join(" ")}`;
         overlayEl = null;
       } else {
         overlayEl = this._buildInfoOverlayContent();
-        overlayEl.style.position = "absolute";
-        overlayEl.style.bottom = "calc(100% + 6px)";
-        overlayEl.style.right = "0";
-        bar.style.position = "relative";
+        overlayEl.setCssStyles({ position: "absolute", bottom: "calc(100% + 6px)", right: "0" });
+        bar.setCssStyles({ position: "relative" });
         bar.appendChild(overlayEl);
         const closeOnOutside = (ev) => {
           if (overlayEl && !bar.contains(ev.target)) {
@@ -10896,7 +10887,7 @@ ${noteType.tags.join(" ")}`;
             activeDocument.removeEventListener("mousedown", closeOnOutside);
           }
         };
-        activeWindow.setTimeout(() => activeDocument.addEventListener("mousedown", closeOnOutside), 0);
+        window.setTimeout(() => activeDocument.addEventListener("mousedown", closeOnOutside), 0);
       }
     };
     return bar;
