@@ -36,9 +36,27 @@ jobs:
         with:
           subject-path: styles.css
 
+      # Pull the section for this tag out of CHANGELOG.md (## [x.y.z] … up to the next
+      # ## [ heading or the link-reference block) so the release notes match the changelog.
+      - name: Extract release notes from CHANGELOG
+        run: |
+          VERSION="${GITHUB_REF_NAME}"
+          awk -v hdr="## [$VERSION]" '
+            index($0, hdr) == 1 { capture = 1; next }
+            capture && (/^## \[/ || /^\[[^]]+\]: http/) { exit }
+            capture { print }
+          ' CHANGELOG.md > release-notes.md
+          # Fall back gracefully if the version has no changelog entry.
+          if [ ! -s release-notes.md ]; then
+            printf "Release %s. See CHANGELOG.md for details.\n" "$VERSION" > release-notes.md
+          fi
+          echo "----- release notes for $VERSION -----"
+          cat release-notes.md
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          body_path: release-notes.md
           files: |
             main.js
             styles.css

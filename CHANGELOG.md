@@ -54,6 +54,12 @@ screenshots. No change to the minimum Obsidian version (1.7.2).
 - README screenshots refreshed: new combined light/dark home shots for the wide
   and sidebar layouts, plus updated history and heatmap images.
 
+### Internal
+
+- The release workflow now pulls this changelog's matching `## [version]` section
+  into the GitHub release notes automatically, so releases and the changelog stay
+  in sync.
+
 ## [2.0.1] - 2026-06-16
 
 Maintenance release — clears the outstanding Obsidian community-plugin review

@@ -9096,7 +9096,7 @@ ${noteType.tags.join(" ")}`;
     if (date.getTime() > today.getTime()) {
       cell.addClass("tf-dynamic-bg");
       cell.setCssProps({ "--tf-bg": "var(--background-modifier-border)" });
-      cell.style.opacity = "0.1";
+      cell.setCssProps({ "--tf-opacity": "0.1" });
       cell.title = dateLabel;
       return;
     }
@@ -9119,7 +9119,7 @@ ${noteType.tags.join(" ")}`;
       if (behavior) {
         cell.setCssProps({ "--tf-bg": behavior.color, "--tf-color": behavior.textColor || "#000000" });
         cell.addClass("tf-dynamic-bg-color");
-        cell.style.opacity = "0.85";
+        cell.setCssProps({ "--tf-opacity": "0.85" });
         cell.title = `${dateLabel} \xB7 ${behavior.icon} ${translateSpecialDayName(behavior.id, behavior.label)}`;
         legend.specialDays.set(behavior.id, behavior);
         return;
@@ -9138,13 +9138,12 @@ ${noteType.tags.join(" ")}`;
         else legend.hasOver = true;
       }
       cell.addClass("tf-dynamic-bg-color");
-      cell.style.opacity = String(dailyGoal > 0 ? Math.min(Math.max(totalHours / dailyGoal, 0.3), 1) : 0.7);
+      cell.setCssProps({ "--tf-opacity": String(dailyGoal > 0 ? Math.min(Math.max(totalHours / dailyGoal, 0.3), 1) : 0.7) });
       cell.title = `${dateLabel} \xB7 ${Utils.formatHoursToHM(totalHours, this.settings.hourUnit)}`;
       return;
     }
     cell.addClass("tf-dynamic-bg");
-    cell.setCssProps({ "--tf-bg": "var(--background-modifier-border)" });
-    cell.style.opacity = "0.1";
+    cell.setCssProps({ "--tf-bg": "var(--background-modifier-border)", "--tf-opacity": "0.1" });
     cell.title = dateLabel;
     legend.hasEmpty = true;
   }

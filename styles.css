@@ -835,6 +835,7 @@
 	aspect-ratio: 1;
 	border-radius: 2px;
 	cursor: pointer;
+	opacity: var(--tf-opacity, 1); /* intensity (hours vs goal); set per cell via setCssProps */
 	transition: box-shadow 0.1s;
 }
 
