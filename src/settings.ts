@@ -1941,7 +1941,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 					}))
 				.addButton(btn => btn
 					.setButtonText('Delete')
-					.setWarning()
+					.then(b => b.buttonEl.addClass('mod-warning')) // version-safe equivalent of the deprecated setWarning()
 					.onClick(() => {
 						// Warn if deleting a behavior with ID that might have historical data
 						new ConfirmModal(
@@ -1985,7 +1985,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 			.setDesc('Reset every day type\'s colors to the built-in defaults. Your day types, labels, icons and quotas are kept.')
 			.addButton(btn => btn
 				.setButtonText('Restore default colors')
-				.setWarning()
+				.then(b => b.buttonEl.addClass('mod-warning')) // version-safe equivalent of the deprecated setWarning()
 				.onClick(() => {
 					new ConfirmModal(
 						this.app,
@@ -2038,7 +2038,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 					}))
 				.addButton(btn => btn
 					.setButtonText(t('common.delete'))
-					.setWarning()
+					.then(b => b.buttonEl.addClass('mod-warning')) // version-safe equivalent of the deprecated setWarning()
 					.onClick(() => {
 						new ConfirmModal(
 							this.app,
@@ -2233,7 +2233,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 					}))
 				.addButton(button => button
 					.setButtonText('Delete')
-					.setWarning()
+					.then(b => b.buttonEl.addClass('mod-warning')) // version-safe equivalent of the deprecated setWarning()
 					.onClick(async () => {
 						this.plugin.settings.noteTypes.splice(index, 1);
 						await this.plugin.saveSettings();

@@ -2972,7 +2972,7 @@ var TimeFlowSettingTab = class extends import_obsidian2.PluginSettingTab {
             this.display();
           }
         ).open();
-      })).addButton((btn) => btn.setButtonText("Delete").setWarning().onClick(() => {
+      })).addButton((btn) => btn.setButtonText("Delete").then((b) => b.buttonEl.addClass("mod-warning")).onClick(() => {
         new ConfirmModal(
           this.app,
           `Are you sure you want to delete "${behavior.label}"?
@@ -3003,7 +3003,7 @@ Note: Historical data in your holidays file using "${behavior.id}" will no longe
         }
       ).open();
     }));
-    new import_obsidian2.Setting(settingsContainer).setName("Restore default colors").setDesc("Reset every day type's colors to the built-in defaults. Your day types, labels, icons and quotas are kept.").addButton((btn) => btn.setButtonText("Restore default colors").setWarning().onClick(() => {
+    new import_obsidian2.Setting(settingsContainer).setName("Restore default colors").setDesc("Reset every day type's colors to the built-in defaults. Your day types, labels, icons and quotas are kept.").addButton((btn) => btn.setButtonText("Restore default colors").then((b) => b.buttonEl.addClass("mod-warning")).onClick(() => {
       new ConfirmModal(
         this.app,
         "Reset all day-type colors to the built-in defaults? Labels, icons and quotas are kept.",
@@ -3040,7 +3040,7 @@ Note: Historical data in your holidays file using "${behavior.id}" will no longe
             this.display();
           }
         ).open();
-      })).addButton((btn) => btn.setButtonText(t("common.delete")).setWarning().onClick(() => {
+      })).addButton((btn) => btn.setButtonText(t("common.delete")).then((b) => b.buttonEl.addClass("mod-warning")).onClick(() => {
         new ConfirmModal(
           this.app,
           `Are you sure you want to delete "${translatedName}"?
@@ -3138,7 +3138,7 @@ Note: Historical data using "annet:${template.id}" will still work but show a ge
     this.plugin.settings.noteTypes.forEach((noteType, index) => {
       new import_obsidian2.Setting(settingsContainer).setName(`${noteType.icon} ${noteType.label}`).setDesc(`Folder: ${noteType.folder} | Template: ${noteType.template}`).addButton((button) => button.setButtonText("Edit").onClick(() => {
         this.showNoteTypeModal(noteType, index);
-      })).addButton((button) => button.setButtonText("Delete").setWarning().onClick(async () => {
+      })).addButton((button) => button.setButtonText("Delete").then((b) => b.buttonEl.addClass("mod-warning")).onClick(async () => {
         this.plugin.settings.noteTypes.splice(index, 1);
         await this.plugin.saveSettings();
         await this.refreshView();
