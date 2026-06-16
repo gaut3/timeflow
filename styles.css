@@ -768,8 +768,7 @@
 	display: grid;
 	grid-template-columns: auto minmax(0, 1fr); /* weekday gutter | cells fill the rest */
 	grid-template-rows: auto auto;              /* month ticks | body */
-	column-gap: 6px;
-	row-gap: 4px;
+	gap: 4px 6px; /* row column — use the gap shorthand to avoid the "multicolumn" feature flag in the Obsidian CSS check */
 	width: 100%;
 }
 
@@ -783,7 +782,7 @@
 	grid-row: 1;
 	display: grid;
 	grid-template-columns: repeat(var(--tf-heatmap-cols, 48), 1fr);
-	column-gap: var(--tf-hm-gap);
+	gap: var(--tf-hm-gap);
 	min-width: 0;
 	height: 1.1em;
 	font-size: 0.7em;
