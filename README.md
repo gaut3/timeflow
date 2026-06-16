@@ -1,6 +1,6 @@
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="brand/png/wordmark/timeflow-wordmark-dark-2x.png">
-  <img alt="Timeflow" src="brand/png/wordmark/timeflow-wordmark-light-2x.png" width="220">
+  <source media="(prefers-color-scheme: dark)" srcset="https://github.com/gaut3/timeflow/blob/main/brand/png/wordmark/timeflow-wordmark-dark-2x.png?raw=true">
+  <img alt="Timeflow" src="https://github.com/gaut3/timeflow/blob/main/brand/png/wordmark/timeflow-wordmark-light-2x.png?raw=true" width="220">
 </picture>
 
 <img alt="Timeflow dashboard — wide layout, shown in both light and dark themes" src="https://github.com/gaut3/timeflow/blob/main/images/timeflow-wide-home.png?raw=true">
@@ -371,7 +371,7 @@ For issues and feature requests, please create an issue on GitHub.
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="brand/png/lockup/timeflow-lockup-dark-2x.png">
-    <img alt="Timeflow" src="brand/png/lockup/timeflow-lockup-light-2x.png" width="300">
+    <source media="(prefers-color-scheme: dark)" srcset="https://github.com/gaut3/timeflow/blob/main/brand/png/lockup/timeflow-lockup-dark-2x.png?raw=true">
+    <img alt="Timeflow" src="https://github.com/gaut3/timeflow/blob/main/brand/png/lockup/timeflow-lockup-light-2x.png?raw=true" width="300">
   </picture>
 </p>
