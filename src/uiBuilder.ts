@@ -1,5 +1,5 @@
 import { App, TFile, Notice, normalizePath, setIcon } from 'obsidian';
-import { DataManager, HolidayInfo, ValidationResults, ValidationIssue, TimeEntry } from './dataManager';
+import { DataManager, HolidayInfo, ValidationResults, TimeEntry } from './dataManager';
 import { TimeFlowSettings, SpecialDayBehavior, NoteType } from './settings';
 import { TimerManager, Timer } from './timerManager';
 import { Utils, getSpecialDayColors, getSpecialDayTextColors } from './utils';
@@ -6532,7 +6532,7 @@ export class UIBuilder {
 			return;
 		}
 
-		const leftCol = itemsEl.closest('.tf-v3-left-col') as HTMLElement | null;
+		const leftCol = itemsEl.closest<HTMLElement>('.tf-v3-left-col');
 		if (!leftCol) return;
 		// Need at least one rendered row to measure its height.
 		if (itemsEl.childElementCount === 0) this._renderUpcomingItems(1);

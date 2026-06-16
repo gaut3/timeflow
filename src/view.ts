@@ -113,7 +113,7 @@ export class TimeFlowView extends ItemView {
 			// Optional background override — opt in via .tf-bg-custom; the per-theme CSS rules
 			// then resolve --color-bg (which the dashboard paints) to the chosen color.
 			const bg = this.plugin.settings.customBackground;
-			const root = container as HTMLElement;
+			const root = container; // already HTMLElement (loadDashboard param)
 			if (bg?.enabled) {
 				root.addClass('tf-bg-custom');
 				root.setCssProps({ '--tf-bg-light': bg.lightBg, '--tf-bg-dark': bg.darkBg });
