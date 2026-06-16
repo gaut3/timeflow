@@ -35,6 +35,19 @@ export function t(key: string): string {
 }
 
 /**
+ * Pick the singular or plural noun form for a count, in the current language.
+ * Both supported languages (nb, en) follow the count === 1 ⇒ singular rule, but the
+ * forms live per-language in `translations[lang].plurals` so each can spell its own.
+ * Returns the bare noun (no number) — callers prepend the count: `${n} ${plural(n, 'day')}`.
+ * @example plural(1, 'day') => "day" / "dag";  plural(3, 'day') => "days" / "dager"
+ */
+export function plural(count: number, key: keyof TranslationStrings['plurals']): string {
+	const forms = translations[currentLanguage].plurals[key];
+	if (!forms) return key;
+	return count === 1 ? forms.one : forms.other;
+}
+
+/**
  * Format a date according to current language
  * Norwegian: DD.MM.YYYY
  * English: YYYY-MM-DD (ISO)
@@ -89,6 +102,13 @@ export function getDayNamesShort(): string[] {
  */
 export function getMonthName(date: Date): string {
 	return date.toLocaleDateString(getLocale(), { month: 'long', year: 'numeric' });
+}
+
+/**
+ * Get the abbreviated month name (no year) in current language — for axis ticks.
+ */
+export function getMonthShort(date: Date): string {
+	return date.toLocaleDateString(getLocale(), { month: 'short' });
 }
 
 /**
@@ -613,18 +633,29 @@ const translations: Record<Language, TranslationStrings> = {
 			weekComplianceTooltip: '{week}: {hours} / {target}',
 			goalSub: 'mål {value}',
 			limitSub: 'grense {value}',
+			goalTooltip: 'Dagsmål – timene du sikter mot per dag',
+			limitTooltip: 'Ukegrense – maks arbeidstimer per uke',
 			ofNormalWeek: 'av normaluke',
 			thisMonthSub: 'denne måneden',
 			thisYearSub: 'i år',
 			totalSub: 'totalt',
-			weekendsSub: '+ {count} helger',
 			allGood: 'Alt ok',
 			noActiveTimers: '0 aktive timere',
-			activeTimers: '{count} aktive timere',
 			editTime: 'Rediger tid',
 			addAbsence: 'Legg til fravær',
 			note: 'Notat',
 			dailyBalance: 'Dagsbalanse',
+		},
+		heatmap: {
+			overGoal: 'Over mål',
+			underGoal: 'Under mål',
+			worked: 'Arbeidet',
+			noData: 'Ingen data',
+		},
+		plurals: {
+			day: { one: 'dag', other: 'dager' },
+			activeTimer: { one: 'aktiv timer', other: 'aktive timere' },
+			weekend: { one: 'helg', other: 'helger' },
 		},
 	},
 	en: {
@@ -1076,18 +1107,29 @@ const translations: Record<Language, TranslationStrings> = {
 			weekComplianceTooltip: '{week}: {hours} / {target}',
 			goalSub: 'goal {value}',
 			limitSub: 'limit {value}',
+			goalTooltip: 'Daily target — the hours you aim for each day',
+			limitTooltip: 'Weekly ceiling — the maximum work hours per week',
 			ofNormalWeek: 'of normal week',
 			thisMonthSub: 'this month',
 			thisYearSub: 'this year',
 			totalSub: 'total',
-			weekendsSub: '+ {count} weekends',
 			allGood: 'All good',
 			noActiveTimers: '0 active timers',
-			activeTimers: '{count} active timers',
 			editTime: 'Edit time',
 			addAbsence: 'Add absence',
 			note: 'Note',
 			dailyBalance: 'Daily balance',
+		},
+		heatmap: {
+			overGoal: 'Over goal',
+			underGoal: 'Under goal',
+			worked: 'Worked',
+			noData: 'No data',
+		},
+		plurals: {
+			day: { one: 'day', other: 'days' },
+			activeTimer: { one: 'active timer', other: 'active timers' },
+			weekend: { one: 'weekend', other: 'weekends' },
 		},
 	},
 };
@@ -1541,17 +1583,28 @@ interface TranslationStrings {
 		weekComplianceTooltip: string;
 		goalSub: string;
 		limitSub: string;
+		goalTooltip: string;
+		limitTooltip: string;
 		ofNormalWeek: string;
 		thisMonthSub: string;
 		thisYearSub: string;
 		totalSub: string;
-		weekendsSub: string;
 		allGood: string;
 		noActiveTimers: string;
-		activeTimers: string;
 		editTime: string;
 		addAbsence: string;
 		note: string;
 		dailyBalance: string;
+	};
+	heatmap: {
+		overGoal: string;
+		underGoal: string;
+		worked: string;
+		noData: string;
+	};
+	plurals: {
+		day: { one: string; other: string };
+		activeTimer: { one: string; other: string };
+		weekend: { one: string; other: string };
 	};
 }

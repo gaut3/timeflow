@@ -156,6 +156,11 @@ function t(key) {
   }
   return typeof value === "string" ? value : key;
 }
+function plural(count, key) {
+  const forms = translations[currentLanguage].plurals[key];
+  if (!forms) return key;
+  return count === 1 ? forms.one : forms.other;
+}
 function formatDate(date, format = "short") {
   if (currentLanguage === "en") {
     const year = date.getFullYear();
@@ -190,6 +195,9 @@ function getDayNamesShort() {
 }
 function getMonthName(date) {
   return date.toLocaleDateString(getLocale(), { month: "long", year: "numeric" });
+}
+function getMonthShort(date) {
+  return date.toLocaleDateString(getLocale(), { month: "short" });
 }
 var specialDayTranslationMap = {
   "jobb": "specialDays.work",
@@ -686,18 +694,29 @@ var translations = {
       weekComplianceTooltip: "{week}: {hours} / {target}",
       goalSub: "m\xE5l {value}",
       limitSub: "grense {value}",
+      goalTooltip: "Dagsm\xE5l \u2013 timene du sikter mot per dag",
+      limitTooltip: "Ukegrense \u2013 maks arbeidstimer per uke",
       ofNormalWeek: "av normaluke",
       thisMonthSub: "denne m\xE5neden",
       thisYearSub: "i \xE5r",
       totalSub: "totalt",
-      weekendsSub: "+ {count} helger",
       allGood: "Alt ok",
       noActiveTimers: "0 aktive timere",
-      activeTimers: "{count} aktive timere",
       editTime: "Rediger tid",
       addAbsence: "Legg til frav\xE6r",
       note: "Notat",
       dailyBalance: "Dagsbalanse"
+    },
+    heatmap: {
+      overGoal: "Over m\xE5l",
+      underGoal: "Under m\xE5l",
+      worked: "Arbeidet",
+      noData: "Ingen data"
+    },
+    plurals: {
+      day: { one: "dag", other: "dager" },
+      activeTimer: { one: "aktiv timer", other: "aktive timere" },
+      weekend: { one: "helg", other: "helger" }
     }
   },
   en: {
@@ -1149,18 +1168,29 @@ var translations = {
       weekComplianceTooltip: "{week}: {hours} / {target}",
       goalSub: "goal {value}",
       limitSub: "limit {value}",
+      goalTooltip: "Daily target \u2014 the hours you aim for each day",
+      limitTooltip: "Weekly ceiling \u2014 the maximum work hours per week",
       ofNormalWeek: "of normal week",
       thisMonthSub: "this month",
       thisYearSub: "this year",
       totalSub: "total",
-      weekendsSub: "+ {count} weekends",
       allGood: "All good",
       noActiveTimers: "0 active timers",
-      activeTimers: "{count} active timers",
       editTime: "Edit time",
       addAbsence: "Add absence",
       note: "Note",
       dailyBalance: "Daily balance"
+    },
+    heatmap: {
+      overGoal: "Over goal",
+      underGoal: "Under goal",
+      worked: "Worked",
+      noData: "No data"
+    },
+    plurals: {
+      day: { one: "day", other: "days" },
+      activeTimer: { one: "active timer", other: "active timers" },
+      weekend: { one: "weekend", other: "weekends" }
     }
   }
 };
@@ -1882,6 +1912,7 @@ var DEFAULT_SETTINGS = {
   language: "nb",
   defaultViewLocation: "sidebar",
   hourUnit: "t",
+  hourUnitExplicit: false,
   showWeekNumbers: true,
   hideEmptyStats: false,
   workPercent: 1,
@@ -2599,6 +2630,9 @@ var TimeFlowSettingTab = class extends import_obsidian2.PluginSettingTab {
     new import_obsidian2.Setting(settingsContainer).setName("Language").setDesc("Interface language").addDropdown((dropdown) => dropdown.addOption("nb", "Norsk").addOption("en", "English").setValue(this.plugin.settings.language).onChange(async (value) => {
       this.plugin.settings.language = value;
       setLanguage(value);
+      if (!this.plugin.settings.hourUnitExplicit) {
+        this.plugin.settings.hourUnit = value === "en" ? "h" : "t";
+      }
       await this.plugin.saveSettings();
       this.display();
       await this.refreshView();
@@ -3076,8 +3110,9 @@ Note: Historical data using "annet:${template.id}" will still work but show a ge
       this.plugin.settings.defaultViewLocation = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian2.Setting(settingsContainer).setName("Hour unit").setDesc('Choose the unit symbol for displaying hours: "h" for hours or "t" for timer').addDropdown((dropdown) => dropdown.addOption("h", "H").addOption("t", "T").setValue(this.plugin.settings.hourUnit).onChange(async (value) => {
+    new import_obsidian2.Setting(settingsContainer).setName("Hour unit").setDesc('Choose the unit symbol for displaying hours: "h" for hours or "t" for timer. Defaults to the language convention until set here.').addDropdown((dropdown) => dropdown.addOption("h", "H").addOption("t", "T").setValue(this.plugin.settings.hourUnit).onChange(async (value) => {
       this.plugin.settings.hourUnit = value;
+      this.plugin.settings.hourUnitExplicit = true;
       await this.plugin.saveSettings();
       await this.refreshView();
     }));
@@ -5615,23 +5650,24 @@ var UIBuilder = class {
     const restCheck = this.data.checkRestPeriodViolation(todayStr);
     const panel = createDiv();
     panel.className = "tf-compliance-info-panel";
+    const u = this.settings.hourUnit;
     panel.createEl("h4", { text: `\u2696\uFE0F ${t("compliance.title")}` });
     const dailyIcon = dailyStatus === "ok" ? "\u{1F7E9}" : dailyStatus === "approaching" ? "\u{1F7E8}" : "\u{1F7E5}";
     const dailyP = panel.createEl("p");
     dailyP.createEl("strong", { text: `${t("ui.today")}: ` });
-    dailyP.appendText(`${dailyIcon} ${todayHours.toFixed(1)}t / ${dailyLimit}t`);
+    dailyP.appendText(`${dailyIcon} ${todayHours.toFixed(1)}${u} / ${dailyLimit}${u}`);
     const weeklyIcon = weeklyStatus === "ok" ? "\u{1F7E9}" : weeklyStatus === "approaching" ? "\u{1F7E8}" : "\u{1F7E5}";
     const weeklyP = panel.createEl("p");
     weeklyP.createEl("strong", { text: `${t("ui.thisWeek")}: ` });
-    weeklyP.appendText(`${weeklyIcon} ${weekHours.toFixed(1)}t / ${weeklyLimit}t`);
+    weeklyP.appendText(`${weeklyIcon} ${weekHours.toFixed(1)}${u} / ${weeklyLimit}${u}`);
     if (restCheck.violated && restCheck.restHours !== null) {
       const restP = panel.createEl("p", { cls: "tf-rest-warning" });
       restP.createEl("strong", { text: `${t("ui.restPeriod")}: ` });
-      restP.appendText(`\u{1F7E5} ${restCheck.restHours.toFixed(1)}t (${t("ui.minimum")} ${minimumRest}t)`);
+      restP.appendText(`\u{1F7E5} ${restCheck.restHours.toFixed(1)}${u} (${t("ui.minimum")} ${minimumRest}${u})`);
     } else if (restCheck.restHours !== null) {
       const restP = panel.createEl("p");
       restP.createEl("strong", { text: `${t("ui.restPeriod")}: ` });
-      restP.appendText(`\u{1F7E9} ${restCheck.restHours.toFixed(1)}t (${t("ui.minimum")} ${minimumRest}t)`);
+      restP.appendText(`\u{1F7E9} ${restCheck.restHours.toFixed(1)}${u} (${t("ui.minimum")} ${minimumRest}${u})`);
     }
     panel.createEl("hr");
     let statusText;
@@ -6220,6 +6256,7 @@ var UIBuilder = class {
     }
     const diff = data.totalHours - data.expectedHours;
     const diffText = diff >= 0 ? `+${diff.toFixed(1)}` : diff.toFixed(1);
+    const u = this.settings.hourUnit;
     const headerRow = panel.createDiv({ cls: "tf-panel-header-row" });
     headerRow.createEl("strong", { text: `${t("ui.week")} ${data.weekNumber}`, cls: "tf-week-title" });
     const statusSpan = headerRow.createSpan({ text: `${statusIcon} ${statusText}`, cls: "tf-font-bold tf-dynamic-color" });
@@ -6227,16 +6264,16 @@ var UIBuilder = class {
     const contentDiv = panel.createDiv({ cls: "tf-panel-content-col" });
     const hoursRow = contentDiv.createDiv({ cls: "tf-panel-row" });
     hoursRow.createSpan({ text: `${t("ui.hoursLogged")}:` });
-    hoursRow.createEl("strong", { text: `${data.totalHours.toFixed(1)}t` });
+    hoursRow.createEl("strong", { text: `${data.totalHours.toFixed(1)}${u}` });
     const expectedRow = contentDiv.createDiv({ cls: "tf-panel-row" });
     expectedRow.createSpan({ text: `${t("ui.expected")}:` });
-    expectedRow.createSpan({ text: `${data.expectedHours.toFixed(1)}t (${data.workDaysPassed}/${data.workDaysInWeek} ${t("ui.days")})` });
+    expectedRow.createSpan({ text: `${data.expectedHours.toFixed(1)}${u} (${data.workDaysPassed}/${data.workDaysInWeek} ${t("ui.days")})` });
     const diffRow = contentDiv.createDiv({ cls: "tf-panel-row-border" });
     diffRow.createSpan({ text: `${t("ui.difference")}:` });
-    const diffValue = diffRow.createEl("strong", { text: `${diffText}t`, cls: "tf-dynamic-color" });
+    const diffValue = diffRow.createEl("strong", { text: `${diffText}${u}`, cls: "tf-dynamic-color" });
     diffValue.setCssProps({ "--tf-color": statusColor });
     if (data.totalHours > data.weeklyLimit) {
-      contentDiv.createDiv({ text: `\u26A0\uFE0F ${t("ui.overWeekLimit")} (${data.weeklyLimit}t)`, cls: "tf-warning-text" });
+      contentDiv.createDiv({ text: `\u26A0\uFE0F ${t("ui.overWeekLimit")} (${data.weeklyLimit}${u})`, cls: "tf-warning-text" });
     }
     panel.style.left = `${cellRect.right + 8}px`;
     panel.style.top = `${cellRect.top}px`;
@@ -6455,10 +6492,10 @@ var UIBuilder = class {
         const runningBalance = this.data.getBalanceUpToDate(dateStr);
         const goalP = menuInfo.createEl("p", { cls: "tf-menu-goal" });
         goalP.createEl("strong", { text: t("ui.goal") + ":" });
-        goalP.appendText(" " + dayGoal.toFixed(1) + "t");
+        goalP.appendText(" " + dayGoal.toFixed(1) + this.settings.hourUnit);
         const dailyP = menuInfo.createEl("p");
         dailyP.createEl("strong", { text: t("ui.dailyBalance") + ":" });
-        dailyP.appendText(" " + (dailyDelta >= 0 ? "+" : "") + dailyDelta.toFixed(1) + "t");
+        dailyP.appendText(" " + (dailyDelta >= 0 ? "+" : "") + dailyDelta.toFixed(1) + this.settings.hourUnit);
         const balanceP = menuInfo.createEl("p");
         balanceP.createEl("strong", { text: t("ui.runningBalance") + ":" });
         balanceP.appendText(" " + (runningBalance >= 0 ? "+" : "") + Utils.formatHoursToHM(runningBalance, this.settings.hourUnit));
@@ -8453,6 +8490,20 @@ ${noteType.tags.join(" ")}`;
   }
   renderWideListView(container, years) {
     const currentYear = (/* @__PURE__ */ new Date()).getFullYear().toString();
+    const visibleDates = /* @__PURE__ */ new Set();
+    Object.values(years).forEach((months) => Object.values(months).forEach(
+      (list) => list.forEach((e) => {
+        if (e.date) visibleDates.add(Utils.toLocalDateStr(e.date));
+      })
+    ));
+    const rawHasComment = (raw) => {
+      var _a, _b;
+      return !!raw.startTime && visibleDates.has(Utils.toLocalDateStr(new Date(raw.startTime))) && (!!((_a = raw.comment) == null ? void 0 : _a.trim()) || ((_b = raw.overtimePayout) != null ? _b : 0) > 0);
+    };
+    const hasComments = this.timerManager.data.entries.some(
+      (entry) => entry.collapsed && Array.isArray(entry.subEntries) ? entry.subEntries.some(rawHasComment) : rawHasComment(entry)
+    );
+    const showComment = this.inlineEditMode || hasComments;
     Object.keys(years).sort().reverse().forEach((year, index) => {
       const yearSection = createEl("details");
       yearSection.className = "tf-history-year-section";
@@ -8480,7 +8531,7 @@ ${noteType.tags.join(" ")}`;
         table.className = "tf-history-table-wide";
         const thead = createEl("thead");
         const headerRow = createEl("tr");
-        const headers = this.inlineEditMode ? [t("ui.date"), t("ui.type"), t("ui.comment"), t("ui.start"), t("ui.end"), t("ui.hours"), t("ui.flextime"), ""] : [t("ui.date"), t("ui.type"), t("ui.comment"), t("ui.start"), t("ui.end"), t("ui.hours"), t("ui.flextime")];
+        const headers = this.inlineEditMode ? [t("ui.date"), t("ui.type"), t("ui.comment"), t("ui.start"), t("ui.end"), t("ui.hours"), t("ui.flextime"), ""] : showComment ? [t("ui.date"), t("ui.type"), t("ui.comment"), t("ui.start"), t("ui.end"), t("ui.hours"), t("ui.flextime")] : [t("ui.date"), t("ui.type"), t("ui.start"), t("ui.end"), t("ui.hours"), t("ui.flextime")];
         headers.forEach((h) => {
           const th = createEl("th");
           th.textContent = h;
@@ -8653,7 +8704,7 @@ ${noteType.tags.join(" ")}`;
                 commentCell.textContent = "-";
               }
             }
-            row.appendChild(commentCell);
+            if (showComment) row.appendChild(commentCell);
             const startCell = createEl("td");
             if (matchingRaw == null ? void 0 : matchingRaw.startTime) {
               const startDate = new Date(matchingRaw.startTime);
@@ -8993,84 +9044,133 @@ ${noteType.tags.join(" ")}`;
     div.className = "tf-heatmap-no-data";
     div.textContent = t("ui.weeklyViewComingSoon");
   }
+  // GitHub-contribution-style heatmap: weeks as columns, weekdays (Mon→Sun) as rows,
+  // with month ticks across the top, weekday anchors down the left, and a color legend
+  // so the grid is scannable without hovering every cell.
   renderHeatmapView(container, _years) {
-    const heatmap = createDiv();
-    heatmap.className = "tf-heatmap";
-    heatmap.setCssProps({ "--tf-heatmap-cols": String(this.settings.heatmapColumns) });
     const today = /* @__PURE__ */ new Date();
-    const daysToShow = this.settings.heatmapColumns * 8;
-    for (let i = daysToShow; i >= 0; i--) {
-      const date = new Date(today);
-      date.setDate(today.getDate() - i);
-      const dateKey = Utils.toLocalDateStr(date);
-      const cell = createDiv();
-      cell.className = "tf-heatmap-cell";
-      cell.title = dateKey;
-      const dayEntries = this.data.daily[dateKey];
-      const holidayInfo = this.data.getHolidayInfo(dateKey);
-      const isFuture = date > today;
-      const dailyGoal = this.settings.baseWorkday * this.settings.workPercent;
-      let cellOpacity = 0.1;
-      if (this.settings.heatmapShowSpecialDayColors) {
-        let specialDayBehavior = void 0;
-        if (holidayInfo) {
-          specialDayBehavior = this.settings.specialDayBehaviors.find((b) => b.id === holidayInfo.type);
-        }
-        if (!specialDayBehavior && dayEntries) {
-          for (const entry of dayEntries) {
-            const entryName = entry.name.toLowerCase();
-            if (entryName === "jobb") continue;
-            const entryBehavior = this.settings.specialDayBehaviors.find(
-              (b) => b.id === entryName
-            );
-            if (entryBehavior) {
-              specialDayBehavior = entryBehavior;
-              break;
-            }
-          }
-        }
-        if (specialDayBehavior) {
-          cell.setCssProps({ "--tf-bg": specialDayBehavior.color, "--tf-color": specialDayBehavior.textColor || "#000000" });
-          cell.addClass("tf-dynamic-bg-color");
-          cell.title = `${dateKey} - ${specialDayBehavior.icon} ${specialDayBehavior.label}`;
-          cellOpacity = 0.8;
-        } else if (dayEntries) {
-          const totalHours = dayEntries.reduce((sum, e) => sum + (e.duration || 0), 0);
-          cellOpacity = dailyGoal > 0 ? Math.min(Math.max(totalHours / dailyGoal, 0.3), 1) : 0.7;
-          if (!this.settings.enableGoalTracking) {
-            const workType = this.settings.specialDayBehaviors.find((b) => b.isWorkType);
-            cell.setCssProps({ "--tf-bg": (workType == null ? void 0 : workType.simpleColor) || "#90caf9", "--tf-color": (workType == null ? void 0 : workType.simpleTextColor) || "#000000" });
-            cell.addClass("tf-dynamic-bg-color");
-          } else {
-            const dayFlextime = dayEntries.reduce((sum, e) => sum + (e.flextime || 0), 0);
-            cell.setCssProps({ "--tf-bg": this.flextimeColor(dayFlextime), "--tf-color": this.flextimeTextColor(dayFlextime) });
-            cell.addClass("tf-dynamic-bg-color");
-          }
-        } else {
-          cell.setCssProps({ "--tf-bg": "var(--background-modifier-border)" });
-          cell.addClass("tf-dynamic-bg");
-        }
-      } else if (dayEntries) {
-        const totalHours = dayEntries.reduce((sum, e) => sum + (e.duration || 0), 0);
-        cellOpacity = dailyGoal > 0 ? Math.min(Math.max(totalHours / dailyGoal, 0.3), 1) : 0.7;
-        if (!this.settings.enableGoalTracking) {
-          const workType = this.settings.specialDayBehaviors.find((b) => b.isWorkType);
-          cell.setCssProps({ "--tf-bg": (workType == null ? void 0 : workType.simpleColor) || "#90caf9", "--tf-color": (workType == null ? void 0 : workType.simpleTextColor) || "#000000" });
-          cell.addClass("tf-dynamic-bg-color");
-        } else {
-          const dayFlextime = dayEntries.reduce((sum, e) => sum + (e.flextime || 0), 0);
-          cell.setCssProps({ "--tf-bg": this.flextimeColor(dayFlextime), "--tf-color": this.flextimeTextColor(dayFlextime) });
-          cell.addClass("tf-dynamic-bg-color");
-        }
-      } else {
-        cell.setCssProps({ "--tf-bg": "var(--background-modifier-border)" });
-        cell.addClass("tf-dynamic-bg");
+    today.setHours(0, 0, 0, 0);
+    const nWeeks = Math.max(12, Math.min(96, this.settings.heatmapColumns));
+    const dayNames = getDayNamesShort();
+    const thisMonday = new Date(today);
+    thisMonday.setDate(today.getDate() - (today.getDay() + 6) % 7);
+    const startMonday = new Date(thisMonday);
+    startMonday.setDate(thisMonday.getDate() - (nWeeks - 1) * 7);
+    const wrap = container.createDiv({ cls: "tf-heatmap" });
+    wrap.setCssProps({ "--tf-heatmap-cols": String(nWeeks) });
+    const body = wrap.createDiv({ cls: "tf-heatmap-body" });
+    body.createDiv({ cls: "tf-heatmap-corner" });
+    const months = body.createDiv({ cls: "tf-heatmap-months" });
+    let prevMonth = -1;
+    for (let w = 0; w < nWeeks; w++) {
+      const colMonday = new Date(startMonday);
+      colMonday.setDate(startMonday.getDate() + w * 7);
+      if (colMonday.getMonth() !== prevMonth) {
+        const label = months.createDiv({ cls: "tf-heatmap-month-label", text: getMonthShort(colMonday) });
+        label.setCssStyles({ gridColumnStart: String(w + 1) });
+        prevMonth = colMonday.getMonth();
       }
-      if (isFuture) cellOpacity = 0.1;
-      cell.style.opacity = String(cellOpacity);
-      heatmap.appendChild(cell);
     }
-    container.appendChild(heatmap);
+    const weekdays = body.createDiv({ cls: "tf-heatmap-weekdays" });
+    for (let r = 0; r < 7; r++) {
+      weekdays.createDiv({ cls: "tf-heatmap-weekday-label", text: r % 2 === 0 && r < 6 ? dayNames[r] : "" });
+    }
+    const grid = body.createDiv({ cls: "tf-heatmap-grid" });
+    const legend = { specialDays: /* @__PURE__ */ new Map(), hasOver: false, hasUnder: false, hasWorked: false, hasEmpty: false };
+    for (let w = 0; w < nWeeks; w++) {
+      for (let r = 0; r < 7; r++) {
+        const date = new Date(startMonday);
+        date.setDate(startMonday.getDate() + w * 7 + r);
+        const cell = grid.createDiv({ cls: "tf-heatmap-cell" });
+        this._paintHeatmapCell(cell, date, today, legend);
+      }
+    }
+    this._renderHeatmapLegend(wrap, legend);
+  }
+  // Color + opacity for a single heatmap day, recording which legend category it falls in.
+  // Mirrors the dashboard's encoding: special-day color (if enabled) > flextime/work color,
+  // opacity scaled by hours logged vs the daily goal.
+  _paintHeatmapCell(cell, date, today, legend) {
+    const dateKey = Utils.toLocalDateStr(date);
+    const dateLabel = formatDate(date, "long");
+    if (date.getTime() > today.getTime()) {
+      cell.addClass("tf-dynamic-bg");
+      cell.setCssProps({ "--tf-bg": "var(--background-modifier-border)" });
+      cell.style.opacity = "0.1";
+      cell.title = dateLabel;
+      return;
+    }
+    const dayEntries = this.data.daily[dateKey];
+    const holidayInfo = this.data.getHolidayInfo(dateKey);
+    const dailyGoal = this.settings.baseWorkday * this.settings.workPercent;
+    if (this.settings.heatmapShowSpecialDayColors) {
+      let behavior;
+      if (holidayInfo) {
+        behavior = this.settings.specialDayBehaviors.find((b) => b.id === holidayInfo.type);
+      }
+      if (!behavior && dayEntries) {
+        for (const entry of dayEntries) {
+          const entryName = entry.name.toLowerCase();
+          if (entryName === "jobb") continue;
+          behavior = this.settings.specialDayBehaviors.find((b) => b.id === entryName);
+          if (behavior) break;
+        }
+      }
+      if (behavior) {
+        cell.setCssProps({ "--tf-bg": behavior.color, "--tf-color": behavior.textColor || "#000000" });
+        cell.addClass("tf-dynamic-bg-color");
+        cell.style.opacity = "0.85";
+        cell.title = `${dateLabel} \xB7 ${behavior.icon} ${translateSpecialDayName(behavior.id, behavior.label)}`;
+        legend.specialDays.set(behavior.id, behavior);
+        return;
+      }
+    }
+    if (dayEntries) {
+      const totalHours = dayEntries.reduce((sum, e) => sum + (e.duration || 0), 0);
+      if (!this.settings.enableGoalTracking) {
+        const workType = this.settings.specialDayBehaviors.find((b) => b.isWorkType);
+        cell.setCssProps({ "--tf-bg": (workType == null ? void 0 : workType.simpleColor) || "#90caf9", "--tf-color": (workType == null ? void 0 : workType.simpleTextColor) || "#000000" });
+        legend.hasWorked = true;
+      } else {
+        const dayFlextime = dayEntries.reduce((sum, e) => sum + (e.flextime || 0), 0);
+        cell.setCssProps({ "--tf-bg": this.flextimeColor(dayFlextime), "--tf-color": this.flextimeTextColor(dayFlextime) });
+        if (dayFlextime < 0) legend.hasUnder = true;
+        else legend.hasOver = true;
+      }
+      cell.addClass("tf-dynamic-bg-color");
+      cell.style.opacity = String(dailyGoal > 0 ? Math.min(Math.max(totalHours / dailyGoal, 0.3), 1) : 0.7);
+      cell.title = `${dateLabel} \xB7 ${Utils.formatHoursToHM(totalHours, this.settings.hourUnit)}`;
+      return;
+    }
+    cell.addClass("tf-dynamic-bg");
+    cell.setCssProps({ "--tf-bg": "var(--background-modifier-border)" });
+    cell.style.opacity = "0.1";
+    cell.title = dateLabel;
+    legend.hasEmpty = true;
+  }
+  // Color key under the heatmap — lists only the categories actually present in the range.
+  _renderHeatmapLegend(wrap, legend) {
+    const items = [];
+    if (this.settings.enableGoalTracking) {
+      if (legend.hasOver) items.push({ color: this.flextimeColor(1), label: t("heatmap.overGoal") });
+      if (legend.hasUnder) items.push({ color: this.flextimeColor(-1), label: t("heatmap.underGoal") });
+    } else if (legend.hasWorked) {
+      const workType = this.settings.specialDayBehaviors.find((b) => b.isWorkType);
+      items.push({ color: (workType == null ? void 0 : workType.simpleColor) || "#90caf9", label: t("heatmap.worked") });
+    }
+    this.settings.specialDayBehaviors.forEach((b) => {
+      if (legend.specialDays.has(b.id)) {
+        items.push({ color: b.color, label: translateSpecialDayName(b.id, b.label) });
+      }
+    });
+    if (legend.hasEmpty) items.push({ color: "var(--background-modifier-border)", label: t("heatmap.noData") });
+    if (items.length === 0) return;
+    const legendEl = wrap.createDiv({ cls: "tf-heatmap-legend" });
+    items.forEach((it) => {
+      const item = legendEl.createDiv({ cls: "tf-heatmap-legend-item" });
+      item.createDiv({ cls: "tf-heatmap-legend-swatch tf-dynamic-bg" }).setCssProps({ "--tf-bg": it.color });
+      item.createSpan({ text: it.label });
+    });
   }
   exportCurrentView() {
     const rows = [["Date", "Type", "Hours", "Flextime"]];
@@ -9633,7 +9733,33 @@ ${noteType.tags.join(" ")}`;
     const cols = showWeekNums ? "26px repeat(7, 1fr)" : "repeat(7, 1fr)";
     const dayHeaders = cal.createDiv({ cls: "tf-bar-cal-day-headers" });
     dayHeaders.style.gridTemplateColumns = cols;
-    if (showWeekNums) dayHeaders.createDiv({ cls: "tf-bar-cal-day-header" });
+    if (showWeekNums) {
+      const corner = dayHeaders.createDiv({ cls: "tf-bar-cal-day-header" });
+      if (this.shouldShowWeekCompliance()) {
+        corner.setCssStyles({ position: "relative" });
+        const help = corner.createEl("button", { cls: "tf-cal-compliance-help", text: "?" });
+        help.setAttribute("aria-label", t("info.weekNumberCompliance"));
+        let pop = null;
+        const close = () => {
+          pop == null ? void 0 : pop.remove();
+          pop = null;
+          activeDocument.removeEventListener("mousedown", onOutside);
+        };
+        const onOutside = (ev) => {
+          if (pop && !pop.contains(ev.target) && ev.target !== help) close();
+        };
+        help.onclick = (e) => {
+          e.stopPropagation();
+          if (pop) {
+            close();
+            return;
+          }
+          pop = corner.createDiv({ cls: "tf-info-overlay tf-cal-compliance-popover" });
+          this._fillComplianceLegend(pop.createDiv({ cls: "tf-info-overlay-section" }));
+          window.setTimeout(() => activeDocument.addEventListener("mousedown", onOutside), 0);
+        };
+      }
+    }
     getDayNamesShort().forEach((name) => {
       dayHeaders.createDiv({ cls: "tf-bar-cal-day-header", text: name });
     });
@@ -10086,7 +10212,7 @@ ${noteType.tags.join(" ")}`;
       item.createDiv({ cls: "tf-upcoming-date", text: dateText });
       const right = item.createDiv({ cls: "tf-upcoming-right" });
       if (g.count > 1) {
-        right.createSpan({ cls: "tf-upcoming-count", text: `${g.count} ${t("ui.days")}` });
+        right.createSpan({ cls: "tf-upcoming-count", text: `${g.count} ${plural(g.count, "day")}` });
       }
       const chip = right.createDiv({ cls: "tf-upcoming-chip", text: g.label });
       chip.setCssStyles({ backgroundColor: g.color, color: g.textColor });
@@ -10204,7 +10330,24 @@ ${noteType.tags.join(" ")}`;
         row.appendText(zone.label);
       });
     }
+    if (this.shouldShowWeekCompliance()) {
+      this._fillComplianceLegend(overlay.createDiv({ cls: "tf-info-overlay-section" }));
+    }
     return overlay;
+  }
+  // The week-number compliance dot key (green = reached, amber = under, red = over).
+  // Shared by the status-bar info overlay and the calendar's "?" popover.
+  _fillComplianceLegend(section) {
+    section.createDiv({ cls: "tf-info-overlay-title", text: t("info.weekNumberCompliance") });
+    [
+      ["var(--color-ok)", t("info.reachedGoal")],
+      ["var(--color-warn)", t("info.underGoal")],
+      ["var(--color-alert)", t("info.overGoal")]
+    ].forEach(([color, label]) => {
+      const row = section.createDiv({ cls: "tf-info-overlay-row" });
+      row.createDiv({ cls: "tf-info-overlay-swatch" }).style.background = color;
+      row.appendText(label);
+    });
   }
   // =====================================================================
   // Timeflow v3 — Dashboard Status Bar (bottom card)
@@ -10215,7 +10358,7 @@ ${noteType.tags.join(" ")}`;
     const activeTimers = this.timerManager.getActiveTimers();
     const dot = left.createDiv({ cls: "tf-status-dot" });
     if (activeTimers.length > 0) dot.addClass("warn");
-    const statusText = activeTimers.length === 0 ? `${t("v3.allGood")} \xB7 ${t("v3.noActiveTimers")}` : t("v3.activeTimers").replace("{count}", String(activeTimers.length));
+    const statusText = activeTimers.length === 0 ? `${t("v3.allGood")} \xB7 ${t("v3.noActiveTimers")}` : `${activeTimers.length} ${plural(activeTimers.length, "activeTimer")}`;
     left.createDiv({ cls: "tf-status-text", text: statusText });
     const right = bar.createDiv({ cls: "tf-status-bar-right" });
     const brand = right.createDiv({ cls: "tf-status-brand" });
@@ -10336,17 +10479,19 @@ ${noteType.tags.join(" ")}`;
     const weekLimit = (_b = (_a = this.settings.complianceSettings) == null ? void 0 : _a.weeklyHoursLimit) != null ? _b : weekGoal;
     const workloadPct = weekGoal > 0 ? Math.round(avgWeekly / weekGoal * 100) : 0;
     const periodSub = this.statsTimeframe === "year" ? t("v3.thisYearSub") : this.statsTimeframe === "total" ? t("v3.totalSub") : t("v3.thisMonthSub");
-    const addCell = (value, label, sublabel) => {
+    const addCell = (value, label, sublabel, title) => {
       const cell = grid.createDiv({ cls: "tf-wide-stats-cell" });
+      if (title) cell.title = title;
       cell.createDiv({ cls: "tf-wide-stats-value", text: value });
       cell.createDiv({ cls: "tf-wide-stats-label", text: label });
       if (sublabel) cell.createDiv({ cls: "tf-wide-stats-sublabel", text: sublabel });
     };
     addCell(this._fmtHours((_c = stats.totalHours) != null ? _c : 0, 1), t("v3.hoursLogged"), periodSub);
-    addCell(this._fmtHours(avgDaily, 1), t("v3.dailyAverage"), t("v3.goalSub").replace("{value}", this._fmtGoal(dailyGoal)));
-    addCell(this._fmtHours(avgWeekly, 1), t("v3.weeklyAverage"), t("v3.limitSub").replace("{value}", this._fmtGoal(weekLimit)));
+    addCell(this._fmtHours(avgDaily, 1), t("v3.dailyAverage"), t("v3.goalSub").replace("{value}", this._fmtGoal(dailyGoal)), t("v3.goalTooltip"));
+    addCell(this._fmtHours(avgWeekly, 1), t("v3.weeklyAverage"), t("v3.limitSub").replace("{value}", this._fmtGoal(weekLimit)), t("v3.limitTooltip"));
     addCell(`${workloadPct}%`, t("v3.workload"), t("v3.ofNormalWeek"));
-    addCell(String((_d = stats.workDays) != null ? _d : 0), t("v3.workDays"), t("v3.weekendsSub").replace("{count}", String((_e = stats.weekendDays) != null ? _e : 0)));
+    const weekendCount = (_d = stats.weekendDays) != null ? _d : 0;
+    addCell(String((_e = stats.workDays) != null ? _e : 0), t("v3.workDays"), `+ ${weekendCount} ${plural(weekendCount, "weekend")}`);
     const compBehavior = this.settings.specialDayBehaviors.find((b) => !b.isWorkType && b.flextimeEffect === "withdraw");
     if (compBehavior) {
       const usedComp = this._getLeaveUsedHours(compBehavior.id, { timeframe: this.statsTimeframe, year: this.selectedYear, month: this.selectedMonth }) + this._getUnderGoalWithdrawn({ timeframe: this.statsTimeframe, year: this.selectedYear, month: this.selectedMonth });
@@ -10384,7 +10529,7 @@ ${noteType.tags.join(" ")}`;
         if (!showAll && usedDays <= 0 && !(compact && hasQuota)) return;
         const quotaDays = hasQuota ? b.maxDaysPerYear : 0;
         const pct = hasQuota && quotaDays > 0 ? Math.min(usedDays / quotaDays * 100, 100) : 0;
-        const fmtDays = (d) => `${Number.isInteger(d) ? d : d.toFixed(1)} ${t("ui.days")}`;
+        const fmtDays = (d) => `${Number.isInteger(d) ? d : d.toFixed(1)} ${plural(d, "day")}`;
         const countsText = hasQuota ? `${fmtDays(usedDays)} / ${fmtDays(quotaDays)}` : fmtDays(usedDays);
         rows.push({ b, pct, countsText, hasQuota, isEmpty: usedDays <= 0 });
       }
@@ -10639,7 +10784,8 @@ ${noteType.tags.join(" ")}`;
         cls: `tf-wide-weekly-chart-hour-label${isCurrent ? " current" : ""}`,
         text: hours > 0 ? `${Math.round(hours)}${this.settings.hourUnit}` : ""
       });
-      const barWrap = col.createDiv({
+      const barArea = col.createDiv({ cls: "tf-wide-weekly-chart-bar-area" });
+      const barWrap = barArea.createDiv({
         cls: `tf-wide-weekly-chart-bar-wrap${isCurrent ? " current" : isOverLimit ? " over-limit" : ""}`
       });
       barWrap.style.height = `${barPx}px`;
@@ -11226,8 +11372,9 @@ var TimeFlowPlugin = class extends import_obsidian8.Plugin {
       this.timerManager.settings = this.settings;
     }
     const needsSave = this.migrateWorkDaysSettings() || this.migrateSpecialDayBehaviors() || this.migrateWorkScheduleHistory() || this.migrateIntervalSettings();
+    const hourUnitMigrated = this.migrateHourUnit();
     const timestampMigrated = await this.migrateTimestamps();
-    if (needsSave || timestampMigrated) {
+    if (needsSave || hourUnitMigrated || timestampMigrated) {
       await this.saveSettings();
     }
     setLanguage((_a = this.settings.language) != null ? _a : "nb");
@@ -11427,6 +11574,18 @@ var TimeFlowPlugin = class extends import_obsidian8.Plugin {
       changed = true;
     }
     return changed;
+  }
+  // Until the user picks an hour unit explicitly, keep it aligned with the language
+  // convention (nb → 't' timer, en → 'h' hours). Corrects e.g. an English UI that was
+  // left on the Norwegian "t" before the unit followed the language.
+  migrateHourUnit() {
+    if (this.settings.hourUnitExplicit) return false;
+    const want = this.settings.language === "en" ? "h" : "t";
+    if (this.settings.hourUnit !== want) {
+      this.settings.hourUnit = want;
+      return true;
+    }
+    return false;
   }
   /**
    * Validate and clamp settings to sensible bounds to prevent division by zero

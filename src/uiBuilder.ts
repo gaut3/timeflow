@@ -4,7 +4,7 @@ import { TimeFlowSettings, SpecialDayBehavior, NoteType } from './settings';
 import { TimerManager, Timer } from './timerManager';
 import { Utils, getSpecialDayColors, getSpecialDayTextColors } from './utils';
 import type TimeFlowPlugin from './main';
-import { t, formatDate, formatTime, getDayNamesShort, getMonthName, translateSpecialDayName, translateNoteTypeName, translateAnnetTemplateName } from './i18n';
+import { t, plural, formatDate, formatTime, getDayNamesShort, getMonthName, getMonthShort, translateSpecialDayName, translateNoteTypeName, translateAnnetTemplateName } from './i18n';
 import { CommentModal } from './commentModal';
 
 export interface SystemStatus {
@@ -17,6 +17,16 @@ export interface SystemStatus {
 	};
 	activeTimers?: number;
 	dataParseError?: boolean;
+}
+
+// Which color categories actually appear in the heatmap, so the legend lists only
+// what's on screen (per-type colors are collected by behavior id).
+interface HeatmapLegend {
+	specialDays: Map<string, SpecialDayBehavior>;
+	hasOver: boolean;
+	hasUnder: boolean;
+	hasWorked: boolean;
+	hasEmpty: boolean;
 }
 
 export class UIBuilder {
@@ -584,6 +594,7 @@ export class UIBuilder {
 		// Create panel
 		const panel = createDiv();
 		panel.className = 'tf-compliance-info-panel';
+		const u = this.settings.hourUnit;
 
 		// Build content using DOM API
 		panel.createEl('h4', { text: `⚖️ ${t('compliance.title')}` });
@@ -592,23 +603,23 @@ export class UIBuilder {
 		const dailyIcon = dailyStatus === 'ok' ? '🟩' : dailyStatus === 'approaching' ? '🟨' : '🟥';
 		const dailyP = panel.createEl('p');
 		dailyP.createEl('strong', { text: `${t('ui.today')}: ` });
-		dailyP.appendText(`${dailyIcon} ${todayHours.toFixed(1)}t / ${dailyLimit}t`);
+		dailyP.appendText(`${dailyIcon} ${todayHours.toFixed(1)}${u} / ${dailyLimit}${u}`);
 
 		// Weekly hours
 		const weeklyIcon = weeklyStatus === 'ok' ? '🟩' : weeklyStatus === 'approaching' ? '🟨' : '🟥';
 		const weeklyP = panel.createEl('p');
 		weeklyP.createEl('strong', { text: `${t('ui.thisWeek')}: ` });
-		weeklyP.appendText(`${weeklyIcon} ${weekHours.toFixed(1)}t / ${weeklyLimit}t`);
+		weeklyP.appendText(`${weeklyIcon} ${weekHours.toFixed(1)}${u} / ${weeklyLimit}${u}`);
 
 		// Rest period
 		if (restCheck.violated && restCheck.restHours !== null) {
 			const restP = panel.createEl('p', { cls: 'tf-rest-warning' });
 			restP.createEl('strong', { text: `${t('ui.restPeriod')}: ` });
-			restP.appendText(`🟥 ${restCheck.restHours.toFixed(1)}t (${t('ui.minimum')} ${minimumRest}t)`);
+			restP.appendText(`🟥 ${restCheck.restHours.toFixed(1)}${u} (${t('ui.minimum')} ${minimumRest}${u})`);
 		} else if (restCheck.restHours !== null) {
 			const restP = panel.createEl('p');
 			restP.createEl('strong', { text: `${t('ui.restPeriod')}: ` });
-			restP.appendText(`🟩 ${restCheck.restHours.toFixed(1)}t (${t('ui.minimum')} ${minimumRest}t)`);
+			restP.appendText(`🟩 ${restCheck.restHours.toFixed(1)}${u} (${t('ui.minimum')} ${minimumRest}${u})`);
 		}
 
 		// Add status explanation
@@ -1432,6 +1443,7 @@ export class UIBuilder {
 
 		const diff = data.totalHours - data.expectedHours;
 		const diffText = diff >= 0 ? `+${diff.toFixed(1)}` : diff.toFixed(1);
+		const u = this.settings.hourUnit;
 
 		// Build panel content using DOM API
 		const headerRow = panel.createDiv({ cls: 'tf-panel-header-row' });
@@ -1444,22 +1456,22 @@ export class UIBuilder {
 		// Hours logged row
 		const hoursRow = contentDiv.createDiv({ cls: 'tf-panel-row' });
 		hoursRow.createSpan({ text: `${t('ui.hoursLogged')}:` });
-		hoursRow.createEl('strong', { text: `${data.totalHours.toFixed(1)}t` });
+		hoursRow.createEl('strong', { text: `${data.totalHours.toFixed(1)}${u}` });
 
 		// Expected row
 		const expectedRow = contentDiv.createDiv({ cls: 'tf-panel-row' });
 		expectedRow.createSpan({ text: `${t('ui.expected')}:` });
-		expectedRow.createSpan({ text: `${data.expectedHours.toFixed(1)}t (${data.workDaysPassed}/${data.workDaysInWeek} ${t('ui.days')})` });
+		expectedRow.createSpan({ text: `${data.expectedHours.toFixed(1)}${u} (${data.workDaysPassed}/${data.workDaysInWeek} ${t('ui.days')})` });
 
 		// Difference row
 		const diffRow = contentDiv.createDiv({ cls: 'tf-panel-row-border' });
 		diffRow.createSpan({ text: `${t('ui.difference')}:` });
-		const diffValue = diffRow.createEl('strong', { text: `${diffText}t`, cls: 'tf-dynamic-color' });
+		const diffValue = diffRow.createEl('strong', { text: `${diffText}${u}`, cls: 'tf-dynamic-color' });
 		diffValue.setCssProps({ '--tf-color': statusColor });
 
 		// Warning if over limit
 		if (data.totalHours > data.weeklyLimit) {
-			contentDiv.createDiv({ text: `⚠️ ${t('ui.overWeekLimit')} (${data.weeklyLimit}t)`, cls: 'tf-warning-text' });
+			contentDiv.createDiv({ text: `⚠️ ${t('ui.overWeekLimit')} (${data.weeklyLimit}${u})`, cls: 'tf-warning-text' });
 		}
 
 		// Position panel near the clicked cell
@@ -1777,11 +1789,11 @@ export class UIBuilder {
 
 				const goalP = menuInfo.createEl('p', { cls: 'tf-menu-goal' });
 				goalP.createEl('strong', { text: t('ui.goal') + ':' });
-				goalP.appendText(' ' + dayGoal.toFixed(1) + 't');
+				goalP.appendText(' ' + dayGoal.toFixed(1) + this.settings.hourUnit);
 
 				const dailyP = menuInfo.createEl('p');
 				dailyP.createEl('strong', { text: t('ui.dailyBalance') + ':' });
-				dailyP.appendText(' ' + (dailyDelta >= 0 ? '+' : '') + dailyDelta.toFixed(1) + 't');
+				dailyP.appendText(' ' + (dailyDelta >= 0 ? '+' : '') + dailyDelta.toFixed(1) + this.settings.hourUnit);
 
 				const balanceP = menuInfo.createEl('p');
 				balanceP.createEl('strong', { text: t('ui.runningBalance') + ':' });
@@ -4433,6 +4445,24 @@ export class UIBuilder {
 	renderWideListView(container: HTMLElement, years: Record<string, Record<string, TimeEntry[]>>): void {
 		const currentYear = new Date().getFullYear().toString();
 
+		// The Comment column is empty ("-") for most users, wasting a full column. Only render it
+		// when the visible range actually has comments/payouts — or in inline-edit mode, where you
+		// add them. Comments live on the raw timer entries, so scan those for the visible dates.
+		const visibleDates = new Set<string>();
+		Object.values(years).forEach(months => Object.values(months).forEach(list =>
+			list.forEach(e => { if (e.date) visibleDates.add(Utils.toLocalDateStr(e.date)); })
+		));
+		const rawHasComment = (raw: Timer): boolean =>
+			!!raw.startTime
+			&& visibleDates.has(Utils.toLocalDateStr(new Date(raw.startTime)))
+			&& (!!raw.comment?.trim() || (raw.overtimePayout ?? 0) > 0);
+		const hasComments = this.timerManager.data.entries.some(entry =>
+			entry.collapsed && Array.isArray(entry.subEntries)
+				? entry.subEntries.some(rawHasComment)
+				: rawHasComment(entry)
+		);
+		const showComment = this.inlineEditMode || hasComments;
+
 		// Sort years descending (newest first)
 		Object.keys(years).sort().reverse().forEach((year, index) => {
 			const yearSection = createEl('details');
@@ -4476,7 +4506,9 @@ export class UIBuilder {
 
 				const headers = this.inlineEditMode
 					? [t('ui.date'), t('ui.type'), t('ui.comment'), t('ui.start'), t('ui.end'), t('ui.hours'), t('ui.flextime'), '']
-					: [t('ui.date'), t('ui.type'), t('ui.comment'), t('ui.start'), t('ui.end'), t('ui.hours'), t('ui.flextime')];
+					: showComment
+						? [t('ui.date'), t('ui.type'), t('ui.comment'), t('ui.start'), t('ui.end'), t('ui.hours'), t('ui.flextime')]
+						: [t('ui.date'), t('ui.type'), t('ui.start'), t('ui.end'), t('ui.hours'), t('ui.flextime')];
 
 				headers.forEach(h => {
 					const th = createEl('th');
@@ -4697,7 +4729,9 @@ export class UIBuilder {
 								commentCell.textContent = '-';
 							}
 						}
-						row.appendChild(commentCell);
+						// Only attach when the column is shown (see showComment); the cell is still
+						// built so inline-edit can add a comment to an otherwise-empty range.
+						if (showComment) row.appendChild(commentCell);
 
 						// Start time cell
 						const startCell = createEl('td');
@@ -5122,108 +5156,161 @@ export class UIBuilder {
 		div.textContent = t('ui.weeklyViewComingSoon');
 	}
 
+	// GitHub-contribution-style heatmap: weeks as columns, weekdays (Mon→Sun) as rows,
+	// with month ticks across the top, weekday anchors down the left, and a color legend
+	// so the grid is scannable without hovering every cell.
 	renderHeatmapView(container: HTMLElement, _years: Record<string, Record<string, TimeEntry[]>>): void {
-		const heatmap = createDiv();
-		heatmap.className = 'tf-heatmap';
-		heatmap.setCssProps({ '--tf-heatmap-cols': String(this.settings.heatmapColumns) });
-
 		const today = new Date();
-		const daysToShow = this.settings.heatmapColumns * 8; // ~1 year
+		today.setHours(0, 0, 0, 0);
 
-		for (let i = daysToShow; i >= 0; i--) {
-			const date = new Date(today);
-			date.setDate(today.getDate() - i);
-			const dateKey = Utils.toLocalDateStr(date);
+		const nWeeks = Math.max(12, Math.min(96, this.settings.heatmapColumns));
+		const dayNames = getDayNamesShort(); // Monday-first: [Man, Tir, Ons, Tor, Fre, Lør, Søn]
 
-			const cell = createDiv();
-			cell.className = 'tf-heatmap-cell';
-			cell.title = dateKey;
+		// Monday of the current week, then step back so the grid spans `nWeeks` whole weeks.
+		const thisMonday = new Date(today);
+		thisMonday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+		const startMonday = new Date(thisMonday);
+		startMonday.setDate(thisMonday.getDate() - (nWeeks - 1) * 7);
 
-			const dayEntries = this.data.daily[dateKey];
-			const holidayInfo = this.data.getHolidayInfo(dateKey);
-			const isFuture = date > today;
-			const dailyGoal = this.settings.baseWorkday * this.settings.workPercent;
+		const wrap = container.createDiv({ cls: 'tf-heatmap' });
+		wrap.setCssProps({ '--tf-heatmap-cols': String(nWeeks) });
+		const body = wrap.createDiv({ cls: 'tf-heatmap-body' });
 
-			// Opacity encoding: intensity = hours logged vs daily goal
-			let cellOpacity = 0.1;
+		// Empty corner above the weekday gutter.
+		body.createDiv({ cls: 'tf-heatmap-corner' });
 
-			// Check for special day color first (if enabled)
-			if (this.settings.heatmapShowSpecialDayColors) {
-				let specialDayBehavior: typeof this.settings.specialDayBehaviors[0] | undefined = undefined;
-
-				// First check holiday file
-				if (holidayInfo) {
-					specialDayBehavior = this.settings.specialDayBehaviors.find(b => b.id === holidayInfo.type);
-				}
-
-				// Then check entries for special day types (studie, kurs, ferie entries, etc.)
-				// Exclude regular work entries (jobb) - only show special day colors
-				if (!specialDayBehavior && dayEntries) {
-					for (const entry of dayEntries) {
-						const entryName = entry.name.toLowerCase();
-						// Skip regular work entries
-						if (entryName === 'jobb') continue;
-
-						const entryBehavior = this.settings.specialDayBehaviors.find(
-							b => b.id === entryName
-						);
-						if (entryBehavior) {
-							specialDayBehavior = entryBehavior;
-							break;
-						}
-					}
-				}
-
-				if (specialDayBehavior) {
-					cell.setCssProps({ '--tf-bg': specialDayBehavior.color, '--tf-color': specialDayBehavior.textColor || '#000000' });
-					cell.addClass('tf-dynamic-bg-color');
-					cell.title = `${dateKey} - ${specialDayBehavior.icon} ${specialDayBehavior.label}`;
-					cellOpacity = 0.8;
-				} else if (dayEntries) {
-					// Has entries but no special day - show flextime or simple color
-					const totalHours = dayEntries.reduce((sum, e) => sum + (e.duration || 0), 0);
-					cellOpacity = dailyGoal > 0 ? Math.min(Math.max(totalHours / dailyGoal, 0.3), 1.0) : 0.7;
-					if (!this.settings.enableGoalTracking) {
-						// Simple tracking mode - use work type's simpleColor
-						const workType = this.settings.specialDayBehaviors.find(b => b.isWorkType);
-						cell.setCssProps({ '--tf-bg': workType?.simpleColor || '#90caf9', '--tf-color': workType?.simpleTextColor || '#000000' });
-						cell.addClass('tf-dynamic-bg-color');
-					} else {
-						const dayFlextime = dayEntries.reduce((sum, e) => sum + (e.flextime || 0), 0);
-						cell.setCssProps({ '--tf-bg': this.flextimeColor(dayFlextime), '--tf-color': this.flextimeTextColor(dayFlextime) });
-						cell.addClass('tf-dynamic-bg-color');
-					}
-				} else {
-					cell.setCssProps({ '--tf-bg': 'var(--background-modifier-border)' });
-					cell.addClass('tf-dynamic-bg');
-				}
-			} else if (dayEntries) {
-				// Regular work day - show flextime color or simple color
-				const totalHours = dayEntries.reduce((sum, e) => sum + (e.duration || 0), 0);
-				cellOpacity = dailyGoal > 0 ? Math.min(Math.max(totalHours / dailyGoal, 0.3), 1.0) : 0.7;
-				if (!this.settings.enableGoalTracking) {
-					// Simple tracking mode - use work type's simpleColor
-					const workType = this.settings.specialDayBehaviors.find(b => b.isWorkType);
-					cell.setCssProps({ '--tf-bg': workType?.simpleColor || '#90caf9', '--tf-color': workType?.simpleTextColor || '#000000' });
-					cell.addClass('tf-dynamic-bg-color');
-				} else {
-					// Goal-based mode - show flextime color gradient
-					const dayFlextime = dayEntries.reduce((sum, e) => sum + (e.flextime || 0), 0);
-					cell.setCssProps({ '--tf-bg': this.flextimeColor(dayFlextime), '--tf-color': this.flextimeTextColor(dayFlextime) });
-					cell.addClass('tf-dynamic-bg-color');
-				}
-			} else {
-				cell.setCssProps({ '--tf-bg': 'var(--background-modifier-border)' });
-				cell.addClass('tf-dynamic-bg');
+		// Month ticks — one label per week column, shown only where the month changes.
+		const months = body.createDiv({ cls: 'tf-heatmap-months' });
+		let prevMonth = -1;
+		for (let w = 0; w < nWeeks; w++) {
+			const colMonday = new Date(startMonday);
+			colMonday.setDate(startMonday.getDate() + w * 7);
+			if (colMonday.getMonth() !== prevMonth) {
+				const label = months.createDiv({ cls: 'tf-heatmap-month-label', text: getMonthShort(colMonday) });
+				label.setCssStyles({ gridColumnStart: String(w + 1) });
+				prevMonth = colMonday.getMonth();
 			}
-
-			if (isFuture) cellOpacity = 0.1;
-			cell.style.opacity = String(cellOpacity);
-
-			heatmap.appendChild(cell);
 		}
 
-		container.appendChild(heatmap);
+		// Weekday gutter — Mon/Wed/Fri anchors only (rows 0,2,4), like GitHub, to avoid clutter.
+		const weekdays = body.createDiv({ cls: 'tf-heatmap-weekdays' });
+		for (let r = 0; r < 7; r++) {
+			weekdays.createDiv({ cls: 'tf-heatmap-weekday-label', text: (r % 2 === 0 && r < 6) ? dayNames[r] : '' });
+		}
+
+		// Cell grid — filled column-by-column (one column = one week, top row = Monday).
+		const grid = body.createDiv({ cls: 'tf-heatmap-grid' });
+		const legend: HeatmapLegend = { specialDays: new Map(), hasOver: false, hasUnder: false, hasWorked: false, hasEmpty: false };
+		for (let w = 0; w < nWeeks; w++) {
+			for (let r = 0; r < 7; r++) {
+				const date = new Date(startMonday);
+				date.setDate(startMonday.getDate() + w * 7 + r);
+				const cell = grid.createDiv({ cls: 'tf-heatmap-cell' });
+				this._paintHeatmapCell(cell, date, today, legend);
+			}
+		}
+
+		this._renderHeatmapLegend(wrap, legend);
+	}
+
+	// Color + opacity for a single heatmap day, recording which legend category it falls in.
+	// Mirrors the dashboard's encoding: special-day color (if enabled) > flextime/work color,
+	// opacity scaled by hours logged vs the daily goal.
+	private _paintHeatmapCell(cell: HTMLElement, date: Date, today: Date, legend: HeatmapLegend): void {
+		const dateKey = Utils.toLocalDateStr(date);
+		const dateLabel = formatDate(date, 'long');
+
+		// Future days: faint placeholder so the grid stays rectangular.
+		if (date.getTime() > today.getTime()) {
+			cell.addClass('tf-dynamic-bg');
+			cell.setCssProps({ '--tf-bg': 'var(--background-modifier-border)' });
+			cell.style.opacity = '0.1';
+			cell.title = dateLabel;
+			return;
+		}
+
+		const dayEntries = this.data.daily[dateKey];
+		const holidayInfo = this.data.getHolidayInfo(dateKey);
+		const dailyGoal = this.settings.baseWorkday * this.settings.workPercent;
+
+		// Special-day color (if enabled): holiday file first, then a non-work entry type.
+		if (this.settings.heatmapShowSpecialDayColors) {
+			let behavior: SpecialDayBehavior | undefined;
+			if (holidayInfo) {
+				behavior = this.settings.specialDayBehaviors.find(b => b.id === holidayInfo.type);
+			}
+			if (!behavior && dayEntries) {
+				for (const entry of dayEntries) {
+					const entryName = entry.name.toLowerCase();
+					if (entryName === 'jobb') continue; // regular work uses the flextime/work color
+					behavior = this.settings.specialDayBehaviors.find(b => b.id === entryName);
+					if (behavior) break;
+				}
+			}
+			if (behavior) {
+				cell.setCssProps({ '--tf-bg': behavior.color, '--tf-color': behavior.textColor || '#000000' });
+				cell.addClass('tf-dynamic-bg-color');
+				cell.style.opacity = '0.85';
+				cell.title = `${dateLabel} · ${behavior.icon} ${translateSpecialDayName(behavior.id, behavior.label)}`;
+				legend.specialDays.set(behavior.id, behavior);
+				return;
+			}
+		}
+
+		if (dayEntries) {
+			const totalHours = dayEntries.reduce((sum, e) => sum + (e.duration || 0), 0);
+			if (!this.settings.enableGoalTracking) {
+				const workType = this.settings.specialDayBehaviors.find(b => b.isWorkType);
+				cell.setCssProps({ '--tf-bg': workType?.simpleColor || '#90caf9', '--tf-color': workType?.simpleTextColor || '#000000' });
+				legend.hasWorked = true;
+			} else {
+				const dayFlextime = dayEntries.reduce((sum, e) => sum + (e.flextime || 0), 0);
+				cell.setCssProps({ '--tf-bg': this.flextimeColor(dayFlextime), '--tf-color': this.flextimeTextColor(dayFlextime) });
+				if (dayFlextime < 0) legend.hasUnder = true; else legend.hasOver = true;
+			}
+			cell.addClass('tf-dynamic-bg-color');
+			cell.style.opacity = String(dailyGoal > 0 ? Math.min(Math.max(totalHours / dailyGoal, 0.3), 1.0) : 0.7);
+			cell.title = `${dateLabel} · ${Utils.formatHoursToHM(totalHours, this.settings.hourUnit)}`;
+			return;
+		}
+
+		// Past day with no data.
+		cell.addClass('tf-dynamic-bg');
+		cell.setCssProps({ '--tf-bg': 'var(--background-modifier-border)' });
+		cell.style.opacity = '0.1';
+		cell.title = dateLabel;
+		legend.hasEmpty = true;
+	}
+
+	// Color key under the heatmap — lists only the categories actually present in the range.
+	private _renderHeatmapLegend(wrap: HTMLElement, legend: HeatmapLegend): void {
+		const items: { color: string; label: string }[] = [];
+
+		if (this.settings.enableGoalTracking) {
+			if (legend.hasOver) items.push({ color: this.flextimeColor(1), label: t('heatmap.overGoal') });
+			if (legend.hasUnder) items.push({ color: this.flextimeColor(-1), label: t('heatmap.underGoal') });
+		} else if (legend.hasWorked) {
+			const workType = this.settings.specialDayBehaviors.find(b => b.isWorkType);
+			items.push({ color: workType?.simpleColor || '#90caf9', label: t('heatmap.worked') });
+		}
+
+		// Per-type colors that appear, in settings order so the key reads consistently.
+		this.settings.specialDayBehaviors.forEach(b => {
+			if (legend.specialDays.has(b.id)) {
+				items.push({ color: b.color, label: translateSpecialDayName(b.id, b.label) });
+			}
+		});
+
+		if (legend.hasEmpty) items.push({ color: 'var(--background-modifier-border)', label: t('heatmap.noData') });
+
+		if (items.length === 0) return;
+
+		const legendEl = wrap.createDiv({ cls: 'tf-heatmap-legend' });
+		items.forEach(it => {
+			const item = legendEl.createDiv({ cls: 'tf-heatmap-legend-item' });
+			item.createDiv({ cls: 'tf-heatmap-legend-swatch tf-dynamic-bg' }).setCssProps({ '--tf-bg': it.color });
+			item.createSpan({ text: it.label });
+		});
 	}
 
 	exportCurrentView(): void {
@@ -5953,7 +6040,26 @@ export class UIBuilder {
 		// Day header row
 		const dayHeaders = cal.createDiv({ cls: 'tf-bar-cal-day-headers' });
 		dayHeaders.style.gridTemplateColumns = cols;
-		if (showWeekNums) dayHeaders.createDiv({ cls: 'tf-bar-cal-day-header' }); // empty corner
+		if (showWeekNums) {
+			const corner = dayHeaders.createDiv({ cls: 'tf-bar-cal-day-header' });
+			// The week-number compliance dots are otherwise unlabelled — a clickable "?" key sits
+			// here (above the week column), opening a popover like the status bar's info button.
+			if (this.shouldShowWeekCompliance()) {
+				corner.setCssStyles({ position: 'relative' });
+				const help = corner.createEl('button', { cls: 'tf-cal-compliance-help', text: '?' });
+				help.setAttribute('aria-label', t('info.weekNumberCompliance'));
+				let pop: HTMLElement | null = null;
+				const close = () => { pop?.remove(); pop = null; activeDocument.removeEventListener('mousedown', onOutside); };
+				const onOutside = (ev: MouseEvent) => { if (pop && !pop.contains(ev.target as Node) && ev.target !== help) close(); };
+				help.onclick = (e) => {
+					e.stopPropagation();
+					if (pop) { close(); return; }
+					pop = corner.createDiv({ cls: 'tf-info-overlay tf-cal-compliance-popover' });
+					this._fillComplianceLegend(pop.createDiv({ cls: 'tf-info-overlay-section' }));
+					window.setTimeout(() => activeDocument.addEventListener('mousedown', onOutside), 0);
+				};
+			}
+		}
 		getDayNamesShort().forEach(name => {
 			dayHeaders.createDiv({ cls: 'tf-bar-cal-day-header', text: name });
 		});
@@ -6510,7 +6616,7 @@ export class UIBuilder {
 			item.createDiv({ cls: 'tf-upcoming-date', text: dateText });
 			const right = item.createDiv({ cls: 'tf-upcoming-right' });
 			if (g.count > 1) {
-				right.createSpan({ cls: 'tf-upcoming-count', text: `${g.count} ${t('ui.days')}` });
+				right.createSpan({ cls: 'tf-upcoming-count', text: `${g.count} ${plural(g.count, 'day')}` });
 			}
 			const chip = right.createDiv({ cls: 'tf-upcoming-chip', text: g.label });
 			chip.setCssStyles({ backgroundColor: g.color, color: g.textColor });
@@ -6655,7 +6761,27 @@ export class UIBuilder {
 			});
 		}
 
+		// Week-number compliance dot colours (only when the dots are shown).
+		if (this.shouldShowWeekCompliance()) {
+			this._fillComplianceLegend(overlay.createDiv({ cls: 'tf-info-overlay-section' }));
+		}
+
 		return overlay;
+	}
+
+	// The week-number compliance dot key (green = reached, amber = under, red = over).
+	// Shared by the status-bar info overlay and the calendar's "?" popover.
+	private _fillComplianceLegend(section: HTMLElement): void {
+		section.createDiv({ cls: 'tf-info-overlay-title', text: t('info.weekNumberCompliance') });
+		([
+			['var(--color-ok)', t('info.reachedGoal')],
+			['var(--color-warn)', t('info.underGoal')],
+			['var(--color-alert)', t('info.overGoal')],
+		] as [string, string][]).forEach(([color, label]) => {
+			const row = section.createDiv({ cls: 'tf-info-overlay-row' });
+			row.createDiv({ cls: 'tf-info-overlay-swatch' }).style.background = color;
+			row.appendText(label);
+		});
 	}
 
 	// =====================================================================
@@ -6671,7 +6797,7 @@ export class UIBuilder {
 		if (activeTimers.length > 0) dot.addClass('warn');
 		const statusText = activeTimers.length === 0
 			? `${t('v3.allGood')} · ${t('v3.noActiveTimers')}`
-			: t('v3.activeTimers').replace('{count}', String(activeTimers.length));
+			: `${activeTimers.length} ${plural(activeTimers.length, 'activeTimer')}`;
 		left.createDiv({ cls: 'tf-status-text', text: statusText });
 
 		const right = bar.createDiv({ cls: 'tf-status-bar-right' });
@@ -6822,18 +6948,21 @@ export class UIBuilder {
 			: this.statsTimeframe === 'total' ? t('v3.totalSub')
 			: t('v3.thisMonthSub');
 
-		const addCell = (value: string, label: string, sublabel?: string) => {
+		const addCell = (value: string, label: string, sublabel?: string, title?: string) => {
 			const cell = grid.createDiv({ cls: 'tf-wide-stats-cell' });
+			if (title) cell.title = title; // help cursor via [title] selector in CSS
 			cell.createDiv({ cls: 'tf-wide-stats-value', text: value });
 			cell.createDiv({ cls: 'tf-wide-stats-label', text: label });
 			if (sublabel) cell.createDiv({ cls: 'tf-wide-stats-sublabel', text: sublabel });
 		};
 
 		addCell(this._fmtHours(stats.totalHours ?? 0, 1), t('v3.hoursLogged'), periodSub);
-		addCell(this._fmtHours(avgDaily, 1), t('v3.dailyAverage'), t('v3.goalSub').replace('{value}', this._fmtGoal(dailyGoal)));
-		addCell(this._fmtHours(avgWeekly, 1), t('v3.weeklyAverage'), t('v3.limitSub').replace('{value}', this._fmtGoal(weekLimit)));
+		// goal = daily target, limit = weekly ceiling — the distinction is subtle, so spell it out on hover.
+		addCell(this._fmtHours(avgDaily, 1), t('v3.dailyAverage'), t('v3.goalSub').replace('{value}', this._fmtGoal(dailyGoal)), t('v3.goalTooltip'));
+		addCell(this._fmtHours(avgWeekly, 1), t('v3.weeklyAverage'), t('v3.limitSub').replace('{value}', this._fmtGoal(weekLimit)), t('v3.limitTooltip'));
 		addCell(`${workloadPct}%`, t('v3.workload'), t('v3.ofNormalWeek'));
-		addCell(String(stats.workDays ?? 0), t('v3.workDays'), t('v3.weekendsSub').replace('{count}', String(stats.weekendDays ?? 0)));
+		const weekendCount = stats.weekendDays ?? 0;
+		addCell(String(stats.workDays ?? 0), t('v3.workDays'), `+ ${weekendCount} ${plural(weekendCount, 'weekend')}`);
 
 		// Comp-time cell: resolve the comp-time type by its flextime effect, not a hardcoded id.
 		const compBehavior = this.settings.specialDayBehaviors.find(b => !b.isWorkType && b.flextimeEffect === 'withdraw');
@@ -6891,7 +7020,7 @@ export class UIBuilder {
 				if (!showAll && usedDays <= 0 && !(compact && hasQuota)) return;
 				const quotaDays = hasQuota ? (b.maxDaysPerYear as number) : 0;
 				const pct = hasQuota && quotaDays > 0 ? Math.min((usedDays / quotaDays) * 100, 100) : 0;
-				const fmtDays = (d: number) => `${Number.isInteger(d) ? d : d.toFixed(1)} ${t('ui.days')}`;
+				const fmtDays = (d: number) => `${Number.isInteger(d) ? d : d.toFixed(1)} ${plural(d, 'day')}`;
 				const countsText = hasQuota ? `${fmtDays(usedDays)} / ${fmtDays(quotaDays)}` : fmtDays(usedDays);
 				rows.push({ b, pct, countsText, hasQuota, isEmpty: usedDays <= 0 });
 			}
@@ -7168,11 +7297,15 @@ export class UIBuilder {
 			const barPx = hours > 0 ? Math.max(Math.round((hours / maxHours) * maxBarPx), 3) : 0;
 
 			const col = chart.createDiv({ cls: 'tf-wide-weekly-chart-col' });
+			// Value label pinned in a fixed-height row so every label sits on the same line
+			// (was floating at each bar's top, grazing the bars at inconsistent heights).
 			col.createDiv({
 				cls: `tf-wide-weekly-chart-hour-label${isCurrent ? ' current' : ''}`,
 				text: hours > 0 ? `${Math.round(hours)}${this.settings.hourUnit}` : '',
 			});
-			const barWrap = col.createDiv({
+			// Fixed-height track (maxBarPx); the bar grows from its bottom.
+			const barArea = col.createDiv({ cls: 'tf-wide-weekly-chart-bar-area' });
+			const barWrap = barArea.createDiv({
 				cls: `tf-wide-weekly-chart-bar-wrap${isCurrent ? ' current' : isOverLimit ? ' over-limit' : ''}`,
 			});
 			barWrap.style.height = `${barPx}px`;

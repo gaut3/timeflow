@@ -9,6 +9,10 @@ export interface TimeFlowSettings {
 	language: 'nb' | 'en';
 	defaultViewLocation: 'sidebar' | 'main';
 	hourUnit: 'h' | 't';
+	// Whether the user has deliberately chosen an hour unit. Until they do, the unit
+	// follows the language convention (nb → 't' timer, en → 'h' hours) so an English
+	// UI never shows the Norwegian "t". Set true the moment the Hour unit dropdown is used.
+	hourUnitExplicit: boolean;
 	showWeekNumbers: boolean;
 	hideEmptyStats: boolean;
 	workPercent: number;
@@ -259,6 +263,7 @@ export const DEFAULT_SETTINGS: TimeFlowSettings = {
 	language: "nb",
 	defaultViewLocation: "sidebar",
 	hourUnit: "t",
+	hourUnitExplicit: false,
 	showWeekNumbers: true,
 	hideEmptyStats: false,
 	workPercent: 1.0,
@@ -1363,6 +1368,12 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 				.onChange(async (value: 'nb' | 'en') => {
 					this.plugin.settings.language = value;
 					setLanguage(value);
+					// Hour unit follows the language convention until the user picks one
+					// explicitly (nb → 't' timer, en → 'h' hours), so an English UI never
+					// shows the Norwegian "t".
+					if (!this.plugin.settings.hourUnitExplicit) {
+						this.plugin.settings.hourUnit = value === 'en' ? 'h' : 't';
+					}
 					await this.plugin.saveSettings();
 					this.display(); // Refresh settings UI
 					await this.refreshView(); // Refresh dashboard
@@ -2097,13 +2108,15 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 
 		new Setting(settingsContainer)
 			.setName('Hour unit')
-			.setDesc('Choose the unit symbol for displaying hours: "h" for hours or "t" for timer')
+			.setDesc('Choose the unit symbol for displaying hours: "h" for hours or "t" for timer. Defaults to the language convention until set here.')
 			.addDropdown(dropdown => dropdown
 				.addOption('h', 'H')
 				.addOption('t', 'T')
 				.setValue(this.plugin.settings.hourUnit)
 				.onChange(async (value: 'h' | 't') => {
 					this.plugin.settings.hourUnit = value;
+					// A deliberate choice — stop auto-following the language from here on.
+					this.plugin.settings.hourUnitExplicit = true;
 					await this.plugin.saveSettings();
 					await this.refreshView();
 				}));

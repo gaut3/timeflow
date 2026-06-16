@@ -755,30 +755,119 @@
    Heatmap
    ======================================== */
 
+/* GitHub-contribution-style layout: a 2×2 grid — month ticks across the top,
+   weekday anchors down the left, the cell grid (weeks = columns) bottom-right.
+   Week columns are `1fr` and cells are square (aspect-ratio), so the whole grid
+   scales with the container width like the rest of the dashboard. */
 .tf-heatmap {
-	display: grid;
-	grid-template-columns: repeat(var(--tf-heatmap-cols, 7), 1fr);
-	gap: 2px;
 	margin-top: 15px;
-	padding-right: 1px;
+	--tf-hm-gap: 3px;
+}
+
+.tf-heatmap-body {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr); /* weekday gutter | cells fill the rest */
+	grid-template-rows: auto auto;              /* month ticks | body */
+	column-gap: 6px;
+	row-gap: 4px;
+	width: 100%;
+}
+
+.tf-heatmap-corner {
+	grid-column: 1;
+	grid-row: 1;
+}
+
+.tf-heatmap-months {
+	grid-column: 2;
+	grid-row: 1;
+	display: grid;
+	grid-template-columns: repeat(var(--tf-heatmap-cols, 48), 1fr);
+	column-gap: var(--tf-hm-gap);
+	min-width: 0;
+	height: 1.1em;
+	font-size: 0.7em;
+	color: var(--text-muted);
+}
+
+.tf-heatmap-month-label {
+	grid-row: 1;
+	min-width: 0;
+	white-space: nowrap;
+	overflow: visible;
+}
+
+/* Stretches to the cell grid's height (same outer row), then splits into 7 equal
+   bands with the same gap, so the weekday anchors line up with the square cells. */
+.tf-heatmap-weekdays {
+	grid-column: 1;
+	grid-row: 2;
+	display: grid;
+	grid-template-rows: repeat(7, 1fr);
+	row-gap: var(--tf-hm-gap);
+	min-height: 0;
+	font-size: 0.7em;
+	color: var(--text-muted);
+}
+
+.tf-heatmap-weekday-label {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	min-height: 0;
+	white-space: nowrap;
+}
+
+.tf-heatmap-grid {
+	grid-column: 2;
+	grid-row: 2;
+	display: grid;
+	grid-template-columns: repeat(var(--tf-heatmap-cols, 48), 1fr);
+	grid-template-rows: repeat(7, auto);
+	grid-auto-flow: column;
+	gap: var(--tf-hm-gap);
+	min-width: 0;
 }
 
 .tf-heatmap-cell {
 	width: 100%;
+	min-width: 0;
 	aspect-ratio: 1;
-	border-radius: 4px;
+	border-radius: 2px;
 	cursor: pointer;
-	transition: opacity 0.2s, box-shadow 0.2s;
+	transition: box-shadow 0.1s;
 }
 
 .tf-heatmap-cell:hover {
-	opacity: 0.8;
 	box-shadow: inset 0 0 0 2px var(--text-accent);
+}
+
+.tf-heatmap-legend {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px 14px;
+	margin-top: 12px;
+	font-size: 0.8em;
+	color: var(--text-muted);
+}
+
+.tf-heatmap-legend-item {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.tf-heatmap-legend-swatch {
+	width: 11px;
+	height: 11px;
+	border-radius: 2px;
+	border: 1px solid var(--background-modifier-border);
+	flex-shrink: 0;
 }
 
 @media (max-width: 600px) {
 	.tf-heatmap {
-		grid-template-columns: repeat(20, 1fr);
+		--tf-hm-gap: 2px;
 	}
 }
 
@@ -2566,16 +2655,6 @@
 	padding: 20px;
 	color: var(--text-muted);
 	font-style: italic;
-}
-
-.tf-heatmap-cell {
-	border-radius: 2px;
-	cursor: pointer;
-	transition: transform 0.1s;
-}
-
-.tf-heatmap-cell:hover {
-	transform: scale(1.2);
 }
 
 .tf-calendar-day {
@@ -4397,6 +4476,13 @@
 .tf-compliance-dot-ok   { background: var(--color-ok); }
 .tf-compliance-dot-warn { background: var(--color-warn); }
 .tf-compliance-dot-over { background: var(--color-alert); }
+/* Clickable "?" key for the compliance dots, in the corner above the week-number column */
+.tf-cal-compliance-help { display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px; padding: 0; border-radius: 50%; border: 1px solid var(--color-sep); background: transparent; font-size: 9px; font-weight: 700; line-height: 1; color: var(--color-muted); cursor: pointer; }
+.tf-cal-compliance-help:hover { background: var(--color-card); color: var(--color-text); }
+/* Popover opens below the corner (the shared .tf-info-overlay anchors bottom/right for the status
+   bar). Combined selector so it beats .tf-info-overlay regardless of source order — otherwise the
+   base rule's bottom/right win, the box gets both top+bottom and collapses to the header height. */
+.tf-info-overlay.tf-cal-compliance-popover { top: calc(100% + 4px); bottom: auto; left: 0; right: auto; min-width: 160px; }
 .tf-bar-cal-cell { display: flex; flex-direction: column; align-items: stretch; padding: 5px 3px 4px; border-radius: 4px; gap: 4px; cursor: pointer; box-sizing: border-box; }
 .tf-bar-cal-cell:hover  { background: var(--color-raised); }
 .tf-bar-cal-cell.today  { outline: 2px solid var(--color-accent); outline-offset: -2px; border-radius: 5px; }
@@ -4550,9 +4636,10 @@
 .timeflow-dashboard .tf-stats-period-select { padding: 6px 8px; border-radius: 8px; border: 1.5px solid var(--color-sep); background: var(--color-raised); color: var(--color-text); font-size: 12px; font-family: var(--font-interface); cursor: pointer; box-shadow: none; }
 /* Stats card wraps the grid + the trend-delta footer in one border, so the week/month
    deltas sit inside the card instead of floating below it with lopsided spacing. */
-.tf-wide-stats-card { border: 1.5px solid var(--color-sep); border-radius: 10px; overflow: hidden; margin-bottom: 16px; }
+.tf-wide-stats-card { border: 1.5px solid var(--color-sep); border-radius: 10px; overflow: hidden; }
 .tf-wide-stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--color-sep); }
 .tf-wide-stats-cell { background: var(--color-raised); padding: 12px 14px; display: flex; flex-direction: column; gap: 3px; font-family: var(--font-interface); }
+.tf-wide-stats-cell[title] { cursor: help; } /* a cell carrying an explanatory tooltip */
 .tf-wide-stats-value { font-size: 22px; font-weight: 800; color: var(--color-text); letter-spacing: -0.02em; }
 .tf-wide-stats-label { font-size: 12px; font-weight: 500; color: var(--color-faint); }
 .tf-wide-stats-sublabel { font-size: 11px; font-weight: 500; color: var(--color-faint); }
@@ -4569,12 +4656,15 @@
 /* Quota-less behaviors (comp time, study day, other) render value-only — no ghost track. Keep the vertical rhythm even. */
 .timeflow-dashboard .tf-leave-row--no-bar { padding-bottom: 2px; }
 .tf-weekly-chart-label { font-size: 13px; font-weight: 600; color: var(--color-muted); font-family: var(--font-interface); margin-bottom: 8px; }
-.tf-wide-weekly-chart { display: flex; gap: 6px; align-items: flex-end; min-height: 92px; position: relative; }
+.tf-wide-weekly-chart { display: flex; gap: 6px; align-items: flex-end; min-height: 96px; position: relative; }
 .tf-wide-weekly-chart-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; }
+/* Fixed-height track so the bar grows from a constant baseline and the value label
+   above it stays on one line across all columns. Height matches maxBarPx in JS. */
+.tf-wide-weekly-chart-bar-area { width: 100%; height: 60px; display: flex; align-items: flex-end; }
 .tf-wide-weekly-chart-bar-wrap { width: 100%; min-height: 3px; border-radius: 3px 3px 0 0; background: var(--color-muted); opacity: 0.85; }
 .tf-wide-weekly-chart-bar-wrap.current { background: var(--color-accent); opacity: 1; }
 .tf-wide-weekly-chart-bar-wrap.over-limit { background: var(--color-warn); opacity: 1; }
-.tf-wide-weekly-chart-hour-label { font-size: 11px; color: var(--color-faint); font-family: var(--font-interface); }
+.tf-wide-weekly-chart-hour-label { height: 14px; line-height: 14px; font-size: 11px; color: var(--color-faint); font-family: var(--font-interface); }
 .tf-wide-weekly-chart-hour-label.current { color: var(--color-accent); }
 .tf-wide-weekly-chart-label-el { font-size: 11px; height: 14px; line-height: 14px; color: var(--color-faint); font-family: var(--font-interface); }
 .tf-wide-weekly-chart-label-el.current { color: var(--color-accent); font-weight: 700; }
@@ -4693,8 +4783,9 @@
 /* Wide right column: crisp divider above each section (history already has its own) */
 [data-layout="wide"] .tf-right-section {
 	border-top: 1px solid var(--color-sep);
-	padding-top: 18px;
-	margin-top: 8px;
+	/* The flex `gap: 20px` already sits above the divider; match it below so each section
+	   has equal breathing room top and bottom (was 8px margin + 20px gap above vs 18px below). */
+	padding-top: 20px;
 }
 
 /* Sidebar-only extras (leave + history); hidden in the wide layout */

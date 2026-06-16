@@ -31,8 +31,10 @@ export default class TimeFlowPlugin extends Plugin {
 
 		// Now run migrations AFTER merging synced settings
 		const needsSave = this.migrateWorkDaysSettings() || this.migrateSpecialDayBehaviors() || this.migrateWorkScheduleHistory() || this.migrateIntervalSettings();
+		// Evaluated separately so the short-circuiting chain above can't skip it.
+		const hourUnitMigrated = this.migrateHourUnit();
 		const timestampMigrated = await this.migrateTimestamps();
-		if (needsSave || timestampMigrated) {
+		if (needsSave || hourUnitMigrated || timestampMigrated) {
 			await this.saveSettings();
 		}
 
@@ -302,6 +304,19 @@ export default class TimeFlowPlugin extends Plugin {
 		}
 
 		return changed;
+	}
+
+	// Until the user picks an hour unit explicitly, keep it aligned with the language
+	// convention (nb → 't' timer, en → 'h' hours). Corrects e.g. an English UI that was
+	// left on the Norwegian "t" before the unit followed the language.
+	migrateHourUnit(): boolean {
+		if (this.settings.hourUnitExplicit) return false;
+		const want = this.settings.language === 'en' ? 'h' : 't';
+		if (this.settings.hourUnit !== want) {
+			this.settings.hourUnit = want;
+			return true;
+		}
+		return false;
 	}
 
 	/**

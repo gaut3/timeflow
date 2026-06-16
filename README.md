@@ -3,10 +3,7 @@
   <img alt="Timeflow" src="brand/png/wordmark/timeflow-wordmark-light-2x.png" width="220">
 </picture>
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://github.com/gaut3/timeflow/blob/main/images/Wide%20-%20Dark%20mode%20-%20Home.png?raw=true">
-  <img alt="Timeflow dashboard — wide layout" src="https://github.com/gaut3/timeflow/blob/main/images/Wide%20-%20Light%20mode%20-%20Home.png?raw=true">
-</picture>
+<img alt="Timeflow dashboard — wide layout, shown in both light and dark themes" src="https://github.com/gaut3/timeflow/blob/main/images/timeflow-wide-home.png?raw=true">
 
 timeflow is a flextime tracking dashboard built around one question — **where's my flextime balance?** It pairs a live, color-coded balance with a **built-in timer**, a calm calendar and statistics, and extensive customization. Structural colors come from Obsidian's own theme variables, so it looks at home in any light or dark theme.
 
@@ -15,10 +12,7 @@ timeflow is a flextime tracking dashboard built around one question — **where'
 
 _The same dashboard adapts to a narrow sidebar — nothing is dropped on mobile:_
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://github.com/gaut3/timeflow/blob/main/images/Sidebar%20-%20Dark%20mode%20-%20Home.png?raw=true">
-  <img alt="Timeflow in the sidebar — narrow layout" src="https://github.com/gaut3/timeflow/blob/main/images/Sidebar%20-%20Light%20mode%20-%20Home.png?raw=true" width="340">
-</picture>
+<img alt="Timeflow in the sidebar — narrow layout, shown in both light and dark themes" src="https://github.com/gaut3/timeflow/blob/main/images/timeflow-sidebar-home.png?raw=true" width="340">
 
 ## Features
 
