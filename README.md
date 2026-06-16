@@ -64,7 +64,7 @@ _The same dashboard adapts to a narrow sidebar — nothing is dropped on mobile:
   <img alt="History — list view with day-type filters, grouped by month" src="https://github.com/gaut3/timeflow/blob/main/images/Wide%20-%20Light%20mode%20-%20History%20list.png?raw=true">
 </picture>
 
-![Heatmap view of work history](https://github.com/gaut3/timeflow/blob/main/images/Wide%20-%20Light%20mode%20-%20Heatmap.png?raw=true)
+![Heatmap view of work history, shown in both light and dark themes](https://github.com/gaut3/timeflow/blob/main/images/timeflow-heatmap.png?raw=true)
 
 ### 🎯 Planning & Organization
 
