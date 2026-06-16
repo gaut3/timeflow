@@ -1,4 +1,4 @@
-import { Plugin, WorkspaceLeaf, Notice } from 'obsidian';
+import { Plugin, WorkspaceLeaf, Notice, addIcon } from 'obsidian';
 import { TimeFlowSettings, DEFAULT_SETTINGS, TimeFlowSettingTab, DEFAULT_SPECIAL_DAY_BEHAVIORS } from './settings';
 import { TimeFlowView, VIEW_TYPE_TIMEFLOW } from './view';
 import { TimerManager, Timer } from './timerManager';
@@ -11,6 +11,10 @@ export default class TimeFlowPlugin extends Plugin {
 	timerManager: TimerManager;
 
 	async onload() {
+		// Register the Timeflow brand glyph (brand/svg/timeflow-icon, monochrome via
+		// currentColor) so the ribbon and view tab use it instead of a generic Lucide icon.
+		addIcon('timeflow', '<circle cx="50" cy="50" r="37" fill="none" stroke="currentColor" stroke-width="7"></circle><line x1="27" y1="50" x2="73" y2="50" stroke="currentColor" stroke-width="7" stroke-linecap="round"></line><path d="M50 50 L41.5 67 L58.5 67 Z" fill="currentColor"></path><circle cx="50" cy="50" r="5" fill="currentColor"></circle><circle cx="50" cy="20" r="3.4" fill="currentColor"></circle>');
+
 		// Load settings (without migration yet)
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData() as Partial<TimeFlowSettings>);
 
@@ -42,7 +46,7 @@ export default class TimeFlowPlugin extends Plugin {
 		);
 
 		// Add ribbon icon to open timeflow
-		this.addRibbonIcon('calendar-clock', 'Open timeflow', () => {
+		this.addRibbonIcon('timeflow', 'Open timeflow', () => {
 			void this.activateView();
 		});
 

@@ -2,7 +2,9 @@
 node_modules/
 
 # Build output
-main.js
+# NOTE: main.js is intentionally NOT ignored — it's the bundled plugin artifact.
+# Obsidian plugins ship main.js + manifest.json + styles.css, and BRAT/manual
+# installs require the committed main.js. Only sourcemaps and dist/ are ignored.
 main.js.map
 *.js.map
 dist/
@@ -31,3 +33,4 @@ CHANGELOG.md
 /design_handoff_timeflow_v3 2
 claude design review.md
 Image 14-06-2026 at 16.47.png
+/docs

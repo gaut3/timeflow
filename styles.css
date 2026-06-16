@@ -6,10 +6,11 @@
 
 .timeflow-dashboard {
 	font-family: var(--font-text);
-	padding: 20px;
+	padding: 0;
 	width: 100%;
 	container-type: inline-size;
 	container-name: dashboard;
+	background-color: var(--color-bg);
 }
 
 .timeflow-error, .timeflow-warning {
@@ -180,7 +181,7 @@
 /* Reduce side padding on mobile */
 @container dashboard (max-width: 400px) {
 	.timeflow-dashboard {
-		padding: 12px 8px;
+		padding: 0;
 	}
 	.tf-card {
 		padding: 12px;
@@ -2300,11 +2301,18 @@
 	position: fixed;
 	background: var(--background-primary);
 	border: 1px solid var(--background-modifier-border);
-	border-radius: 8px;
-	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+	border-radius: 12px;
+	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
 	z-index: 1000;
-	min-width: 150px;
+	min-width: 200px;
 	overflow: hidden;
+}
+
+/* Match the enlarged hero Start button: roomier rows + larger type */
+.tf-timer-type-menu .tf-menu-item {
+	padding: 13px 18px;
+	font-size: 15px;
+	font-weight: 600;
 }
 
 .tf-menu-item {
@@ -4286,9 +4294,16 @@
 	--color-accent:  var(--interactive-accent);
 }
 
+/* Optional background override: when the user opts in, .tf-bg-custom is added to the
+   dashboard root and --tf-bg-light / --tf-bg-dark are set inline. The per-theme rules
+   then point --color-bg at the chosen color; the dashboard paints --color-bg below. */
+.theme-light .timeflow-dashboard.tf-bg-custom { --color-bg: var(--tf-bg-light); }
+.theme-dark  .timeflow-dashboard.tf-bg-custom { --color-bg: var(--tf-bg-dark); }
+
 /* Timeflow-specific semantics (balance states + day types) have no Obsidian
    equivalent, so they stay hardcoded — split by theme via Obsidian's body class. */
 .theme-light .timeflow-dashboard {
+	--tf-brand:      #4d8c6f;
 	--color-ok:      #2f9e63;
 	--color-warn:    #db8a0c;
 	--color-alert:   #d8452c;
@@ -4303,6 +4318,7 @@
 }
 
 .theme-dark .timeflow-dashboard {
+	--tf-brand:      #74a36b;
 	--color-ok:      #5cc285;
 	--color-warn:    #e6b24a;
 	--color-alert:   #e07565;
@@ -4324,7 +4340,9 @@
 .tf-balance-hero-row1 { display: flex; align-items: flex-start; justify-content: space-between; }
 .tf-balance-left  { display: flex; flex-direction: column; }
 .tf-balance-label { font-size: 13px; font-weight: 500; color: var(--color-faint); margin-bottom: 6px; }
-.tf-balance-number { font-size: 42px; font-weight: 800; letter-spacing: -0.03em; line-height: 1; margin-bottom: 10px; color: var(--color-text); font-family: inherit; }
+/* Weight 700 (not 800) so the filled Start button wins by fill, not by hue; .tf-ok stays sage, not interactive accent. */
+.tf-balance-number { font-size: 42px; font-weight: 700; letter-spacing: -0.03em; line-height: 1; margin-bottom: 10px; color: var(--color-text); font-family: inherit; }
+.tf-balance-number .tf-unit { font-size: 0.62em; font-weight: 600; color: var(--color-muted); margin: 0 0.04em 0 0.02em; }
 .tf-balance-number.tf-ok    { color: var(--color-ok); }
 .tf-balance-number.tf-warn  { color: var(--color-warn); }
 .tf-balance-number.tf-alert { color: var(--color-alert); }
@@ -4337,7 +4355,7 @@
 .tf-hero-timer-wrap { display: flex; gap: 0; margin-top: 16px; }
 /* Start button + dropdown arrow form a single accent pill (arrow on the right) */
 .timeflow-dashboard .tf-hero-start-main { flex: 1; background: var(--color-accent); color: var(--text-on-accent); padding: 12px 16px; border-radius: 10px 0 0 10px; font-size: 15px; font-weight: 700; border: none; cursor: pointer; font-family: inherit; text-align: center; }
-.timeflow-dashboard .tf-hero-start-arrow { flex: 0 0 auto; width: 40px; background: var(--color-accent); border: none; border-left: 1px solid rgba(255, 255, 255, 0.25); border-radius: 0 10px 10px 0; font-size: 13px; color: var(--text-on-accent); cursor: pointer; font-family: inherit; display: flex; align-items: center; justify-content: center; }
+.timeflow-dashboard .tf-hero-start-arrow { flex: 0 0 auto; width: 40px; padding: 12px 0; background: var(--color-accent); border: none; border-left: 1px solid rgba(255, 255, 255, 0.25); border-radius: 0 10px 10px 0; font-size: 15px; color: var(--text-on-accent); cursor: pointer; font-family: inherit; display: flex; align-items: center; justify-content: center; }
 .timeflow-dashboard .tf-hero-stop-btn { flex: 1; background: var(--color-accent); color: var(--text-on-accent); padding: 12px 16px; border-radius: 10px; font-size: 15px; font-weight: 700; border: none; cursor: pointer; font-family: inherit; display: flex; align-items: center; justify-content: center; gap: 8px; }
 .tf-hero-pulse { width: 8px; height: 8px; border-radius: 50%; background: rgba(255, 255, 255, 0.9); animation: tf-pulse 1.2s ease-in-out infinite; }
 @keyframes tf-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
@@ -4349,8 +4367,8 @@
 
 .tf-progress-strip { display: flex; flex-direction: column; gap: 11px; padding: 14px 20px; border-bottom: 1px solid var(--color-sep); font-family: var(--font-interface); }
 .tf-strip-row { display: flex; align-items: center; gap: 10px; }
-.tf-strip-label { width: 44px; flex-shrink: 0; font-size: 13px; font-weight: 500; color: var(--color-faint); }
-.tf-strip-label.current-week { color: var(--color-accent); font-weight: 700; }
+.tf-strip-label { width: 44px; flex-shrink: 0; font-size: 13px; font-weight: 500; color: var(--color-faint); white-space: nowrap; }
+.tf-strip-label.current-week { color: var(--color-ok); font-weight: 700; }
 .tf-strip-hours { width: 62px; flex-shrink: 0; font-size: 14px; font-weight: 700; color: var(--color-text); font-family: inherit; }
 .tf-strip-bar-track { flex: 1; height: 8px; background: var(--color-sep); border-radius: 4px; overflow: hidden; }
 .tf-strip-bar-fill { height: 100%; border-radius: 4px; background: var(--color-accent); }
@@ -4395,7 +4413,7 @@
    v3 — Inline Day Drawer
    ======================================== */
 
-.tf-inline-drawer { background: var(--color-bg); border: 2px solid var(--color-accent); border-radius: 12px; padding: 16px; margin: 6px 0 8px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08); font-family: var(--font-interface); }
+.tf-inline-drawer { background: var(--color-raised); border: 2px solid var(--color-accent); border-radius: 12px; padding: 16px; margin: 6px 0 8px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08); font-family: var(--font-interface); }
 .tf-drawer-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
 .tf-drawer-date { font-size: 15px; font-weight: 700; color: var(--color-text); }
 .timeflow-dashboard .tf-drawer-close { width: 28px; height: 28px; border-radius: 50%; background: var(--color-raised); border: 1.5px solid var(--color-sep); font-size: 14px; color: var(--color-muted); cursor: pointer; display: flex; align-items: center; justify-content: center; }
@@ -4418,8 +4436,42 @@
 
 /* Inline day edit (replaces the edit modal) */
 .timeflow-dashboard .tf-drawer-edit-section { margin-top: 10px; display: flex; flex-direction: column; gap: 10px; }
+/* Absence form rendered inline in the day drawer — styled to match the inline edit card
+   (same surface, inputs, labels and full-width primary button) so the two flows look alike. */
+.timeflow-dashboard .tf-absence-inline {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	background: var(--color-card);
+	border: 1.5px solid var(--color-sep);
+	border-radius: 10px;
+	padding: 10px 12px;
+}
+/* Even 8px rhythm: neutralise the modal utility margins between top-level controls */
+.timeflow-dashboard .tf-absence-inline > * { margin-bottom: 0; }
+.timeflow-dashboard .tf-absence-inline .tf-label-bold-mb,
+.timeflow-dashboard .tf-absence-inline .tf-label-bold-mb-8 { font-size: 12px; font-weight: 700; color: var(--color-text); margin-bottom: 6px; }
+.timeflow-dashboard .tf-absence-inline .tf-date-display { font-size: 12px; font-weight: 600; color: var(--color-muted); }
+.timeflow-dashboard .tf-absence-inline .tf-date-label { min-width: 64px; font-size: 12px; color: var(--color-muted); }
+.timeflow-dashboard .tf-absence-inline .tf-duration-display,
+.timeflow-dashboard .tf-absence-inline .tf-duration-display-mb,
+.timeflow-dashboard .tf-absence-inline .tf-days-count { font-size: 12px; color: var(--color-faint); }
+.timeflow-dashboard .tf-absence-inline select,
+.timeflow-dashboard .tf-absence-inline input:not([type="checkbox"]) {
+	padding: 6px 8px;
+	font-size: 13px;
+	border: 1.5px solid var(--color-sep);
+	border-radius: 8px;
+	background: var(--color-raised);
+	color: var(--color-text);
+	box-shadow: none;
+}
+/* Only the type select and note field span full width; row inputs keep their flex sizing */
+.timeflow-dashboard .tf-absence-inline .tf-select-full,
+.timeflow-dashboard .tf-absence-inline .tf-text-input-full { width: 100%; }
+.timeflow-dashboard .tf-absence-inline .tf-btn-container { display: flex; }
 .timeflow-dashboard .tf-drawer-edit-empty { font-size: 12px; color: var(--color-faint); font-style: italic; padding: 4px 0; }
-.timeflow-dashboard .tf-drawer-edit-card { background: var(--color-raised); border: 1.5px solid var(--color-sep); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+.timeflow-dashboard .tf-drawer-edit-card { background: var(--color-card); border: 1.5px solid var(--color-sep); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
 .timeflow-dashboard .tf-drawer-edit-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .timeflow-dashboard .tf-drawer-edit-label { font-size: 12px; font-weight: 700; color: var(--color-text); }
 .timeflow-dashboard .tf-drawer-edit-del { display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; padding: 0; border: 1.5px solid var(--color-sep); border-radius: 8px; background: transparent; color: var(--color-muted); cursor: pointer; box-shadow: none; -webkit-appearance: none; appearance: none; }
@@ -4444,6 +4496,8 @@
 .tf-upcoming-flat-title { font-size: 13px; font-weight: 600; color: var(--color-muted); margin: 14px 0 10px; }
 .tf-upcoming-flat-item { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--color-hair); }
 .tf-upcoming-date { font-size: 14px; font-weight: 500; color: var(--color-muted); }
+.tf-upcoming-right { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+.tf-upcoming-count { font-size: 12px; font-weight: 500; color: var(--color-faint); white-space: nowrap; }
 .tf-upcoming-chip { font-size: 13px; font-weight: 600; border-radius: 20px; padding: 3px 10px; }
 
 /* ========================================
@@ -4467,6 +4521,11 @@
 .tf-status-text { font-size: 12px; font-weight: 500; color: var(--color-faint); }
 .tf-status-bar-right { display: flex; align-items: center; gap: 10px; }
 .tf-status-version { font-size: 12px; font-weight: 500; color: var(--color-faint); }
+.timeflow-dashboard .tf-status-brand { display: flex; align-items: center; gap: 5px; }
+.timeflow-dashboard .tf-status-brand-icon { display: flex; align-items: center; color: var(--tf-brand); }
+.timeflow-dashboard .tf-status-brand-icon svg { width: 14px; height: 14px; }
+.timeflow-dashboard .tf-status-wordmark { font-size: 13px; font-weight: 800; letter-spacing: -0.02em; color: var(--color-text); }
+.timeflow-dashboard .tf-status-wordmark-accent { color: var(--tf-brand); }
 .timeflow-dashboard .tf-status-help-btn { width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--color-sep); background: transparent; font-size: 11px; font-weight: 700; color: var(--color-muted); cursor: pointer; display: flex; align-items: center; justify-content: center; }
 .timeflow-dashboard .tf-status-help-btn:hover { background: var(--color-card); }
 
@@ -4483,12 +4542,16 @@
    ======================================== */
 
 .tf-wide-section-heading { font-size: 17px; font-weight: 700; color: var(--color-text); font-family: var(--font-interface); margin-bottom: 8px; }
-.timeflow-dashboard .tf-stats-tabs { display: flex; gap: 2px; background: var(--color-raised); border: 1.5px solid var(--color-sep); border-radius: 8px; padding: 3px; margin-bottom: 10px; }
+.timeflow-dashboard .tf-stats-tabs { display: flex; gap: 2px; background: var(--color-raised); border: 1.5px solid var(--color-sep); border-radius: 8px; padding: 3px; }
 .timeflow-dashboard .tf-stats-tab { padding: 4px 13px; border-radius: 6px; border: none; font-size: 12px; cursor: pointer; background: transparent; color: var(--color-faint); font-weight: 500; font-family: var(--font-interface); }
 .timeflow-dashboard .tf-stats-tab.active { background: var(--color-card); color: var(--color-text); font-weight: 700; }
-.timeflow-dashboard .tf-stats-period { display: flex; gap: 8px; margin-bottom: 12px; }
-.timeflow-dashboard .tf-stats-period-select { flex: 1; min-width: 0; padding: 5px 8px; border-radius: 8px; border: 1.5px solid var(--color-sep); background: var(--color-raised); color: var(--color-text); font-size: 13px; font-family: var(--font-interface); cursor: pointer; box-shadow: none; }
-.tf-wide-stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--color-sep); border-radius: 10px; overflow: hidden; border: 1.5px solid var(--color-sep); margin-bottom: 16px; }
+.timeflow-dashboard .tf-stats-head-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.timeflow-dashboard .tf-stats-period { display: flex; align-items: center; gap: 6px; }
+.timeflow-dashboard .tf-stats-period-select { padding: 6px 8px; border-radius: 8px; border: 1.5px solid var(--color-sep); background: var(--color-raised); color: var(--color-text); font-size: 12px; font-family: var(--font-interface); cursor: pointer; box-shadow: none; }
+/* Stats card wraps the grid + the trend-delta footer in one border, so the week/month
+   deltas sit inside the card instead of floating below it with lopsided spacing. */
+.tf-wide-stats-card { border: 1.5px solid var(--color-sep); border-radius: 10px; overflow: hidden; margin-bottom: 16px; }
+.tf-wide-stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--color-sep); }
 .tf-wide-stats-cell { background: var(--color-raised); padding: 12px 14px; display: flex; flex-direction: column; gap: 3px; font-family: var(--font-interface); }
 .tf-wide-stats-value { font-size: 22px; font-weight: 800; color: var(--color-text); letter-spacing: -0.02em; }
 .tf-wide-stats-label { font-size: 12px; font-weight: 500; color: var(--color-faint); }
@@ -4503,6 +4566,8 @@
 .tf-leave-counts { font-size: 13px; font-weight: 700; }
 .tf-leave-bar-track { height: 8px; background: var(--color-sep); border-radius: 4px; overflow: hidden; }
 .tf-leave-bar-fill { height: 100%; border-radius: 4px; }
+/* Quota-less behaviors (comp time, study day, other) render value-only — no ghost track. Keep the vertical rhythm even. */
+.timeflow-dashboard .tf-leave-row--no-bar { padding-bottom: 2px; }
 .tf-weekly-chart-label { font-size: 13px; font-weight: 600; color: var(--color-muted); font-family: var(--font-interface); margin-bottom: 8px; }
 .tf-wide-weekly-chart { display: flex; gap: 6px; align-items: flex-end; min-height: 92px; position: relative; }
 .tf-wide-weekly-chart-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; }
@@ -4558,6 +4623,10 @@
    v3 — Layout structure (data-layout based, no container queries)
    ======================================== */
 
+/* v3 sections supply their own padding and full-width dividers, so the legacy
+   .tf-container 20px padding is dropped on the dashboard (hero sits flush to the top). */
+.tf-container[data-layout] { padding: 0; }
+
 .tf-v3-layout  { display: flex; flex-direction: column; }
 .tf-v3-top     { display: flex; flex-direction: column; }
 .tf-v3-content { display: flex; flex-direction: column; }
@@ -4580,10 +4649,126 @@
 [data-layout="wide"] .tf-balance-right { margin-left: auto; }
 [data-layout="wide"] .tf-hero-timer-wrap { margin-top: 0; flex: 0 0 auto; }
 [data-layout="wide"] .tf-hero-start-main,
-[data-layout="wide"] .tf-hero-stop-btn { flex: 0 0 auto; padding: 11px 18px; }
+[data-layout="wide"] .tf-hero-stop-btn { flex: 0 0 auto; padding: 18px 30px; font-size: 17px; }
+[data-layout="wide"] .tf-hero-start-main { border-radius: 14px 0 0 14px; }
+[data-layout="wide"] .tf-hero-stop-btn { border-radius: 14px; }
+[data-layout="wide"] .tf-hero-start-arrow { width: 48px; padding: 18px 0; font-size: 17px; border-radius: 0 14px 14px 0; }
 
 /* Wide progress strips: two columns side-by-side */
 [data-layout="wide"] .tf-progress-strip { display: grid; grid-template-columns: 1fr 1fr; gap: 11px 24px; }
+[data-layout="wide"] .tf-strip-label { width: auto; min-width: 44px; }
+
+/* ========================================
+   v3.1 — Trend delta, section dividers, sidebar extras
+   ======================================== */
+
+/* Trend delta row (both layouts) — sits under the stats grid */
+.timeflow-dashboard .tf-trend-delta {
+	display: flex;
+	gap: 18px;
+	padding: 10px 16px;
+	border-top: 1px dashed var(--color-hair);
+	margin-top: 10px;
+}
+.timeflow-dashboard .tf-trend-cell { display: flex; align-items: center; gap: 6px; }
+.timeflow-dashboard .tf-trend-label { font-size: 12px; color: var(--color-faint); font-weight: 500; white-space: nowrap; }
+.timeflow-dashboard .tf-trend-value { font-size: 12px; font-weight: 700; white-space: nowrap; }
+.timeflow-dashboard .tf-trend-pos { color: var(--color-ok); }
+.timeflow-dashboard .tf-trend-neg { color: var(--color-muted); }   /* down ≠ danger — the ↓ arrow carries the meaning, not alarm-red */
+.timeflow-dashboard .tf-trend-zero { color: var(--color-faint); }
+/* Wide: trend deltas as the footer row inside the stats card. A 1px top divider (a real
+   border, matching the grid's gridlines) separates it from the grid; symmetric padding
+   above/below the text; the card's own border closes it off. This replaces the old
+   floating row whose top gap (grid margin) and bottom gap (section gap) never matched.
+   Narrow keeps the standalone dashed row (.tf-trend-delta base rule above). */
+.tf-wide-stats-card > .tf-trend-delta {
+	margin: 0;
+	padding: 10px 14px;
+	background: var(--color-raised);
+	border-top: 1px solid var(--color-sep);
+	justify-content: space-between;
+	gap: 12px;
+}
+
+/* Wide right column: crisp divider above each section (history already has its own) */
+[data-layout="wide"] .tf-right-section {
+	border-top: 1px solid var(--color-sep);
+	padding-top: 18px;
+	margin-top: 8px;
+}
+
+/* Sidebar-only extras (leave + history); hidden in the wide layout */
+.tf-sidebar-extras { display: flex; flex-direction: column; }
+[data-layout="wide"] .tf-sidebar-extras { display: none; }
+
+.tf-narrow-leave-section,
+.tf-narrow-history-section { padding: 12px 16px 14px; border-top: 1px solid var(--color-sep); }
+
+/* Compact section header: muted label left, See all/Show less link right */
+.timeflow-dashboard .tf-compact-section-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 10px;
+}
+.timeflow-dashboard .tf-compact-section-label {
+	font-size: 12px;
+	font-weight: 700;
+	color: var(--color-muted);
+}
+.timeflow-dashboard .tf-compact-see-all {
+	background: transparent;
+	border: none;
+	box-shadow: none;
+	width: auto;
+	height: auto;
+	padding: 3px 8px;
+	margin: 0;
+	font-size: 12px;
+	font-weight: 600;
+	color: var(--color-muted);
+	cursor: pointer;
+	font-family: inherit;
+	line-height: 1.3;
+	border-radius: 6px;
+}
+.timeflow-dashboard .tf-compact-see-all:hover {
+	background: var(--color-raised);
+	color: var(--color-text);
+	text-decoration: none;
+	box-shadow: none;
+}
+
+/* Compact recent-history rows: weekday+date | type chip | signed flex */
+.timeflow-dashboard .tf-compact-hist-list { display: flex; flex-direction: column; gap: 7px; }
+.timeflow-dashboard .tf-compact-hist-row {
+	display: grid;
+	grid-template-columns: 46px 1fr 60px;
+	align-items: center;
+	gap: 8px;
+}
+.timeflow-dashboard .tf-compact-hist-date { font-size: 12px; color: var(--color-faint); white-space: nowrap; }
+.timeflow-dashboard .tf-compact-hist-type {
+	justify-self: start;
+	font-size: 12px;
+	font-weight: 600;
+	padding: 2px 8px;
+	border-radius: 10px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	max-width: 100%;
+}
+.timeflow-dashboard .tf-compact-hist-flex { font-size: 12px; font-weight: 700; text-align: right; white-space: nowrap; }
+/* Month header in the expanded ("show all") sidebar history. */
+.timeflow-dashboard .tf-compact-hist-month {
+	font-size: 11px;
+	font-weight: 700;
+	text-transform: capitalize;
+	color: var(--color-muted);
+	margin: 12px 0 6px;
+}
+.timeflow-dashboard .tf-compact-hist-month:first-child { margin-top: 0; }
 
 /* ========================================
    v3 — History section (wide only, full width)
@@ -4755,6 +4940,8 @@
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
+	gap: 10px;
+	flex-wrap: wrap;
 	min-height: 36px;
 	margin-bottom: 10px;
 }

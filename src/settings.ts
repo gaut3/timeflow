@@ -66,6 +66,12 @@ export interface TimeFlowSettings {
 		balanceCritical?: string;  // Default: #f44336
 		progressBar?: string;      // Default: #4caf50
 	};
+	// Optional dashboard background override (independent of the active Obsidian theme)
+	customBackground?: {
+		enabled: boolean;
+		lightBg: string;  // hex, used under .theme-light
+		darkBg: string;   // hex, used under .theme-dark
+	};
 	// Norwegian labor law compliance settings
 	complianceSettings?: {
 		enableWarnings: boolean;       // Enable/disable compliance warnings
@@ -371,6 +377,12 @@ export const DEFAULT_SETTINGS: TimeFlowSettings = {
 		balanceWarning: "#ff9800",
 		balanceCritical: "#f44336",
 		progressBar: "#4caf50"
+	},
+	// Optional dashboard background override (off by default; warm cream / warm near-black)
+	customBackground: {
+		enabled: false,
+		lightBg: "#faf8f4",
+		darkBg: "#1b1815"
 	},
 	// Norwegian labor law compliance settings
 	complianceSettings: {
@@ -2474,6 +2486,56 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 						this.plugin.settings.validationThresholds.highWeeklyTotalHours = num;
 						await this.plugin.saveSettings();
 					}
+				}));
+
+		// Appearance subsection (collapsible) — optional dashboard background override
+		const appearanceSection = this.createCollapsibleSubsection(
+			settingsContainer,
+			'Appearance',
+			false
+		);
+
+		const bg = () => {
+			if (!this.plugin.settings.customBackground) {
+				this.plugin.settings.customBackground = { ...DEFAULT_SETTINGS.customBackground! };
+			}
+			return this.plugin.settings.customBackground;
+		};
+
+		new Setting(appearanceSection.content)
+			.setName('Use custom background color')
+			.setDesc('Overrides the theme background for the Timeflow dashboard only. Other panes are unaffected.')
+			.addToggle(toggle => toggle
+				.setValue(bg().enabled)
+				.onChange(async (value) => {
+					bg().enabled = value;
+					await this.plugin.saveSettings();
+					this.display();
+					await this.refreshView();
+				}));
+
+		new Setting(appearanceSection.content)
+			.setName('Light mode background')
+			.setDesc('Background color used when Obsidian is in light mode.')
+			.setDisabled(!bg().enabled)
+			.addColorPicker(picker => picker
+				.setValue(bg().lightBg)
+				.onChange(async (value) => {
+					bg().lightBg = value;
+					await this.plugin.saveSettings();
+					await this.refreshView();
+				}));
+
+		new Setting(appearanceSection.content)
+			.setName('Dark mode background')
+			.setDesc('Background color used when Obsidian is in dark mode.')
+			.setDisabled(!bg().enabled)
+			.addColorPicker(picker => picker
+				.setValue(bg().darkBg)
+				.onChange(async (value) => {
+					bg().darkBg = value;
+					await this.plugin.saveSettings();
+					await this.refreshView();
 				}));
 
 		// Custom Colors subsection (collapsible)

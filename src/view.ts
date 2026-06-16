@@ -25,7 +25,7 @@ export class TimeFlowView extends ItemView {
 	}
 
 	getIcon(): string {
-		return 'calendar-clock';
+		return 'timeflow';
 	}
 
 	async onOpen() {
@@ -109,6 +109,18 @@ export class TimeFlowView extends ItemView {
 			const dashboardEl = this.uiBuilder.build();
 			container.empty();
 			container.appendChild(dashboardEl);
+
+			// Optional background override — opt in via .tf-bg-custom; the per-theme CSS rules
+			// then resolve --color-bg (which the dashboard paints) to the chosen color.
+			const bg = this.plugin.settings.customBackground;
+			const root = container as HTMLElement;
+			if (bg?.enabled) {
+				root.addClass('tf-bg-custom');
+				root.setCssProps({ '--tf-bg-light': bg.lightBg, '--tf-bg-dark': bg.darkBg });
+			} else {
+				root.removeClass('tf-bg-custom');
+				root.setCssProps({ '--tf-bg-light': '', '--tf-bg-dark': '' });
+			}
 
 			// Start real-time updates
 			this.uiBuilder.startUpdates();

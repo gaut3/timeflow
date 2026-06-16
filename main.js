@@ -164,10 +164,16 @@ function formatDate(date, format = "short") {
     if (format === "long") {
       return date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
     }
+    if (format === "range") {
+      return date.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+    }
     return `${year}-${month}-${day}`;
   }
   if (format === "long") {
     return date.toLocaleDateString("nb-NO", { day: "numeric", month: "short", year: "numeric" });
+  }
+  if (format === "range") {
+    return `${date.getDate()}.`;
   }
   return date.toLocaleDateString("nb-NO");
 }
@@ -272,6 +278,9 @@ var translations = {
       difference: "Differanse",
       overWeekLimit: "Over ukegrense",
       vsLastWeek: "vs forrige uke",
+      vsLastMonth: "vs forrige m\xE5ned",
+      seeAll: "Se alle",
+      showLess: "Vis mindre",
       upcomingPlannedDays: "Kommende planlagte dager",
       dailyBalance: "Dagssaldo",
       runningBalance: "L\xF8pende saldo",
@@ -674,6 +683,7 @@ var translations = {
       leaveUsedThisYear: "Frav\xE6r brukt i \xE5r",
       weeklyHoursLabel: "Uketimer",
       weekLabelPrefix: "Uke",
+      weekComplianceTooltip: "{week}: {hours} / {target}",
       goalSub: "m\xE5l {value}",
       limitSub: "grense {value}",
       ofNormalWeek: "av normaluke",
@@ -731,6 +741,9 @@ var translations = {
       difference: "Difference",
       overWeekLimit: "Over weekly limit",
       vsLastWeek: "vs last week",
+      vsLastMonth: "vs last month",
+      seeAll: "See all",
+      showLess: "Show less",
       upcomingPlannedDays: "Upcoming planned days",
       dailyBalance: "Daily balance",
       runningBalance: "Running balance",
@@ -1133,6 +1146,7 @@ var translations = {
       leaveUsedThisYear: "Leave used this year",
       weeklyHoursLabel: "Weekly hours",
       weekLabelPrefix: "Wk",
+      weekComplianceTooltip: "{week}: {hours} / {target}",
       goalSub: "goal {value}",
       limitSub: "limit {value}",
       ofNormalWeek: "of normal week",
@@ -1991,6 +2005,12 @@ var DEFAULT_SETTINGS = {
     balanceWarning: "#ff9800",
     balanceCritical: "#f44336",
     progressBar: "#4caf50"
+  },
+  // Optional dashboard background override (off by default; warm cream / warm near-black)
+  customBackground: {
+    enabled: false,
+    lightBg: "#faf8f4",
+    darkBg: "#1b1815"
   },
   // Norwegian labor law compliance settings
   complianceSettings: {
@@ -3243,6 +3263,33 @@ Note: Historical data using "annet:${template.id}" will still work but show a ge
         this.plugin.settings.validationThresholds.highWeeklyTotalHours = num;
         await this.plugin.saveSettings();
       }
+    }));
+    const appearanceSection = this.createCollapsibleSubsection(
+      settingsContainer,
+      "Appearance",
+      false
+    );
+    const bg = () => {
+      if (!this.plugin.settings.customBackground) {
+        this.plugin.settings.customBackground = { ...DEFAULT_SETTINGS.customBackground };
+      }
+      return this.plugin.settings.customBackground;
+    };
+    new import_obsidian2.Setting(appearanceSection.content).setName("Use custom background color").setDesc("Overrides the theme background for the Timeflow dashboard only. Other panes are unaffected.").addToggle((toggle) => toggle.setValue(bg().enabled).onChange(async (value) => {
+      bg().enabled = value;
+      await this.plugin.saveSettings();
+      this.display();
+      await this.refreshView();
+    }));
+    new import_obsidian2.Setting(appearanceSection.content).setName("Light mode background").setDesc("Background color used when Obsidian is in light mode.").setDisabled(!bg().enabled).addColorPicker((picker) => picker.setValue(bg().lightBg).onChange(async (value) => {
+      bg().lightBg = value;
+      await this.plugin.saveSettings();
+      await this.refreshView();
+    }));
+    new import_obsidian2.Setting(appearanceSection.content).setName("Dark mode background").setDesc("Background color used when Obsidian is in dark mode.").setDisabled(!bg().enabled).addColorPicker((picker) => picker.setValue(bg().darkBg).onChange(async (value) => {
+      bg().darkBg = value;
+      await this.plugin.saveSettings();
+      await this.refreshView();
     }));
     const customColorsSection = this.createCollapsibleSubsection(
       settingsContainer,
@@ -5153,6 +5200,14 @@ var UIBuilder = class {
     this.barCalendarBodyEl = null;
     this.statsFooterEl = null;
     this.heroClockEl = null;
+    // Sidebar (narrow) extras: expand-in-place state + section refs for targeted rebuilds.
+    this._showAllLeaveNarrow = false;
+    this._showAllHistoryNarrow = false;
+    this._narrowLeaveEl = null;
+    this._narrowHistoryEl = null;
+    // Upcoming list (wide layout grows to fill the right column's height).
+    this._upcomingGroups = [];
+    this._upcomingItemsEl = null;
     this._resizeObserver = null;
     this.data = dataManager;
     this.systemStatus = systemStatus;
@@ -5165,14 +5220,7 @@ var UIBuilder = class {
     this.selectedYear = this.today.getFullYear();
     this.selectedMonth = this.today.getMonth();
     this.elements = {
-      badge: null,
-      complianceBadge: null,
-      timerBadge: null,
-      clock: null,
-      dayCard: null,
-      weekCard: null,
-      statsCard: null,
-      monthCard: null
+      complianceBadge: null
     };
   }
   getBalanceColor(balance) {
@@ -5183,13 +5231,6 @@ var UIBuilder = class {
     if (balance < t2.warningLow || balance > t2.warningHigh)
       return (colors == null ? void 0 : colors.balanceWarning) || "#ff9800";
     return (colors == null ? void 0 : colors.balanceOk) || "#4caf50";
-  }
-  darkenColor(color, percent) {
-    const hex = color.replace("#", "");
-    const r = Math.max(0, parseInt(hex.substring(0, 2), 16) - percent);
-    const g = Math.max(0, parseInt(hex.substring(2, 4), 16) - percent);
-    const b = Math.max(0, parseInt(hex.substring(4, 6), 16) - percent);
-    return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
   }
   /**
    * Validate time input and parse hours/minutes.
@@ -5270,73 +5311,6 @@ var UIBuilder = class {
     return container;
   }
   // Note: Styles are now in styles.css instead of being injected dynamically
-  buildBadgeSection() {
-    const section = createDiv();
-    section.className = "tf-badge-section";
-    const badge = createDiv();
-    badge.className = "tf-badge";
-    this.elements.badge = badge;
-    const clock = createDiv();
-    clock.className = "tf-clock";
-    this.elements.clock = clock;
-    const complianceBadge = createDiv();
-    complianceBadge.className = "tf-compliance-badge";
-    this.elements.complianceBadge = complianceBadge;
-    const timerBadge = createEl("button");
-    timerBadge.className = "tf-timer-badge";
-    this.elements.timerBadge = timerBadge;
-    if (!this.settings.enableGoalTracking) {
-      badge.addClass("tf-hidden");
-      complianceBadge.addClass("tf-hidden");
-    }
-    section.appendChild(badge);
-    section.appendChild(clock);
-    section.appendChild(complianceBadge);
-    section.appendChild(timerBadge);
-    this.updateBadge();
-    this.updateComplianceBadge();
-    this.updateTimerBadge();
-    this.updateClock();
-    return section;
-  }
-  updateTimerBadge() {
-    if (!this.elements.timerBadge) return;
-    const activeTimers = this.timerManager.getActiveTimers();
-    if (activeTimers.length === 0) {
-      this.elements.timerBadge.empty();
-      this.elements.timerBadge.className = "tf-timer-badge tf-bg-transparent tf-inline-flex tf-items-stretch tf-gap-0 tf-p-0 tf-relative";
-      this.elements.timerBadge.onclick = null;
-      const startBtn = createDiv();
-      startBtn.textContent = "Start";
-      startBtn.className = "tf-timer-start-btn";
-      startBtn.onclick = async (e) => {
-        e.stopPropagation();
-        const workType = this.settings.specialDayBehaviors.find((b) => b.isWorkType);
-        const timerName = (workType == null ? void 0 : workType.id) || "jobb";
-        await this.timerManager.startTimer(timerName);
-        this.updateTimerBadge();
-      };
-      const arrowBtn = createDiv();
-      arrowBtn.textContent = "\u25BC";
-      arrowBtn.className = "tf-timer-dropdown-btn";
-      arrowBtn.onclick = (e) => {
-        e.stopPropagation();
-        this.showTimerTypeMenu(arrowBtn);
-      };
-      this.elements.timerBadge.appendChild(startBtn);
-      this.elements.timerBadge.appendChild(arrowBtn);
-    } else {
-      this.elements.timerBadge.empty();
-      this.elements.timerBadge.textContent = t("buttons.stop");
-      this.elements.timerBadge.className = "tf-timer-badge tf-timer-stop-btn";
-      this.elements.timerBadge.onclick = async () => {
-        for (const timer of activeTimers) {
-          await this.stopTimerWithCommentCheck(timer);
-        }
-        this.updateTimerBadge();
-      };
-    }
-  }
   /**
    * Stop a timer with optional comment modal.
    * Shows comment modal; skip is disabled if overtime threshold is exceeded.
@@ -5394,7 +5368,6 @@ var UIBuilder = class {
       item.createSpan({ text: type.label });
       item.onclick = async () => {
         await this.timerManager.startTimer(type.name);
-        this.updateTimerBadge();
         menu.remove();
       };
       menu.appendChild(item);
@@ -5428,226 +5401,6 @@ var UIBuilder = class {
       }
     };
     window.setTimeout(() => activeDocument.addEventListener("click", closeMenu), 0);
-  }
-  buildSummaryCards() {
-    const container = createDiv();
-    container.className = "tf-summary-cards";
-    container.appendChild(this.createDayCard());
-    container.appendChild(this.createWeekCard());
-    container.appendChild(this.createMonthCard());
-    return container;
-  }
-  createDayCard() {
-    const card = createDiv();
-    card.className = "tf-card tf-card-day";
-    this.elements.dayCard = card;
-    this.updateDayCard();
-    return card;
-  }
-  createWeekCard() {
-    const card = createDiv();
-    card.className = "tf-card tf-card-week";
-    this.elements.weekCard = card;
-    this.updateWeekCard();
-    return card;
-  }
-  createMonthCard() {
-    const card = createDiv();
-    card.className = "tf-card tf-card-month";
-    const header = createDiv();
-    header.className = "tf-card-header";
-    const title = createEl("h3");
-    title.textContent = t("ui.calendar");
-    title.className = "tf-card-title";
-    const controls = createDiv();
-    controls.className = "tf-card-controls";
-    const prevBtn = createEl("button");
-    prevBtn.textContent = "\u25C4";
-    prevBtn.className = "tf-button";
-    prevBtn.onclick = () => {
-      this.currentMonthOffset--;
-      this.updateMonthCard();
-    };
-    const todayBtn = createEl("button");
-    todayBtn.textContent = t("ui.today");
-    todayBtn.className = "tf-button";
-    todayBtn.onclick = () => {
-      this.currentMonthOffset = 0;
-      this.updateMonthCard();
-    };
-    const nextBtn = createEl("button");
-    nextBtn.textContent = "\u25BA";
-    nextBtn.className = "tf-button";
-    nextBtn.onclick = () => {
-      this.currentMonthOffset++;
-      this.updateMonthCard();
-    };
-    controls.appendChild(prevBtn);
-    controls.appendChild(todayBtn);
-    controls.appendChild(nextBtn);
-    header.appendChild(title);
-    header.appendChild(controls);
-    card.appendChild(header);
-    const gridContainer = createDiv();
-    this.elements.monthCard = gridContainer;
-    card.appendChild(gridContainer);
-    const futureDaysContainer = createDiv();
-    futureDaysContainer.className = "tf-future-days-list";
-    card.appendChild(futureDaysContainer);
-    this.updateMonthCard();
-    return card;
-  }
-  createStatsCard() {
-    const card = createDiv();
-    card.className = "tf-card tf-card-stats";
-    const contentWrapper = createDiv();
-    contentWrapper.className = "tf-collapsible-content open";
-    const headerRow = createDiv();
-    headerRow.className = "tf-collapsible tf-stats-header";
-    const header = createEl("h3");
-    header.textContent = t("ui.statistics");
-    header.className = "tf-m-0";
-    headerRow.appendChild(header);
-    const tabs = createDiv();
-    tabs.className = "tf-tabs tf-tabs-inline";
-    const timeframes = ["month", "year", "total"];
-    const labels = { month: t("timeframes.month"), year: t("timeframes.year"), total: t("timeframes.total") };
-    timeframes.forEach((tf) => {
-      const tab = createEl("button");
-      tab.className = `tf-tab ${tf === this.statsTimeframe ? "active" : ""}`;
-      tab.textContent = labels[tf];
-      tab.onclick = () => {
-        this.statsTimeframe = tf;
-        tabs.querySelectorAll(".tf-tab").forEach((t2) => t2.classList.remove("active"));
-        tab.classList.add("active");
-        if (!contentWrapper.classList.contains("open")) {
-          contentWrapper.classList.add("open");
-        }
-        this.updateStatsCard();
-      };
-      tabs.appendChild(tab);
-    });
-    headerRow.appendChild(tabs);
-    card.appendChild(headerRow);
-    const timeframeSelectorContainer = createDiv();
-    timeframeSelectorContainer.className = "tf-timeframe-selector";
-    contentWrapper.appendChild(timeframeSelectorContainer);
-    const statsContainer = createDiv();
-    statsContainer.className = "tf-stats-grid";
-    this.elements.statsCard = statsContainer;
-    contentWrapper.appendChild(statsContainer);
-    card.appendChild(contentWrapper);
-    header.onclick = () => {
-      contentWrapper.classList.toggle("open");
-    };
-    header.addClass("tf-cursor-pointer");
-    this.updateStatsCard();
-    return card;
-  }
-  buildInfoCard() {
-    var _a, _b, _c, _d;
-    const card = createDiv();
-    card.className = "tf-card tf-card-spaced";
-    const header = createDiv();
-    header.className = "tf-collapsible";
-    const h3 = header.createEl("h3", { text: t("ui.information") });
-    h3.className = "tf-m-0";
-    const content = createDiv();
-    content.className = "tf-collapsible-content";
-    const specialDayInfo = this.settings.specialDayBehaviors.filter((b) => !b.isWorkType).map((behavior) => ({
-      key: behavior.id,
-      emoji: behavior.icon,
-      desc: this.getFlextimeEffectDescription(behavior)
-    }));
-    specialDayInfo.push({ key: t("ui.noRegistration"), emoji: "\u26AA", desc: t("ui.noDataForDay") });
-    const infoGrid = content.createDiv({ cls: "tf-info-grid" });
-    const leftColumn = infoGrid.createDiv({ cls: "tf-info-column" });
-    const specialDaysBox = leftColumn.createDiv({ cls: "tf-info-box" });
-    specialDaysBox.createEl("h4", { text: t("info.specialDayTypes") });
-    const specialDaysList = specialDaysBox.createEl("ul");
-    specialDaysList.className = "tf-legend-list";
-    specialDayInfo.forEach((item) => {
-      const color = getSpecialDayColors(this.settings)[item.key] || "transparent";
-      const label = translateSpecialDayName(item.key);
-      const li = specialDaysList.createEl("li");
-      li.className = "tf-legend-item";
-      const colorBox = li.createDiv();
-      colorBox.className = "tf-legend-color-dynamic";
-      colorBox.setCssProps({ "--tf-bg": color });
-      const textSpan = li.createSpan({ text: item.emoji + " " });
-      textSpan.createEl("strong", { text: label });
-      textSpan.appendText(": " + item.desc);
-    });
-    if (this.settings.enableGoalTracking) {
-      const gradientBox = leftColumn.createDiv({ cls: "tf-info-box" });
-      gradientBox.createEl("h4", { text: t("info.workDaysGradient") });
-      const gradientP = gradientBox.createEl("p", { text: t("info.colorShowsFlextime") + " (" + this.settings.baseWorkday + "h):" });
-      gradientP.className = "tf-info-text";
-      const posGradient = gradientBox.createDiv();
-      posGradient.className = "tf-gradient-dynamic";
-      posGradient.setCssProps({ "--tf-gradient": `linear-gradient(to right, ${this.flextimeColor(0)}, ${this.flextimeColor(1.5)}, ${this.flextimeColor(3)})` });
-      const posLabels = gradientBox.createDiv();
-      posLabels.className = "tf-gradient-labels";
-      posLabels.createSpan({ text: "0h" });
-      posLabels.createSpan({ text: "+1.5h" });
-      posLabels.createSpan({ text: "+3h" });
-      const workBehavior = (_a = this.settings.specialDayBehaviors) == null ? void 0 : _a.find((b) => b.isWorkType);
-      const negBaseColor = (workBehavior == null ? void 0 : workBehavior.negativeColor) || "#64b5f6";
-      const negGradient = gradientBox.createDiv();
-      negGradient.className = "tf-gradient-dynamic";
-      negGradient.setCssProps({ "--tf-gradient": `linear-gradient(to right, ${this.flextimeColor(-3)}, ${this.flextimeColor(-1.5)}, ${negBaseColor})` });
-      const negLabels = gradientBox.createDiv();
-      negLabels.className = "tf-gradient-labels";
-      negLabels.createSpan({ text: "-3h" });
-      negLabels.createSpan({ text: "-1.5h" });
-      negLabels.createSpan({ text: "0h" });
-    }
-    const rightColumn = infoGrid.createDiv({ cls: "tf-info-column" });
-    const calendarBox = rightColumn.createDiv({ cls: "tf-info-box" });
-    calendarBox.createEl("h4", { text: t("info.calendarContextMenu") });
-    const calendarP = calendarBox.createEl("p", { text: t("info.clickDayFor") });
-    calendarP.className = "tf-info-text-small";
-    const calendarList = calendarBox.createEl("ul");
-    calendarList.className = "tf-info-list";
-    calendarList.createEl("li", { text: t("info.createDailyNote") });
-    calendarList.createEl("li", { text: t("info.editFlextimeManually") });
-    calendarList.createEl("li", { text: t("info.registerSpecialDays") });
-    const createColorRow = (container, color, label, desc) => {
-      const row = container.createDiv();
-      row.className = "tf-color-row";
-      const colorSpan = row.createSpan();
-      colorSpan.className = "tf-color-indicator tf-dynamic-bg";
-      colorSpan.setCssProps({ "--tf-bg": color });
-      const textSpan = row.createSpan();
-      textSpan.createEl("strong", { text: label + ":" });
-      textSpan.appendText(" " + desc);
-    };
-    if (this.settings.enableGoalTracking) {
-      const balanceBox = rightColumn.createDiv({ cls: "tf-info-box" });
-      balanceBox.createEl("h4", { text: t("info.flextimeBalanceZones") });
-      const balanceContainer = balanceBox.createDiv();
-      balanceContainer.className = "tf-balance-container";
-      createColorRow(balanceContainer, ((_b = this.settings.customColors) == null ? void 0 : _b.balanceOk) || "#4caf50", t("info.green"), this.settings.balanceThresholds.warningLow + "h " + t("info.to") + " +" + this.settings.balanceThresholds.warningHigh + "h");
-      createColorRow(balanceContainer, ((_c = this.settings.customColors) == null ? void 0 : _c.balanceWarning) || "#ff9800", t("info.yellow"), this.settings.balanceThresholds.criticalLow + "h " + t("info.to") + " " + (this.settings.balanceThresholds.warningLow - 1) + "h / +" + this.settings.balanceThresholds.warningHigh + "h " + t("info.to") + " +" + this.settings.balanceThresholds.criticalHigh + "h");
-      createColorRow(balanceContainer, ((_d = this.settings.customColors) == null ? void 0 : _d.balanceCritical) || "#f44336", t("info.red"), "<" + this.settings.balanceThresholds.criticalLow + "h / >+" + this.settings.balanceThresholds.criticalHigh + "h");
-      const weekBox = rightColumn.createDiv({ cls: "tf-info-box" });
-      weekBox.createEl("h4", { text: t("info.weekNumberCompliance") });
-      const weekContainer = weekBox.createDiv();
-      weekContainer.className = "tf-balance-container";
-      createColorRow(weekContainer, "linear-gradient(135deg, #c8e6c9, #a5d6a7)", t("info.green"), t("info.reachedGoal") + " (\xB10.5h)");
-      createColorRow(weekContainer, "linear-gradient(135deg, #ffcdd2, #ef9a9a)", t("info.red"), t("info.overGoal"));
-      createColorRow(weekContainer, "linear-gradient(135deg, #ffe0b2, #ffcc80)", t("info.orange"), t("info.underGoal"));
-      createColorRow(weekContainer, "linear-gradient(135deg, #e0e0e0, #bdbdbd)", t("info.gray"), t("info.weekInProgress"));
-      const weekTip = weekBox.createEl("p");
-      weekTip.className = "tf-tip-text";
-      weekTip.createEl("em", { text: t("info.clickWeekForDetails") });
-    }
-    header.onclick = () => {
-      content.classList.toggle("open");
-    };
-    card.appendChild(header);
-    card.appendChild(content);
-    return card;
   }
   buildHistoryCard() {
     const card = createDiv();
@@ -5735,125 +5488,6 @@ var UIBuilder = class {
     resizeObserver.observe(detailsElement);
     return card;
   }
-  buildStatusBar() {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _i;
-    const bar = createDiv();
-    bar.className = "tf-status-bar";
-    const status = this.systemStatus;
-    const hasErrors = ((_a = status.validation) == null ? void 0 : _a.hasErrors) || status.dataParseError;
-    const hasHolidayIssues = ((_b = status.holiday) == null ? void 0 : _b.parseErrors) && status.holiday.parseErrors > 0 || ((_c = status.holiday) == null ? void 0 : _c.duplicates) && status.holiday.duplicates.length > 0 || ((_d = status.holiday) == null ? void 0 : _d.invalidTimeRanges) && status.holiday.invalidTimeRanges.length > 0;
-    const hasWarnings = ((_e = status.validation) == null ? void 0 : _e.hasWarnings) || hasHolidayIssues;
-    const statusIcon = hasErrors ? "\u274C" : hasWarnings ? "\u26A0\uFE0F" : "\u2705";
-    const hasIssues = hasErrors || hasWarnings;
-    const buildIssuesContent = (container) => {
-      var _a2, _b2, _c2, _d2;
-      if (status.dataParseError) {
-        const parseErrorDiv = container.createDiv();
-        parseErrorDiv.className = "tf-status-error";
-        const parseErrorStrong = parseErrorDiv.createEl("strong");
-        parseErrorStrong.className = "tf-status-error-label";
-        parseErrorStrong.textContent = "\u274C " + t("status.dataParseError");
-      }
-      if (((_a2 = status.holiday) == null ? void 0 : _a2.parseErrors) && status.holiday.parseErrors > 0) {
-        const holidayErrorDiv = container.createDiv();
-        holidayErrorDiv.className = "tf-status-warning-item";
-        holidayErrorDiv.textContent = "\u26A0\uFE0F " + t("status.holidayParseErrors").replace("{count}", String(status.holiday.parseErrors));
-      }
-      if (((_b2 = status.holiday) == null ? void 0 : _b2.duplicates) && status.holiday.duplicates.length > 0) {
-        const duplicatesDiv = container.createDiv();
-        duplicatesDiv.className = "tf-status-warning-item";
-        duplicatesDiv.textContent = "\u26A0\uFE0F " + t("status.duplicateHolidays").replace("{dates}", status.holiday.duplicates.join(", "));
-      }
-      if (((_c2 = status.holiday) == null ? void 0 : _c2.invalidTimeRanges) && status.holiday.invalidTimeRanges.length > 0) {
-        status.holiday.invalidTimeRanges.forEach((date) => {
-          const invalidRangeDiv = container.createDiv();
-          invalidRangeDiv.className = "tf-status-warning-item";
-          invalidRangeDiv.textContent = "\u26A0\uFE0F " + t("status.invalidTimeRange").replace("{date}", date);
-        });
-      }
-      if (hasIssues && ((_d2 = status.validation) == null ? void 0 : _d2.issues)) {
-        const errors = status.validation.issues.errors || [];
-        const warnings = status.validation.issues.warnings || [];
-        if (errors.length > 0) {
-          const errorHeader = container.createDiv();
-          errorHeader.className = "tf-status-error";
-          const errorStrong = errorHeader.createEl("strong");
-          errorStrong.className = "tf-status-error-label";
-          errorStrong.textContent = t("status.errors").replace("{count}", String(errors.length));
-          errors.slice(0, 5).forEach((err) => {
-            const errorItem = container.createDiv();
-            errorItem.className = "tf-status-error-item";
-            errorItem.textContent = `\u2022 ${err.type}: ${err.description}${err.date ? ` (${err.date})` : ""}`;
-          });
-          if (errors.length > 5) {
-            const moreErrors = container.createDiv();
-            moreErrors.className = "tf-status-more";
-            moreErrors.textContent = t("status.moreErrors").replace("{count}", String(errors.length - 5));
-          }
-        }
-        if (warnings.length > 0) {
-          const warningHeader = container.createDiv();
-          warningHeader.className = "tf-status-error";
-          const warningStrong = warningHeader.createEl("strong");
-          warningStrong.className = "tf-status-warning-label";
-          warningStrong.textContent = t("status.warnings").replace("{count}", String(warnings.length));
-          warnings.slice(0, 5).forEach((warn) => {
-            const warningItem = container.createDiv();
-            warningItem.className = "tf-status-warning-item";
-            warningItem.textContent = `\u2022 ${warn.type}: ${warn.description}${warn.date ? ` (${warn.date})` : ""}`;
-          });
-          if (warnings.length > 5) {
-            const moreWarnings = container.createDiv();
-            moreWarnings.className = "tf-status-more";
-            moreWarnings.textContent = t("status.moreWarnings").replace("{count}", String(warnings.length - 5));
-          }
-        }
-      }
-    };
-    const header = createDiv();
-    header.className = "tf-status-header";
-    header.createSpan({ text: statusIcon });
-    const headerContent = header.createDiv();
-    headerContent.className = "tf-status-content";
-    const titleRow = headerContent.createDiv();
-    titleRow.createEl("strong", { text: t("status.systemStatus") });
-    if (hasIssues) {
-      titleRow.createSpan({ text: ` (${t("status.clickForDetails")})`, cls: "tf-status-hint" });
-    }
-    const statusRow = headerContent.createDiv();
-    statusRow.className = "tf-status-row";
-    const statusText = statusRow.createSpan();
-    statusText.textContent = `${((_f = status.holiday) == null ? void 0 : _f.message) || t("status.holidayNotLoaded")} \u2022 ${status.activeTimers || 0} ${t("status.activeTimers")} \u2022 ${((_i = (_h = (_g = status.validation) == null ? void 0 : _g.issues) == null ? void 0 : _h.stats) == null ? void 0 : _i.totalEntries) || 0} ${t("status.entriesChecked")}`;
-    const versionText = statusRow.createSpan();
-    versionText.className = "tf-status-version";
-    versionText.textContent = `v${this.plugin.manifest.version}`;
-    if (hasIssues) {
-      header.createSpan({ cls: "tf-status-toggle", text: "\u25B6" });
-    }
-    bar.appendChild(header);
-    if (hasIssues) {
-      const details = createDiv();
-      details.className = "tf-status-details";
-      const detailsInner = details.createDiv();
-      detailsInner.className = "tf-status-details-inner";
-      buildIssuesContent(detailsInner);
-      bar.appendChild(details);
-      let isOpen = false;
-      header.onclick = () => {
-        isOpen = !isOpen;
-        const toggle = header.querySelector(".tf-status-toggle");
-        if (toggle) {
-          toggle.setCssProps({ "--tf-rotate": isOpen ? "90deg" : "0deg" });
-        }
-        if (isOpen) {
-          details.setCssProps({ "--tf-max-height": details.scrollHeight + "px", "--tf-opacity": "1" });
-        } else {
-          details.setCssProps({ "--tf-max-height": "0", "--tf-opacity": "0" });
-        }
-      };
-    }
-    return bar;
-  }
   buildViewToggle() {
     const container = createDiv();
     container.className = "tf-view-toggle-container";
@@ -5871,24 +5505,6 @@ var UIBuilder = class {
     };
     container.appendChild(viewToggle);
     return container;
-  }
-  updateClock() {
-    if (!this.elements.clock) return;
-    const now = /* @__PURE__ */ new Date();
-    this.elements.clock.textContent = now.toLocaleTimeString("nb-NO", {
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit"
-    });
-  }
-  updateBadge() {
-    if (!this.elements.badge) return;
-    const balance = this.data.getCurrentBalance();
-    const formatted = Utils.formatHoursToHM(Math.abs(balance), this.settings.hourUnit);
-    const sign = balance >= 0 ? "+" : "-";
-    const color = this.getBalanceColor(balance);
-    this.elements.badge.setCssProps({ "--tf-bg": color, "--tf-color": "white" });
-    this.elements.badge.textContent = `${t("ui.flextimeBalance")}: ${sign}${formatted}`;
   }
   /**
    * Check if the current view is in the sidebar (right or left)
@@ -6051,407 +5667,12 @@ var UIBuilder = class {
   /**
    * Generate compliance warning HTML for daily hours
    */
-  getDailyComplianceWarning(hours) {
-    var _a, _b, _c;
-    if (!((_a = this.settings.complianceSettings) == null ? void 0 : _a.enableWarnings)) return "";
-    const dailyLimit = (_c = (_b = this.settings.complianceSettings) == null ? void 0 : _b.dailyHoursLimit) != null ? _c : 9;
-    const approachingThreshold = this.settings.baseWorkday * this.settings.workPercent;
-    if (hours >= dailyLimit) {
-      return `<span class="tf-compliance-warning exceeded" title="Overstiger daglig grense p\xE5 ${dailyLimit} timer">\u26A0\uFE0F >${dailyLimit}t</span>`;
-    } else if (hours >= approachingThreshold) {
-      return `<span class="tf-compliance-warning approaching" title="N\xE6rmer seg daglig grense p\xE5 ${dailyLimit} timer">\u23F0 ${dailyLimit}t grense</span>`;
-    }
-    return "";
-  }
   /**
    * Generate compliance warning HTML for weekly hours
    */
-  getWeeklyComplianceWarning(hours) {
-    var _a, _b, _c;
-    if (!((_a = this.settings.complianceSettings) == null ? void 0 : _a.enableWarnings)) return "";
-    const weeklyLimit = (_c = (_b = this.settings.complianceSettings) == null ? void 0 : _b.weeklyHoursLimit) != null ? _c : 40;
-    const approachingThreshold = this.settings.baseWorkweek * this.settings.workPercent;
-    if (hours >= weeklyLimit) {
-      return `<span class="tf-compliance-warning exceeded" title="Overstiger ukentlig grense p\xE5 ${weeklyLimit} timer">\u26A0\uFE0F >${weeklyLimit}t</span>`;
-    } else if (hours >= approachingThreshold) {
-      return `<span class="tf-compliance-warning approaching" title="N\xE6rmer seg ukentlig grense p\xE5 ${weeklyLimit} timer">\u23F0 ${weeklyLimit}t grense</span>`;
-    }
-    return "";
-  }
-  updateDayCard() {
-    var _a, _b;
-    if (!this.elements.dayCard) return;
-    const today = /* @__PURE__ */ new Date();
-    const todayKey = Utils.toLocalDateStr(today);
-    const todayHours = this.data.getTodayHours(today);
-    this.updateComplianceBadge();
-    if (!this.settings.enableGoalTracking) {
-      this.elements.dayCard.setCssProps({ "--tf-bg": "var(--background-secondary)", "--tf-color": "var(--text-normal)" });
-      this.elements.dayCard.empty();
-      this.elements.dayCard.createEl("h3", { text: "I dag" });
-      this.elements.dayCard.createDiv({ text: Utils.formatHoursToHM(todayHours, this.settings.hourUnit), cls: "tf-card-big-number" });
-      this.elements.dayCard.createDiv({ text: t("ui.hoursWorked"), cls: "tf-card-label" });
-      return;
-    }
-    const goal = this.data.getDailyGoal(todayKey);
-    const progress = goal > 0 ? Math.min(todayHours / goal * 100, 100) : 0;
-    let bgColor;
-    let textColor;
-    if (todayHours <= goal) {
-      bgColor = "linear-gradient(135deg, #4caf50, #81c784)";
-      textColor = "white";
-    } else if (todayHours <= goal + 1.75) {
-      bgColor = "linear-gradient(135deg, #ffeb3b, #ffc107)";
-      textColor = "black";
-    } else {
-      bgColor = "linear-gradient(135deg, #f44336, #d32f2f)";
-      textColor = "white";
-    }
-    this.elements.dayCard.setCssProps({ "--tf-bg": bgColor, "--tf-color": textColor });
-    this.elements.dayCard.empty();
-    this.elements.dayCard.createEl("h3", { text: t("ui.today") });
-    this.elements.dayCard.createDiv({ text: Utils.formatHoursToHM(todayHours, this.settings.hourUnit), cls: "tf-card-big-number" });
-    this.elements.dayCard.createDiv({ text: `${t("ui.goal")}: ${Utils.formatHoursToHM(goal, this.settings.hourUnit)}`, cls: "tf-card-goal" });
-    const progressBar = this.elements.dayCard.createDiv({ cls: "tf-progress-bar" });
-    const progressFill = progressBar.createDiv({ cls: "tf-progress-fill" });
-    progressFill.style.cssText = `width: ${progress}%; background: linear-gradient(90deg, ${((_a = this.settings.customColors) == null ? void 0 : _a.progressBar) || "#4caf50"}, ${this.darkenColor(((_b = this.settings.customColors) == null ? void 0 : _b.progressBar) || "#4caf50", 20)})`;
-  }
-  updateWeekCard() {
-    var _a, _b;
-    if (!this.elements.weekCard) return;
-    const today = /* @__PURE__ */ new Date();
-    const weekHours = this.data.getCurrentWeekHours(today);
-    const currentWeekNumber = Utils.getWeekNumber(today);
-    const addWeekBadge = (container) => {
-      if (this.settings.showWeekNumbers) {
-        container.createDiv({ cls: "tf-week-badge", text: `${t("ui.week")} ${currentWeekNumber}` });
-      }
-    };
-    if (!this.settings.enableGoalTracking) {
-      this.elements.weekCard.setCssProps({ "--tf-bg": "var(--background-secondary)", "--tf-color": "var(--text-normal)" });
-      this.elements.weekCard.empty();
-      addWeekBadge(this.elements.weekCard);
-      this.elements.weekCard.createEl("h3", { text: t("ui.thisWeek") });
-      this.elements.weekCard.createDiv({ text: Utils.formatHoursToHM(weekHours, this.settings.hourUnit), cls: "tf-card-big-number" });
-      this.elements.weekCard.createDiv({ text: t("ui.hoursWorked"), cls: "tf-card-label" });
-      return;
-    }
-    const dayOfWeek = today.getDay();
-    const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-    const firstDayOfWeek = new Date(today);
-    firstDayOfWeek.setDate(today.getDate() - daysFromMonday);
-    let adjustedGoal = 0;
-    let goalReduction = 0;
-    const dailyGoalAmount = this.settings.baseWorkday * this.settings.workPercent;
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(firstDayOfWeek);
-      d.setDate(firstDayOfWeek.getDate() + i);
-      const dayKey = Utils.toLocalDateStr(d);
-      const dayGoal = this.data.getDailyGoal(dayKey);
-      adjustedGoal += dayGoal;
-      const dayEntries = this.data.daily[dayKey] || [];
-      dayEntries.forEach((entry) => {
-        const name = entry.name.toLowerCase();
-        const behavior = this.settings.specialDayBehaviors.find((b) => b.id === name);
-        if ((behavior == null ? void 0 : behavior.flextimeEffect) === "reduce_goal") {
-          goalReduction += entry.duration && entry.duration > 0 ? entry.duration : dailyGoalAmount;
-        }
-      });
-    }
-    adjustedGoal = Math.max(0, adjustedGoal - goalReduction);
-    const progress = adjustedGoal > 0 ? Math.min(weekHours / adjustedGoal * 100, 100) : 0;
-    let bgColor;
-    let textColor;
-    if (!this.settings.enableWeeklyGoals) {
-      bgColor = "var(--background-secondary)";
-      textColor = "var(--text-normal)";
-    } else if (weekHours <= adjustedGoal) {
-      bgColor = "linear-gradient(135deg, #4caf50, #81c784)";
-      textColor = "white";
-    } else if (weekHours <= adjustedGoal + 3.5) {
-      bgColor = "linear-gradient(135deg, #ffeb3b, #ffc107)";
-      textColor = "black";
-    } else {
-      bgColor = "linear-gradient(135deg, #f44336, #d32f2f)";
-      textColor = "white";
-    }
-    this.elements.weekCard.setCssProps({ "--tf-bg": bgColor, "--tf-color": textColor });
-    this.elements.weekCard.empty();
-    addWeekBadge(this.elements.weekCard);
-    this.elements.weekCard.createEl("h3", { text: t("ui.thisWeek") });
-    this.elements.weekCard.createDiv({ text: Utils.formatHoursToHM(weekHours, this.settings.hourUnit), cls: "tf-card-big-number" });
-    if (this.settings.enableWeeklyGoals) {
-      this.elements.weekCard.createDiv({ text: `${t("ui.goal")}: ${Utils.formatHoursToHM(adjustedGoal, this.settings.hourUnit)}`, cls: "tf-card-goal" });
-      const progressBar = this.elements.weekCard.createDiv({ cls: "tf-progress-bar" });
-      const progressFill = progressBar.createDiv({ cls: "tf-progress-fill" });
-      progressFill.style.cssText = `width: ${progress}%; background: linear-gradient(90deg, ${((_a = this.settings.customColors) == null ? void 0 : _a.progressBar) || "#4caf50"}, ${this.darkenColor(((_b = this.settings.customColors) == null ? void 0 : _b.progressBar) || "#4caf50", 20)})`;
-    }
-  }
-  updateStatsCard() {
-    var _a, _b;
-    if (!this.elements.statsCard) return;
-    const stats = this.data.getStatistics(this.statsTimeframe, this.selectedYear, this.selectedMonth);
-    const balance = this.data.getCurrentBalance();
-    const { avgDaily, avgWeekly } = this.data.getAverages();
-    const expectedWeeklyHours = this.settings.baseWorkweek * this.settings.workPercent;
-    const workloadPct = expectedWeeklyHours > 0 ? (avgWeekly / expectedWeeklyHours * 100).toFixed(0) : "0";
-    const selectorContainer = (_a = this.elements.statsCard.parentElement) == null ? void 0 : _a.querySelector(".tf-timeframe-selector");
-    if (selectorContainer) {
-      selectorContainer.empty();
-      if (this.statsTimeframe === "year") {
-        const availableYears = this.data.getAvailableYears();
-        if (availableYears.length > 0) {
-          const yearSelect = createEl("select");
-          yearSelect.className = "tf-select";
-          availableYears.forEach((year) => {
-            const option = createEl("option");
-            option.value = year.toString();
-            option.textContent = year.toString();
-            option.selected = year === this.selectedYear;
-            yearSelect.appendChild(option);
-          });
-          yearSelect.onchange = () => {
-            this.selectedYear = parseInt(yearSelect.value);
-            this.updateStatsCard();
-          };
-          selectorContainer.appendChild(yearSelect);
-        }
-      } else if (this.statsTimeframe === "month") {
-        const availableYears = this.data.getAvailableYears();
-        if (availableYears.length > 0) {
-          const yearSelect = createEl("select");
-          yearSelect.className = "tf-select";
-          availableYears.forEach((year) => {
-            const option = createEl("option");
-            option.value = year.toString();
-            option.textContent = year.toString();
-            option.selected = year === this.selectedYear;
-            yearSelect.appendChild(option);
-          });
-          yearSelect.onchange = () => {
-            this.selectedYear = parseInt(yearSelect.value);
-            const months = this.data.getAvailableMonthsForYear(this.selectedYear);
-            if (months.length > 0) {
-              this.selectedMonth = months[months.length - 1];
-            }
-            this.updateStatsCard();
-          };
-          selectorContainer.appendChild(yearSelect);
-          const availableMonths = this.data.getAvailableMonthsForYear(this.selectedYear);
-          if (availableMonths.length > 0) {
-            const monthSelect = createEl("select");
-            monthSelect.className = "tf-select";
-            const monthNames = [
-              "Januar",
-              "Februar",
-              "Mars",
-              "April",
-              "Mai",
-              "Juni",
-              "Juli",
-              "August",
-              "September",
-              "Oktober",
-              "November",
-              "Desember"
-            ];
-            availableMonths.forEach((month) => {
-              const option = createEl("option");
-              option.value = month.toString();
-              option.textContent = monthNames[month];
-              option.selected = month === this.selectedMonth;
-              monthSelect.appendChild(option);
-            });
-            monthSelect.onchange = () => {
-              this.selectedMonth = parseInt(monthSelect.value);
-              this.updateStatsCard();
-            };
-            selectorContainer.appendChild(monthSelect);
-          }
-        }
-      } else {
-        const label = createDiv();
-        label.className = "tf-text-lg tf-font-bold";
-        label.textContent = t("ui.total");
-        selectorContainer.appendChild(label);
-      }
-    }
-    const context = this.data.getContextualData(this.today);
-    const sign = balance >= 0 ? "+" : "";
-    const timesaldoColor = this.getBalanceColor(balance);
-    let ferieDisplay = `${stats.ferie.count} ${t("ui.days")}`;
-    if (this.statsTimeframe === "year" && stats.ferie.max && stats.ferie.max > 0) {
-      const feriePercent = (stats.ferie.count / stats.ferie.max * 100).toFixed(0);
-      ferieDisplay = `${stats.ferie.count}/${stats.ferie.max} ${t("ui.days")} (${feriePercent}%)`;
-    }
-    let egenmeldingDisplay = `${stats.egenmelding.count} ${t("ui.days")}`;
-    let egenmeldingPeriodLabel = "";
-    if (this.statsTimeframe === "year") {
-      const egenmeldingStats = this.data.getSpecialDayStats("egenmelding", this.selectedYear);
-      if (egenmeldingStats.max && egenmeldingStats.max > 0) {
-        const egenmeldingPercent = (egenmeldingStats.count / egenmeldingStats.max * 100).toFixed(0);
-        egenmeldingDisplay = `${egenmeldingStats.count}/${egenmeldingStats.max} ${t("ui.days")} (${egenmeldingPercent}%)`;
-      } else {
-        egenmeldingDisplay = `${egenmeldingStats.count} ${t("ui.days")}`;
-      }
-      egenmeldingPeriodLabel = `(${egenmeldingStats.periodLabel})`;
-    }
-    this.elements.statsCard.empty();
-    const createStatItem = (label, value, subtitle, extraCls, extraStyle) => {
-      const item = this.elements.statsCard.createDiv({ cls: `tf-stat-item${extraCls ? " " + extraCls : ""}` });
-      if (extraStyle) item.style.cssText = extraStyle;
-      item.createDiv({ cls: "tf-stat-label", text: label });
-      const valueDiv = item.createDiv({ cls: "tf-stat-value", text: value });
-      if (subtitle !== void 0) {
-        item.createDiv({ text: subtitle, cls: "tf-stat-subtitle" });
-      }
-      return { item, valueDiv };
-    };
-    if (this.settings.enableGoalTracking) {
-      createStatItem(t("stats.flextimeBalance"), `${sign}${Utils.formatHoursToHM(Math.abs(balance), this.settings.hourUnit)}`, t("stats.totalBalance"), "tf-stat-colored", `background: ${timesaldoColor};`);
-    }
-    if (!this.settings.hideEmptyStats || stats.totalHours > 0) {
-      createStatItem(`\u23F1\uFE0F ${t("stats.hours")}`, `${stats.totalHours.toFixed(1)}t`);
-    }
-    if (!this.settings.hideEmptyStats || avgDaily > 0) {
-      createStatItem(`\u{1F4CA} ${t("stats.avgPerDay")}`, `${avgDaily.toFixed(1)}t`);
-    }
-    if (!this.settings.hideEmptyStats || avgWeekly > 0) {
-      const weekItem = this.elements.statsCard.createDiv({ cls: "tf-stat-item" });
-      weekItem.createDiv({ cls: "tf-stat-label", text: `\u{1F4C5} ${t("stats.avgPerWeek")}` });
-      weekItem.createDiv({ cls: "tf-stat-value", text: `${avgWeekly.toFixed(1)}t` });
-      if (context.lastWeekHours > 0) {
-        const currWeekHours = this.data.getCurrentWeekHours(this.today);
-        const diff = currWeekHours - context.lastWeekHours;
-        if (Math.abs(diff) > 2) {
-          const arrow = diff > 0 ? "\u{1F4C8}" : "\u{1F4C9}";
-          const signDiff = diff > 0 ? "+" : "";
-          weekItem.createDiv({ text: `${t("ui.vsLastWeek")}: ${signDiff}${diff.toFixed(1)}t ${arrow}`, cls: "tf-comp-small" });
-        }
-      }
-    }
-    if (this.settings.enableGoalTracking && this.settings.enableWeeklyGoals) {
-      createStatItem(`\u{1F4AA} ${t("stats.workIntensity")}`, `${workloadPct}%`, t("stats.ofNormalWeek"));
-    }
-    if (!this.settings.hideEmptyStats || stats.jobb.count > 0) {
-      createStatItem(`\u{1F4BC} ${t("stats.work")}`, `${stats.jobb.count} ${t("ui.days")}`, `${stats.jobb.hours.toFixed(1)}t`);
-    }
-    if (stats.weekendDays > 0) {
-      createStatItem(`\u{1F319} ${t("stats.weekendDaysWorked")}`, `${stats.weekendDays} ${t("ui.days")}`, `${stats.weekendHours.toFixed(1)}${this.settings.hourUnit}`);
-    }
-    if (!this.settings.hideEmptyStats || stats.avspasering.count > 0) {
-      createStatItem(`\u{1F6CC} ${t("stats.flexTimeOff")}`, `${stats.avspasering.count} ${t("ui.days")}`, `${stats.avspasering.hours.toFixed(1)}${this.settings.hourUnit}`);
-    }
-    if (!this.settings.hideEmptyStats || stats.ferie.count > 0) {
-      const vacationItem = this.elements.statsCard.createDiv({ cls: "tf-stat-item" });
-      vacationItem.createDiv({ cls: "tf-stat-label", text: `\u{1F3D6}\uFE0F ${t("stats.vacation")}` });
-      const sizeClass = this.statsTimeframe === "year" ? "tf-text-year-size" : "tf-text-default-size";
-      vacationItem.createDiv({ cls: `tf-stat-value ${sizeClass}`, text: ferieDisplay });
-      vacationItem.createDiv({ cls: "tf-stat-subtitle" });
-    }
-    if (!this.settings.hideEmptyStats || stats.velferdspermisjon.count > 0) {
-      createStatItem(`\u{1F3E5} ${t("stats.welfareLeave")}`, `${stats.velferdspermisjon.count} ${t("ui.days")}`);
-    }
-    if (!this.settings.hideEmptyStats || stats.egenmelding.count > 0) {
-      const sickItem = this.elements.statsCard.createDiv({ cls: "tf-stat-item" });
-      sickItem.createDiv({ cls: "tf-stat-label", text: `\u{1F912} ${t("stats.selfReportedSick")}` });
-      const sickSizeClass = this.statsTimeframe === "year" ? "tf-text-year-size" : "tf-text-default-size";
-      sickItem.createDiv({ cls: `tf-stat-value ${sickSizeClass}`, text: egenmeldingDisplay });
-      sickItem.createDiv({ text: egenmeldingPeriodLabel, cls: "tf-stat-subtitle" });
-    }
-    if (!this.settings.hideEmptyStats || stats.sykemelding.count > 0) {
-      createStatItem(`\u{1F3E5} ${t("stats.doctorSick")}`, `${stats.sykemelding.count} ${t("ui.days")}`);
-    }
-    if (!this.settings.hideEmptyStats || stats.studie.count > 0) {
-      createStatItem(`\u{1F4DA} ${t("stats.study")}`, `${stats.studie.count} ${t("ui.days")}`, `${stats.studie.hours.toFixed(1)}${this.settings.hourUnit}`);
-    }
-    if (!this.settings.hideEmptyStats || stats.kurs.count > 0) {
-      createStatItem(`\u{1F4DA} ${t("stats.course")}`, `${stats.kurs.count} ${t("ui.days")}`, `${stats.kurs.hours.toFixed(1)}${this.settings.hourUnit}`);
-    }
-    this.renderHoursBarChart();
-    const tabs = (_b = this.elements.statsCard.parentElement) == null ? void 0 : _b.querySelectorAll(".tf-tab");
-    tabs == null ? void 0 : tabs.forEach((tab) => {
-      var _a2;
-      const timeframe = (_a2 = tab.textContent) == null ? void 0 : _a2.toLowerCase();
-      if (timeframe === "totalt" && this.statsTimeframe === "total" || timeframe === "\xE5r" && this.statsTimeframe === "year" || timeframe === "m\xE5ned" && this.statsTimeframe === "month") {
-        tab.classList.add("active");
-      } else {
-        tab.classList.remove("active");
-      }
-    });
-  }
   /**
    * Render the hours bar chart at the bottom of the stats card section
    */
-  renderHoursBarChart() {
-    if (!this.elements.statsCard) return;
-    const contentWrapper = this.elements.statsCard.parentElement;
-    if (!contentWrapper) return;
-    const existingChart = contentWrapper.querySelector(".tf-hours-chart");
-    if (existingChart) {
-      existingChart.remove();
-    }
-    const chartData = this.data.getHistoricalHoursData(
-      this.statsTimeframe,
-      this.selectedYear,
-      this.selectedMonth
-    );
-    if (chartData.length === 0) return;
-    const maxHours = Math.max(
-      ...chartData.map((d) => d.hours),
-      ...chartData.map((d) => d.target || 0)
-    );
-    if (maxHours === 0) return;
-    const chartContainer = contentWrapper.createDiv({ cls: "tf-hours-chart" });
-    let title = "";
-    if (this.statsTimeframe === "month") {
-      title = t("stats.weeklyHours") || "Uketimer";
-    } else if (this.statsTimeframe === "year") {
-      title = t("stats.monthlyHours") || "M\xE5nedstimer";
-    } else {
-      title = t("stats.yearlyHours") || "\xC5rstimer";
-    }
-    chartContainer.createDiv({ cls: "tf-hours-chart-title", text: title });
-    const chartInner = chartContainer.createDiv({ cls: "tf-hours-chart-container" });
-    const barsArea = chartInner.createDiv({ cls: "tf-hours-bars-area" });
-    const maxBarHeight = 80;
-    chartData.forEach((item) => {
-      const barWrapper = barsArea.createDiv({ cls: "tf-hours-bar-wrapper" });
-      barWrapper.createDiv({
-        cls: "tf-hours-bar-value",
-        text: item.hours > 0 ? `${item.hours.toFixed(0)}` : ""
-      });
-      const barContainer = barWrapper.createDiv({ cls: "tf-hours-bar-container" });
-      if (item.target && item.target > 0 && maxHours > 0) {
-        const targetHeight = item.target / maxHours * maxBarHeight;
-        const targetMarker = barContainer.createDiv({ cls: "tf-hours-target-marker" });
-        targetMarker.setCssProps({ "--target-height": `${targetHeight}px` });
-        targetMarker.title = `${t("stats.target") || "M\xE5l"}: ${item.target.toFixed(0)}t`;
-      }
-      const bar = barContainer.createDiv({ cls: "tf-hours-bar" });
-      const barHeight = maxHours > 0 ? item.hours / maxHours * maxBarHeight : 0;
-      bar.setCssProps({ "--bar-height": `${Math.max(barHeight, 2)}px` });
-      if (item.hours === 0) {
-        bar.addClass("empty");
-      }
-      barWrapper.createDiv({ cls: "tf-hours-bar-label", text: item.label });
-    });
-  }
-  updateMonthCard() {
-    if (!this.elements.monthCard) return;
-    const displayDate = new Date(this.today);
-    displayDate.setMonth(this.today.getMonth() + this.currentMonthOffset);
-    const grid = this.createMonthGrid(displayDate);
-    this.elements.monthCard.empty();
-    this.elements.monthCard.appendChild(grid);
-    const card = this.elements.monthCard.parentElement;
-    if (card) {
-      const futureList = card.querySelector(".tf-future-days-list");
-      if (futureList) {
-        this.updateFutureDaysList(futureList);
-      }
-    }
-  }
   updateFutureDaysList(container) {
     const today = /* @__PURE__ */ new Date();
     const futureDays = [];
@@ -7813,31 +7034,61 @@ var UIBuilder = class {
     modal.appendChild(modalContent);
     activeDocument.body.appendChild(modal);
   }
-  showSpecialDayModal(dateObj) {
+  // Register an absence. Renders as a modal by default, or inline into opts.container
+  // (used by the calendar day drawer's "Add absence" action so it matches the inline edit flow).
+  showSpecialDayModal(dateObj, opts = {}) {
     const dateStr = Utils.toLocalDateStr(dateObj);
-    this.isModalOpen = true;
-    const modal = createDiv();
-    modal.className = "modal-container mod-dim tf-modal-z";
-    const modalBg = createDiv();
-    modalBg.className = "modal-bg";
-    modalBg.onclick = () => {
-      this.isModalOpen = false;
-      modal.remove();
+    const inline = !!opts.container;
+    const guardKeys = (el) => {
+      ["keydown", "keyup", "keypress", "beforeinput", "input"].forEach((ev) => el.addEventListener(ev, (e) => e.stopPropagation()));
     };
-    modal.appendChild(modalBg);
-    const modalContent = createDiv();
-    modalContent.className = "modal tf-modal-w-400";
-    modalContent.addEventListener("keydown", (e) => e.stopPropagation());
-    modalContent.addEventListener("keyup", (e) => e.stopPropagation());
-    modalContent.addEventListener("keypress", (e) => e.stopPropagation());
-    modalContent.addEventListener("beforeinput", (e) => e.stopPropagation());
-    modalContent.addEventListener("input", (e) => e.stopPropagation());
-    const title = createDiv();
-    title.className = "modal-title";
-    title.textContent = t("modals.registerSpecialDayTitle");
-    modalContent.appendChild(title);
-    const content = createDiv();
-    content.className = "modal-content tf-modal-content-padded";
+    let modal = null;
+    let modalContent = null;
+    let content;
+    if (inline) {
+      content = opts.container;
+      content.empty();
+      content.addClass("tf-absence-inline");
+      guardKeys(content);
+    } else {
+      this.isModalOpen = true;
+      modal = createDiv();
+      modal.className = "modal-container mod-dim tf-modal-z";
+      const modalBg = createDiv();
+      modalBg.className = "modal-bg";
+      modalBg.onclick = () => {
+        this.isModalOpen = false;
+        modal.remove();
+      };
+      modal.appendChild(modalBg);
+      modalContent = createDiv();
+      modalContent.className = "modal tf-modal-w-400";
+      guardKeys(modalContent);
+      const title = createDiv();
+      title.className = "modal-title";
+      title.textContent = t("modals.registerSpecialDayTitle");
+      modalContent.appendChild(title);
+      content = createDiv();
+      content.className = "modal-content tf-modal-content-padded";
+    }
+    const closeForm = () => {
+      var _a;
+      if (inline) {
+        (_a = opts.onCancel) == null ? void 0 : _a.call(opts);
+      } else {
+        this.isModalOpen = false;
+        modal.remove();
+      }
+    };
+    const completeForm = () => {
+      var _a;
+      if (inline) {
+        (_a = opts.onComplete) == null ? void 0 : _a.call(opts);
+      } else {
+        this.isModalOpen = false;
+        modal.remove();
+      }
+    };
     const dateDisplay = createDiv();
     dateDisplay.textContent = `${t("ui.date")}: ${dateStr}`;
     dateDisplay.className = "tf-date-display";
@@ -8284,14 +7535,11 @@ var UIBuilder = class {
     buttonDiv.className = "tf-btn-container";
     const cancelBtn = createEl("button");
     cancelBtn.textContent = t("buttons.cancel");
-    cancelBtn.onclick = () => {
-      this.isModalOpen = false;
-      modal.remove();
-    };
-    buttonDiv.appendChild(cancelBtn);
+    cancelBtn.onclick = closeForm;
+    if (!inline) buttonDiv.appendChild(cancelBtn);
     const addBtn = createEl("button");
     addBtn.textContent = t("buttons.add");
-    addBtn.className = "mod-cta";
+    addBtn.className = inline ? "tf-drawer-action-btn tf-drawer-edit-save" : "mod-cta";
     addBtn.onclick = async () => {
       var _a, _b;
       const dayType = typeSelect.value;
@@ -8395,15 +7643,18 @@ var UIBuilder = class {
           await this.addSpecialDay(dateObj, dayType, note, startTime, endTime);
         }
       }
-      this.isModalOpen = false;
-      modal.remove();
+      completeForm();
     };
     buttonDiv.appendChild(addBtn);
     content.appendChild(buttonDiv);
-    modalContent.appendChild(content);
-    modal.appendChild(modalContent);
-    activeDocument.body.appendChild(modal);
-    typeSelect.focus();
+    if (inline) {
+      typeSelect.focus();
+    } else {
+      modalContent.appendChild(content);
+      modal.appendChild(modalContent);
+      activeDocument.body.appendChild(modal);
+      typeSelect.focus();
+    }
   }
   async addSpecialDay(dateObj, dayType, note = "", startTime, endTime) {
     var _a, _b;
@@ -9846,7 +9097,6 @@ ${noteType.tags.join(" ")}`;
   startUpdates() {
     const clockMs = (this.settings.clockInterval || 1) * 1e3;
     const clockInterval = window.setInterval(() => {
-      this.updateClock();
     }, clockMs);
     this.intervals.push(clockInterval);
     const updateMs = (this.settings.updateInterval || 30) * 1e3;
@@ -9859,12 +9109,6 @@ ${noteType.tags.join(" ")}`;
     if (this.isModalOpen) return;
     this.data.rawEntries = this.timerManager.convertToTimeEntries();
     this.data.processEntries();
-    this.updateBadge();
-    this.updateTimerBadge();
-    this.updateDayCard();
-    this.updateWeekCard();
-    this.updateStatsCard();
-    this.updateMonthCard();
     const activeSection = this.container.querySelector(".tf-active-entries-section");
     if (activeSection && this.data.activeEntries.length > 0) {
       const tbody = activeSection.querySelector("tbody");
@@ -9935,9 +9179,6 @@ ${noteType.tags.join(" ")}`;
     if (historyContainer) {
       this.refreshHistoryView(historyContainer);
     }
-    this.updateDayCard();
-    this.updateWeekCard();
-    this.updateStatsCard();
   }
   showDeleteConfirmation(entry, dateObj, onConfirm) {
     const overlay = createDiv();
@@ -10237,18 +9478,27 @@ ${noteType.tags.join(" ")}`;
     const mins = Math.round((absBalance - hrs) * 60);
     const sign = balance >= 0 ? "+" : "\u2212";
     const unit = this.settings.hourUnit;
-    numEl.textContent = `${sign}${hrs}${unit} ${String(mins).padStart(2, "0")}m`;
+    numEl.empty();
+    numEl.appendText(`${sign}${hrs}`);
+    numEl.createSpan({ cls: "tf-unit", text: unit });
+    numEl.appendText(` ${String(mins).padStart(2, "0")}`);
+    numEl.createSpan({ cls: "tf-unit", text: "m" });
     const colorClass = this._balanceStateClass(balance);
     numEl.className = `tf-balance-number ${colorClass}`;
-    const today = /* @__PURE__ */ new Date();
-    const todayStr = Utils.toLocalDateStr(today);
-    const todayHours = this.data.getTodayHours(today);
-    const dailyGoal = this.data.getDailyGoal(todayStr);
-    const todayDelta = todayHours - dailyGoal;
-    badgeEl.textContent = `${this._formatDelta(todayDelta)} ${t("v3.addedToday")}`;
-    badgeEl.className = `tf-balance-badge ${todayDelta >= 0 ? "tf-ok" : "tf-warn"}`;
-    timerWrap.empty();
     const activeTimers = this.timerManager.getActiveTimers();
+    if (activeTimers.length > 0) {
+      badgeEl.textContent = "";
+      badgeEl.className = "tf-balance-badge tf-hidden";
+    } else {
+      const today = /* @__PURE__ */ new Date();
+      const todayStr = Utils.toLocalDateStr(today);
+      const todayHours = this.data.getTodayHours(today);
+      const dailyGoal = this.data.getDailyGoal(todayStr);
+      const todayDelta = todayHours - dailyGoal;
+      badgeEl.textContent = `${this._formatDelta(todayDelta)} ${t("v3.addedToday")}`;
+      badgeEl.className = `tf-balance-badge ${todayDelta >= 0 ? "tf-ok" : "tf-warn"}`;
+    }
+    timerWrap.empty();
     if (activeTimers.length === 0) {
       const startMain = timerWrap.createEl("button", { cls: "tf-hero-start-main", text: `\u25B6  ${t("v3.startTimer")}` });
       startMain.onclick = async (e) => {
@@ -10279,7 +9529,6 @@ ${noteType.tags.join(" ")}`;
     this.data.processEntries();
     this._updateBalanceHeroContent(numEl, badgeEl, timerWrap);
     this.updateComplianceBadge();
-    this.updateBadge();
     if (this.progressStripEl) this.updateProgressStrip();
     if (this.barCalendarBodyEl) this.updateBarCalendar();
     if (this.statsFooterEl) this.updateStatsFooter();
@@ -10414,6 +9663,8 @@ ${noteType.tags.join(" ")}`;
           if (compClass === "week-ok") dot.addClass("tf-compliance-dot-ok");
           else if (compClass === "week-over") dot.addClass("tf-compliance-dot-over");
           else dot.addClass("tf-compliance-dot-warn");
+          const wc = this.getWeekComplianceData(monday);
+          dot.setAttribute("title", t("v3.weekComplianceTooltip").replace("{week}", `${t("v3.weekLabelPrefix")} ${wc.weekNumber}`).replace("{hours}", this._fmtHours(wc.totalHours, 1)).replace("{target}", this._fmtGoal(wc.expectedHours)));
         }
       }
       let selectedInThisRow = false;
@@ -10434,26 +9685,38 @@ ${noteType.tags.join(" ")}`;
           cell.addClass("selected");
           selectedInThisRow = true;
         }
+        const plannedHoliday = this.data.holidays[dateKey];
         if (!isCurrentMonth || isWeekend) cell.addClass("faded");
-        if (isFuture) cell.addClass("future");
+        if (isFuture && !plannedHoliday) cell.addClass("future");
         cell.createDiv({ cls: "tf-bar-cal-day-num", text: cellDate.getDate().toString() });
         const barTrack = cell.createDiv({ cls: "tf-bar-cal-bar-track" });
         const barFill = barTrack.createDiv({ cls: "tf-bar-cal-bar-fill" });
-        if (isCurrentMonth && !isFuture) {
-          const dayEntries = this.data.daily[dateKey] || [];
-          const totalHours = dayEntries.reduce((s, e) => s + (e.duration || 0), 0);
+        if (isCurrentMonth) {
           let barColor = "var(--color-accent)";
-          const specialEntry = dayEntries.find((e) => {
-            const b = this.settings.specialDayBehaviors.find((beh) => beh.id === e.name);
-            return b && !b.isWorkType;
-          });
-          if (specialEntry) {
-            const behavior = this.settings.specialDayBehaviors.find((b) => b.id === specialEntry.name);
-            barColor = (behavior == null ? void 0 : behavior.color) || "var(--color-accent)";
+          let barPct = 0;
+          if (!isFuture) {
+            const dayEntries = this.data.daily[dateKey] || [];
+            const totalHours = dayEntries.reduce((s, e) => s + (e.duration || 0), 0);
+            if (totalHours > 0) {
+              const specialEntry = dayEntries.find((e) => {
+                const b = this.settings.specialDayBehaviors.find((beh) => beh.id === e.name);
+                return b && !b.isWorkType;
+              });
+              if (specialEntry) {
+                const behavior = this.settings.specialDayBehaviors.find((b) => b.id === specialEntry.name);
+                barColor = (behavior == null ? void 0 : behavior.color) || "var(--color-accent)";
+              }
+              barPct = dailyGoal > 0 ? Math.min(totalHours / dailyGoal * 100, 100) : 100;
+            }
           }
-          barFill.style.background = barColor;
-          const barPct = dailyGoal > 0 ? Math.min(totalHours / dailyGoal * 100, 100) : totalHours > 0 ? 100 : 0;
-          barFill.style.width = `${barPct}%`;
+          if (plannedHoliday) {
+            const hb = this.settings.specialDayBehaviors.find((b) => b.id === plannedHoliday.type);
+            if (hb) {
+              barColor = hb.color;
+              barPct = plannedHoliday.halfDay ? 50 : 100;
+            }
+          }
+          barFill.setCssStyles({ background: barColor, width: `${barPct}%` });
         } else {
           barFill.setCssStyles({ width: "0%" });
         }
@@ -10540,10 +9803,32 @@ ${noteType.tags.join(" ")}`;
         editBtn.removeClass("active");
       }
     };
+    const absenceSection = drawer.createDiv({ cls: "tf-drawer-edit-section tf-hidden" });
     const absenceBtn = actions.createEl("button", { cls: "tf-drawer-action-btn", text: t("v3.addAbsence") });
     absenceBtn.onclick = () => {
-      this.selectedDayDate = null;
-      this.showSpecialDayModal(dateObj);
+      if (absenceSection.hasClass("tf-hidden")) {
+        editSection.empty();
+        editSection.addClass("tf-hidden");
+        editBtn.removeClass("active");
+        const formWrap = absenceSection.createDiv();
+        this.showSpecialDayModal(dateObj, {
+          container: formWrap,
+          onComplete: () => {
+            this.selectedDayDate = null;
+          },
+          onCancel: () => {
+            absenceSection.empty();
+            absenceSection.addClass("tf-hidden");
+            absenceBtn.removeClass("active");
+          }
+        });
+        absenceSection.removeClass("tf-hidden");
+        absenceBtn.addClass("active");
+      } else {
+        absenceSection.empty();
+        absenceSection.addClass("tf-hidden");
+        absenceBtn.removeClass("active");
+      }
     };
     if (this.settings.noteTypes.length > 0) {
       const noteBtn = actions.createEl("button", { cls: "tf-drawer-action-btn", text: t("v3.note") });
@@ -10751,18 +10036,85 @@ ${noteType.tags.join(" ")}`;
       }
     });
     futureDays.sort((a, b) => a.date.localeCompare(b.date));
-    const display = futureDays.slice(0, 4);
-    if (display.length === 0) return;
+    const groups = [];
+    for (const day of futureDays) {
+      const prev = groups[groups.length - 1];
+      if (prev && prev.label === day.label && this._noWorkingDayBetween(prev.endDate, day.date)) {
+        prev.endDate = day.date;
+        prev.count += 1;
+      } else {
+        groups.push({ startDate: day.date, endDate: day.date, label: day.label, color: day.color, textColor: day.textColor, count: 1 });
+      }
+    }
+    this._upcomingGroups = groups;
+    this._upcomingItemsEl = null;
+    if (groups.length === 0) return;
     const wrap = container.createDiv({ cls: "tf-upcoming-flat" });
     wrap.createDiv({ cls: "tf-upcoming-flat-title", text: t("v3.comingUp") });
-    display.forEach((day) => {
-      const item = wrap.createDiv({ cls: "tf-upcoming-flat-item" });
-      const d = /* @__PURE__ */ new Date(day.date + "T00:00:00");
-      item.createDiv({ cls: "tf-upcoming-date", text: formatDate(d, "long") });
-      const chip = item.createDiv({ cls: "tf-upcoming-chip", text: day.label });
-      chip.style.background = day.color;
-      chip.style.color = day.textColor;
+    this._upcomingItemsEl = wrap.createDiv({ cls: "tf-upcoming-flat-items" });
+    this._renderUpcomingItems(4);
+  }
+  // True when no working day (weekday that isn't a no-hours holiday) falls strictly between
+  // the two ISO dates — reuses the same working-day/holiday resolution as the bar calendar.
+  _noWorkingDayBetween(aISO, bISO) {
+    const cur = /* @__PURE__ */ new Date(aISO + "T00:00:00");
+    const end = /* @__PURE__ */ new Date(bISO + "T00:00:00");
+    cur.setDate(cur.getDate() + 1);
+    while (cur < end) {
+      if (this._isWorkingDay(cur)) return false;
+      cur.setDate(cur.getDate() + 1);
+    }
+    return true;
+  }
+  _isWorkingDay(date) {
+    if (!this.settings.workDays.includes(date.getDay())) return false;
+    const info = this.data.getHolidayInfo(Utils.toLocalDateStr(date));
+    if (info) {
+      const b = this.settings.specialDayBehaviors.find((sb) => sb.id === info.type);
+      if (b == null ? void 0 : b.noHoursRequired) return false;
+    }
+    return true;
+  }
+  _renderUpcomingItems(count) {
+    const itemsEl = this._upcomingItemsEl;
+    if (!itemsEl) return;
+    itemsEl.empty();
+    this._upcomingGroups.slice(0, Math.max(1, count)).forEach((g) => {
+      const item = itemsEl.createDiv({ cls: "tf-upcoming-flat-item" });
+      const start = /* @__PURE__ */ new Date(g.startDate + "T00:00:00");
+      const dateText = g.count === 1 ? formatDate(start, "long") : `${formatDate(start, "range")}\u2013${formatDate(/* @__PURE__ */ new Date(g.endDate + "T00:00:00"), "long")}`;
+      item.createDiv({ cls: "tf-upcoming-date", text: dateText });
+      const right = item.createDiv({ cls: "tf-upcoming-right" });
+      if (g.count > 1) {
+        right.createSpan({ cls: "tf-upcoming-count", text: `${g.count} ${t("ui.days")}` });
+      }
+      const chip = right.createDiv({ cls: "tf-upcoming-chip", text: g.label });
+      chip.setCssStyles({ backgroundColor: g.color, color: g.textColor });
     });
+  }
+  // Wide layout: the left column is stretched by the grid to match the (usually taller)
+  // right column, leaving empty space below the upcoming list. Render as many upcoming
+  // items as fit that space so the list grows with the stats section.
+  _adjustUpcomingToFit() {
+    const itemsEl = this._upcomingItemsEl;
+    if (!itemsEl || this._upcomingGroups.length === 0) return;
+    if (this.container.getAttribute("data-layout") !== "wide") {
+      if (itemsEl.childElementCount !== Math.min(4, this._upcomingGroups.length)) {
+        this._renderUpcomingItems(4);
+      }
+      return;
+    }
+    const leftCol = itemsEl.closest(".tf-v3-left-col");
+    if (!leftCol) return;
+    if (itemsEl.childElementCount === 0) this._renderUpcomingItems(1);
+    const sample = itemsEl.firstElementChild;
+    if (!sample) return;
+    const itemH = sample.getBoundingClientRect().height;
+    if (itemH <= 0) return;
+    const available = leftCol.getBoundingClientRect().bottom - itemsEl.getBoundingClientRect().top;
+    const fit = Math.max(1, Math.floor(available / itemH));
+    const count = Math.min(fit, this._upcomingGroups.length);
+    if (count !== itemsEl.childElementCount) this._renderUpcomingItems(count);
   }
   // =====================================================================
   // Timeflow 2.0 — Stats Footer (4 cells, narrow mode)
@@ -10785,7 +10137,7 @@ ${noteType.tags.join(" ")}`;
       cell.createDiv({ cls: "tf-stats-footer-value", text: value });
       cell.createDiv({ cls: "tf-stats-footer-label", text: label });
     };
-    addCell(this._fmtHours((_a = stats.totalHours) != null ? _a : 0, 0), t("v3.thisMonth"));
+    addCell(this._fmtHours((_a = stats.totalHours) != null ? _a : 0, 1), t("v3.thisMonth"));
     addCell(this._fmtHours(avgDaily, 1), t("v3.perDay"));
     addCell(this._fmtHours(avgWeekly, 1), t("v3.perWeek"));
     addCell(`${workloadPct}%`, t("v3.workload"));
@@ -10866,6 +10218,12 @@ ${noteType.tags.join(" ")}`;
     const statusText = activeTimers.length === 0 ? `${t("v3.allGood")} \xB7 ${t("v3.noActiveTimers")}` : t("v3.activeTimers").replace("{count}", String(activeTimers.length));
     left.createDiv({ cls: "tf-status-text", text: statusText });
     const right = bar.createDiv({ cls: "tf-status-bar-right" });
+    const brand = right.createDiv({ cls: "tf-status-brand" });
+    const glyph = brand.createSpan({ cls: "tf-status-brand-icon" });
+    (0, import_obsidian5.setIcon)(glyph, "timeflow");
+    const wordmark = brand.createSpan({ cls: "tf-status-wordmark" });
+    wordmark.createSpan({ text: "time" });
+    wordmark.createSpan({ cls: "tf-status-wordmark-accent", text: "flow" });
     right.createDiv({ cls: "tf-status-version", text: `v${this.plugin.manifest.version}` });
     const helpBtn = right.createEl("button", { cls: "tf-status-help-btn", text: "?" });
     helpBtn.setAttribute("aria-label", t("ui.information"));
@@ -10908,7 +10266,9 @@ ${noteType.tags.join(" ")}`;
       col.empty();
       this._fillWideRightColumn(col);
     };
-    const tabs = statsHeadRow.createDiv({ cls: "tf-stats-tabs" });
+    const headControls = statsHeadRow.createDiv({ cls: "tf-stats-head-controls" });
+    this._fillStatsPeriodSelector(headControls, rerender);
+    const tabs = headControls.createDiv({ cls: "tf-stats-tabs" });
     const timeframeLabels = { month: t("timeframes.month"), year: t("timeframes.year"), total: t("timeframes.total") };
     ["month", "year", "total"].forEach((tf) => {
       var _a;
@@ -10921,52 +10281,49 @@ ${noteType.tags.join(" ")}`;
         rerender();
       };
     });
-    this._fillStatsPeriodSelector(statsSection, rerender);
-    const gridEl = statsSection.createDiv({ cls: "tf-wide-stats-grid" });
+    const statsCard = statsSection.createDiv({ cls: "tf-wide-stats-card" });
+    const gridEl = statsCard.createDiv({ cls: "tf-wide-stats-grid" });
     this._fillWideStatsGrid(gridEl);
-    const leaveItems = this.settings.specialDayBehaviors.filter((b) => !b.isWorkType && b.id !== "jobb");
-    const leaveSection = col.createDiv();
+    this._fillTrendDelta(statsCard);
+    const leaveItems = this._leaveBehaviors();
+    const leaveSection = col.createDiv({ cls: "tf-right-section" });
     this._fillLeaveTracking(leaveSection, leaveItems);
-    const chartSection = col.createDiv();
+    const chartSection = col.createDiv({ cls: "tf-right-section" });
     chartSection.createDiv({ cls: "tf-weekly-chart-label", text: t("v3.weeklyHoursLabel") });
     this._fillWideWeeklyChart(chartSection);
   }
-  // Year (and month) dropdowns so stats can look back at previous periods.
+  // Period picker so stats can look back: a single combined "month year" dropdown in
+  // month view, or a year dropdown in year view. (All-time has no period to pick.)
   _fillStatsPeriodSelector(container, onChange) {
     if (this.statsTimeframe === "total") return;
     const availableYears = this.data.getAvailableYears();
     if (availableYears.length === 0) return;
     const row = container.createDiv({ cls: "tf-stats-period" });
-    const yearSelect = row.createEl("select", { cls: "tf-stats-period-select" });
-    availableYears.forEach((y) => {
-      const opt = yearSelect.createEl("option", { text: String(y) });
-      opt.value = String(y);
-      if (y === this.selectedYear) opt.selected = true;
-    });
-    yearSelect.onchange = () => {
-      this.selectedYear = parseInt(yearSelect.value);
-      if (this.statsTimeframe === "month") {
-        const months = this.data.getAvailableMonthsForYear(this.selectedYear);
-        if (months.length > 0 && !months.includes(this.selectedMonth)) {
-          this.selectedMonth = months[months.length - 1];
-        }
-      }
-      onChange();
-    };
+    const select = row.createEl("select", { cls: "tf-stats-period-select" });
     if (this.statsTimeframe === "month") {
-      const months = this.data.getAvailableMonthsForYear(this.selectedYear);
-      if (months.length > 0) {
-        const monthSelect = row.createEl("select", { cls: "tf-stats-period-select" });
-        months.forEach((m) => {
-          const opt = monthSelect.createEl("option", { text: getMonthName(new Date(this.selectedYear, m, 1)) });
-          opt.value = String(m);
-          if (m === this.selectedMonth) opt.selected = true;
+      [...availableYears].sort((a, b) => b - a).forEach((y) => {
+        this.data.getAvailableMonthsForYear(y).slice().sort((a, b) => b - a).forEach((m) => {
+          const opt = select.createEl("option", { text: getMonthName(new Date(y, m, 1)) });
+          opt.value = `${y}-${m}`;
+          if (y === this.selectedYear && m === this.selectedMonth) opt.selected = true;
         });
-        monthSelect.onchange = () => {
-          this.selectedMonth = parseInt(monthSelect.value);
-          onChange();
-        };
-      }
+      });
+      select.onchange = () => {
+        const [y, m] = select.value.split("-").map(Number);
+        this.selectedYear = y;
+        this.selectedMonth = m;
+        onChange();
+      };
+    } else {
+      availableYears.forEach((y) => {
+        const opt = select.createEl("option", { text: String(y) });
+        opt.value = String(y);
+        if (y === this.selectedYear) opt.selected = true;
+      });
+      select.onchange = () => {
+        this.selectedYear = parseInt(select.value);
+        onChange();
+      };
     }
   }
   _fillWideStatsGrid(grid) {
@@ -10992,15 +10349,23 @@ ${noteType.tags.join(" ")}`;
     addCell(String((_d = stats.workDays) != null ? _d : 0), t("v3.workDays"), t("v3.weekendsSub").replace("{count}", String((_e = stats.weekendDays) != null ? _e : 0)));
     const compBehavior = this.settings.specialDayBehaviors.find((b) => !b.isWorkType && b.flextimeEffect === "withdraw");
     if (compBehavior) {
-      const usedComp = this._getLeaveUsedHours(compBehavior.id, { timeframe: this.statsTimeframe, year: this.selectedYear, month: this.selectedMonth });
+      const usedComp = this._getLeaveUsedHours(compBehavior.id, { timeframe: this.statsTimeframe, year: this.selectedYear, month: this.selectedMonth }) + this._getUnderGoalWithdrawn({ timeframe: this.statsTimeframe, year: this.selectedYear, month: this.selectedMonth });
       const cell = grid.createDiv({ cls: "tf-wide-stats-cell" });
       const valEl = cell.createDiv({ cls: "tf-wide-stats-value", text: Utils.formatHoursToHM(usedComp, unit) });
-      valEl.style.color = compBehavior.color;
+      valEl.style.color = usedComp > 0 ? compBehavior.color : "var(--color-faint)";
       cell.createDiv({ cls: "tf-wide-stats-label", text: t("v3.compTimeUsed") });
       cell.createDiv({ cls: "tf-wide-stats-sublabel", text: periodSub });
     }
   }
-  _fillLeaveTracking(section, behaviors) {
+  // Absence types shown in leave tracking: not work, and not pure public holidays
+  // (helligdag-style: no flextime effect and no yearly quota — imposed, not "leave used").
+  _leaveBehaviors() {
+    return this.settings.specialDayBehaviors.filter(
+      (b) => !b.isWorkType && b.id !== "jobb" && !(b.flextimeEffect === "none" && b.maxDaysPerYear == null)
+    );
+  }
+  _fillLeaveTracking(section, behaviors, opts = {}) {
+    const { compact = false, showAll = false } = opts;
     const unit = this.settings.hourUnit;
     const year = this.selectedYear;
     const dailyGoal = this.settings.baseWorkday * this.settings.workPercent;
@@ -11008,39 +10373,169 @@ ${noteType.tags.join(" ")}`;
     behaviors.forEach((b) => {
       const hasQuota = b.maxDaysPerYear != null;
       if (b.flextimeEffect === "withdraw") {
-        const used = this._getLeaveUsedHours(b.id, { timeframe: "year", year });
-        if (used <= 0) return;
+        const used = this._getLeaveUsedHours(b.id, { timeframe: "year", year }) + this._getUnderGoalWithdrawn({ timeframe: "year", year });
+        if (!showAll && used <= 0 && !(compact && hasQuota)) return;
         const quota = hasQuota ? b.maxDaysPerYear * dailyGoal : 0;
         const pct = hasQuota && quota > 0 ? Math.min(used / quota * 100, 100) : 0;
         const countsText = hasQuota ? `${Utils.formatHoursToHM(used, unit)} / ${Utils.formatHoursToHM(quota, unit)}` : Utils.formatHoursToHM(used, unit);
-        rows.push({ b, pct, countsText });
+        rows.push({ b, pct, countsText, hasQuota, isEmpty: used <= 0 });
       } else {
         const usedDays = this._getLeaveUsedDays(b.id, year);
-        if (usedDays <= 0) return;
+        if (!showAll && usedDays <= 0 && !(compact && hasQuota)) return;
         const quotaDays = hasQuota ? b.maxDaysPerYear : 0;
         const pct = hasQuota && quotaDays > 0 ? Math.min(usedDays / quotaDays * 100, 100) : 0;
         const fmtDays = (d) => `${Number.isInteger(d) ? d : d.toFixed(1)} ${t("ui.days")}`;
         const countsText = hasQuota ? `${fmtDays(usedDays)} / ${fmtDays(quotaDays)}` : fmtDays(usedDays);
-        rows.push({ b, pct, countsText });
+        rows.push({ b, pct, countsText, hasQuota, isEmpty: usedDays <= 0 });
       }
     });
     if (rows.length === 0) return;
-    section.createDiv({ cls: "tf-leave-section-label", text: t("v3.leaveUsedThisYear") });
-    const rowsWrap = section.createDiv({ cls: "tf-leave-section" });
-    rows.forEach(({ b, pct, countsText }) => {
+    if (compact) {
+      const head = section.createDiv({ cls: "tf-compact-section-head" });
+      head.createSpan({ cls: "tf-compact-section-label", text: t("v3.leaveUsedThisYear") });
+      const toggle = head.createEl("button", {
+        cls: "tf-compact-see-all",
+        text: showAll ? `${t("ui.showLess")} \u2190` : `${t("ui.seeAll")} \u2192`
+      });
+      toggle.addEventListener("click", () => {
+        this._showAllLeaveNarrow = !this._showAllLeaveNarrow;
+        this._rebuildLeaveSection();
+      });
+    } else {
+      section.createDiv({ cls: "tf-leave-section-label", text: t("v3.leaveUsedThisYear") });
+    }
+    const rowsWrap = section.createDiv({ cls: `tf-leave-section${compact ? " tf-leave-section-compact" : ""}` });
+    rows.forEach(({ b, pct, countsText, hasQuota, isEmpty }) => {
       const row = rowsWrap.createDiv({ cls: "tf-leave-row" });
       const top = row.createDiv({ cls: "tf-leave-row-top" });
       const labelGroup = top.createDiv({ cls: "tf-leave-label-group" });
       const dot = labelGroup.createDiv({ cls: "tf-leave-dot" });
-      dot.style.background = b.color;
+      dot.setCssStyles({ backgroundColor: b.color });
       labelGroup.createDiv({ cls: "tf-leave-label", text: translateSpecialDayName(b.id, b.label) });
       const counts = top.createDiv({ cls: "tf-leave-counts", text: countsText });
-      counts.style.color = b.color;
-      const track = row.createDiv({ cls: "tf-leave-bar-track" });
-      const fill = track.createDiv({ cls: "tf-leave-bar-fill" });
-      fill.style.width = `${pct}%`;
-      fill.style.background = b.color;
+      counts.setCssStyles({ color: isEmpty ? "var(--color-faint)" : b.color });
+      if (hasQuota) {
+        const track = row.createDiv({ cls: "tf-leave-bar-track" });
+        const fill = track.createDiv({ cls: "tf-leave-bar-fill" });
+        fill.setCssStyles({ width: `${pct}%`, backgroundColor: b.color });
+      } else {
+        row.addClass("tf-leave-row--no-bar");
+      }
     });
+  }
+  _rebuildLeaveSection() {
+    if (!this._narrowLeaveEl) return;
+    this._narrowLeaveEl.empty();
+    const items = this._leaveBehaviors();
+    this._fillLeaveTracking(this._narrowLeaveEl, items, { compact: true, showAll: this._showAllLeaveNarrow });
+  }
+  // Compact "Recent days" list for the sidebar: one row per day (newest first) with a type
+  // chip and the day's net flextime. Reuses the same daily-entry data as the wide history.
+  _fillRecentHistory(section, opts) {
+    const unit = this.settings.hourUnit;
+    const allKeys = Object.keys(this.data.daily).filter((k) => (this.data.daily[k] || []).length > 0).sort().reverse();
+    if (allKeys.length === 0) return;
+    const dayKeys = opts.showAll ? allKeys : allKeys.slice(0, 5);
+    const head = section.createDiv({ cls: "tf-compact-section-head" });
+    head.createSpan({ cls: "tf-compact-section-label", text: t("ui.history") });
+    const toggle = head.createEl("button", {
+      cls: "tf-compact-see-all",
+      text: opts.showAll ? `${t("ui.showLess")} \u2190` : `${t("ui.seeAll")} \u2192`
+    });
+    toggle.addEventListener("click", () => {
+      this._showAllHistoryNarrow = !this._showAllHistoryNarrow;
+      this._rebuildHistorySection();
+    });
+    const dayNames = getDayNamesShort();
+    const renderRow = (list, key) => {
+      const entries = this.data.daily[key];
+      const flex = entries.reduce((s, e) => s + (e.flextime || 0), 0);
+      let topName = entries[0].name;
+      let topDur = -1;
+      entries.forEach((e) => {
+        const d = e.duration || 0;
+        if (d > topDur) {
+          topDur = d;
+          topName = e.name;
+        }
+      });
+      const b = this.settings.specialDayBehaviors.find((x) => x.id === topName.toLowerCase());
+      const date = /* @__PURE__ */ new Date(key + "T12:00:00");
+      const dateLabel = `${dayNames[(date.getDay() + 6) % 7]} ${date.getDate()}`;
+      const row = list.createDiv({ cls: "tf-compact-hist-row" });
+      row.createSpan({ cls: "tf-compact-hist-date", text: dateLabel });
+      const chip = row.createSpan({
+        cls: "tf-compact-hist-type",
+        text: b ? translateSpecialDayName(b.id, b.label) : topName
+      });
+      if (b) chip.setCssStyles({ color: b.textColor || "#fff", backgroundColor: b.color });
+      const sign = flex >= 0 ? "+" : "\u2212";
+      row.createSpan({
+        cls: `tf-compact-hist-flex ${flex >= 0 ? "tf-trend-pos" : "tf-trend-neg"}`,
+        text: `${sign}${Utils.formatHoursToHM(Math.abs(flex), unit)}`
+      });
+    };
+    if (opts.showAll) {
+      let currentMonthKey = "";
+      let list = null;
+      dayKeys.forEach((key) => {
+        const date = /* @__PURE__ */ new Date(key + "T12:00:00");
+        const monthKey = `${date.getFullYear()}-${date.getMonth()}`;
+        if (monthKey !== currentMonthKey || !list) {
+          currentMonthKey = monthKey;
+          section.createDiv({ cls: "tf-compact-hist-month", text: getMonthName(date) });
+          list = section.createDiv({ cls: "tf-compact-hist-list" });
+        }
+        renderRow(list, key);
+      });
+    } else {
+      const list = section.createDiv({ cls: "tf-compact-hist-list" });
+      dayKeys.forEach((key) => renderRow(list, key));
+    }
+  }
+  _rebuildHistorySection() {
+    if (!this._narrowHistoryEl) return;
+    this._narrowHistoryEl.empty();
+    this._fillRecentHistory(this._narrowHistoryEl, { showAll: this._showAllHistoryNarrow });
+  }
+  // "vs last week / vs last month" trend deltas; magnitude is formatted, the arrow is ours.
+  _getWeekDelta() {
+    const today = /* @__PURE__ */ new Date();
+    const dow = today.getDay();
+    const daysFromMonday = dow === 0 ? 6 : dow - 1;
+    const thisMonday = new Date(today);
+    thisMonday.setHours(0, 0, 0, 0);
+    thisMonday.setDate(today.getDate() - daysFromMonday);
+    const prevMonday = new Date(thisMonday);
+    prevMonday.setDate(thisMonday.getDate() - 7);
+    return this.getWeekComplianceData(thisMonday).totalHours - this.getWeekComplianceData(prevMonday).totalHours;
+  }
+  _getMonthDelta() {
+    var _a, _b;
+    const now = /* @__PURE__ */ new Date();
+    const y = now.getFullYear();
+    const m = now.getMonth();
+    const cur = (_a = this.data.getStatistics("month", y, m).totalHours) != null ? _a : 0;
+    const pm = m === 0 ? 11 : m - 1;
+    const py = m === 0 ? y - 1 : y;
+    const prev = (_b = this.data.getStatistics("month", py, pm).totalHours) != null ? _b : 0;
+    return cur - prev;
+  }
+  _fillTrendDelta(container) {
+    const unit = this.settings.hourUnit;
+    const row = container.createDiv({ cls: "tf-trend-delta" });
+    const renderDelta = (label, delta) => {
+      const cell = row.createDiv({ cls: "tf-trend-cell" });
+      cell.createSpan({ cls: "tf-trend-label", text: label });
+      const valueCls = delta > 0 ? "tf-trend-pos" : delta < 0 ? "tf-trend-neg" : "tf-trend-zero";
+      const arrow = delta > 0 ? "\u2191" : delta < 0 ? "\u2193" : "\xB7";
+      cell.createSpan({
+        cls: `tf-trend-value ${valueCls}`,
+        text: `${arrow} ${Utils.formatHoursToHM(Math.abs(delta), unit)}`
+      });
+    };
+    renderDelta(t("ui.vsLastWeek"), this._getWeekDelta());
+    renderDelta(t("ui.vsLastMonth"), this._getMonthDelta());
   }
   // Days of a day-based leave type booked this year (taken + planned), from the absence
   // flow (holidays store) plus any leave logged as timer entries, deduped per date.
@@ -11079,6 +10574,38 @@ ${noteType.tags.join(" ")}`;
       entries.forEach((e) => {
         if (e.name === behaviorId) total += e.duration || 0;
       });
+    });
+    return total;
+  }
+  // Flextime withdrawn implicitly by completed (past) work days that ended under goal.
+  // The shortfall already lowers the balance; we surface it in the comp-time ("avspasering")
+  // counter so that figure reflects all withdrawn time, not just explicit avspasering entries.
+  _getUnderGoalWithdrawn(opts = {}) {
+    var _a, _b, _c;
+    if (!this.settings.enableGoalTracking) return 0;
+    const timeframe = (_a = opts.timeframe) != null ? _a : "year";
+    const today = /* @__PURE__ */ new Date();
+    today.setHours(0, 0, 0, 0);
+    const year = (_b = opts.year) != null ? _b : today.getFullYear();
+    const month = (_c = opts.month) != null ? _c : today.getMonth();
+    let total = 0;
+    Object.entries(this.data.daily).forEach(([dateKey, entries]) => {
+      const d = /* @__PURE__ */ new Date(dateKey + "T12:00:00");
+      if (d >= today) return;
+      if (timeframe !== "total") {
+        if (d.getFullYear() !== year) return;
+        if (timeframe === "month" && d.getMonth() !== month) return;
+      }
+      let workFlex = 0;
+      let hasWork = false;
+      entries.forEach((e) => {
+        const b = this.settings.specialDayBehaviors.find((x) => x.id === e.name.toLowerCase());
+        if (!b || b.isWorkType) {
+          workFlex += e.flextime || 0;
+          hasWork = true;
+        }
+      });
+      if (hasWork && workFlex < 0) total += -workFlex;
     });
     return total;
   }
@@ -11131,6 +10658,7 @@ ${noteType.tags.join(" ")}`;
     const resizeObs = new ResizeObserver((entries) => {
       const w = entries[0].contentRect.width;
       this.container.setAttribute("data-layout", w >= 600 ? "wide" : "sidebar");
+      window.requestAnimationFrame(() => this._adjustUpcomingToFit());
     });
     resizeObs.observe(this.container);
     this._resizeObserver = resizeObs;
@@ -11143,6 +10671,13 @@ ${noteType.tags.join(" ")}`;
     content.appendChild(this.buildBarCalendarSection());
     content.appendChild(this.buildWideRightColumn());
     layout.appendChild(this.buildStatsFooter());
+    const extras = layout.createDiv({ cls: "tf-sidebar-extras" });
+    this._fillTrendDelta(extras);
+    const leaveItems = this._leaveBehaviors();
+    this._narrowLeaveEl = extras.createDiv({ cls: "tf-narrow-leave-section" });
+    this._fillLeaveTracking(this._narrowLeaveEl, leaveItems, { compact: true, showAll: this._showAllLeaveNarrow });
+    this._narrowHistoryEl = extras.createDiv({ cls: "tf-narrow-history-section" });
+    this._fillRecentHistory(this._narrowHistoryEl, { showAll: this._showAllHistoryNarrow });
     this.container.appendChild(layout);
     this.container.appendChild(this.buildHistoryCard());
     this.container.appendChild(this.buildDashboardStatusBar());
@@ -11167,7 +10702,7 @@ var TimeFlowView = class extends import_obsidian6.ItemView {
     return "Timeflow dashboard";
   }
   getIcon() {
-    return "calendar-clock";
+    return "timeflow";
   }
   async onOpen() {
     const container = this.containerEl.children[1];
@@ -11223,6 +10758,15 @@ var TimeFlowView = class extends import_obsidian6.ItemView {
       const dashboardEl = this.uiBuilder.build();
       container.empty();
       container.appendChild(dashboardEl);
+      const bg = this.plugin.settings.customBackground;
+      const root = container;
+      if (bg == null ? void 0 : bg.enabled) {
+        root.addClass("tf-bg-custom");
+        root.setCssProps({ "--tf-bg-light": bg.lightBg, "--tf-bg-dark": bg.darkBg });
+      } else {
+        root.removeClass("tf-bg-custom");
+        root.setCssProps({ "--tf-bg-light": "", "--tf-bg-dark": "" });
+      }
       this.uiBuilder.startUpdates();
     } catch (error) {
       console.error("Error loading TimeFlow dashboard:", error);
@@ -11673,6 +11217,7 @@ ${timekeepBlock}${settingsBlock}
 var TimeFlowPlugin = class extends import_obsidian8.Plugin {
   async onload() {
     var _a;
+    (0, import_obsidian8.addIcon)("timeflow", '<circle cx="50" cy="50" r="37" fill="none" stroke="currentColor" stroke-width="7"></circle><line x1="27" y1="50" x2="73" y2="50" stroke="currentColor" stroke-width="7" stroke-linecap="round"></line><path d="M50 50 L41.5 67 L58.5 67 Z" fill="currentColor"></path><circle cx="50" cy="50" r="5" fill="currentColor"></circle><circle cx="50" cy="20" r="3.4" fill="currentColor"></circle>');
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
     this.timerManager = new TimerManager(this.app, this.settings);
     const syncedSettings = await this.timerManager.load();
@@ -11690,7 +11235,7 @@ var TimeFlowPlugin = class extends import_obsidian8.Plugin {
       VIEW_TYPE_TIMEFLOW,
       (leaf) => new TimeFlowView(leaf, this)
     );
-    this.addRibbonIcon("calendar-clock", "Open timeflow", () => {
+    this.addRibbonIcon("timeflow", "Open timeflow", () => {
       void this.activateView();
     });
     this.addCommand({

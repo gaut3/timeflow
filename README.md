@@ -1,11 +1,24 @@
-![timeflow Dashboard](https://github.com/gaut3/timeflow/blob/main/images/timeflow.png?raw=true)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="brand/png/wordmark/timeflow-wordmark-dark-2x.png">
+  <img alt="Timeflow" src="brand/png/wordmark/timeflow-wordmark-light-2x.png" width="220">
+</picture>
 
-timeflow provides a comprehensive flextime tracking dashboard with **built-in timer functionality**, beautiful visualizations, and extensive customization options.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://github.com/gaut3/timeflow/blob/main/images/Wide%20-%20Dark%20mode%20-%20Home.png?raw=true">
+  <img alt="Timeflow dashboard — wide layout" src="https://github.com/gaut3/timeflow/blob/main/images/Wide%20-%20Light%20mode%20-%20Home.png?raw=true">
+</picture>
+
+timeflow is a flextime tracking dashboard built around one question — **where's my flextime balance?** It pairs a live, color-coded balance with a **built-in timer**, a calm calendar and statistics, and extensive customization. Structural colors come from Obsidian's own theme variables, so it looks at home in any light or dark theme.
 
 > **Note:** timeflow was originally designed for Norwegian work culture (7.5h workdays, 37.5h weeks, specific leave types like "avspasering" and "egenmelding"). However, all settings are fully customizable - workday hours, work week structure, leave types, colors, and labels can all be adjusted to match your country's work culture and personal needs.
 
 
-![timeflow Wide Dashboard](https://github.com/gaut3/timeflow/blob/main/images/timeflow%20wide%20dashboard%20-%20english.png?raw=true)
+_The same dashboard adapts to a narrow sidebar — nothing is dropped on mobile:_
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://github.com/gaut3/timeflow/blob/main/images/Sidebar%20-%20Dark%20mode%20-%20Home.png?raw=true">
+  <img alt="Timeflow in the sidebar — narrow layout" src="https://github.com/gaut3/timeflow/blob/main/images/Sidebar%20-%20Light%20mode%20-%20Home.png?raw=true" width="340">
+</picture>
 
 ## Features
 
@@ -17,9 +30,12 @@ timeflow provides a comprehensive flextime tracking dashboard with **built-in ti
 - Absence type names and note types translate automatically
 
 ### ⏱️ Built-in Timer System
-![timeflow-day-week-month](https://github.com/gaut3/timeflow/blob/main/images/timeflow%20day-week-month.png?raw=true)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://github.com/gaut3/timeflow/blob/main/images/Sidebar%20-%20Dark%20mode%20-%20Edit%20time.png?raw=true">
+  <img alt="Editing a day's time entries in the calendar's inline drawer" src="https://github.com/gaut3/timeflow/blob/main/images/Sidebar%20-%20Light%20mode%20-%20Edit%20time.png?raw=true" width="340">
+</picture>
 - **Start/Stop Timers** - Start and stop work timers directly from the dashboard
-- **Live Timer Display** - See running timers with real-time duration updates in the day/week cards.
+- **Live Timer Display** - See running timers with real-time duration updates in the balance hero and running-timer banner
 - **Automatic Logging** - Completed timers are automatically saved to your data file
 - **Quick Access** - Start/stop timers via command palette or dashboard buttons
 - **Comment System** (v1.3.6) - Add comments to timer entries when stopping
@@ -29,23 +45,33 @@ timeflow provides a comprehensive flextime tracking dashboard with **built-in ti
   - Comments included in CSV exports
 
 ### 📊 Tracking & Visualization
-![timeflow-stats](https://github.com/gaut3/timeflow/blob/main/images/timeflow%20stats.png?raw=true)
-- **Live Flextime Balance Tracking** - See your flextime balance with automatic updates and color-coded indicators
-- **Daily, Weekly, Monthly and Yearly Views** - Track your work hours with intuitive cards and responsive layout
-- **Week Numbers** - ISO 8601 week numbers displayed in calendar and week card (toggle in settings)
-- **Interactive Month Calendar** - Visual calendar with color-coded days for planned holidays and flextime
-  - Click any date for quick actions
-  - Edit work time, register absences, create notes
-  - View running timers and day summaries in info panel
-  - Week number column for easy reference
-- **Comprehensive Statistics** - View statistics for total, yearly, and monthly periods
-- **Multiple History Views** - List and heatmap visualizations of your work history
-  - Filtering by day type in list view
-  - Bulk editing in wide mode
-![timeflow-history-info](https://github.com/gaut3/timeflow/blob/main/images/timeflow%20info%20history%20wide%20-%20english.png?raw=true)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://github.com/gaut3/timeflow/blob/main/images/Sidebar%20-%20Dark%20mode%20-%20Stats%20and%20history.png?raw=true">
+  <img alt="Leave tracking and recent history in the sidebar" src="https://github.com/gaut3/timeflow/blob/main/images/Sidebar%20-%20Light%20mode%20-%20Stats%20and%20history.png?raw=true" width="340">
+</picture>
+- **Flextime balance hero** - Your balance is the centerpiece: a large, color-coded number with a live clock, today's contribution, and Start/Stop timer controls
+- **Weekly progress strip** - At-a-glance bars showing this week's hours against your goal, colored by compliance status
+- **Interactive bar calendar** - A month grid where each day carries a thin, type-colored bar; today is outlined, and week numbers + per-week compliance dots are optional
+  - Click any day to open an inline drawer: view the day, add or edit work time, register absences, or create notes
+- **Statistics** - Switch between month, year, and total; see hours logged, daily and weekly averages, workload %, work days, and comp-time used
+- **Trends** - "vs last week / vs last month" deltas with direction arrows (a quiet down-arrow for lower hours — leave isn't an error)
+- **Weekly chart** - Recent weeks at a glance
+- **Upcoming days** - Planned absences ahead, with consecutive same-type days collapsed into clean date ranges (e.g. `6.–16. July · 8 days · Vacation`)
+- **Leave tracking** - Per-type usage against your yearly quota (days for leave types, hours for comp time)
+- **Week numbers** - ISO 8601 week numbers in the calendar (toggle in settings)
+- **History** - List and heatmap views with day-type filtering and bulk editing in wide mode
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://github.com/gaut3/timeflow/blob/main/images/Wide%20-%20Dark%20mode%20-%20History%20list.png?raw=true">
+  <img alt="History — list view with day-type filters, grouped by month" src="https://github.com/gaut3/timeflow/blob/main/images/Wide%20-%20Light%20mode%20-%20History%20list.png?raw=true">
+</picture>
+
+![Heatmap view of work history](https://github.com/gaut3/timeflow/blob/main/images/Wide%20-%20Light%20mode%20-%20Heatmap.png?raw=true)
 
 ### 🎯 Planning & Organization
-![timeflow-context](https://github.com/gaut3/timeflow/blob/main/images/timeflow%20context%20-%20english.png?raw=true)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://github.com/gaut3/timeflow/blob/main/images/Sidebar%20-%20Dark%20mode%20-%20Add%20absence.png?raw=true">
+  <img alt="Registering an absence from the calendar's inline day drawer" src="https://github.com/gaut3/timeflow/blob/main/images/Sidebar%20-%20Light%20mode%20-%20Add%20absence.png?raw=true" width="340">
+</picture>
 - **Holiday Planning** - Integrate planned holidays and absences from a markdown file
 - **Customizable Note Types** - Create and manage custom note templates with flexible configuration
   - Daily notes, meeting notes, project notes, weekly reviews, reflections
@@ -88,10 +114,10 @@ timeflow provides a comprehensive flextime tracking dashboard with **built-in ti
   - **Weekly/monthly goals toggle** - Disable weekly goals for flexible schedules without fixed hours
 
 #### Leave Management
-- **Configurable Leave Limits**
-  - Maximum sick leave days (egenmelding) - default: 8 days
-  - Maximum vacation days (ferie) - default: 25 days
-  - Dashboard displays usage against configured limits
+- **Configurable Leave Quotas** - Each absence type can carry a yearly quota (`maxDaysPerYear`)
+  - Counted per **calendar year** or on a **rolling 365-day** basis (per type)
+  - Defaults: vacation (ferie) 25 days; self-reported sick leave (egenmelding) tracked on a rolling 365-day window
+  - The leave-tracking panel shows usage against each quota; quota-less types just show the value (no bar)
 
 #### Absence Types
 - **Fully Customizable** - Change names, colors, icons, and text colors for all day types:
@@ -120,20 +146,19 @@ timeflow provides a comprehensive flextime tracking dashboard with **built-in ti
 - **Simple Tracking Mode** - Disable goal tracking for flexible schedules without fixed targets
 - **Compliance Warnings** - Optional warnings for Norwegian labor law compliance (daily/weekly hour limits, rest periods)
 - **Overtime Comment Requirement** (v1.3.6) - Require comments when work exceeds daily goal + configurable threshold
-- **Custom Colors** - Customize balance badge colors and progress bar colors
+- **Custom Colors** - Optionally override the balance and progress-bar colors
 
 #### Theme & Layout
-- **System Theme** - Automatically follows Obsidian's light/dark theme
+- **System Theme** - Automatically follows Obsidian's light/dark theme; structural colors use Obsidian's own variables, so any theme works with zero setup
+- **Optional Background Override** - Set a custom dashboard background per light/dark theme (off by default — the only sanctioned theme override; everything else defers to your theme)
 - **Hour Unit Preference** - Display hours as "h" or "t" (timer)
 - **Flexible View Location** - Open in sidebar or main window
   - Default location configurable in settings
-  - Quick toggle button below System Status
-- **Responsive Design**
-  - Scales smoothly with sidebar width
-  - Wide mode enables bulk editing in Historikk
-  - Two-column Informasjon layout in wide mode
-  - Optimized for mobile devices
-  - Collapsible sections prevent content cut-off
+  - Quick toggle button in the dashboard
+- **Responsive Design** - One layout that adapts at 600px
+  - Wide mode: two-column layout with a stats grid, weekly chart, and bulk history editing
+  - Sidebar / narrow keeps the **full** feature stack (balance, calendar, leave tracking, history) — nothing is dropped on mobile
+  - "See all / Show less" expands long sections in place
 
 ### 📱 Cross-Device Sync
 - **Automatic Settings Sync** - Settings are saved in `timeflow/data.md` alongside your timer data, so if you have Obsidian set up with syncing, timeflow will automatically use the settings specified in `timeflow/data.md`
@@ -141,7 +166,7 @@ timeflow provides a comprehensive flextime tracking dashboard with **built-in ti
 
 ## Requirements
 
-- **Obsidian** v0.15.0 or higher
+- **Obsidian** v1.7.2 or higher
 
 ## Installation
 
@@ -280,27 +305,24 @@ This ensures your flextime balance isn't unfairly affected when you're sick, whi
 
 ## Color Coding
 
-### Timesaldo Badge
-The flextime balance badge uses color coding to indicate compliance with recommended limits:
+Color does one job at a time: your **theme accent** drives chrome (the Start button, today's outline), while a separate **status palette** (green / amber / red) signals work-hour compliance. A calm, normal state never looks like an alarm.
 
-- 🟢 **Green**: 0-80 hours (healthy flextime balance within guidelines)
-- 🟡 **Yellow**: -15 to 0 or 80-95 hours (approaching limits, consider adjusting)
-- 🔴 **Red**: < -15 or > 95 hours (outside recommended range, action needed)
+### Flextime balance
+The balance number is color-coded against configurable thresholds (Settings → Advanced Configuration → Balance Color Thresholds). Defaults:
 
-These thresholds are configurable in Settings → Advanced Configuration → Balance Color Thresholds.
+- 🟢 **Green** (on track): 0–80 hours
+- 🟡 **Amber** (approaching a limit): −15 to 0, or 80–95 hours
+- 🔴 **Red** (outside the recommended range): below −15 or above 95 hours
 
-### Calendar Days
-- **Light to dark green gradient**: Positive flextime (overtid) - darker green = more hours worked beyond goal
-- **Light to dark blue gradient**: Negative flextime (undertid) - darker blue = more deficit
-- **Special colors**: Customizable colors for vacation, sick leave, courses, etc.
-- **Border**: Today's date has a colored border
-- **Gray**: Weekends with no work (unless weekend work is enabled)
-- **Light gray**: Past empty weekdays (no work registered)
+### Calendar days
+- Each day shows a thin bar tinted with the day type's color (work, vacation, sick leave, comp time, …) — fully customizable per type
+- **Today** is marked with an outline, not a fill
+- Future days are dimmed; planned absences stay visible
+- Weekends and past empty weekdays are muted
 
-### Day and Week Cards
-- Dynamic background colors based on progress toward goals
-- Progress bars showing percentage of goal completion
-- Contextual messages based on work patterns
+### Progress & leave bars
+- Status is carried by the **fill color**, not the bar height (calm by design)
+- Bars meet an accessibility floor: ≥8px for progress/leave bars, ≥4px for calendar bars
 
 ## Troubleshooting
 
@@ -341,3 +363,12 @@ MIT License
 ## Support
 
 For issues and feature requests, please create an issue on GitHub.
+
+---
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="brand/png/lockup/timeflow-lockup-dark-2x.png">
+    <img alt="Timeflow" src="brand/png/lockup/timeflow-lockup-light-2x.png" width="300">
+  </picture>
+</p>

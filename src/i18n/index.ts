@@ -39,7 +39,7 @@ export function t(key: string): string {
  * Norwegian: DD.MM.YYYY
  * English: YYYY-MM-DD (ISO)
  */
-export function formatDate(date: Date, format: 'short' | 'long' = 'short'): string {
+export function formatDate(date: Date, format: 'short' | 'long' | 'range' = 'short'): string {
 	if (currentLanguage === 'en') {
 		// ISO format for English
 		const year = date.getFullYear();
@@ -48,11 +48,19 @@ export function formatDate(date: Date, format: 'short' | 'long' = 'short'): stri
 		if (format === 'long') {
 			return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 		}
+		// Range start: day + month, no year (the range end carries the year). e.g. "6 Jul"
+		if (format === 'range') {
+			return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+		}
 		return `${year}-${month}-${day}`;
 	}
 	// Norwegian format
 	if (format === 'long') {
 		return date.toLocaleDateString('nb-NO', { day: 'numeric', month: 'short', year: 'numeric' });
+	}
+	// Range start: bare day number (the range end carries month + year). e.g. "6."
+	if (format === 'range') {
+		return `${date.getDate()}.`;
 	}
 	return date.toLocaleDateString('nb-NO');
 }
@@ -197,6 +205,9 @@ const translations: Record<Language, TranslationStrings> = {
 			difference: 'Differanse',
 			overWeekLimit: 'Over ukegrense',
 			vsLastWeek: 'vs forrige uke',
+			vsLastMonth: 'vs forrige måned',
+			seeAll: 'Se alle',
+			showLess: 'Vis mindre',
 			upcomingPlannedDays: 'Kommende planlagte dager',
 			dailyBalance: 'Dagssaldo',
 			runningBalance: 'Løpende saldo',
@@ -599,6 +610,7 @@ const translations: Record<Language, TranslationStrings> = {
 			leaveUsedThisYear: 'Fravær brukt i år',
 			weeklyHoursLabel: 'Uketimer',
 			weekLabelPrefix: 'Uke',
+			weekComplianceTooltip: '{week}: {hours} / {target}',
 			goalSub: 'mål {value}',
 			limitSub: 'grense {value}',
 			ofNormalWeek: 'av normaluke',
@@ -656,6 +668,9 @@ const translations: Record<Language, TranslationStrings> = {
 			difference: 'Difference',
 			overWeekLimit: 'Over weekly limit',
 			vsLastWeek: 'vs last week',
+			vsLastMonth: 'vs last month',
+			seeAll: 'See all',
+			showLess: 'Show less',
 			upcomingPlannedDays: 'Upcoming planned days',
 			dailyBalance: 'Daily balance',
 			runningBalance: 'Running balance',
@@ -1058,6 +1073,7 @@ const translations: Record<Language, TranslationStrings> = {
 			leaveUsedThisYear: 'Leave used this year',
 			weeklyHoursLabel: 'Weekly hours',
 			weekLabelPrefix: 'Wk',
+			weekComplianceTooltip: '{week}: {hours} / {target}',
 			goalSub: 'goal {value}',
 			limitSub: 'limit {value}',
 			ofNormalWeek: 'of normal week',
@@ -1117,6 +1133,9 @@ interface TranslationStrings {
 		difference: string;
 		overWeekLimit: string;
 		vsLastWeek: string;
+		vsLastMonth: string;
+		seeAll: string;
+		showLess: string;
 		upcomingPlannedDays: string;
 		dailyBalance: string;
 		runningBalance: string;
@@ -1519,6 +1538,7 @@ interface TranslationStrings {
 		leaveUsedThisYear: string;
 		weeklyHoursLabel: string;
 		weekLabelPrefix: string;
+		weekComplianceTooltip: string;
 		goalSub: string;
 		limitSub: string;
 		ofNormalWeek: string;
