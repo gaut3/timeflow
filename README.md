@@ -30,10 +30,12 @@ _The same dashboard adapts to a narrow sidebar — nothing is dropped on mobile:
 - Absence type names and note types translate automatically
 
 ### ⏱️ Built-in Timer System
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://github.com/gaut3/timeflow/blob/main/images/Sidebar%20-%20Dark%20mode%20-%20Edit%20time.png?raw=true">
   <img alt="Editing a day's time entries in the calendar's inline drawer" src="https://github.com/gaut3/timeflow/blob/main/images/Sidebar%20-%20Light%20mode%20-%20Edit%20time.png?raw=true" width="340">
 </picture>
+
 - **Start/Stop Timers** - Start and stop work timers directly from the dashboard
 - **Live Timer Display** - See running timers with real-time duration updates in the balance hero and running-timer banner
 - **Automatic Logging** - Completed timers are automatically saved to your data file
@@ -45,10 +47,12 @@ _The same dashboard adapts to a narrow sidebar — nothing is dropped on mobile:
   - Comments included in CSV exports
 
 ### 📊 Tracking & Visualization
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://github.com/gaut3/timeflow/blob/main/images/Sidebar%20-%20Dark%20mode%20-%20Stats%20and%20history.png?raw=true">
   <img alt="Leave tracking and recent history in the sidebar" src="https://github.com/gaut3/timeflow/blob/main/images/Sidebar%20-%20Light%20mode%20-%20Stats%20and%20history.png?raw=true" width="340">
 </picture>
+
 - **Flextime balance hero** - Your balance is the centerpiece: a large, color-coded number with a live clock, today's contribution, and Start/Stop timer controls
 - **Weekly progress strip** - At-a-glance bars showing this week's hours against your goal, colored by compliance status
 - **Interactive bar calendar** - A month grid where each day carries a thin, type-colored bar; today is outlined, and week numbers + per-week compliance dots are optional
@@ -60,6 +64,7 @@ _The same dashboard adapts to a narrow sidebar — nothing is dropped on mobile:
 - **Leave tracking** - Per-type usage against your yearly quota (days for leave types, hours for comp time)
 - **Week numbers** - ISO 8601 week numbers in the calendar (toggle in settings)
 - **History** - List and heatmap views with day-type filtering and bulk editing in wide mode
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://github.com/gaut3/timeflow/blob/main/images/Wide%20-%20Dark%20mode%20-%20History%20list.png?raw=true">
   <img alt="History — list view with day-type filters, grouped by month" src="https://github.com/gaut3/timeflow/blob/main/images/Wide%20-%20Light%20mode%20-%20History%20list.png?raw=true">
@@ -68,10 +73,12 @@ _The same dashboard adapts to a narrow sidebar — nothing is dropped on mobile:
 ![Heatmap view of work history](https://github.com/gaut3/timeflow/blob/main/images/Wide%20-%20Light%20mode%20-%20Heatmap.png?raw=true)
 
 ### 🎯 Planning & Organization
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://github.com/gaut3/timeflow/blob/main/images/Sidebar%20-%20Dark%20mode%20-%20Add%20absence.png?raw=true">
   <img alt="Registering an absence from the calendar's inline day drawer" src="https://github.com/gaut3/timeflow/blob/main/images/Sidebar%20-%20Light%20mode%20-%20Add%20absence.png?raw=true" width="340">
 </picture>
+
 - **Holiday Planning** - Integrate planned holidays and absences from a markdown file
 - **Customizable Note Types** - Create and manage custom note templates with flexible configuration
   - Daily notes, meeting notes, project notes, weekly reviews, reflections
@@ -102,7 +109,9 @@ _The same dashboard adapts to a narrow sidebar — nothing is dropped on mobile:
   - Preview before importing with validation feedback
 
 ### ⚙️ Advanced Customization
+
 ![timeflow-settings](https://github.com/gaut3/timeflow/blob/main/images/timeflow-settings.png?raw=true)
+
 #### Work Configuration
 - **Flexible Work Schedules**
   - Configurable workday hours (e.g., 7.5, 8, 6-hour days)
