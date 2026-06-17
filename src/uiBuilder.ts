@@ -5361,6 +5361,17 @@ export class UIBuilder {
 		this.data.rawEntries = this.timerManager.convertToTimeEntries();
 		this.data.processEntries();
 
+		// Keep the hero's today/week progress bars current. They include live running-timer
+		// hours (getTodayHours/getCurrentWeekHours add getOngoing()), but were only refreshed on
+		// timer start/stop — so the "day bar" looked frozen until a reload. The strip has no
+		// interactive elements, so re-filling it on each tick is flicker-free (unlike the hero
+		// timer buttons, which we deliberately don't rebuild here).
+		this.updateProgressStrip();
+		// The compliance badge reads the same getOngoing()-inclusive today/week hours, so a
+		// running timer can tip it into "approaching"/"over" — refresh it on the tick too.
+		// (Safe: it only swaps the badge's text/class, no rebuild.)
+		this.updateComplianceBadge();
+
 		// Update active timers section in history (shows running timer duration)
 		// Just update the duration text in existing rows instead of rebuilding
 		const activeSection = this.container.querySelector('.tf-active-entries-section') as HTMLElement;

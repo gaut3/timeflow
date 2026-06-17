@@ -4488,7 +4488,9 @@
 .tf-bar-cal-cell.today  { outline: 2px solid var(--color-accent); outline-offset: -2px; border-radius: 5px; }
 .tf-bar-cal-cell.faded  { opacity: 0.35; }
 .tf-bar-cal-cell.future { opacity: 0.30; }
-.tf-bar-cal-day-num { font-size: 13px; font-weight: 600; color: var(--color-text); text-align: center; line-height: 1.1; font-family: inherit; }
+/* Grow to fill the space above the bar and center the number there, so the date sits
+   centered in the cell while the bar-track stays pinned to the bottom. */
+.tf-bar-cal-day-num { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; color: var(--color-text); text-align: center; line-height: 1.1; font-family: inherit; }
 .tf-bar-cal-cell.today  .tf-bar-cal-day-num { color: var(--color-accent); font-weight: 800; }
 .tf-bar-cal-cell.faded  .tf-bar-cal-day-num,
 .tf-bar-cal-cell.future .tf-bar-cal-day-num { color: var(--color-faint); font-weight: 500; }
@@ -5046,12 +5048,13 @@
 
 /* Give the calendar a touch more breathing room in the wider left column */
 [data-layout="wide"] .tf-bar-calendar { padding: 16px 18px 4px; }
-[data-layout="wide"] .tf-bar-cal-cell { padding: 6px 4px 5px; min-height: 44px; justify-content: space-between; }
+[data-layout="wide"] .tf-bar-cal-cell { padding: 6px 4px 5px; min-height: 44px; }
 [data-layout="wide"] .tf-bar-cal-day-num { font-size: 14px; }
 [data-layout="wide"] .tf-bar-cal-bar-track { height: 5px; }
 [data-layout="wide"] .tf-bar-cal-week-row { margin-bottom: 4px; }
 
-/* Sidebar/phone: columns get wide, so give cells height (≥44px tap target) and push the
-   bar to the bottom — otherwise the days read as flat, too-wide boxes. */
-[data-layout="sidebar"] .tf-bar-cal-cell { min-height: 44px; justify-content: space-between; }
+/* Sidebar/phone: columns get wide, so give cells height (≥44px tap target) — otherwise the
+   days read as flat, too-wide boxes. The day number centers itself (see .tf-bar-cal-day-num);
+   the bar stays pinned to the bottom. */
+[data-layout="sidebar"] .tf-bar-cal-cell { min-height: 44px; }
 

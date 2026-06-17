@@ -9,6 +9,20 @@ This log begins with `2.0.0`. Everything below summarizes what changed since the
 last `1.x` release (`1.3.13`); earlier history is tracked in the git tags and the
 [Releases page](https://github.com/gaut3/timeflow/releases).
 
+## [2.0.4] - 2026-06-17
+
+A small follow-up to 2.0.3.
+
+### Fixed
+
+- **Hero progress bars update through the day** — the Today/Week bars (and the
+  compliance badge) include the running timer's accumulating hours, but only
+  refreshed when a timer started or stopped, so the "day bar" looked frozen
+  until a reload. They now refresh on the periodic tick.
+- **Calendar dates vertically centered** — day cells (both the wide grid and the
+  sidebar/phone view) pinned the date to the top; the day number now sits
+  centered in the cell with its colored bar anchored at the bottom.
+
 ## [2.0.3] - 2026-06-16
 
 A small follow-up: CSS-compatibility and README image fixes.
@@ -207,6 +221,7 @@ at home in any light or dark theme.
 - i18n expanded with new strings and a date "range" format for the collapsed
   upcoming rows. (Known gap: the settings tab is still largely English.)
 
+[2.0.4]: https://github.com/gaut3/timeflow/releases/tag/2.0.4
 [2.0.3]: https://github.com/gaut3/timeflow/releases/tag/2.0.3
 [2.0.2]: https://github.com/gaut3/timeflow/releases/tag/2.0.2
 [2.0.1]: https://github.com/gaut3/timeflow/releases/tag/2.0.1

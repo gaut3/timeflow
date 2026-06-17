@@ -9208,6 +9208,8 @@ ${noteType.tags.join(" ")}`;
     if (this.isModalOpen) return;
     this.data.rawEntries = this.timerManager.convertToTimeEntries();
     this.data.processEntries();
+    this.updateProgressStrip();
+    this.updateComplianceBadge();
     const activeSection = this.container.querySelector(".tf-active-entries-section");
     if (activeSection && this.data.activeEntries.length > 0) {
       const tbody = activeSection.querySelector("tbody");
