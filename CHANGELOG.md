@@ -9,6 +9,27 @@ This log begins with `2.0.0`. Everything below summarizes what changed since the
 last `1.x` release (`1.3.13`); earlier history is tracked in the git tags and the
 [Releases page](https://github.com/gaut3/timeflow/releases).
 
+## [2.0.3] - 2026-06-16
+
+A small follow-up: CSS-compatibility and README image fixes.
+
+### Fixed
+
+- **Taller calendar days in the sidebar / on phone** — narrow-layout day cells
+  had no minimum height, so on a phone (where the columns are wide) they read as
+  flat, too-wide boxes. They now get the same ≥44px height as the wide layout.
+- **Heatmap CSS compatibility** — replaced the heatmap grid's `column-gap` with
+  the `gap` shorthand so it no longer trips the Obsidian CSS review's
+  "multicolumn only partially supported" warning (it was only grid spacing).
+- **README logos load on the Obsidian plugin page** — the header wordmark and
+  footer lockup used repo-relative paths that only resolve on GitHub; switched
+  to absolute image URLs (like the screenshots), so they render everywhere
+  instead of showing alt text.
+
+### Docs
+
+- Heatmap screenshot updated to the redesigned, combined light/dark view.
+
 ## [2.0.2] - 2026-06-16
 
 UI polish and localization fixes from a design review, plus refreshed
@@ -186,6 +207,7 @@ at home in any light or dark theme.
 - i18n expanded with new strings and a date "range" format for the collapsed
   upcoming rows. (Known gap: the settings tab is still largely English.)
 
+[2.0.3]: https://github.com/gaut3/timeflow/releases/tag/2.0.3
 [2.0.2]: https://github.com/gaut3/timeflow/releases/tag/2.0.2
 [2.0.1]: https://github.com/gaut3/timeflow/releases/tag/2.0.1
 [2.0.0]: https://github.com/gaut3/timeflow/releases/tag/2.0.0

@@ -5051,3 +5051,7 @@
 [data-layout="wide"] .tf-bar-cal-bar-track { height: 5px; }
 [data-layout="wide"] .tf-bar-cal-week-row { margin-bottom: 4px; }
 
+/* Sidebar/phone: columns get wide, so give cells height (≥44px tap target) and push the
+   bar to the bottom — otherwise the days read as flat, too-wide boxes. */
+[data-layout="sidebar"] .tf-bar-cal-cell { min-height: 44px; justify-content: space-between; }
+
