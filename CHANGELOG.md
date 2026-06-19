@@ -9,6 +9,21 @@ This log begins with `2.0.0`. Everything below summarizes what changed since the
 last `1.x` release (`1.3.13`); earlier history is tracked in the git tags and the
 [Releases page](https://github.com/gaut3/timeflow/releases).
 
+## [2.0.5] - 2026-06-19
+
+A small fix to the weekly progress bar's label.
+
+### Fixed
+
+- **Weekly progress bar now shows your weekly goal** — the week bar filled toward
+  your weekly goal but was labelled with the weekly *compliance limit* (which
+  defaults to 40h for Norwegian labour law and is editable under Settings →
+  Compliance → "Weekly hours limit"). So a 26h15m weekly goal showed "40h" on the
+  bar, not matching its fill. The week bar now shows your goal, like the day bar
+  already did; the compliance limit still colors the bar orange/red when you cross
+  it. Reported by [@erkannt](https://github.com/erkannt) — Timeflow's first
+  community bug report. Thanks!
+
 ## [2.0.4] - 2026-06-17
 
 A small follow-up to 2.0.3.
@@ -221,6 +236,7 @@ at home in any light or dark theme.
 - i18n expanded with new strings and a date "range" format for the collapsed
   upcoming rows. (Known gap: the settings tab is still largely English.)
 
+[2.0.5]: https://github.com/gaut3/timeflow/releases/tag/2.0.5
 [2.0.4]: https://github.com/gaut3/timeflow/releases/tag/2.0.4
 [2.0.3]: https://github.com/gaut3/timeflow/releases/tag/2.0.3
 [2.0.2]: https://github.com/gaut3/timeflow/releases/tag/2.0.2
