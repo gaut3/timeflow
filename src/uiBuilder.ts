@@ -5992,7 +5992,7 @@ export class UIBuilder {
 		const weekTrack = weekRow.createDiv({ cls: 'tf-strip-bar-track' });
 		const weekFill = weekTrack.createDiv({ cls: `tf-strip-bar-fill${weekFillCls ? ' ' + weekFillCls : ''}` });
 		weekFill.style.width = `${weekGoal > 0 ? Math.min((weekHours / weekGoal) * 100, 100) : 0}%`;
-		weekRow.createDiv({ cls: 'tf-strip-limit', text: this._fmtGoal(weekLimit) });
+		weekRow.createDiv({ cls: 'tf-strip-limit', text: this._fmtGoal(weekGoal) });
 	}
 
 	updateProgressStrip(): void {
