@@ -4914,7 +4914,8 @@
 .timeflow-dashboard .tf-history-export-btn:hover,
 .timeflow-dashboard .tf-history-edit-btn:hover { background: var(--color-card); }
 .timeflow-dashboard .tf-history-edit-btn.active {
-	color: var(--color-accent);
+	background: var(--color-accent);
+	color: var(--text-on-accent);
 	border-color: var(--color-accent);
 }
 

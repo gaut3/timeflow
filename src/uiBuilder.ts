@@ -4,7 +4,7 @@ import { TimeFlowSettings, SpecialDayBehavior, NoteType } from './settings';
 import { TimerManager, Timer } from './timerManager';
 import { Utils, getSpecialDayColors, getSpecialDayTextColors } from './utils';
 import type TimeFlowPlugin from './main';
-import { t, plural, formatDate, formatTime, getDayNamesShort, getMonthName, getMonthShort, translateSpecialDayName, translateNoteTypeName, translateAnnetTemplateName } from './i18n';
+import { t, tObj, plural, formatDate, formatTime, getDayNamesShort, getMonthName, getMonthShort, translateSpecialDayName, translateNoteTypeName, translateAnnetTemplateName } from './i18n';
 import { CommentModal } from './commentModal';
 
 export interface SystemStatus {
@@ -3126,7 +3126,7 @@ export class UIBuilder {
 				const [tH, tM] = to.split(':').map(Number);
 				const hours = (tH + tM/60) - (fH + fM/60);
 				if (hours > 0) {
-					annetDurationDisplay.textContent = `${t('modals.duration') || 'Varighet'}: ${hours.toFixed(1)} ${t('units.hours') || 'timer'}`;
+					annetDurationDisplay.textContent = `${t('ui.duration') || 'Varighet'}: ${hours.toFixed(1)} ${t('units.hours') || 'timer'}`;
 				} else {
 					annetDurationDisplay.textContent = t('validation.invalidTimePeriod') || 'Ugyldig tidsperiode';
 				}
@@ -3167,7 +3167,7 @@ export class UIBuilder {
 
 		// Helper to get placeholder for absence type
 		const getPlaceholderForType = (type: string): string => {
-			const placeholders = t('modals.commentPlaceholders') as unknown as Record<string, string>;
+			const placeholders = tObj('modals.commentPlaceholders');
 			return placeholders[type] || placeholders['default'] || t('modals.commentPlaceholder');
 		};
 
@@ -6350,7 +6350,9 @@ export class UIBuilder {
 		const workEntries = this.getWorkEntriesForDate(dateStr);
 
 		if (workEntries.length === 0) {
-			container.createDiv({ cls: 'tf-drawer-edit-empty', text: t('notifications.noWorkEntriesFound') });
+			// Forgot to clock in? Render an inline add-work form (same card layout as the
+			// edit flow) so a past day with no entry is fixable here, not just via data.md.
+			this._renderAddWorkFields(container, dateObj);
 			return;
 		}
 
@@ -6537,6 +6539,47 @@ export class UIBuilder {
 					return;
 				}
 			}
+			await this.saveWithErrorHandling();
+			new Notice(`✅ ${t('notifications.entryUpdated')}`);
+			this.timerManager.onTimerChange?.();
+		};
+	}
+
+	// Inline "add work time" form for a day with no entries — mirrors the edit-card layout
+	// so it slots into the same drawer section (used when you forgot to clock in).
+	private _renderAddWorkFields(container: HTMLElement, dateObj: Date): void {
+		container.empty();
+		const dateStr = Utils.toLocalDateStr(dateObj);
+		const workType = this.settings.specialDayBehaviors.find(b => b.isWorkType);
+		const name = workType?.id ?? 'jobb';
+
+		const card = container.createDiv({ cls: 'tf-drawer-edit-card' });
+		const head = card.createDiv({ cls: 'tf-drawer-edit-head' });
+		head.createSpan({ cls: 'tf-drawer-edit-label', text: workType ? translateSpecialDayName(workType.id, workType.label) : t('specialDays.work') });
+
+		const startRow = card.createDiv({ cls: 'tf-drawer-edit-row' });
+		startRow.createSpan({ cls: 'tf-drawer-edit-row-label', text: t('modals.startTime') });
+		const startTimeInput = this.createTimeInput('08:00', () => {});
+		startTimeInput.addClass('tf-drawer-edit-time');
+		startRow.appendChild(startTimeInput);
+
+		const endRow = card.createDiv({ cls: 'tf-drawer-edit-row' });
+		endRow.createSpan({ cls: 'tf-drawer-edit-row-label', text: t('modals.endTime') });
+		const endTimeInput = this.createTimeInput('16:00', () => {});
+		endTimeInput.addClass('tf-drawer-edit-time');
+		endRow.appendChild(endTimeInput);
+
+		const saveRow = container.createDiv({ cls: 'tf-drawer-edit-save-row' });
+		const saveBtn = saveRow.createEl('button', { cls: 'tf-drawer-action-btn tf-drawer-edit-save', text: t('v3.addWork') });
+		saveBtn.onclick = async () => {
+			const parsedStart = this.parseTimeInput(startTimeInput.value);
+			const parsedEnd = this.parseTimeInput(endTimeInput.value);
+			if (!parsedStart || !parsedEnd) { new Notice(`❌ ${t('validation.invalidTime')}`); return; }
+			const start = new Date(dateObj); start.setHours(parsedStart.hours, parsedStart.minutes, 0, 0);
+			const end = new Date(dateObj); end.setHours(parsedEnd.hours, parsedEnd.minutes, 0, 0);
+			if (end <= start) { new Notice(`❌ ${t('validation.endAfterStart')}`); return; }
+			if (this.checkProhibitedOverlap(dateStr, name, start, end)) { new Notice(`❌ ${t('validation.overlappingEntry')}`); return; }
+			this.timerManager.data.entries.push({ name, startTime: Utils.toLocalISOString(start), endTime: Utils.toLocalISOString(end), subEntries: null });
 			await this.saveWithErrorHandling();
 			new Notice(`✅ ${t('notifications.entryUpdated')}`);
 			this.timerManager.onTimerChange?.();

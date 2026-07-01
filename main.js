@@ -156,6 +156,18 @@ function t(key) {
   }
   return typeof value === "string" ? value : key;
 }
+function tObj(key) {
+  const keys = key.split(".");
+  let value = translations[currentLanguage];
+  for (const k of keys) {
+    if (typeof value === "object" && value !== null && k in value) {
+      value = value[k];
+    } else {
+      return {};
+    }
+  }
+  return typeof value === "object" && value !== null ? value : {};
+}
 function plural(count, key) {
   const forms = translations[currentLanguage].plurals[key];
   if (!forms) return key;
@@ -393,6 +405,7 @@ var translations = {
         default: 'F.eks. "Kommentar"'
       },
       durationHint: "Antall timer (f.eks. 3.5 for resten av dagen etter sykdom)",
+      fullDayHint: "La st\xE5 tom for hel dag",
       commentRequired: "Kommentar p\xE5krevd",
       commentTitle: "Legg til kommentar",
       overtimeExplanation: "Du har jobbet {hours} over dagsm\xE5let.",
@@ -703,6 +716,7 @@ var translations = {
       allGood: "Alt ok",
       noActiveTimers: "0 aktive timere",
       editTime: "Rediger tid",
+      addWork: "Legg til arbeidstid",
       addAbsence: "Legg til frav\xE6r",
       note: "Notat",
       dailyBalance: "Dagsbalanse"
@@ -867,6 +881,7 @@ var translations = {
         default: 'E.g. "Comment"'
       },
       durationHint: "Number of hours (e.g. 3.5 for rest of day after leaving sick)",
+      fullDayHint: "Leave empty for full day",
       commentRequired: "Comment required",
       commentTitle: "Add comment",
       overtimeExplanation: "You worked {hours} over the daily goal.",
@@ -1177,6 +1192,7 @@ var translations = {
       allGood: "All good",
       noActiveTimers: "0 active timers",
       editTime: "Edit time",
+      addWork: "Add work time",
       addAbsence: "Add absence",
       note: "Note",
       dailyBalance: "Daily balance"
@@ -7503,7 +7519,7 @@ var UIBuilder = class {
         const [tH, tM] = to.split(":").map(Number);
         const hours = tH + tM / 60 - (fH + fM / 60);
         if (hours > 0) {
-          annetDurationDisplay.textContent = `${t("modals.duration") || "Varighet"}: ${hours.toFixed(1)} ${t("units.hours") || "timer"}`;
+          annetDurationDisplay.textContent = `${t("ui.duration") || "Varighet"}: ${hours.toFixed(1)} ${t("units.hours") || "timer"}`;
         } else {
           annetDurationDisplay.textContent = t("validation.invalidTimePeriod") || "Ugyldig tidsperiode";
         }
@@ -7535,7 +7551,7 @@ var UIBuilder = class {
     noteInput.className = "tf-text-input-full";
     content.appendChild(noteInput);
     const getPlaceholderForType = (type) => {
-      const placeholders = t("modals.commentPlaceholders");
+      const placeholders = tObj("modals.commentPlaceholders");
       return placeholders[type] || placeholders["default"] || t("modals.commentPlaceholder");
     };
     const updateFieldVisibility = () => {
@@ -9973,7 +9989,7 @@ ${noteType.tags.join(" ")}`;
     const dateStr = Utils.toLocalDateStr(dateObj);
     const workEntries = this.getWorkEntriesForDate(dateStr);
     if (workEntries.length === 0) {
-      container.createDiv({ cls: "tf-drawer-edit-empty", text: t("notifications.noWorkEntriesFound") });
+      this._renderAddWorkFields(container, dateObj);
       return;
     }
     const sorted = [...workEntries].sort((a, b) => {
@@ -10142,6 +10158,57 @@ ${noteType.tags.join(" ")}`;
       await this.saveWithErrorHandling();
       new import_obsidian5.Notice(`\u2705 ${t("notifications.entryUpdated")}`);
       (_b = (_a = this.timerManager).onTimerChange) == null ? void 0 : _b.call(_a);
+    };
+  }
+  // Inline "add work time" form for a day with no entries — mirrors the edit-card layout
+  // so it slots into the same drawer section (used when you forgot to clock in).
+  _renderAddWorkFields(container, dateObj) {
+    var _a;
+    container.empty();
+    const dateStr = Utils.toLocalDateStr(dateObj);
+    const workType = this.settings.specialDayBehaviors.find((b) => b.isWorkType);
+    const name = (_a = workType == null ? void 0 : workType.id) != null ? _a : "jobb";
+    const card = container.createDiv({ cls: "tf-drawer-edit-card" });
+    const head = card.createDiv({ cls: "tf-drawer-edit-head" });
+    head.createSpan({ cls: "tf-drawer-edit-label", text: workType ? translateSpecialDayName(workType.id, workType.label) : t("specialDays.work") });
+    const startRow = card.createDiv({ cls: "tf-drawer-edit-row" });
+    startRow.createSpan({ cls: "tf-drawer-edit-row-label", text: t("modals.startTime") });
+    const startTimeInput = this.createTimeInput("08:00", () => {
+    });
+    startTimeInput.addClass("tf-drawer-edit-time");
+    startRow.appendChild(startTimeInput);
+    const endRow = card.createDiv({ cls: "tf-drawer-edit-row" });
+    endRow.createSpan({ cls: "tf-drawer-edit-row-label", text: t("modals.endTime") });
+    const endTimeInput = this.createTimeInput("16:00", () => {
+    });
+    endTimeInput.addClass("tf-drawer-edit-time");
+    endRow.appendChild(endTimeInput);
+    const saveRow = container.createDiv({ cls: "tf-drawer-edit-save-row" });
+    const saveBtn = saveRow.createEl("button", { cls: "tf-drawer-action-btn tf-drawer-edit-save", text: t("v3.addWork") });
+    saveBtn.onclick = async () => {
+      var _a2, _b;
+      const parsedStart = this.parseTimeInput(startTimeInput.value);
+      const parsedEnd = this.parseTimeInput(endTimeInput.value);
+      if (!parsedStart || !parsedEnd) {
+        new import_obsidian5.Notice(`\u274C ${t("validation.invalidTime")}`);
+        return;
+      }
+      const start = new Date(dateObj);
+      start.setHours(parsedStart.hours, parsedStart.minutes, 0, 0);
+      const end = new Date(dateObj);
+      end.setHours(parsedEnd.hours, parsedEnd.minutes, 0, 0);
+      if (end <= start) {
+        new import_obsidian5.Notice(`\u274C ${t("validation.endAfterStart")}`);
+        return;
+      }
+      if (this.checkProhibitedOverlap(dateStr, name, start, end)) {
+        new import_obsidian5.Notice(`\u274C ${t("validation.overlappingEntry")}`);
+        return;
+      }
+      this.timerManager.data.entries.push({ name, startTime: Utils.toLocalISOString(start), endTime: Utils.toLocalISOString(end), subEntries: null });
+      await this.saveWithErrorHandling();
+      new import_obsidian5.Notice(`\u2705 ${t("notifications.entryUpdated")}`);
+      (_b = (_a2 = this.timerManager).onTimerChange) == null ? void 0 : _b.call(_a2);
     };
   }
   // =====================================================================

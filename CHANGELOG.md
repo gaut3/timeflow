@@ -9,6 +9,28 @@ This log begins with `2.0.0`. Everything below summarizes what changed since the
 last `1.x` release (`1.3.13`); earlier history is tracked in the git tags and the
 [Releases page](https://github.com/gaut3/timeflow/releases).
 
+## [2.0.6] - 2026-07-01
+
+Two small fixes to the calendar day drawer, plus a few text-label fixes.
+
+### Fixed
+
+- **Add work time to a day you forgot to clock into** — opening a past day with no
+  entries only offered "Add absence", so a day you forgot to track could only be
+  fixed by hand-editing the data file. "Edit time" now shows an inline add-work form
+  (start/end time + Save, same as editing an existing entry).
+- **"Done" button is readable in edit mode** — the edit toggle's active state showed
+  accent-colored text on a near-background fill, so "Done" was nearly invisible on
+  some themes. The active button now fills with the accent color like other active
+  controls.
+- **Absence comment hints match the type again** — the example shown in the comment
+  box was stuck on the vacation one ("e.g. Vacation in Spain") for every absence
+  type; sick leave, welfare leave, courses, etc. now show their own example again.
+- **A couple of labels showed their internal name instead of text** — the "Duration"
+  label in the "Other" absence form and the "leave empty for full day" hint on sick
+  time rendered a raw key (e.g. `modals.duration`) instead of the translated label.
+  Both now display correctly in Norwegian and English.
+
 ## [2.0.5] - 2026-06-19
 
 A small fix to the weekly progress bar's label.

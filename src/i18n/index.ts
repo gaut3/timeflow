@@ -35,6 +35,25 @@ export function t(key: string): string {
 }
 
 /**
+ * Like t(), but for keys whose value is a nested object (a lookup map, e.g.
+ * per-type comment placeholders). t() only returns strings, so object-valued
+ * keys must go through here. Returns {} on a miss so callers can index safely.
+ * @example tObj('modals.commentPlaceholders')['ferie']
+ */
+export function tObj(key: string): Record<string, string> {
+	const keys = key.split('.');
+	let value: unknown = translations[currentLanguage];
+	for (const k of keys) {
+		if (typeof value === 'object' && value !== null && k in value) {
+			value = (value as Record<string, unknown>)[k];
+		} else {
+			return {};
+		}
+	}
+	return (typeof value === 'object' && value !== null ? value as Record<string, string> : {});
+}
+
+/**
  * Pick the singular or plural noun form for a count, in the current language.
  * Both supported languages (nb, en) follow the count === 1 ⇒ singular rule, but the
  * forms live per-language in `translations[lang].plurals` so each can spell its own.
@@ -332,6 +351,7 @@ const translations: Record<Language, TranslationStrings> = {
 				default: 'F.eks. "Kommentar"',
 			},
 			durationHint: 'Antall timer (f.eks. 3.5 for resten av dagen etter sykdom)',
+			fullDayHint: 'La stå tom for hel dag',
 			commentRequired: 'Kommentar påkrevd',
 			commentTitle: 'Legg til kommentar',
 			overtimeExplanation: 'Du har jobbet {hours} over dagsmålet.',
@@ -642,6 +662,7 @@ const translations: Record<Language, TranslationStrings> = {
 			allGood: 'Alt ok',
 			noActiveTimers: '0 aktive timere',
 			editTime: 'Rediger tid',
+			addWork: 'Legg til arbeidstid',
 			addAbsence: 'Legg til fravær',
 			note: 'Notat',
 			dailyBalance: 'Dagsbalanse',
@@ -806,6 +827,7 @@ const translations: Record<Language, TranslationStrings> = {
 				default: 'E.g. "Comment"',
 			},
 			durationHint: 'Number of hours (e.g. 3.5 for rest of day after leaving sick)',
+			fullDayHint: 'Leave empty for full day',
 			commentRequired: 'Comment required',
 			commentTitle: 'Add comment',
 			overtimeExplanation: 'You worked {hours} over the daily goal.',
@@ -1116,6 +1138,7 @@ const translations: Record<Language, TranslationStrings> = {
 			allGood: 'All good',
 			noActiveTimers: '0 active timers',
 			editTime: 'Edit time',
+			addWork: 'Add work time',
 			addAbsence: 'Add absence',
 			note: 'Note',
 			dailyBalance: 'Daily balance',
@@ -1282,6 +1305,7 @@ interface TranslationStrings {
 			default: string;
 		};
 		durationHint: string;
+		fullDayHint: string;
 		commentRequired: string;
 		commentTitle: string;
 		overtimeExplanation: string;
@@ -1592,6 +1616,7 @@ interface TranslationStrings {
 		allGood: string;
 		noActiveTimers: string;
 		editTime: string;
+		addWork: string;
 		addAbsence: string;
 		note: string;
 		dailyBalance: string;
