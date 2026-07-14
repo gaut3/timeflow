@@ -71,9 +71,30 @@ export const EMOJI_MAP: Record<string, string> = {
 };
 
 export const Utils = {
-	parseDate: (str: string | null): Date | null => (str ? new Date(str) : null),
+	// Date-only strings ("YYYY-MM-DD") are parsed as UTC midnight by new Date(),
+	// which is the PREVIOUS local day in timezones west of UTC. Parse them as
+	// local noon instead (noon is immune to DST edges). Full datetimes pass through.
+	parseDate: (str: string | null): Date | null => {
+		if (!str) return null;
+		if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return new Date(str + 'T12:00:00');
+		return new Date(str);
+	},
+
+	// Parse a numeric input tolerating the Norwegian decimal comma ("37,5" → 37.5).
+	// parseFloat stops at the comma, silently truncating to 37.
+	parseNum: (value: string): number => parseFloat(value.replace(',', '.')),
 
 	hoursDiff: (start: Date, end: Date): number => (end.getTime() - start.getTime()) / 3600000,
+
+	// Compare two stored timestamps by instant, tolerating mixed formats
+	// (local ISO without Z vs UTC with Z vs missing)
+	sameTimestamp: (a: string | null | undefined, b: string | null | undefined): boolean => {
+		if (!a || !b) return !a === !b;
+		if (a === b) return true;
+		const ta = new Date(a).getTime();
+		const tb = new Date(b).getTime();
+		return !isNaN(ta) && ta === tb;
+	},
 
 	isWeekend: (date: Date | null, settings?: TimeFlowSettings): boolean => {
 		if (!date) return false;
@@ -84,11 +105,7 @@ export const Utils = {
 
 		// If alternating weeks enabled, determine which week we're in
 		if (settings.enableAlternatingWeeks) {
-			// Use ISO 8601 week number for consistent alternating week calculation
-			const weekNum = Utils.getWeekNumber(date);
-			const isAlternatingWeek = weekNum % 2 === 0;
-
-			const workDays = isAlternatingWeek ? settings.alternatingWeekWorkDays : settings.workDays;
+			const workDays = Utils.isAlternatingWeek(date) ? settings.alternatingWeekWorkDays : settings.workDays;
 			return !workDays.includes(day);
 		}
 
@@ -120,6 +137,21 @@ export const Utils = {
 	toLocalISOString: (date: Date): string => {
 		const pad = (n: number) => n.toString().padStart(2, '0');
 		return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+	},
+
+	// Continuous week parity for alternating-week schedules. ISO week number
+	// parity (weekNum % 2) breaks in 53-week ISO years (week 53 → week 1 are both
+	// odd, repeating the same week type). Instead count whole weeks from a fixed
+	// Monday epoch. Epoch/parity chosen so even-ISO-week = alternating is
+	// preserved for the current era (2024–2026).
+	isAlternatingWeek: (date: Date): boolean => {
+		const monday = new Date(date);
+		monday.setHours(12, 0, 0, 0);
+		monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+		const epoch = new Date(2024, 0, 1, 12); // Monday, ISO week 1 of 2024
+		// Math.round tolerates the ±1h DST drift between local-noon dates
+		const weekIndex = Math.round((monday.getTime() - epoch.getTime()) / (7 * 86400000));
+		return ((weekIndex % 2) + 2) % 2 === 1;
 	},
 
 	getWeekNumber: (d: Date): number => {

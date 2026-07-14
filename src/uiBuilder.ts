@@ -193,17 +193,11 @@ export class UIBuilder {
 	 * Shows comment modal; skip is disabled if overtime threshold is exceeded.
 	 */
 	private async stopTimerWithCommentCheck(timer: Timer): Promise<void> {
-		// Calculate timer duration
+		// Calculate timer duration (daily lunch rule via liveActiveDuration)
 		if (!timer.startTime) return;
 
 		const start = new Date(timer.startTime);
-		const now = new Date();
-		let duration = Utils.hoursDiff(start, now);
-
-		// Deduct lunch break for work entries if configured
-		if (timer.name.toLowerCase() === 'jobb' && this.settings.lunchBreakMinutes > 0) {
-			duration = Math.max(0, duration - (this.settings.lunchBreakMinutes / 60));
-		}
+		const duration = this.data.liveActiveDuration({ name: timer.name, startTime: timer.startTime });
 
 		// Check if comment is required
 		const dateStr = Utils.toLocalDateStr(start);
@@ -676,7 +670,9 @@ export class UIBuilder {
 	 */
 
 	updateFutureDaysList(container: HTMLElement): void {
+		// Midnight, so a planned day that is TODAY still shows in the list
 		const today = new Date();
+		today.setHours(0, 0, 0, 0);
 		const futureDays: Array<{date: string, type: string, label: string, color: string, textColor: string}> = [];
 
 		// Get all future planned days from holidays
@@ -1193,95 +1189,23 @@ export class UIBuilder {
 			return 'week-future';
 		}
 
-		// Calculate hours worked in this week
-		let totalHours = 0;
-		let workDaysInWeek = 0;
-		let workDaysPassed = 0;
-		let goalReduction = 0; // Track goal reduction from reduce_goal entries (sick days)
-		let halfDayReduction = 0; // Track goal reduction from half-day entries
-		const dailyGoal = this.settings.baseWorkday * this.settings.workPercent;
-
-		for (let i = 0; i < 7; i++) {
-			const day = new Date(mondayOfWeek);
-			day.setDate(mondayOfWeek.getDate() + i);
-			const dayKey = Utils.toLocalDateStr(day);
-
-			// Skip days before balance start date
-			if (day < balanceStartDate) {
-				continue;
-			}
-
-			// Check if this is a work day
-			const isWorkDay = this.settings.workDays.includes(day.getDay());
-			if (isWorkDay) {
-				// Check if this day has a special day that doesn't require hours (ferie, etc.)
-				// First check holidays.md
-				const holidayInfo = this.data.getHolidayInfo(dayKey);
-				const holidayBehavior = holidayInfo ? this.settings.specialDayBehaviors.find(b => b.id === holidayInfo.type) : null;
-				let isNoHoursDay = holidayBehavior?.noHoursRequired === true;
-
-				// Check for half-day entries and calculate reduction (accounting for work percent)
-				if (holidayInfo?.halfDay && day <= today) {
-					const halfDayHours = this.settings.halfDayMode === 'percentage'
-						? dailyGoal / 2
-						: this.settings.halfDayHours * this.settings.workPercent;
-					// Reduction = full day goal - half day hours
-					halfDayReduction += dailyGoal - halfDayHours;
-				}
-
-				// Also check timer entries for ferie/avspasering
-				if (!isNoHoursDay) {
-					const dayEntries = this.data.daily[dayKey] || [];
-					isNoHoursDay = dayEntries.some(entry => {
-						const name = entry.name.toLowerCase();
-						const behavior = this.settings.specialDayBehaviors.find(b => b.id === name);
-						// Check if it's a noHoursRequired type or a withdraw type (avspasering)
-						return behavior?.noHoursRequired === true || behavior?.flextimeEffect === 'withdraw';
-					});
-				}
-
-				if (!isNoHoursDay) {
-					workDaysInWeek++;
-					if (day <= today) {
-						workDaysPassed++;
-					}
-				}
-			}
-
-			// Sum hours from entries and track goal reductions
-			const dayEntries = this.data.daily[dayKey] || [];
-			dayEntries.forEach(entry => {
-				const name = entry.name.toLowerCase();
-				const behavior = this.settings.specialDayBehaviors.find(b => b.id === name);
-
-				if (behavior?.flextimeEffect === 'reduce_goal') {
-					// For full-day sick leave (0 duration), reduce by full daily goal
-					// For partial sick leave, reduce by the logged hours
-					goalReduction += (entry.duration && entry.duration > 0) ? entry.duration : dailyGoal;
-				} else if (!behavior?.noHoursRequired && behavior?.flextimeEffect !== 'withdraw') {
-					// Count work hours (exclude noHoursRequired types and withdraw types)
-					totalHours += entry.duration || 0;
-				}
-			});
-		}
+		// Schedule- and holiday-aware metrics from the data manager (same rules
+		// as the flextime balance)
+		const m = this.data.getWeekCompliance(mondayOfWeek);
 
 		// If no work days have passed yet, it's a partial/future week
-		if (workDaysPassed === 0) {
+		if (m.workDaysPassed === 0) {
 			return 'week-future';
 		}
-
-		// Calculate expected hours for days that have passed, minus goal reductions from sick days and half-days
-		const expectedHoursPerDay = this.settings.baseWorkday;
-		const expectedHours = Math.max(0, (workDaysPassed * expectedHoursPerDay * this.settings.workPercent) - goalReduction - halfDayReduction);
 
 		// Tolerance: within 0.5 hours of goal is considered "ok"
 		const tolerance = 0.5;
 
-		if (totalHours >= expectedHours - tolerance && totalHours <= expectedHours + tolerance) {
+		if (m.totalHours >= m.expectedHours - tolerance && m.totalHours <= m.expectedHours + tolerance) {
 			return 'week-ok';
-		} else if (totalHours > expectedHours + tolerance) {
+		} else if (m.totalHours > m.expectedHours + tolerance) {
 			return 'week-over';
-		} else if (workDaysPassed < workDaysInWeek && sundayOfWeek >= today) {
+		} else if (m.workDaysPassed < m.workDaysInWeek && sundayOfWeek >= today) {
 			// Week is still in progress
 			return 'week-partial';
 		} else {
@@ -1306,95 +1230,26 @@ export class UIBuilder {
 		const today = new Date();
 		today.setHours(0, 0, 0, 0);
 
-		const balanceStartDate = new Date(this.settings.balanceStartDate + 'T00:00:00');
 		const sundayOfWeek = new Date(mondayOfWeek);
 		sundayOfWeek.setDate(mondayOfWeek.getDate() + 6);
 
-		let totalHours = 0;
-		let workDaysInWeek = 0;
-		let workDaysPassed = 0;
-		let goalReduction = 0; // Track goal reduction from reduce_goal entries (sick days)
-		let halfDayReduction = 0; // Track goal reduction from half-day entries
-		const dailyGoal = this.settings.baseWorkday * this.settings.workPercent;
-
-		for (let i = 0; i < 7; i++) {
-			const day = new Date(mondayOfWeek);
-			day.setDate(mondayOfWeek.getDate() + i);
-			const dayKey = Utils.toLocalDateStr(day);
-
-			if (day < balanceStartDate) continue;
-
-			const isWorkDay = this.settings.workDays.includes(day.getDay());
-			if (isWorkDay) {
-				// Check if this day has a special day that doesn't require hours (ferie, etc.)
-				// First check holidays.md
-				const holidayInfo = this.data.getHolidayInfo(dayKey);
-				const holidayBehavior = holidayInfo ? this.settings.specialDayBehaviors.find(b => b.id === holidayInfo.type) : null;
-				let isNoHoursDay = holidayBehavior?.noHoursRequired === true;
-
-				// Check for half-day entries and calculate reduction (accounting for work percent)
-				if (holidayInfo?.halfDay && day <= today) {
-					const halfDayHours = this.settings.halfDayMode === 'percentage'
-						? dailyGoal / 2
-						: this.settings.halfDayHours * this.settings.workPercent;
-					// Reduction = full day goal - half day hours
-					halfDayReduction += dailyGoal - halfDayHours;
-				}
-
-				// Also check timer entries for ferie/avspasering
-				if (!isNoHoursDay) {
-					const dayEntries = this.data.daily[dayKey] || [];
-					isNoHoursDay = dayEntries.some(entry => {
-						const name = entry.name.toLowerCase();
-						const behavior = this.settings.specialDayBehaviors.find(b => b.id === name);
-						// Check if it's a noHoursRequired type or a withdraw type (avspasering)
-						return behavior?.noHoursRequired === true || behavior?.flextimeEffect === 'withdraw';
-					});
-				}
-
-				if (!isNoHoursDay) {
-					workDaysInWeek++;
-					if (day <= today) {
-						workDaysPassed++;
-					}
-				}
-			}
-
-			// Sum hours from entries and track goal reductions
-			const dayEntries = this.data.daily[dayKey] || [];
-			dayEntries.forEach(entry => {
-				const name = entry.name.toLowerCase();
-				const behavior = this.settings.specialDayBehaviors.find(b => b.id === name);
-
-				if (behavior?.flextimeEffect === 'reduce_goal') {
-					// For full-day sick leave (0 duration), reduce by full daily goal
-					// For partial sick leave, reduce by the logged hours
-					goalReduction += (entry.duration && entry.duration > 0) ? entry.duration : dailyGoal;
-				} else if (!behavior?.noHoursRequired && behavior?.flextimeEffect !== 'withdraw') {
-					// Count work hours (exclude noHoursRequired types and withdraw types)
-					totalHours += entry.duration || 0;
-				}
-			});
-		}
-
-		const expectedHoursPerDay = this.settings.baseWorkday;
-		const expectedHours = Math.max(0, (workDaysPassed * expectedHoursPerDay * this.settings.workPercent) - goalReduction - halfDayReduction);
-		const isComplete = workDaysPassed >= workDaysInWeek || sundayOfWeek < today;
+		const m = this.data.getWeekCompliance(mondayOfWeek);
+		const isComplete = m.workDaysPassed >= m.workDaysInWeek || sundayOfWeek < today;
 
 		let status = 'ok';
 		const tolerance = 0.5;
-		if (totalHours < expectedHours - tolerance) {
+		if (m.totalHours < m.expectedHours - tolerance) {
 			status = isComplete ? 'under' : 'partial';
-		} else if (totalHours > expectedHours + tolerance) {
+		} else if (m.totalHours > m.expectedHours + tolerance) {
 			status = 'over';
 		}
 
 		return {
 			weekNumber: Utils.getWeekNumber(mondayOfWeek),
-			totalHours,
-			expectedHours,
-			workDaysPassed,
-			workDaysInWeek,
+			totalHours: m.totalHours,
+			expectedHours: m.expectedHours,
+			workDaysPassed: m.workDaysPassed,
+			workDaysInWeek: m.workDaysInWeek,
 			dailyLimit: this.settings.complianceSettings?.dailyHoursLimit ?? 9,
 			weeklyLimit: this.settings.complianceSettings?.weeklyHoursLimit ?? 40,
 			status,
@@ -2069,8 +1924,10 @@ export class UIBuilder {
 				try {
 					this.timerManager.data.entries.push({
 						name: 'jobb',
-						startTime: startDate.toISOString(),
-						endTime: finalEndDate.toISOString(),
+						// Canonical local ISO (no 'Z') like every other write path —
+						// toISOString() stored UTC and shifted displayed clock times
+						startTime: Utils.toLocalISOString(startDate),
+						endTime: Utils.toLocalISOString(finalEndDate),
 						subEntries: null,
 						collapsed: false
 					});
@@ -2115,10 +1972,25 @@ export class UIBuilder {
 	}
 
 	// Collect all work entries for a date (including subEntries from collapsed Timekeep entries).
+	// Sum of the day's completed work/accumulate hours from processed data
+	// (lunch-adjusted; withdraw/reduce_goal/noHours types excluded)
+	private completedWorkHours(dateStr: string): number {
+		return (this.data.daily[dateStr] || []).reduce((sum, e) => {
+			if (e.isActive) return sum;
+			const behavior = this.data.getSpecialDayBehavior(e.name);
+			if (!behavior || behavior.isWorkType || behavior.flextimeEffect === 'accumulate') {
+				return sum + (e.duration || 0);
+			}
+			return sum;
+		}, 0);
+	}
+
 	private getWorkEntriesForDate(dateStr: string): { entry: Timer; parent?: Timer; subIndex?: number }[] {
 		const workEntries: { entry: Timer; parent?: Timer; subIndex?: number }[] = [];
 		this.timerManager.data.entries.forEach(entry => {
-			if (entry.collapsed && Array.isArray(entry.subEntries)) {
+			// Groups keep their entries in subEntries whether or not the UI fold
+			// (`collapsed`) is set — matches convertToTimeEntries
+			if (Array.isArray(entry.subEntries) && entry.subEntries.length > 0) {
 				entry.subEntries.forEach((sub, idx) => {
 					if (sub.startTime && Utils.toLocalDateStr(new Date(sub.startTime)) === dateStr) {
 						workEntries.push({ entry: sub, parent: entry, subIndex: idx });
@@ -2150,16 +2022,12 @@ export class UIBuilder {
 		});
 		const lastEntryItem = sortedWorkEntries[sortedWorkEntries.length - 1];
 
-		// Calculate total worked hours for the day and overtime
+		// Calculate total worked hours for the day and overtime, from PROCESSED
+		// data: lunch-adjusted and work/accumulate types only. Raw start−end sums
+		// offered payout for overtime the user never earned (lunch break,
+		// avspasering/sick hours on the same day).
 		const dayGoal = this.data.getDailyGoal(dateStr);
-		let totalWorkedHours = 0;
-		workEntries.forEach(item => {
-			if (item.entry.endTime) {
-				const start = new Date(item.entry.startTime!);
-				const end = new Date(item.entry.endTime);
-				totalWorkedHours += (end.getTime() - start.getTime()) / (1000 * 60 * 60);
-			}
-		});
+		const totalWorkedHours = this.completedWorkHours(dateStr);
 		const dayOvertime = Math.max(0, totalWorkedHours - dayGoal);
 
 		this.isModalOpen = true;
@@ -5384,14 +5252,8 @@ export class UIBuilder {
 				rows.forEach((row, index) => {
 					if (index < this.data.activeEntries.length) {
 						const entry = this.data.activeEntries[index];
-						// Calculate duration fresh from start time to now
-						const start = Utils.parseDate(entry.startTime);
-						let duration = start ? Utils.hoursDiff(start, now) : 0;
-
-						// Deduct lunch break for work entries
-						if (entry.name.toLowerCase() === 'jobb' && this.settings.lunchBreakMinutes > 0) {
-							duration = Math.max(0, duration - (this.settings.lunchBreakMinutes / 60));
-						}
+						// Calculate duration fresh from start time to now (daily lunch rule)
+						const duration = this.data.liveActiveDuration(entry, now);
 
 						// Find the hours cell (varies by wide/narrow mode)
 						const cells = row.querySelectorAll('td');
@@ -5403,28 +5265,30 @@ export class UIBuilder {
 							const hoursText = Utils.formatHoursToHM(duration, this.settings.hourUnit);
 							hoursCell.textContent = `${hoursText}...`;
 						}
-						// Update flextime cell in wide mode
+						// Update flextime cell in wide mode. Mirror the initial render's
+						// per-entry flextime (the SSOT — it already honors reduce_goal,
+						// avspasering withdrawal and payouts) and just advance it by how
+						// much the timer has grown since the snapshot. ponytail: exact on a
+						// single-active-timer day; a proportional multi-entry day drifts
+						// slightly until the next full refresh.
 						if (isWide && cells[4]) {
-							// Calculate flextime properly: total work today minus daily goal
-							const dateStr = Utils.toLocalDateStr(start || new Date());
-							const dayGoal = this.data.getDailyGoal(dateStr);
-
-							// Sum all completed work hours for today
-							let completedHoursToday = 0;
-							const todayEntries = this.data.daily[dateStr] || [];
-							todayEntries.forEach(e => {
-								if (!e.isActive) {
-									const behavior = this.data.getSpecialDayBehavior(e.name);
-									if (!behavior || behavior.isWorkType || behavior.flextimeEffect === 'accumulate') {
-										completedHoursToday += e.duration || 0;
-									}
-								}
-							});
-
-							// Total work = completed + current active timer duration
-							const totalWorkToday = completedHoursToday + duration;
-							const flextime = totalWorkToday - dayGoal;
-							cells[4].textContent = Utils.formatHoursToHM(flextime, this.settings.hourUnit);
+							const matchingRaw = this.timerManager.data.entries.find(raw =>
+								!raw.endTime && raw.name.toLowerCase() === entry.name.toLowerCase() &&
+								Utils.sameTimestamp(raw.startTime, entry.startTime));
+							const grown = duration - (entry.duration || 0);
+							const netFlextime = (entry.flextime || 0) + grown - (matchingRaw?.overtimePayout || 0);
+							const flexMag = Utils.formatHoursToHM(Math.abs(netFlextime), this.settings.hourUnit);
+							cells[4].removeClass('tf-history-flex-pos', 'tf-history-flex-neg', 'tf-history-flex-zero');
+							if (netFlextime > 1 / 60) {
+								cells[4].textContent = `+${flexMag}`;
+								cells[4].addClass('tf-history-flex-pos');
+							} else if (netFlextime < -1 / 60) {
+								cells[4].textContent = `−${flexMag}`;
+								cells[4].addClass('tf-history-flex-neg');
+							} else {
+								cells[4].textContent = flexMag;
+								cells[4].addClass('tf-history-flex-zero');
+							}
 						}
 					}
 				});
@@ -5780,13 +5644,20 @@ export class UIBuilder {
 		csvContent += `"${t('export.typeBreakdown')}"\n`;
 		csvContent += `"${t('export.typeHeader')}","${t('export.daysHeader')}","${t('export.hoursHeader')}"\n`;
 
-		const types = ['jobb', 'kurs', 'studie', 'ferie', 'avspasering', 'egenmelding', 'sykemelding', 'velferdspermisjon'];
-		types.forEach(type => {
-			const typeStat = stats[type as keyof typeof stats];
-			if (typeStat && typeof typeStat === 'object' && 'count' in typeStat) {
-				if (typeStat.count > 0 || typeStat.hours > 0) {
-					csvContent += `"${translateSpecialDayName(type)}","${typeStat.count}","${typeStat.hours.toFixed(2)}"\n`;
-				}
+		// Aggregate per type straight from the month's entries so custom absence
+		// types show up too (the old hardcoded list only covered the 8 defaults).
+		const typeStats: Record<string, { days: Set<string>; hours: number }> = {};
+		sortedEntries.forEach(entry => {
+			if (!entry.startTime) return;
+			const type = entry.name.toLowerCase();
+			if (!typeStats[type]) typeStats[type] = { days: new Set(), hours: 0 };
+			typeStats[type].days.add(Utils.toLocalDateStr(new Date(entry.startTime)));
+			typeStats[type].hours += entry.duration || 0;
+		});
+		Object.keys(typeStats).forEach(type => {
+			const s = typeStats[type];
+			if (s.days.size > 0 || s.hours > 0) {
+				csvContent += `"${translateSpecialDayName(type)}","${s.days.size}","${s.hours.toFixed(2)}"\n`;
 			}
 		});
 
@@ -5891,11 +5762,13 @@ export class UIBuilder {
 			badgeEl.textContent = '';
 			badgeEl.className = 'tf-balance-badge tf-hidden';
 		} else {
-			const today = new Date();
-			const todayStr = Utils.toLocalDateStr(today);
-			const todayHours = this.data.getTodayHours(today);
-			const dailyGoal = this.data.getDailyGoal(todayStr);
-			const todayDelta = todayHours - dailyGoal;
+			const todayStr = Utils.toLocalDateStr(new Date());
+			// Today's actual balance contribution: sum of per-entry flextime minus
+			// payouts (same as history/day drawer). `todayHours − goal` ignored
+			// reduce_goal entries (partial sick days) and withdraw entries.
+			const todayDelta = (this.data.daily[todayStr] || [])
+				.filter(e => !e.isActive)
+				.reduce((s, e) => s + (e.flextime || 0) - (e.overtimePayout || 0), 0);
 			badgeEl.textContent = `${this._formatDelta(todayDelta)} ${t('v3.addedToday')}`;
 			badgeEl.className = `tf-balance-badge ${todayDelta >= 0 ? 'tf-ok' : 'tf-warn'}`;
 		}
@@ -6262,18 +6135,24 @@ export class UIBuilder {
 		const typeLabel = typeBehavior ? translateSpecialDayName(typeBehavior.id, typeBehavior.label) : t('specialDays.work');
 		workLeft.createEl('span', { cls: 'tf-drawer-work-label', text: `${typeLabel} · ${Utils.formatHoursToHM(totalHours, this.settings.hourUnit)}` });
 
-		const starts = dayEntries.filter(e => e.startTime).map(e => e.startTime).sort();
-		const ends = dayEntries.filter(e => e.endTime).map(e => e.endTime!).sort();
+		// Parse, don't slice raw strings: legacy entries may still be stored in
+		// UTC 'Z' format, where substring(11,16) shows the wrong clock time and
+		// lexical sort orders mixed formats incorrectly
+		const starts = dayEntries.filter(e => e.startTime).map(e => new Date(e.startTime)).sort((a, b) => a.getTime() - b.getTime());
+		const ends = dayEntries.filter(e => e.endTime).map(e => new Date(e.endTime!)).sort((a, b) => a.getTime() - b.getTime());
 		if (starts.length > 0) {
-			const firstStart = starts[0].substring(11, 16);
-			const lastEnd = ends.length > 0 ? ends[ends.length - 1].substring(11, 16) : '–';
+			const firstStart = formatTime(starts[0]);
+			const lastEnd = ends.length > 0 ? formatTime(ends[ends.length - 1]) : '–';
 			workRow.createEl('span', { cls: 'tf-drawer-time-range', text: `${firstStart} – ${lastEnd}` });
 		}
 
-		// Balance row
+		// Balance row — sum per-entry flextime (minus payouts) like the history
+		// view and context menu, so all three agree. The old `totalHours − goal`
+		// counted withdraw hours (avspasering) as if they were worked.
 		if (this.settings.enableGoalTracking) {
-			const dailyGoal = this.data.getDailyGoal(dateKey);
-			const dayFlex = totalHours - dailyGoal;
+			const dayFlex = dayEntries
+				.filter(e => !e.isActive)
+				.reduce((s, e) => s + (e.flextime || 0) - (e.overtimePayout || 0), 0);
 			const sign = dayFlex >= 0 ? '+' : '−';
 			const flexColorClass = dayFlex >= 0 ? 'tf-ok' : 'tf-warn';
 			const balRow = drawer.createDiv({ cls: 'tf-drawer-balance-row' });
@@ -6365,13 +6244,8 @@ export class UIBuilder {
 		const lastEntry = sorted[sorted.length - 1].entry;
 
 		const dayGoal = this.data.getDailyGoal(dateStr);
-		let totalWorked = 0;
-		workEntries.forEach(item => {
-			if (item.entry.endTime) {
-				totalWorked += (new Date(item.entry.endTime).getTime() - new Date(item.entry.startTime!).getTime()) / 3600000;
-			}
-		});
-		const dayOvertime = Math.max(0, totalWorked - dayGoal);
+		// Lunch-adjusted work/accumulate hours only (same rule as the edit modal)
+		const dayOvertime = Math.max(0, this.completedWorkHours(dateStr) - dayGoal);
 
 		const pad = (n: number) => n.toString().padStart(2, '0');
 
@@ -6592,7 +6466,9 @@ export class UIBuilder {
 
 	private _fillUpcomingFlat(container: HTMLElement): void {
 		container.empty();
+		// Midnight, so a planned day that is TODAY still shows in the list
 		const today = new Date();
+		today.setHours(0, 0, 0, 0);
 		const futureDays: Array<{date: string, label: string, color: string, textColor: string}> = [];
 
 		Object.keys(this.data.holidays).forEach(dateStr => {
@@ -7296,10 +7172,11 @@ export class UIBuilder {
 		const year = opts.year ?? today.getFullYear();
 		const month = opts.month ?? today.getMonth();
 		let total = 0;
+		const todayKey = Utils.toLocalDateStr(today);
 		Object.entries(this.data.daily).forEach(([dateKey, entries]) => {
 			const d = new Date(dateKey + 'T12:00:00');
 			// Only count days that are over — today isn't "completed" yet.
-			if (d >= today) return;
+			if (dateKey >= todayKey) return;
 			if (timeframe !== 'total') {
 				if (d.getFullYear() !== year) return;
 				if (timeframe === 'month' && d.getMonth() !== month) return;

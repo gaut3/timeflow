@@ -2,6 +2,7 @@ import { App, Modal, Notice } from 'obsidian';
 import { TimerManager, Timer } from './timerManager';
 import { autoDetectAndParse, TimekeepParser, CSVParser, GenericJSONParser, ParseResult, ImportParser } from './importParsers';
 import { t, formatDate, formatTime } from './i18n';
+import { Utils } from './utils';
 
 export class ImportModal extends Modal {
 	timerManager: TimerManager;
@@ -140,11 +141,12 @@ export class ImportModal extends Modal {
 				let skippedCount = 0;
 
 				this.parsedEntries.forEach(entry => {
-					// Check for duplicates
+					// Check for duplicates (by instant, not raw string — stored data may
+					// still contain legacy UTC 'Z' timestamps)
 					const isDuplicate = currentEntries.some(e =>
 						e.name === entry.name &&
-						e.startTime === entry.startTime &&
-						e.endTime === entry.endTime
+						Utils.sameTimestamp(e.startTime, entry.startTime) &&
+						Utils.sameTimestamp(e.endTime, entry.endTime)
 					);
 
 					if (!isDuplicate) {

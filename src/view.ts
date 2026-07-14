@@ -90,6 +90,11 @@ export class TimeFlowView extends ItemView {
 				dataParseError: this.plugin.timerManager.dataParseError
 			};
 
+			// Stop the previous builder's update intervals before replacing it —
+			// every refresh (each timer start/stop) used to leak a 30s data loop
+			// plus two 1s clock ticks running against detached DOM
+			this.uiBuilder?.cleanup();
+
 			// Build UI
 			this.uiBuilder = new UIBuilder(
 				this.dataManager,
@@ -100,10 +105,7 @@ export class TimeFlowView extends ItemView {
 				this.plugin
 			);
 
-			// Set up timer change callback to refresh dashboard
-			this.plugin.timerManager.onTimerChange = () => {
-				void this.refresh();
-			};
+			// Timer-change refresh is wired once in main.ts to all open views.
 
 			// Build and append the dashboard
 			const dashboardEl = this.uiBuilder.build();

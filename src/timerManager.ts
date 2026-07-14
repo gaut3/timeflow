@@ -266,7 +266,18 @@ ${timekeepBlock}${settingsBlock}
 			new Date(timer.endTime)
 		);
 
-		new Notice(`✅ ${t('timer.stopped').replace('{name}', timer.name).replace('{duration}', Utils.formatHoursToHM(duration))}`);
+		// The dashboard counts the day's longest jobb entry minus the daily lunch
+		// break, so show that adjusted figure here too (raw start→end confused users).
+		// ponytail: deducts lunch from any long-enough work session; a multi-session
+		// day where this isn't the longest jobb can be off by the lunch — the
+		// dashboard remains the source of truth.
+		const behavior = this.settings.specialDayBehaviors?.find(b => b.id === timer.name.toLowerCase());
+		const lunchHours = (this.settings.lunchBreakMinutes || 0) / 60;
+		const shown = (behavior?.isWorkType && lunchHours > 0 && duration > lunchHours)
+			? duration - lunchHours
+			: duration;
+
+		new Notice(`✅ ${t('timer.stopped').replace('{name}', timer.name).replace('{duration}', Utils.formatHoursToHM(shown))}`);
 		return timer;
 	}
 
@@ -317,15 +328,11 @@ ${timekeepBlock}${settingsBlock}
 				}
 			}
 
-			// Convert midnight timestamps to 08:00 to avoid timezone issues
-			// This handles legacy special day entries that used T00:00:00
-			if (timestamp.endsWith('T00:00:00')) {
-				modified = true;
-				return timestamp.replace('T00:00:00', 'T08:00:00');
-			}
-
 			return timestamp;
 		};
+
+		const isMidnight = (timestamp: string | null | undefined): boolean =>
+			!!timestamp && timestamp.endsWith('T00:00:00');
 
 		const normalizeEntry = (entry: Timer) => {
 			if (entry.startTime) {
@@ -340,6 +347,14 @@ ${timekeepBlock}${settingsBlock}
 					entry.endTime = normalized;
 				}
 			}
+			// Convert legacy full-day special entries (both start AND end at T00:00:00)
+			// to 08:00 to avoid timezone issues. Only when both are midnight — a real
+			// shift ending at exactly 00:00:00 must not be shifted (+8h corruption).
+			if (isMidnight(entry.startTime) && isMidnight(entry.endTime)) {
+				entry.startTime = entry.startTime!.replace('T00:00:00', 'T08:00:00');
+				entry.endTime = entry.endTime!.replace('T00:00:00', 'T08:00:00');
+				modified = true;
+			}
 			// Also normalize subEntries if present
 			if (entry.subEntries && Array.isArray(entry.subEntries)) {
 				entry.subEntries.forEach(sub => normalizeEntry(sub));
@@ -351,7 +366,17 @@ ${timekeepBlock}${settingsBlock}
 	}
 
 	getActiveTimers(): Timer[] {
-		return this.data.entries.filter(e => e.startTime && !e.endTime && !e.collapsed);
+		// Scan nested subEntries too — a running timer inside a group must be findable
+		const active: Timer[] = [];
+		const collect = (entry: Timer) => {
+			if (entry.subEntries && entry.subEntries.length > 0) {
+				entry.subEntries.forEach(collect);
+			} else if (entry.startTime && !entry.endTime) {
+				active.push(entry);
+			}
+		};
+		this.data.entries.forEach(collect);
+		return active;
 	}
 
 	getCompletedTimers(): Timer[] {
@@ -367,8 +392,9 @@ ${timekeepBlock}${settingsBlock}
 		const flatEntries: TimeEntry[] = [];
 
 		const flattenEntry = (entry: Timer) => {
-			if (entry.collapsed && entry.subEntries) {
-				// If collapsed, include subEntries instead of parent
+			if (entry.subEntries && entry.subEntries.length > 0) {
+				// Groups keep their time in subEntries; `collapsed` is just UI fold
+				// state and must not decide whether hours are counted
 				entry.subEntries.forEach(sub => flattenEntry(sub));
 			} else if (entry.startTime) {
 				// Include the entry itself
@@ -423,11 +449,11 @@ ${timekeepBlock}${settingsBlock}
 			// Merge with current data (avoid duplicates)
 			const currentEntries = this.data.entries;
 			allEntries.forEach(entry => {
-				// Simple duplicate check: same name, startTime, and endTime
+				// Duplicate check by instant, tolerating mixed timestamp formats
 				const isDuplicate = currentEntries.some(e =>
 					e.name === entry.name &&
-					e.startTime === entry.startTime &&
-					e.endTime === entry.endTime
+					Utils.sameTimestamp(e.startTime, entry.startTime) &&
+					Utils.sameTimestamp(e.endTime, entry.endTime)
 				);
 				if (!isDuplicate) {
 					currentEntries.push(entry);

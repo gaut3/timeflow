@@ -85,6 +85,7 @@ export interface TimeFlowSettings {
 	};
 	// Migration flags
 	hasTimestampMigration?: boolean; // True if UTC timestamps have been converted to local
+	hasSickDayMigration?: boolean;   // True if sick day types were migrated to reduce_goal (run-once)
 	// Work schedule history - periods with different work configurations
 	workScheduleHistory?: WorkSchedulePeriod[];
 	// Overtime comment settings
@@ -277,7 +278,7 @@ export const DEFAULT_SETTINGS: TimeFlowSettings = {
 	alternatingWeekWorkDays: [1, 2, 3, 4, 5], // Same as workDays by default
 	enableGoalTracking: true, // NEW: Default to goal-based tracking (current behavior)
 	enableWeeklyGoals: true,
-	maxEgenmeldingDays: 8,
+	maxEgenmeldingDays: 24,  // Fallback only; the egenmelding behavior's maxDaysPerYear (also 24) wins
 	maxFerieDays: 25,
 	updateInterval: 30,
 	clockInterval: 1,
@@ -398,6 +399,7 @@ export const DEFAULT_SETTINGS: TimeFlowSettings = {
 	},
 	// Migration flags
 	hasTimestampMigration: false,
+	hasSickDayMigration: false,
 	// Overtime comment settings
 	enableOvertimeComments: true,
 	overtimeCommentThreshold: 0.5,
@@ -476,7 +478,7 @@ export class SpecialDayBehaviorModal extends Modal {
 		// Add Norwegian term explanations if applicable
 		if (this.behavior && !isWorkType) {
 			const norwegianTerms: Record<string, string> = {
-				'egenmelding': 'Norwegian self-reported sick leave (max 8 days/year per Norwegian labor law)',
+				'egenmelding': 'Norwegian self-reported sick leave (default quota 24 days/year — adjust the limit below)',
 				'velferdspermisjon': 'Norwegian welfare leave for personal/family health matters',
 				'avspasering': 'Norwegian term: Time off as compensation for accumulated flextime'
 			};
@@ -928,7 +930,7 @@ export class WorkSchedulePeriodModal extends Modal {
 				.setPlaceholder('1.0')
 				.setValue(formData.workPercent.toString())
 				.onChange(value => {
-					const num = parseFloat(value);
+					const num = Utils.parseNum(value);
 					if (!isNaN(num)) {
 						formData.workPercent = num;
 						updateImpactPreview();
@@ -943,7 +945,7 @@ export class WorkSchedulePeriodModal extends Modal {
 				.setPlaceholder('7.5')
 				.setValue(formData.baseWorkday.toString())
 				.onChange(value => {
-					const num = parseFloat(value);
+					const num = Utils.parseNum(value);
 					if (!isNaN(num)) {
 						formData.baseWorkday = num;
 						updateImpactPreview();
@@ -958,7 +960,7 @@ export class WorkSchedulePeriodModal extends Modal {
 				.setPlaceholder('37.5')
 				.setValue(formData.baseWorkweek.toString())
 				.onChange(value => {
-					const num = parseFloat(value);
+					const num = Utils.parseNum(value);
 					if (!isNaN(num)) formData.baseWorkweek = num;
 				}));
 
@@ -970,7 +972,7 @@ export class WorkSchedulePeriodModal extends Modal {
 				.setPlaceholder('4')
 				.setValue(formData.halfDayHours.toString())
 				.onChange(value => {
-					const num = parseFloat(value);
+					const num = Utils.parseNum(value);
 					if (!isNaN(num)) formData.halfDayHours = num;
 				}));
 
@@ -1131,6 +1133,14 @@ export class WorkSchedulePeriodModal extends Modal {
 				return;
 			}
 
+			// Reject a duplicate effectiveFrom — lookups/edits/deletes resolve periods
+			// by date and would silently hit the wrong one.
+			const existing = this.plugin.settings.workScheduleHistory || [];
+			if (existing.some((p, i) => i !== this.index && p.effectiveFrom === formData.effectiveFrom)) {
+				new Notice('A period with that start date already exists');
+				return;
+			}
+
 			// Validate work days
 			if (formData.workDays.length === 0) {
 				new Notice('At least one work day is required');
@@ -1212,10 +1222,9 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 			}
 		}
 
-		// If no period applies (all are in the future), update the earliest one
-		if (activeIndex === -1) {
-			activeIndex = 0;
-		}
+		// If no period applies (all are in the future), leave them alone — syncing
+		// current settings into a future period would clobber that planned schedule.
+		if (activeIndex === -1) return;
 
 		// Find the original index in the unsorted array
 		const activePeriod = sortedHistory[activeIndex];
@@ -1247,7 +1256,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 	}
 
 	private validateNumber(value: string, min: number, max: number, settingName: string): number | null {
-		const num = parseFloat(value);
+		const num = Utils.parseNum(value);
 
 		if (isNaN(num)) {
 			new Notice(`❌ ${settingName}: Please enter a valid number`);
@@ -1410,7 +1419,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 				.setPlaceholder('0')
 				.setValue(this.plugin.settings.startingFlextimeBalance.toString())
 				.onChange(async (value) => {
-					const num = parseFloat(value);
+					const num = Utils.parseNum(value);
 					if (!isNaN(num)) {
 						this.plugin.settings.startingFlextimeBalance = num;
 						await this.plugin.saveSettings();
@@ -1448,7 +1457,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 					.setPlaceholder('7.5')
 					.setValue(this.plugin.settings.baseWorkday.toString())
 					.onChange(async (value) => {
-						const num = parseFloat(value);
+						const num = Utils.parseNum(value);
 						if (!isNaN(num) && num > 0) {
 							this.plugin.settings.baseWorkday = num;
 							this.syncCurrentSettingsToActivePeriod();
@@ -1478,7 +1487,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 						.setPlaceholder('1.0')
 						.setValue(this.plugin.settings.workPercent.toString())
 						.onChange(async (value) => {
-							const num = parseFloat(value);
+							const num = Utils.parseNum(value);
 							if (!isNaN(num) && num > 0 && num <= 1) {
 								this.plugin.settings.workPercent = num;
 								this.syncCurrentSettingsToActivePeriod();
@@ -1494,7 +1503,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 						.setPlaceholder('37.5')
 						.setValue(this.plugin.settings.baseWorkweek.toString())
 						.onChange(async (value) => {
-							const num = parseFloat(value);
+							const num = Utils.parseNum(value);
 							if (!isNaN(num) && num > 0) {
 								this.plugin.settings.baseWorkweek = num;
 								this.syncCurrentSettingsToActivePeriod();
@@ -1747,7 +1756,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 				.setPlaceholder('9')
 				.setValue((this.plugin.settings.complianceSettings?.dailyHoursLimit ?? 9).toString())
 				.onChange(async (value) => {
-					const num = parseFloat(value);
+					const num = Utils.parseNum(value);
 					if (!isNaN(num) && num > 0) {
 						if (!this.plugin.settings.complianceSettings) {
 							this.plugin.settings.complianceSettings = {
@@ -1770,7 +1779,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 				.setPlaceholder('40')
 				.setValue((this.plugin.settings.complianceSettings?.weeklyHoursLimit ?? 40).toString())
 				.onChange(async (value) => {
-					const num = parseFloat(value);
+					const num = Utils.parseNum(value);
 					if (!isNaN(num) && num > 0) {
 						if (!this.plugin.settings.complianceSettings) {
 							this.plugin.settings.complianceSettings = {
@@ -1793,7 +1802,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 				.setPlaceholder('11')
 				.setValue((this.plugin.settings.complianceSettings?.minimumRestHours ?? 11).toString())
 				.onChange(async (value) => {
-					const num = parseFloat(value);
+					const num = Utils.parseNum(value);
 					if (!isNaN(num) && num > 0) {
 						if (!this.plugin.settings.complianceSettings) {
 							this.plugin.settings.complianceSettings = {
@@ -1830,7 +1839,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 					.setPlaceholder('0.5')
 					.setValue((this.plugin.settings.overtimeCommentThreshold ?? 0.5).toString())
 					.onChange(async (value) => {
-						const num = parseFloat(value);
+						const num = Utils.parseNum(value);
 						if (!isNaN(num) && num >= 0 && num <= 5) {
 							this.plugin.settings.overtimeCommentThreshold = num;
 							await this.plugin.saveSettings();
@@ -2353,7 +2362,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 					.setPlaceholder('4.0')
 					.setValue(this.plugin.settings.halfDayHours.toString())
 					.onChange(async (value) => {
-						const num = parseFloat(value);
+						const num = Utils.parseNum(value);
 						if (!isNaN(num) && num > 0 && num < this.plugin.settings.baseWorkday) {
 							this.plugin.settings.halfDayHours = num;
 							this.syncCurrentSettingsToActivePeriod();
@@ -2381,7 +2390,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 				.setPlaceholder('-15')
 				.setValue(this.plugin.settings.balanceThresholds.criticalLow.toString())
 				.onChange(async (value) => {
-					const num = parseFloat(value);
+					const num = Utils.parseNum(value);
 					if (!isNaN(num) && num < this.plugin.settings.balanceThresholds.warningLow) {
 						this.plugin.settings.balanceThresholds.criticalLow = num;
 						await this.plugin.saveSettings();
@@ -2396,7 +2405,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 				.setPlaceholder('0')
 				.setValue(this.plugin.settings.balanceThresholds.warningLow.toString())
 				.onChange(async (value) => {
-					const num = parseFloat(value);
+					const num = Utils.parseNum(value);
 					if (!isNaN(num) && num > this.plugin.settings.balanceThresholds.criticalLow && num < this.plugin.settings.balanceThresholds.warningHigh) {
 						this.plugin.settings.balanceThresholds.warningLow = num;
 						await this.plugin.saveSettings();
@@ -2411,7 +2420,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 				.setPlaceholder('80')
 				.setValue(this.plugin.settings.balanceThresholds.warningHigh.toString())
 				.onChange(async (value) => {
-					const num = parseFloat(value);
+					const num = Utils.parseNum(value);
 					if (!isNaN(num) && num > this.plugin.settings.balanceThresholds.warningLow && num < this.plugin.settings.balanceThresholds.criticalHigh) {
 						this.plugin.settings.balanceThresholds.warningHigh = num;
 						await this.plugin.saveSettings();
@@ -2426,7 +2435,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 				.setPlaceholder('95')
 				.setValue(this.plugin.settings.balanceThresholds.criticalHigh.toString())
 				.onChange(async (value) => {
-					const num = parseFloat(value);
+					const num = Utils.parseNum(value);
 					if (!isNaN(num) && num > this.plugin.settings.balanceThresholds.warningHigh) {
 						this.plugin.settings.balanceThresholds.criticalHigh = num;
 						await this.plugin.saveSettings();
@@ -2452,7 +2461,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 				.setPlaceholder('12')
 				.setValue(this.plugin.settings.validationThresholds.longRunningTimerHours.toString())
 				.onChange(async (value) => {
-					const num = parseFloat(value);
+					const num = Utils.parseNum(value);
 					if (!isNaN(num) && num > 0) {
 						this.plugin.settings.validationThresholds.longRunningTimerHours = num;
 						await this.plugin.saveSettings();
@@ -2466,7 +2475,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 				.setPlaceholder('16')
 				.setValue(this.plugin.settings.validationThresholds.veryLongSessionHours.toString())
 				.onChange(async (value) => {
-					const num = parseFloat(value);
+					const num = Utils.parseNum(value);
 					if (!isNaN(num) && num > 0) {
 						this.plugin.settings.validationThresholds.veryLongSessionHours = num;
 						await this.plugin.saveSettings();
@@ -2480,7 +2489,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 				.setPlaceholder('24')
 				.setValue(this.plugin.settings.validationThresholds.maxDurationHours.toString())
 				.onChange(async (value) => {
-					const num = parseFloat(value);
+					const num = Utils.parseNum(value);
 					if (!isNaN(num) && num > 0) {
 						this.plugin.settings.validationThresholds.maxDurationHours = num;
 						await this.plugin.saveSettings();
@@ -2494,7 +2503,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 				.setPlaceholder('60')
 				.setValue(this.plugin.settings.validationThresholds.highWeeklyTotalHours.toString())
 				.onChange(async (value) => {
-					const num = parseFloat(value);
+					const num = Utils.parseNum(value);
 					if (!isNaN(num) && num > 0) {
 						this.plugin.settings.validationThresholds.highWeeklyTotalHours = num;
 						await this.plugin.saveSettings();
@@ -2679,7 +2688,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 		const availableMonths: string[] = [];
 		entries.forEach(entry => {
 			if (entry.startTime) {
-				const yearMonth = entry.startTime.substring(0, 7);
+				const yearMonth = Utils.toLocalDateStr(new Date(entry.startTime)).slice(0, 7);
 				if (!availableMonths.includes(yearMonth)) {
 					availableMonths.push(yearMonth);
 				}
@@ -2783,7 +2792,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 			const availableMonths: string[] = [];
 			allEntries.forEach(entry => {
 				if (entry.startTime) {
-					const ym = entry.startTime.substring(0, 7);
+					const ym = Utils.toLocalDateStr(new Date(entry.startTime)).slice(0, 7);
 					if (!availableMonths.includes(ym)) availableMonths.push(ym);
 				}
 			});
@@ -2831,7 +2840,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 		// Get entries for this month
 		const monthEntries = allEntries.filter(entry => {
 			if (!entry.startTime) return false;
-			return entry.startTime.startsWith(yearMonth);
+			return Utils.toLocalDateStr(new Date(entry.startTime)).startsWith(yearMonth);
 		});
 
 		if (monthEntries.length === 0) return '';

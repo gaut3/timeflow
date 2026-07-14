@@ -1,5 +1,15 @@
 import { Timer } from './timerManager';
 import { t } from './i18n';
+import { Utils } from './utils';
+
+// Store timestamps in the plugin's canonical local ISO format (no 'Z').
+// Accepts strings (ISO with/without Z), epoch numbers, and Date objects.
+function toStoredTimestamp(value: string | number | Date | null | undefined): string | null {
+	if (value == null) return null;
+	const date = value instanceof Date ? value : new Date(value);
+	if (isNaN(date.getTime())) return null;
+	return Utils.toLocalISOString(date);
+}
 
 export interface ParseResult {
 	success: boolean;
@@ -93,10 +103,10 @@ export class TimekeepParser implements ImportParser {
 
 				result.entries.push({
 					name: entry.name ?? '',
-					startTime: entry.startTime != null ? String(entry.startTime) : null,
-					endTime: entry.endTime != null ? String(entry.endTime) : null,
+					startTime: toStoredTimestamp(entry.startTime),
+					endTime: toStoredTimestamp(entry.endTime),
 					collapsed: entry.collapsed ?? false,
-					subEntries: (entry.subEntries as Timer[] | null) ?? null
+					subEntries: this.sanitizeSubEntries(entry.subEntries)
 				});
 			}
 
@@ -106,6 +116,18 @@ export class TimekeepParser implements ImportParser {
 		}
 
 		return result;
+	}
+
+	// Normalize nested subEntry timestamps too (they used to bypass validation)
+	private sanitizeSubEntries(subEntries: RawTimekeepEntry[] | null | undefined): Timer[] | null {
+		if (!subEntries || !Array.isArray(subEntries)) return null;
+		return subEntries.map(sub => ({
+			name: sub.name ?? '',
+			startTime: toStoredTimestamp(sub.startTime),
+			endTime: toStoredTimestamp(sub.endTime),
+			collapsed: sub.collapsed ?? false,
+			subEntries: this.sanitizeSubEntries(sub.subEntries)
+		}));
 	}
 }
 
@@ -212,8 +234,9 @@ export class CSVParser implements ImportParser {
 						endDateTime = new Date(parsedDate);
 						endDateTime.setHours(endTime.hours, endTime.minutes, 0, 0);
 
-						// Handle overnight shifts
-						if (endDateTime <= startDateTime) {
+						// Handle overnight shifts (strict <: equal times are a zero-duration
+						// entry, not a 24h shift)
+						if (endDateTime < startDateTime) {
 							endDateTime.setDate(endDateTime.getDate() + 1);
 						}
 					} else {
@@ -223,8 +246,8 @@ export class CSVParser implements ImportParser {
 
 				result.entries.push({
 					name: activity.toLowerCase() || 'jobb',
-					startTime: startDateTime.toISOString(),
-					endTime: endDateTime ? endDateTime.toISOString() : null,
+					startTime: toStoredTimestamp(startDateTime),
+					endTime: toStoredTimestamp(endDateTime),
 					collapsed: false,
 					subEntries: null
 				});
@@ -394,22 +417,24 @@ export class GenericJSONParser implements ImportParser {
 				const endField = item.end || item.endTime || item.slutt || item.sluttid || item.til || item.to;
 				const nameField = item.name || item.navn || item.activity || item.aktivitet || item.type || 'jobb';
 
-				if (!dateField && !startField) {
-					// If no separate date/start, check for combined datetime
-					if (item.startTime && item.startTime.includes('T')) {
-						// ISO datetime format
-						const startDate = new Date(item.startTime);
-						if (!isNaN(startDate.getTime())) {
-							result.entries.push({
-								name: (nameField || 'jobb').toLowerCase(),
-								startTime: item.startTime,
-								endTime: item.endTime || null,
-								collapsed: false,
-								subEntries: null
-							});
-							continue;
-						}
+				// Combined ISO datetime in the start field itself (no separate date field)
+				// Checked before the date+time path: startField being present used to
+				// make this branch unreachable, failing the documented format entirely
+				if (!dateField && startField && startField.includes('T')) {
+					const startDate = new Date(startField);
+					if (!isNaN(startDate.getTime())) {
+						result.entries.push({
+							name: (nameField || 'jobb').toLowerCase(),
+							startTime: toStoredTimestamp(startField),
+							endTime: toStoredTimestamp(endField),
+							collapsed: false,
+							subEntries: null
+						});
+						continue;
 					}
+				}
+
+				if (!dateField || !startField) {
 					result.warnings.push(`${t('import.errors.entry')} ${i + 1}: ${t('import.errors.missingDateOrTime')}`);
 					continue;
 				}
@@ -422,8 +447,8 @@ export class GenericJSONParser implements ImportParser {
 					startDateTime = this.combineDateAndTime(dateField, startField);
 					if (endField) {
 						endDateTime = this.combineDateAndTime(dateField, endField);
-						// Handle overnight shifts
-						if (endDateTime && startDateTime && endDateTime <= startDateTime) {
+						// Handle overnight shifts (strict <: equal times stay zero-duration)
+						if (endDateTime && startDateTime && endDateTime < startDateTime) {
 							endDateTime.setDate(endDateTime.getDate() + 1);
 						}
 					}
@@ -436,8 +461,8 @@ export class GenericJSONParser implements ImportParser {
 
 				result.entries.push({
 					name: (nameField || 'jobb').toLowerCase(),
-					startTime: startDateTime.toISOString(),
-					endTime: endDateTime ? endDateTime.toISOString() : null,
+					startTime: toStoredTimestamp(startDateTime),
+					endTime: toStoredTimestamp(endDateTime),
 					collapsed: false,
 					subEntries: null
 				});

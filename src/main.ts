@@ -15,23 +15,39 @@ export default class TimeFlowPlugin extends Plugin {
 		// currentColor) so the ribbon and view tab use it instead of a generic Lucide icon.
 		addIcon('timeflow', '<circle cx="50" cy="50" r="37" fill="none" stroke="currentColor" stroke-width="7"></circle><line x1="27" y1="50" x2="73" y2="50" stroke="currentColor" stroke-width="7" stroke-linecap="round"></line><path d="M50 50 L41.5 67 L58.5 67 Z" fill="currentColor"></path><circle cx="50" cy="50" r="5" fill="currentColor"></circle><circle cx="50" cy="20" r="3.4" fill="currentColor"></circle>');
 
-		// Load settings (without migration yet)
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData() as Partial<TimeFlowSettings>);
+		// Load settings (without migration yet). Deep-clone the defaults so nested
+		// objects/arrays a user hasn't overridden aren't shared by reference with
+		// DEFAULT_SETTINGS — otherwise mutating settings.customColors etc. mutates the
+		// defaults too, and "reset to default" becomes a no-op.
+		this.settings = Object.assign(structuredClone(DEFAULT_SETTINGS), await this.loadData() as Partial<TimeFlowSettings>);
 
 		// Initialize timer manager
 		this.timerManager = new TimerManager(this.app, this.settings);
+
+		// One shared listener that refreshes every open Timeflow view on any timer
+		// change (a single callback slot went stale for a 2nd open view).
+		this.timerManager.onTimerChange = () => {
+			for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_TIMEFLOW)) {
+				if (leaf.view instanceof TimeFlowView) void leaf.view.refresh();
+			}
+		};
 		const syncedSettings = await this.timerManager.load();
 
 		// If settings are in the data file, merge them with local settings
 		// Data file settings take precedence for cross-device sync
 		if (syncedSettings) {
-			this.settings = Object.assign({}, DEFAULT_SETTINGS, this.settings, syncedSettings);
+			this.settings = Object.assign(structuredClone(DEFAULT_SETTINGS), this.settings, syncedSettings);
 			this.timerManager.settings = this.settings;
 		}
 
-		// Now run migrations AFTER merging synced settings
-		const needsSave = this.migrateWorkDaysSettings() || this.migrateSpecialDayBehaviors() || this.migrateWorkScheduleHistory() || this.migrateIntervalSettings();
-		// Evaluated separately so the short-circuiting chain above can't skip it.
+		// Now run migrations AFTER merging synced settings.
+		// Each is evaluated separately — `||` would short-circuit and skip the rest
+		// for a whole session whenever an earlier migration returns true.
+		const workDaysMigrated = this.migrateWorkDaysSettings();
+		const behaviorsMigrated = this.migrateSpecialDayBehaviors();
+		const scheduleMigrated = this.migrateWorkScheduleHistory();
+		const intervalMigrated = this.migrateIntervalSettings();
+		const needsSave = workDaysMigrated || behaviorsMigrated || scheduleMigrated || intervalMigrated;
 		const hourUnitMigrated = this.migrateHourUnit();
 		const timestampMigrated = await this.migrateTimestamps();
 		if (needsSave || hourUnitMigrated || timestampMigrated) {
@@ -129,7 +145,7 @@ export default class TimeFlowPlugin extends Plugin {
 
 	async loadSettings() {
 		// This is called when settings tab is opened - just reload from storage
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData() as Partial<TimeFlowSettings>);
+		this.settings = Object.assign(structuredClone(DEFAULT_SETTINGS), await this.loadData() as Partial<TimeFlowSettings>);
 	}
 
 	migrateSpecialDayBehaviors(): boolean {
@@ -166,16 +182,21 @@ export default class TimeFlowPlugin extends Plugin {
 				}
 			});
 
-			// Migrate sick day types to use reduce_goal flextimeEffect
-			const reduceGoalTypes = ['egenmelding', 'sykemelding', 'velferdspermisjon'];
-			reduceGoalTypes.forEach(typeId => {
-				const behavior = this.settings.specialDayBehaviors.find(b => b.id === typeId);
-				if (behavior && behavior.flextimeEffect !== 'reduce_goal') {
-					behavior.flextimeEffect = 'reduce_goal';
-					behavior.noHoursRequired = false; // Allow duration input
-					changed = true;
-				}
-			});
+			// Migrate sick day types to use reduce_goal flextimeEffect.
+			// Run-once: without the flag this re-applied on every load, silently
+			// reverting any customization the user made to these behaviors.
+			if (!this.settings.hasSickDayMigration) {
+				const reduceGoalTypes = ['egenmelding', 'sykemelding', 'velferdspermisjon'];
+				reduceGoalTypes.forEach(typeId => {
+					const behavior = this.settings.specialDayBehaviors.find(b => b.id === typeId);
+					if (behavior && behavior.flextimeEffect !== 'reduce_goal') {
+						behavior.flextimeEffect = 'reduce_goal';
+						behavior.noHoursRequired = false; // Allow duration input
+					}
+				});
+				this.settings.hasSickDayMigration = true;
+				changed = true;
+			}
 		}
 		return changed;
 	}

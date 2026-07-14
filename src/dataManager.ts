@@ -185,8 +185,11 @@ export class DataManager {
 					// - YYYY-MM-DD: annet: description (annet without template, full day)
 					const match = line.match(/^-\s*(\d{4}-\d{2}-\d{2}):\s*(\w+)(?::(half|\d{2}:\d{2}-\d{2}:\d{2})?)?:\s*(.*)$/);
 
-					// Special handling for annet entries with more complex format
-					const annetMatch = line.match(/^-\s*(\d{4}-\d{2}-\d{2}):\s*annet(?::([^:]+))?(?::(\d{2}:\d{2}-\d{2}:\d{2}))?:\s*(.*)$/);
+					// Special handling for annet entries with more complex format.
+					// The template group must NOT match the start of a time range —
+					// without the lookahead, "annet:14:00-16:00:" captured "14" as a
+					// template ID and leaked "00-16:00:" into the description.
+					const annetMatch = line.match(/^-\s*(\d{4}-\d{2}-\d{2}):\s*annet(?::(?!\d{2}:\d{2}-)([^:]+))?(?::(\d{2}:\d{2}-\d{2}:\d{2}))?:\s*(.*)$/);
 
 					if (annetMatch) {
 						const [, date, templateOrTime, timeRange, description] = annetMatch;
@@ -520,15 +523,35 @@ export class DataManager {
 		// Get the schedule that was active on this date
 		const schedule = this.getScheduleForDate(dateStr);
 
-		const date = new Date(dateStr);
-		// Check if this date is a weekend based on the schedule's work days
+		const date = Utils.parseDate(dateStr);
+		if (!date) return 0;
+		// Check if this date is a weekend based on the schedule's work days.
+		// Alternating weeks previously applied only in Utils.isWeekend (calendar
+		// coloring/validation) but not here, so goals were charged on the wrong
+		// days every second week. No historical version of the alternating array
+		// exists, so the current setting is used, matching Utils.isWeekend.
 		const dayOfWeek = date.getDay();
-		const isWeekend = !schedule.workDays.includes(dayOfWeek);
+		const workDays = (this.settings.enableAlternatingWeeks && Utils.isAlternatingWeek(date))
+			? this.settings.alternatingWeekWorkDays
+			: schedule.workDays;
+		const isWeekend = !workDays.includes(dayOfWeek);
 
 		if (isWeekend) return 0;
 
 		const holidayInfo = this.getHolidayInfo(dateStr);
 		if (holidayInfo) {
+			// Check for half-day FIRST - either via halfDay flag or 'half' type.
+			// Must precede the noHoursRequired check: a half-day holiday
+			// (e.g. "helligdag:half" on Julaften) means half a day is expected,
+			// and the chart breakdown already treats it that way.
+			if (holidayInfo.halfDay) {
+				// Calculate half-day hours based on schedule settings, accounting for work percent
+				const halfDayHours = this.settings.halfDayMode === 'percentage'
+					? (schedule.baseWorkday * schedule.workPercent) / 2
+					: schedule.halfDayHours * schedule.workPercent;
+				return halfDayHours;
+			}
+
 			// Check if this special day type requires no hours
 			// Use dynamic behavior for 'annet' entries
 			const behavior = holidayInfo.type === 'annet'
@@ -537,16 +560,6 @@ export class DataManager {
 			if (behavior && behavior.noHoursRequired) {
 				// No work hours required (e.g., vacation, sick leave)
 				return 0;
-			}
-
-			// Check for half-day - either via halfDay flag or 'half' type
-			// This applies regardless of whether the type has a defined behavior
-			if (holidayInfo.halfDay) {
-				// Calculate half-day hours based on schedule settings, accounting for work percent
-				const halfDayHours = this.settings.halfDayMode === 'percentage'
-					? (schedule.baseWorkday * schedule.workPercent) / 2
-					: schedule.halfDayHours * schedule.workPercent;
-				return halfDayHours;
 			}
 		}
 
@@ -595,13 +608,7 @@ export class DataManager {
 
 				// Calculate duration from start to now for display in history
 				const now = new Date();
-				let duration = Utils.hoursDiff(start, now);
-
-				// Deduct lunch break for work entries (jobb)
-				if (e.name.toLowerCase() === 'jobb' && this.settings.lunchBreakMinutes > 0) {
-					const lunchBreakHours = this.settings.lunchBreakMinutes / 60;
-					duration = Math.max(0, duration - lunchBreakHours);
-				}
+				const duration = Utils.hoursDiff(start, now);
 
 				if (!this.daily[dayKey]) this.daily[dayKey] = [];
 				this.daily[dayKey].push({ ...e, duration, date: start, isActive: true });
@@ -611,19 +618,41 @@ export class DataManager {
 			const end = Utils.parseDate(e.endTime);
 			if (!end) return;
 
-			let duration = Utils.hoursDiff(start, end);
-
-			// Deduct lunch break for work entries (jobb)
-			if (e.name.toLowerCase() === 'jobb' && this.settings.lunchBreakMinutes > 0) {
-				const lunchBreakHours = this.settings.lunchBreakMinutes / 60;
-				duration = Math.max(0, duration - lunchBreakHours);
-			}
+			const duration = Utils.hoursDiff(start, end);
 
 			if (!this.daily[dayKey]) this.daily[dayKey] = [];
 			this.daily[dayKey].push({ ...e, duration, date: start });
 		});
+		this.deductDailyLunchBreak();
 		this.calculateFlextime();
 		this.groupByMonths();
+	}
+
+	/**
+	 * Deduct the lunch break ONCE per day (the setting is a daily break), from the
+	 * longest 'jobb' entry of the day. The old per-entry deduction cost users
+	 * lunchBreakMinutes for every extra work segment on a split day.
+	 */
+	private deductDailyLunchBreak(): void {
+		if (this.settings.lunchBreakMinutes <= 0) return;
+		const lunchBreakHours = this.settings.lunchBreakMinutes / 60;
+
+		for (const dayKey in this.daily) {
+			// Prefer completed entries so live-timer displays (which deduct only
+			// when no completed jobb entry exists) stay consistent with this rule
+			let longest: TimeEntry | null = null;
+			for (const entry of this.daily[dayKey]) {
+				if (entry.name.toLowerCase() !== 'jobb') continue;
+				if (!longest ||
+					(longest.isActive && !entry.isActive) ||
+					(longest.isActive === entry.isActive && (entry.duration || 0) > (longest.duration || 0))) {
+					longest = entry;
+				}
+			}
+			if (longest) {
+				longest.duration = Math.max(0, (longest.duration || 0) - lunchBreakHours);
+			}
+		}
 	}
 
 	calculateFlextime(): void {
@@ -643,25 +672,32 @@ export class DataManager {
 			const dayEntries = this.daily[day];
 
 			// Calculate goal reduction from reduce_goal entries (sick days, etc.)
+			// and withdraw hours (avspasering)
 			let goalReduction = 0;
+			let withdrawHours = 0;
+			let hasRegularWork = false;
+			let totalWorkHours = 0;
 			dayEntries.forEach(e => {
 				const behavior = this.getSpecialDayBehavior(e.name);
 				if (behavior?.flextimeEffect === 'reduce_goal') {
 					// If 0 duration (full-day entry), reduce by full daily goal
 					const reduction = (e.duration && e.duration > 0) ? e.duration : dayGoal;
 					goalReduction += reduction;
-				}
-			});
-			const effectiveGoal = Math.max(0, dayGoal - goalReduction);
-
-			// Calculate total work hours for the day (for proper flextime distribution)
-			let totalWorkHours = 0;
-			dayEntries.forEach(e => {
-				const behavior = this.getSpecialDayBehavior(e.name);
-				if (!behavior || behavior.isWorkType || behavior.flextimeEffect === 'accumulate') {
+				} else if (behavior?.flextimeEffect === 'withdraw') {
+					withdrawHours += e.duration || 0;
+				} else if (!behavior || behavior.isWorkType || behavior.flextimeEffect === 'accumulate') {
+					// Total work hours for the day (for proper flextime distribution)
 					totalWorkHours += e.duration || 0;
+					if (!behavior || behavior.isWorkType) hasRegularWork = true;
 				}
 			});
+
+			// Withdraw hours cover part of the goal when there is other work on the
+			// day. Without this, the shortfall vs the full goal AND the withdrawal
+			// were both charged (double-charge). Mirrors getBalanceUpToDate.
+			const effectiveGoal = totalWorkHours > 0
+				? Math.max(0, dayGoal - goalReduction - withdrawHours)
+				: Math.max(0, dayGoal - goalReduction);
 
 			dayEntries.forEach((e) => {
 				let flextime = 0;
@@ -692,13 +728,16 @@ export class DataManager {
 						// Withdraws from flextime (e.g., avspasering)
 						flextime -= e.duration || 0;
 					} else if (effectiveBehavior.flextimeEffect === 'accumulate') {
-						// Accumulate types (studie, kurs): only gain flextime for excess hours over goal
-						if (effectiveGoal > 0 && (e.duration || 0) > effectiveGoal) {
-							flextime += (e.duration || 0) - effectiveGoal;
-						} else if (effectiveGoal === 0) {
-							flextime += e.duration || 0;
+						// Match getBalanceUpToDate: mixed days (work + accumulate) count
+						// the whole day total vs goal; accumulate-only days gain only the
+						// positive excess of the DAY total over the goal. Both distributed
+						// proportionally so per-entry flextime sums to the balance delta.
+						if (totalWorkHours > 0) {
+							const dayDelta = hasRegularWork
+								? totalWorkHours - effectiveGoal
+								: Math.max(0, totalWorkHours - effectiveGoal);
+							flextime += dayDelta * ((e.duration || 0) / totalWorkHours);
 						}
-						// If hours <= goal, flextime stays 0 (no negative balance)
 					} else if (effectiveBehavior.noHoursRequired && effectiveGoal === 0) {
 						// 'none' effect on no-hours-required day: work counts as bonus (like weekends)
 						flextime += e.duration || 0;
@@ -723,7 +762,7 @@ export class DataManager {
 
 	groupByMonths(): void {
 		for (let day of Object.keys(this.daily)) {
-			const date = new Date(day);
+			const date = Utils.parseDate(day)!;
 			const monthKey = `${date.getFullYear()}-${date.getMonth() + 1}`;
 			if (!this.months[monthKey]) this.months[monthKey] = {};
 			const weekNum = Utils.getWeekNumber(date);
@@ -734,9 +773,39 @@ export class DataManager {
 
 	getOngoing(): number {
 		const now = new Date();
+		return this.activeEntries.reduce((sum, e) => sum + this.liveActiveDuration(e, now), 0);
+	}
+
+	/**
+	 * Live duration of an active entry with the DAILY lunch rule applied:
+	 * lunch is deducted once per day (deductDailyLunchBreak) from the longest
+	 * completed jobb entry, so a live timer only bears it when no completed
+	 * jobb entry exists on its day yet.
+	 */
+	liveActiveDuration(e: { name: string; startTime: string }, now: Date = new Date()): number {
+		const start = Utils.parseDate(e.startTime);
+		if (!start) return 0;
+		const raw = Utils.hoursDiff(start, now);
+		if (e.name.toLowerCase() !== 'jobb' || this.settings.lunchBreakMinutes <= 0) return raw;
+		const dayKey = Utils.toLocalDateStr(start);
+		const hasCompletedJobb = (this.daily[dayKey] || [])
+			.some(x => !x.isActive && x.name.toLowerCase() === 'jobb');
+		return hasCompletedJobb ? raw : Math.max(0, raw - this.settings.lunchBreakMinutes / 60);
+	}
+
+	/**
+	 * Live duration of active entries whose START DAY is within [firstKey, lastKey].
+	 * getOngoing() sums ALL active timers, so a stale timer from another day/week
+	 * used to inflate "today" and "this week".
+	 */
+	private getOngoingInRange(firstKey: string, lastKey: string): number {
+		const now = new Date();
 		return this.activeEntries.reduce((sum, e) => {
 			const start = Utils.parseDate(e.startTime);
-			return start ? sum + Utils.hoursDiff(start, now) : sum;
+			if (!start) return sum;
+			const dayKey = Utils.toLocalDateStr(start);
+			if (dayKey < firstKey || dayKey > lastKey) return sum;
+			return sum + this.liveActiveDuration(e, now);
 		}, 0);
 	}
 
@@ -748,6 +817,8 @@ export class DataManager {
 		const sortedDays = Object.keys(this.daily)
 			.filter(day => day >= startDate && day <= endDate)
 			.sort();
+
+		const todayKey = Utils.toLocalDateStr(new Date());
 
 		for (const day of sortedDays) {
 			const dayGoal = this.getDailyGoal(day);
@@ -767,18 +838,12 @@ export class DataManager {
 				if (e.overtimePayout && e.overtimePayout > 0) {
 					overtimePayout += e.overtimePayout;
 				}
-				// Track active entries but include their current duration in balance
+				// Active timers: excluded from the balance. Only today's active timer
+				// defers the day (see below); a stale timer on a PAST day must not
+				// add its ever-growing elapsed time, and must not hide the day's
+				// completed entries, goal charge, or payouts from the balance.
 				if (e.isActive) {
-					hasActiveEntry = true;
-					// Include active timer's current duration in regular work
-					const behavior = this.getSpecialDayBehavior(e.name);
-					if (!behavior || behavior.isWorkType) {
-						regularWorked += e.duration || 0;
-						hasRegularWork = true;
-					} else if (behavior?.flextimeEffect === 'accumulate') {
-						accumulateWorked += e.duration || 0;
-						hasAccumulateEntry = true;
-					}
+					if (day === todayKey) hasActiveEntry = true;
 					return;
 				}
 
@@ -809,12 +874,13 @@ export class DataManager {
 				}
 			});
 
-			// If there's an active timer, skip this day entirely - don't charge goal yet
+			// If TODAY has an active timer, skip the day - don't charge goal yet
 			// (assume user intends to work the full goal)
 			if (hasActiveEntry) continue;
 
-			// Days with no entries will now be processed and charge the full goal
-			// (regularWorked = 0, so balance += 0 - effectiveGoal = -goal)
+			// NOTE: days with no entries at all are not in this.daily and therefore
+			// charge nothing — validateData warns about them ("Missing Entry")
+			// instead of silently debiting the balance.
 
 			// Calculate effective goal after reductions (but not below 0)
 			// Special case: If day has ONLY avspasering (no regular work), set goal to 0
@@ -822,6 +888,12 @@ export class DataManager {
 			let effectiveGoal = Math.max(0, dayGoal - goalReduction);
 			if (avspaseringHours > 0 && !hasRegularWork && !hasAccumulateEntry) {
 				effectiveGoal = 0;
+			} else if (avspaseringHours > 0) {
+				// Mixed day (work + avspasering): the withdrawn hours cover part of
+				// the goal. Without this, the shortfall vs the full goal AND the
+				// withdrawal were both subtracted — e.g. 0.1h work + 7.4h avspasering
+				// cost −14.8h while a full-day avspasering cost −7.5h.
+				effectiveGoal = Math.max(0, effectiveGoal - avspaseringHours);
 			}
 
 			// Handle accumulate entries: only positive excess over goal counts
@@ -900,7 +972,7 @@ export class DataManager {
 			});
 		}
 
-		return total + this.getOngoing();
+		return total + this.getOngoingInRange(Utils.toLocalDateStr(firstDayOfWeek), Utils.toLocalDateStr(lastDayOfWeek));
 	}
 
 	getTodayHours(today: Date): number {
@@ -916,8 +988,18 @@ export class DataManager {
 					// Include work types and accumulate types (kurs, studie)
 					return !behavior || behavior.isWorkType || behavior.flextimeEffect === 'accumulate';
 				})
-				.reduce((sum, e) => sum + (e.duration || 0), 0) + this.getOngoing()
+				.reduce((sum, e) => sum + (e.duration || 0), 0) + this.getOngoingInRange(todayKey, todayKey)
 		);
+	}
+
+	// Effective work days per week from the actual schedule, honoring alternating
+	// weeks. The frozen workdaysPerWeek/Month/Year settings (5/21/260) had no UI and
+	// contradicted a customized workDays (e.g. a 4-day week still divided by 5).
+	private workDaysPerWeek(): number {
+		const base = this.settings.workDays.length || 5;
+		return this.settings.enableAlternatingWeeks
+			? (base + this.settings.alternatingWeekWorkDays.length) / 2
+			: base;
 	}
 
 	getAverages(): AveragesData {
@@ -956,10 +1038,7 @@ export class DataManager {
 		);
 		const avgDaily =
 			workDayKeys.length > 0 ? totalHoursWorked / workDayKeys.length : 0;
-		// Guard against division by zero if workdaysPerWeek is 0
-		const weeksWorked = this.settings.workdaysPerWeek > 0
-			? workDayKeys.length / this.settings.workdaysPerWeek
-			: 0;
+		const weeksWorked = workDayKeys.length / this.workDaysPerWeek();
 		const avgWeekly = weeksWorked > 0 ? totalHoursWorked / weeksWorked : 0;
 
 		this._cachedAverages = {
@@ -978,12 +1057,12 @@ export class DataManager {
 
 		if (timeframe === "year") {
 			const targetYear = year !== undefined ? year : today.getFullYear();
-			filterFn = (dateStr) => new Date(dateStr).getFullYear() === targetYear;
+			filterFn = (dateStr) => Utils.parseDate(dateStr)!.getFullYear() === targetYear;
 		} else if (timeframe === "month") {
 			const targetYear = year !== undefined ? year : today.getFullYear();
 			const targetMonth = month !== undefined ? month : today.getMonth();
 			filterFn = (dateStr) => {
-				const d = new Date(dateStr);
+				const d = Utils.parseDate(dateStr)!;
 				return d.getFullYear() === targetYear && d.getMonth() === targetMonth;
 			};
 		} else {
@@ -1090,7 +1169,7 @@ export class DataManager {
 		// Count planned future days
 		Object.keys(this.holidays).forEach((dateStr) => {
 			const plannedInfo = this.holidays[dateStr];
-			const plannedDate = new Date(dateStr);
+			const plannedDate = Utils.parseDate(dateStr)!;
 
 			if (filterFn(dateStr) && plannedDate > today) {
 				const type = plannedInfo.type;
@@ -1112,8 +1191,8 @@ export class DataManager {
 
 		if (timeframe === "year" || timeframe === "month") {
 			const expectedWorkdays = timeframe === "year"
-				? this.settings.workdaysPerYear
-				: this.settings.workdaysPerMonth;
+				? this.workDaysPerWeek() * 52
+				: this.workDaysPerWeek() * 52 / 12;
 
 			// Count special days with noHoursRequired in this period to adjust expected workdays
 			let noHoursRequiredDays = 0;
@@ -1141,7 +1220,7 @@ export class DataManager {
 	getAvailableYears(): number[] {
 		const years = new Set<number>();
 		Object.keys(this.daily).forEach(dateStr => {
-			const year = new Date(dateStr).getFullYear();
+			const year = Utils.parseDate(dateStr)!.getFullYear();
 			years.add(year);
 		});
 		return Array.from(years).sort((a, b) => b - a); // Descending order
@@ -1150,7 +1229,7 @@ export class DataManager {
 	getAvailableMonthsForYear(year: number): number[] {
 		const months = new Set<number>();
 		Object.keys(this.daily).forEach(dateStr => {
-			const date = new Date(dateStr);
+			const date = Utils.parseDate(dateStr)!;
 			if (date.getFullYear() === year) {
 				months.add(date.getMonth());
 			}
@@ -1183,7 +1262,7 @@ export class DataManager {
 		}
 
 		const sameWeekdayKeys = Object.keys(this.daily).filter((d) => {
-			const date = new Date(d);
+			const date = Utils.parseDate(d)!;
 			return date.getDay() === weekday && d < todayKey;
 		});
 
@@ -1428,7 +1507,7 @@ export class DataManager {
 		// Check for missing workday entries (after first entry date)
 		const allDates = Object.keys(this.daily).sort();
 		if (allDates.length > 0) {
-			const firstDate = new Date(allDates[0]);
+			const firstDate = Utils.parseDate(allDates[0])!;
 			const lastDate = today;
 
 			// Iterate through all dates from first entry to today
@@ -1563,7 +1642,7 @@ export class DataManager {
 		const minimumRestHours = this.settings.complianceSettings?.minimumRestHours ?? 11;
 
 		// Get the previous day
-		const currentDate = new Date(dateStr);
+		const currentDate = Utils.parseDate(dateStr)!;
 		const previousDate = new Date(currentDate);
 		previousDate.setDate(previousDate.getDate() - 1);
 		const previousDayKey = Utils.toLocalDateStr(previousDate);
@@ -1679,7 +1758,7 @@ export class DataManager {
 			// Count days in the calendar year
 			// For reduce_goal types, only count full-day entries (0 duration)
 			Object.keys(this.daily).forEach(dateStr => {
-				const date = new Date(dateStr);
+				const date = Utils.parseDate(dateStr)!;
 				if (date.getFullYear() === targetYear) {
 					const entries = this.daily[dateStr];
 					entries.forEach(entry => {
@@ -1697,7 +1776,7 @@ export class DataManager {
 
 			// Count from holidays file (full days)
 			Object.keys(this.holidays).forEach(dateStr => {
-				const date = new Date(dateStr);
+				const date = Utils.parseDate(dateStr)!;
 				if (date.getFullYear() === targetYear) {
 					const holidayInfo = this.holidays[dateStr];
 					if (holidayInfo.type === typeId && !daysSeen.has(dateStr)) {
@@ -1744,146 +1823,122 @@ export class DataManager {
 	}
 
 	/**
-	 * Get week hours with goal reduction for bar chart visualization
-	 * Accounts for holidays, ferie, avspasering, etc. (but NOT weekends - they're already excluded from weeklyTarget)
+	 * Work hours and effective goal (target) for a set of days, for bar charts.
+	 * Uses getDailyGoal per day (schedule history, alternating weeks, holidays,
+	 * half-days) and the same entry classification as getBalanceUpToDate, so the
+	 * bars and their targets agree with the balance. The old per-week/per-month
+	 * breakdown used CURRENT settings for every historical day.
 	 */
-	getWeekHoursWithBreakdown(weekStart: Date): { workHours: number; goalReduction: number } {
+	private getRangeHoursWithTarget(dayKeys: string[]): { workHours: number; target: number } {
 		let workHours = 0;
-		let goalReduction = 0;
-		const dailyGoal = this.workdayHours;
-		// Calculate half-day hours based on settings (same logic as getDailyGoal), accounting for work percent
-		const halfDayHours = this.settings.halfDayMode === 'percentage'
-			? (this.settings.baseWorkday * this.settings.workPercent) / 2
-			: this.settings.halfDayHours * this.settings.workPercent;
+		let target = 0;
 
-		for (let i = 0; i < 7; i++) {
-			const d = new Date(weekStart);
-			d.setDate(weekStart.getDate() + i);
-			const dayKey = Utils.toLocalDateStr(d);
-			const dayEntries = this.daily[dayKey] || [];
-
-			// Skip weekends - they're already not included in weeklyTarget
-			const isWeekend = Utils.isWeekend(d, this.settings);
-			if (isWeekend) {
-				continue;
-			}
-
-			// Check if holiday from holidays.md - reduces goal based on type
-			const holidayInfo = this.getHolidayInfo(dayKey);
-			let dayGoalReduced = false;
-			if (holidayInfo) {
-				const behavior = holidayInfo.type === 'annet'
-					? this.getAnnetBehavior(holidayInfo)
-					: this.getSpecialDayBehavior(holidayInfo.type);
-
-				// Half-day entries (either 'half' type or :half modifier) reduce by half-day hours
-				if (holidayInfo.halfDay) {
-					goalReduction += dailyGoal - halfDayHours;
-					dayGoalReduced = true;
-				} else if (behavior?.noHoursRequired || behavior?.flextimeEffect === 'reduce_goal') {
-					// Full day holidays/special days reduce by full day
-					goalReduction += dailyGoal;
-					dayGoalReduced = true;
-				}
-			}
-
-			dayEntries.forEach(entry => {
-				if (!entry.isActive) {
-					const behavior = this.getSpecialDayBehavior(entry.name);
-					const entryHours = entry.duration || 0;
-
-					if (behavior?.flextimeEffect === 'reduce_goal') {
-						// Sick days reduce the goal - full day (0 duration) = full daily goal reduction
-						if (!dayGoalReduced) {
-							goalReduction += (entryHours > 0) ? entryHours : dailyGoal;
-							dayGoalReduced = true;
-						}
-					} else if (behavior?.noHoursRequired && !dayGoalReduced) {
-						// noHoursRequired entries (ferie, avspasering) that aren't already counted via holidays
-						// Full day (0 duration) = full daily goal reduction
-						goalReduction += (entryHours > 0) ? entryHours : dailyGoal;
-						dayGoalReduced = true;
-					} else if (behavior?.flextimeEffect !== 'withdraw' && !behavior?.noHoursRequired) {
-						// Regular work hours (exclude withdraw like avspasering, and noHoursRequired like ferie/helligdag)
-						workHours += entryHours;
-					}
-				}
-			});
+		for (const dayKey of dayKeys) {
+			const { worked, effectiveGoal } = this.classifyDay(dayKey);
+			workHours += worked;
+			target += effectiveGoal;
 		}
 
-		return { workHours, goalReduction };
+		return { workHours, target };
 	}
 
 	/**
-	 * Get month hours with goal reduction for bar chart visualization
-	 * Accounts for holidays, ferie, avspasering, etc.
-	 * For monthly view, we calculate the actual number of workdays and reduce for special days
+	 * Worked hours and effective goal for a single day, using the same entry
+	 * classification and goal rules as getBalanceUpToDate — the single source of
+	 * truth for "how did this day count".
 	 */
-	getMonthHoursWithBreakdown(year: number, month: number): { workHours: number; goalReduction: number } {
-		let workHours = 0;
+	private classifyDay(dayKey: string): { worked: number; effectiveGoal: number; dayGoal: number } {
+		const dayGoal = this.getDailyGoal(dayKey);
+		const dayEntries = this.daily[dayKey] || [];
+
 		let goalReduction = 0;
-		const dailyGoal = this.workdayHours;
-		// Calculate half-day hours based on settings (same logic as getDailyGoal), accounting for work percent
-		const halfDayHours = this.settings.halfDayMode === 'percentage'
-			? (this.settings.baseWorkday * this.settings.workPercent) / 2
-			: this.settings.halfDayHours * this.settings.workPercent;
-		const daysInMonth = new Date(year, month + 1, 0).getDate();
+		let withdrawHours = 0;
+		let worked = 0;
+		let hasWork = false;
+		let hasAccumulate = false;
 
-		for (let day = 1; day <= daysInMonth; day++) {
-			const d = new Date(year, month, day);
-			const dayKey = Utils.toLocalDateStr(d);
-			const dayEntries = this.daily[dayKey] || [];
-
-			// Skip weekends - they don't contribute to target
-			const isWeekend = Utils.isWeekend(d, this.settings);
-			if (isWeekend) {
-				continue;
+		dayEntries.forEach(entry => {
+			if (entry.isActive) return;
+			const behavior = this.getSpecialDayBehavior(entry.name);
+			const entryHours = entry.duration || 0;
+			if (behavior?.flextimeEffect === 'reduce_goal') {
+				goalReduction += entryHours > 0 ? entryHours : dayGoal;
+			} else if (behavior?.flextimeEffect === 'withdraw') {
+				withdrawHours += entryHours;
+			} else if (behavior && (behavior.noHoursRequired || behavior.countsAsWorkday)) {
+				// ferie/helligdag etc: hours worked on such days count as bonus
+				worked += entryHours;
+			} else if (behavior?.flextimeEffect === 'accumulate' && !behavior.isWorkType) {
+				worked += entryHours;
+				hasAccumulate = true;
+			} else {
+				worked += entryHours;
+				hasWork = true;
 			}
+		});
 
-			// Check if holiday from holidays.md - reduces goal based on type
-			const holidayInfo = this.getHolidayInfo(dayKey);
-			let dayGoalReduced = false;
-			if (holidayInfo) {
-				const behavior = holidayInfo.type === 'annet'
-					? this.getAnnetBehavior(holidayInfo)
-					: this.getSpecialDayBehavior(holidayInfo.type);
-
-				// Half-day entries (either 'half' type or :half modifier) reduce by half-day hours
-				if (holidayInfo.halfDay) {
-					goalReduction += dailyGoal - halfDayHours;
-					dayGoalReduced = true;
-				} else if (behavior?.noHoursRequired || behavior?.flextimeEffect === 'reduce_goal') {
-					// Full day holidays/special days reduce by full day
-					goalReduction += dailyGoal;
-					dayGoalReduced = true;
-				}
-			}
-
-			dayEntries.forEach(entry => {
-				if (!entry.isActive) {
-					const behavior = this.getSpecialDayBehavior(entry.name);
-					const entryHours = entry.duration || 0;
-
-					if (behavior?.flextimeEffect === 'reduce_goal') {
-						// Sick days reduce the goal - full day (0 duration) = full daily goal reduction
-						if (!dayGoalReduced) {
-							goalReduction += (entryHours > 0) ? entryHours : dailyGoal;
-							dayGoalReduced = true;
-						}
-					} else if (behavior?.noHoursRequired && !dayGoalReduced) {
-						// noHoursRequired entries (ferie, avspasering) that aren't already counted via holidays
-						// Full day (0 duration) = full daily goal reduction
-						goalReduction += (entryHours > 0) ? entryHours : dailyGoal;
-						dayGoalReduced = true;
-					} else if (behavior?.flextimeEffect !== 'withdraw' && !behavior?.noHoursRequired) {
-						// Regular work hours (exclude withdraw like avspasering, and noHoursRequired like ferie/helligdag)
-						workHours += entryHours;
-					}
-				}
-			});
+		// Same effective-goal rules as getBalanceUpToDate
+		let effectiveGoal = Math.max(0, dayGoal - goalReduction);
+		if (withdrawHours > 0 && !hasWork && !hasAccumulate) {
+			effectiveGoal = 0;
+		} else if (withdrawHours > 0) {
+			effectiveGoal = Math.max(0, effectiveGoal - withdrawHours);
 		}
 
-		return { workHours, goalReduction };
+		return { worked, effectiveGoal, dayGoal };
+	}
+
+	/**
+	 * Week compliance metrics (Monday-Sunday), schedule- and holiday-aware.
+	 * Replaces uiBuilder-local math that used CURRENT settings for historical
+	 * weeks and dropped whole days from the expectation when a partial
+	 * avspasering entry existed.
+	 */
+	getWeekCompliance(mondayOfWeek: Date): { totalHours: number; expectedHours: number; workDaysInWeek: number; workDaysPassed: number } {
+		const today = new Date();
+		today.setHours(0, 0, 0, 0);
+		const balanceStart = this.settings.balanceStartDate
+			? new Date(this.settings.balanceStartDate + 'T00:00:00')
+			: null;
+
+		let totalHours = 0;
+		let expectedHours = 0;
+		let workDaysInWeek = 0;
+		let workDaysPassed = 0;
+
+		for (let i = 0; i < 7; i++) {
+			const day = new Date(mondayOfWeek.getFullYear(), mondayOfWeek.getMonth(), mondayOfWeek.getDate() + i);
+			if (balanceStart && day < balanceStart) continue;
+			const dayKey = Utils.toLocalDateStr(day);
+			const { worked, effectiveGoal, dayGoal } = this.classifyDay(dayKey);
+
+			if (dayGoal > 0) {
+				workDaysInWeek++;
+				if (day <= today) workDaysPassed++;
+			}
+			totalHours += worked;
+			if (day <= today) expectedHours += effectiveGoal;
+		}
+
+		return { totalHours, expectedHours, workDaysInWeek, workDaysPassed };
+	}
+
+	private getWeekDayKeys(weekStart: Date): string[] {
+		const keys: string[] = [];
+		for (let i = 0; i < 7; i++) {
+			const d = new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + i);
+			keys.push(Utils.toLocalDateStr(d));
+		}
+		return keys;
+	}
+
+	private getMonthDayKeys(year: number, month: number): string[] {
+		const keys: string[] = [];
+		const daysInMonth = new Date(year, month + 1, 0).getDate();
+		for (let day = 1; day <= daysInMonth; day++) {
+			keys.push(Utils.toLocalDateStr(new Date(year, month, day)));
+		}
+		return keys;
 	}
 
 	/**
@@ -1931,7 +1986,6 @@ export class DataManager {
 	getHistoricalHoursData(timeframe: 'month' | 'year' | 'total', selectedYear?: number, _selectedMonth?: number): BarChartData[] {
 		const data: BarChartData[] = [];
 		const today = new Date();
-		const weeklyTarget = this.workweekHours;
 
 		if (timeframe === 'month') {
 			// Last 6 weeks
@@ -1941,13 +1995,11 @@ export class DataManager {
 				const weekStart = new Date(currentWeekStart);
 				weekStart.setDate(currentWeekStart.getDate() - (i * 7));
 				const weekNum = this.getISOWeekNumber(weekStart);
-				const breakdown = this.getWeekHoursWithBreakdown(weekStart);
-				// Adjust target by goal reduction from sick days
-				const adjustedTarget = Math.max(0, weeklyTarget - breakdown.goalReduction);
+				const breakdown = this.getRangeHoursWithTarget(this.getWeekDayKeys(weekStart));
 				data.push({
 					label: `${weekPrefix}${weekNum}`,
 					hours: breakdown.workHours,
-					target: adjustedTarget
+					target: breakdown.target
 				});
 			}
 		} else if (timeframe === 'year') {
@@ -1955,23 +2007,11 @@ export class DataManager {
 			const year = selectedYear || today.getFullYear();
 			const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Des'];
 			for (let month = 0; month < 12; month++) {
-				// Calculate actual workdays in the month (excluding weekends)
-				const daysInMonth = new Date(year, month + 1, 0).getDate();
-				let workdaysInMonth = 0;
-				for (let day = 1; day <= daysInMonth; day++) {
-					const d = new Date(year, month, day);
-					if (!Utils.isWeekend(d, this.settings)) {
-						workdaysInMonth++;
-					}
-				}
-				const monthlyTarget = workdaysInMonth * this.workdayHours;
-				const breakdown = this.getMonthHoursWithBreakdown(year, month);
-				// Adjust target by goal reduction from holidays, ferie, etc.
-				const adjustedTarget = Math.max(0, monthlyTarget - breakdown.goalReduction);
+				const breakdown = this.getRangeHoursWithTarget(this.getMonthDayKeys(year, month));
 				data.push({
 					label: monthNames[month],
 					hours: breakdown.workHours,
-					target: adjustedTarget
+					target: breakdown.target
 				});
 			}
 		} else {

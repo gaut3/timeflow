@@ -9,6 +9,58 @@ This log begins with `2.0.0`. Everything below summarizes what changed since the
 last `1.x` release (`1.3.13`); earlier history is tracked in the git tags and the
 [Releases page](https://github.com/gaut3/timeflow/releases).
 
+## [2.1.0] - 2026-07-14
+
+Calculation-correctness pass from a full code review. Focus: the time/balance math must be
+right under every workday/week configuration.
+
+> **Heads-up:** several balance-semantics fixes below (avspasering no longer double-charging,
+> lunch deducted once per day, alternating weeks honored, averages derived from your actual
+> work-days setting) will **legitimately change your historical flextime numbers**. This is
+> the numbers becoming correct, not data loss — no action needed.
+
+### Fixed
+- **Data corruption:** timestamps ending at exactly midnight are no longer rewritten to
+  08:00 on load (only legacy full-day entries with both start AND end at 00:00 are);
+  expanded (non-collapsed) Timekeep groups no longer drop their sub-entries' hours;
+  imports now store local-format timestamps (was UTC `Z`, which double-counted entries on
+  re-import and shifted displayed clock times); Timekeep imports with numeric epoch
+  timestamps no longer produce invalid `NaN` dates; the "Log work" calendar modal also
+  stored UTC — fixed.
+- **Balance/goal engine:** work + avspasering on the same day no longer double-charges the
+  balance (withdrawn hours now cover the goal gap); alternating weeks are now respected by
+  the daily goal (previously only calendar coloring honored them) and the week-parity no
+  longer breaks after 53-ISO-week years; lunch break is deducted once per **day** (was per
+  entry — split days lost 30 min per extra segment); a running timer now only defers
+  *today* from the balance (a forgotten timer no longer hides that whole past day's hours
+  and withdrawals); per-entry flextime on mixed work+studie/kurs days now sums to the same
+  delta as the balance; date-only strings are parsed as local dates (west-of-UTC timezones
+  previously had every date shifted one day — Mondays treated as Sunday); half-day markers
+  on no-hours-required types (e.g. `helligdag:half`) now yield a half-day goal; the
+  `annet:HH:MM-HH:MM:` planned-day format now parses correctly.
+- **Displays:** week-compliance dots and bar-chart targets now use the schedule-history-
+  and holiday-aware daily goal (historical weeks were graded against *current* settings);
+  the hero "added today" badge and the day drawer now use the same per-entry flextime sum
+  as history (avspasering/sick days no longer show misleading day balances); day drawer
+  time ranges are parsed, not sliced from raw strings; overtime-payout offers are based on
+  lunch-adjusted work hours (no more paying out overtime you never earned); a stale
+  running timer from another day no longer inflates "today"/"this week"; planned days
+  that are *today* show in the Upcoming list; dashboard refreshes no longer leak update
+  intervals (CPU grew with every timer start/stop).
+- **Migrations:** run independently (an earlier `||` chain ran at most one per restart);
+  the sick-day migration is now run-once and no longer reverts user-customized behaviors
+  on every load; import duplicate detection compares instants, not raw strings.
+- **Settings & export:** numeric settings accept a decimal comma (`37,5` is no longer
+  read as `37`); "reset to default" buttons work again (settings defaults were being
+  mutated by reference on load); editing your current schedule no longer overwrites a
+  schedule period you'd set up for a future date; two schedule periods can't share the
+  same start date; average-workload stats now derive expected work days from your actual
+  work-days setting instead of a fixed 5-day week (this can shift monthly/yearly averages
+  for non–5-day schedules); CSV export groups months by local date (entries near a month
+  boundary no longer land in the wrong month) and the in-view export's type breakdown now
+  lists custom absence types too; a running timer now refreshes every open dashboard, not
+  just the last one opened; stopping a work timer reports the lunch-adjusted duration.
+
 ## [2.0.6] - 2026-07-01
 
 Two small fixes to the calendar day drawer, plus a few text-label fixes.
