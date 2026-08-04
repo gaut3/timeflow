@@ -6133,7 +6133,7 @@ export class UIBuilder {
 		const dot = workLeft.createDiv({ cls: 'tf-drawer-type-dot' });
 		if (typeBehavior?.color) dot.style.background = typeBehavior.color;
 		const typeLabel = typeBehavior ? translateSpecialDayName(typeBehavior.id, typeBehavior.label) : t('specialDays.work');
-		workLeft.createEl('span', { cls: 'tf-drawer-work-label', text: `${typeLabel} · ${Utils.formatHoursToHM(totalHours, this.settings.hourUnit)}` });
+		workLeft.createSpan({ cls: 'tf-drawer-work-label', text: `${typeLabel} · ${Utils.formatHoursToHM(totalHours, this.settings.hourUnit)}` });
 
 		// Parse, don't slice raw strings: legacy entries may still be stored in
 		// UTC 'Z' format, where substring(11,16) shows the wrong clock time and
@@ -6143,7 +6143,7 @@ export class UIBuilder {
 		if (starts.length > 0) {
 			const firstStart = formatTime(starts[0]);
 			const lastEnd = ends.length > 0 ? formatTime(ends[ends.length - 1]) : '–';
-			workRow.createEl('span', { cls: 'tf-drawer-time-range', text: `${firstStart} – ${lastEnd}` });
+			workRow.createSpan({ cls: 'tf-drawer-time-range', text: `${firstStart} – ${lastEnd}` });
 		}
 
 		// Balance row — sum per-entry flextime (minus payouts) like the history
@@ -6156,8 +6156,8 @@ export class UIBuilder {
 			const sign = dayFlex >= 0 ? '+' : '−';
 			const flexColorClass = dayFlex >= 0 ? 'tf-ok' : 'tf-warn';
 			const balRow = drawer.createDiv({ cls: 'tf-drawer-balance-row' });
-			balRow.createEl('span', { cls: 'tf-drawer-balance-label', text: t('v3.dailyBalance') });
-			balRow.createEl('span', { cls: `tf-drawer-balance-value ${flexColorClass}`, text: `${sign}${Utils.formatHoursToHM(Math.abs(dayFlex), this.settings.hourUnit)}` });
+			balRow.createSpan({ cls: 'tf-drawer-balance-label', text: t('v3.dailyBalance') });
+			balRow.createSpan({ cls: `tf-drawer-balance-value ${flexColorClass}`, text: `${sign}${Utils.formatHoursToHM(Math.abs(dayFlex), this.settings.hourUnit)}` });
 		}
 
 		// Actions

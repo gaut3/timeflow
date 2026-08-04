@@ -2639,16 +2639,16 @@ var TimeFlowSettingTab = class extends import_obsidian2.PluginSettingTab {
   }
   validateDateFormat(dateStr) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-      new import_obsidian2.Notice("\u274C balance start date: format must be yyyy-mm-dd");
+      new import_obsidian2.Notice("\u274C Balance start date: format must be yyyy-mm-dd");
       return false;
     }
     const date = /* @__PURE__ */ new Date(dateStr + "T00:00:00");
     if (isNaN(date.getTime())) {
-      new import_obsidian2.Notice("\u274C balance start date: invalid date");
+      new import_obsidian2.Notice("\u274C Balance start date: invalid date");
       return false;
     }
     if (date > /* @__PURE__ */ new Date()) {
-      new import_obsidian2.Notice("\u274C balance start date: cannot be in the future");
+      new import_obsidian2.Notice("\u274C Balance start date: cannot be in the future");
       return false;
     }
     return true;
@@ -2693,7 +2693,7 @@ var TimeFlowSettingTab = class extends import_obsidian2.PluginSettingTab {
     });
     new import_obsidian2.Setting(settingsContainer).setName("Quick start").setDesc("Essential settings to get started with timeflow").setHeading();
     const syncInfo = settingsContainer.createDiv({ cls: "tf-settings-info-box" });
-    syncInfo.createEl("strong", { text: "\u{1F4F1} cross-device settings sync" });
+    syncInfo.createEl("strong", { text: "\u{1F4F1} Cross-device settings sync" });
     syncInfo.createEl("br");
     syncInfo.appendText("Settings are automatically saved to ");
     syncInfo.createEl("code", { text: "timeflow/data.md" });
@@ -3729,7 +3729,7 @@ Note: Historical data using "annet:${template.id}" will still work but show a ge
       formData.filenamePattern = value;
     }));
     const infoDiv = contentEl.createDiv({ cls: "tf-settings-info-box" });
-    infoDiv.createEl("strong", { text: "\u{1F4CB} pattern variables:" });
+    infoDiv.createEl("strong", { text: "\u{1F4CB} Pattern variables:" });
     const ul = infoDiv.createEl("ul", { cls: "tf-settings-info-list" });
     const patterns = [
       ["{YYYY}", "Four-digit year (e.g., 2025)"],
@@ -9907,21 +9907,21 @@ ${noteType.tags.join(" ")}`;
     const dot = workLeft.createDiv({ cls: "tf-drawer-type-dot" });
     if (typeBehavior == null ? void 0 : typeBehavior.color) dot.style.background = typeBehavior.color;
     const typeLabel = typeBehavior ? translateSpecialDayName(typeBehavior.id, typeBehavior.label) : t("specialDays.work");
-    workLeft.createEl("span", { cls: "tf-drawer-work-label", text: `${typeLabel} \xB7 ${Utils.formatHoursToHM(totalHours, this.settings.hourUnit)}` });
+    workLeft.createSpan({ cls: "tf-drawer-work-label", text: `${typeLabel} \xB7 ${Utils.formatHoursToHM(totalHours, this.settings.hourUnit)}` });
     const starts = dayEntries.filter((e) => e.startTime).map((e) => new Date(e.startTime)).sort((a, b) => a.getTime() - b.getTime());
     const ends = dayEntries.filter((e) => e.endTime).map((e) => new Date(e.endTime)).sort((a, b) => a.getTime() - b.getTime());
     if (starts.length > 0) {
       const firstStart = formatTime(starts[0]);
       const lastEnd = ends.length > 0 ? formatTime(ends[ends.length - 1]) : "\u2013";
-      workRow.createEl("span", { cls: "tf-drawer-time-range", text: `${firstStart} \u2013 ${lastEnd}` });
+      workRow.createSpan({ cls: "tf-drawer-time-range", text: `${firstStart} \u2013 ${lastEnd}` });
     }
     if (this.settings.enableGoalTracking) {
       const dayFlex = dayEntries.filter((e) => !e.isActive).reduce((s, e) => s + (e.flextime || 0) - (e.overtimePayout || 0), 0);
       const sign = dayFlex >= 0 ? "+" : "\u2212";
       const flexColorClass = dayFlex >= 0 ? "tf-ok" : "tf-warn";
       const balRow = drawer.createDiv({ cls: "tf-drawer-balance-row" });
-      balRow.createEl("span", { cls: "tf-drawer-balance-label", text: t("v3.dailyBalance") });
-      balRow.createEl("span", { cls: `tf-drawer-balance-value ${flexColorClass}`, text: `${sign}${Utils.formatHoursToHM(Math.abs(dayFlex), this.settings.hourUnit)}` });
+      balRow.createSpan({ cls: "tf-drawer-balance-label", text: t("v3.dailyBalance") });
+      balRow.createSpan({ cls: `tf-drawer-balance-value ${flexColorClass}`, text: `${sign}${Utils.formatHoursToHM(Math.abs(dayFlex), this.settings.hourUnit)}` });
     }
     const actions = drawer.createDiv({ cls: "tf-drawer-actions" });
     const editSection = drawer.createDiv({ cls: "tf-drawer-edit-section tf-hidden" });

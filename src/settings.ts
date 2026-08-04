@@ -1276,18 +1276,18 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 
 	private validateDateFormat(dateStr: string): boolean {
 		if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-			new Notice("❌ balance start date: format must be yyyy-mm-dd");
+			new Notice("❌ Balance start date: format must be yyyy-mm-dd");
 			return false;
 		}
 
 		const date = new Date(dateStr + 'T00:00:00');
 		if (isNaN(date.getTime())) {
-			new Notice("❌ balance start date: invalid date");
+			new Notice("❌ Balance start date: invalid date");
 			return false;
 		}
 
 		if (date > new Date()) {
-			new Notice("❌ balance start date: cannot be in the future");
+			new Notice("❌ Balance start date: cannot be in the future");
 			return false;
 		}
 
@@ -1360,7 +1360,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 
 		// Settings sync info
 		const syncInfo = settingsContainer.createDiv({ cls: 'tf-settings-info-box' });
-		syncInfo.createEl('strong', { text: '📱 cross-device settings sync' });
+		syncInfo.createEl('strong', { text: '📱 Cross-device settings sync' });
 		syncInfo.createEl('br');
 		syncInfo.appendText('Settings are automatically saved to ');
 		syncInfo.createEl('code', { text: 'timeflow/data.md' });
@@ -3037,7 +3037,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 
 		// Info section
 		const infoDiv = contentEl.createDiv({ cls: 'tf-settings-info-box' });
-		infoDiv.createEl('strong', { text: '📋 pattern variables:' });
+		infoDiv.createEl('strong', { text: '📋 Pattern variables:' });
 		const ul = infoDiv.createEl('ul', { cls: 'tf-settings-info-list' });
 		const patterns = [
 			['{YYYY}', 'Four-digit year (e.g., 2025)'],

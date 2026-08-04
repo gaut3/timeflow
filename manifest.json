@@ -1,7 +1,7 @@
 {
 	"id": "timeflow",
 	"name": "timeflow",
-	"version": "2.1.0",
+	"version": "2.1.1",
 	"minAppVersion": "1.7.2",
 	"description": "Track flexible work hours and time off with built-in timer, visualizations, and statistics.",
 	"author": "gaut3",

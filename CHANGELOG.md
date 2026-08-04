@@ -9,6 +9,37 @@ This log begins with `2.0.0`. Everything below summarizes what changed since the
 last `1.x` release (`1.3.13`); earlier history is tracked in the git tags and the
 [Releases page](https://github.com/gaut3/timeflow/releases).
 
+## [2.1.1] - 2026-08-04
+
+Maintenance release. Clears the Obsidian automated-review warnings behind the "caution"
+notice on the community-plugin page. No behavior changes — the only user-visible
+difference is capitalization in a few settings strings.
+
+### Fixed
+- Settings UI text now follows Obsidian's sentence-case guideline: emoji-prefixed strings
+  were missing their leading capital (the balance-start-date validation notices, the
+  cross-device sync heading, and the pattern-variables heading).
+
+### Security
+- Updated dev dependencies for five advisories: `brace-expansion` (denial of service via
+  unbounded brace expansion), `fast-uri` (host confusion), and `js-yaml` (quadratic CPU on
+  merge-key chains). All are transitive build/lint tooling — none ship in the plugin.
+
+### Internal
+- **Root-caused the automated review's `no-unsafe-*` warnings.** `tsconfig.json` declared
+  `lib: ["DOM", "ES5", "ES6", "ES7"]` — ES2016 — while the code uses ES2017+ APIs
+  (`padStart`, `Object.entries`, `Object.values`, `flatMap`). Where `@types/node` doesn't
+  resolve, those calls take TypeScript's *error* type and every expression touching them
+  cascades into `no-unsafe-call`/`-assignment`/`-member-access`/`-return`/`-argument`. The
+  gap was invisible locally because `@types/node` transitively references newer `lib.es*`
+  declarations. Now `lib: ["DOM", "ES2019"]`, matching the esbuild target. Roughly 150
+  review warnings dropped to 7.
+- Bumped `eslint-plugin-obsidianmd` 0.3.0 → 0.4.1; the pinned older copy was why local
+  linting reported clean while the review did not. Applied its `prefer-create-el` fixes
+  (`createEl('span', …)` → `createSpan(…)`).
+- Regression check for the above: `npx tsc --noEmit --skipLibCheck --typeRoots <empty-dir>`
+  must report zero errors. A TS2550 there means the declared `lib` is short again.
+
 ## [2.1.0] - 2026-07-14
 
 Calculation-correctness pass from a full code review. Focus: the time/balance math must be
@@ -310,6 +341,9 @@ at home in any light or dark theme.
 - i18n expanded with new strings and a date "range" format for the collapsed
   upcoming rows. (Known gap: the settings tab is still largely English.)
 
+[2.1.1]: https://github.com/gaut3/timeflow/releases/tag/2.1.1
+[2.1.0]: https://github.com/gaut3/timeflow/releases/tag/2.1.0
+[2.0.6]: https://github.com/gaut3/timeflow/releases/tag/2.0.6
 [2.0.5]: https://github.com/gaut3/timeflow/releases/tag/2.0.5
 [2.0.4]: https://github.com/gaut3/timeflow/releases/tag/2.0.4
 [2.0.3]: https://github.com/gaut3/timeflow/releases/tag/2.0.3
