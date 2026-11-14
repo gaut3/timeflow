@@ -1571,7 +1571,7 @@ export class UIBuilder {
 				const startTimeStr = `${startTime.getHours().toString().padStart(2, '0')}:${startTime.getMinutes().toString().padStart(2, '0')}`;
 				const now = new Date();
 				const elapsed = ((now.getTime() - startTime.getTime()) / (1000 * 60 * 60)).toFixed(1);
-				menuInfo.createEl('p', { text: '⏱️ ' + timer.name + ': ' + startTimeStr + ' - Pågår (' + elapsed + 't)', cls: 'tf-ml-8' });
+				menuInfo.createEl('p', { text: '⏱️ ' + timer.name + ': ' + startTimeStr + ' - ' + t('ui.ongoing') + ' (' + elapsed + this.settings.hourUnit + ')', cls: 'tf-ml-8' });
 			});
 		}
 
@@ -2660,9 +2660,9 @@ export class UIBuilder {
 				const [tH, tM] = to.split(':').map(Number);
 				const hours = (tH + tM/60) - (fH + fM/60);
 				if (hours > 0) {
-					durationDisplay.textContent = `Varighet: ${hours.toFixed(1)} timer`;
+					durationDisplay.textContent = `${t('ui.duration')}: ${hours.toFixed(1)} ${t('ui.hours').toLowerCase()}`;
 				} else {
-					durationDisplay.textContent = 'Ugyldig tidsperiode';
+					durationDisplay.textContent = t('validation.invalidTimePeriod');
 				}
 			}
 		};
@@ -5434,7 +5434,7 @@ export class UIBuilder {
 
 		const deleteBtn = createEl('button');
 		deleteBtn.className = 'tf-confirm-delete';
-		deleteBtn.textContent = 'Slett';
+		deleteBtn.textContent = t('buttons.delete');
 		deleteBtn.onclick = () => {
 			overlay.remove();
 			void onConfirm();
