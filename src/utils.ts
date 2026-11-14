@@ -86,6 +86,20 @@ export const Utils = {
 
 	hoursDiff: (start: Date, end: Date): number => (end.getTime() - start.getTime()) / 3600000,
 
+	// Absence types whose time range matters: credited (reduce_goal) or withdrawn (withdraw)
+	isTimedAbsenceType: (settings: TimeFlowSettings, name: string): boolean => {
+		const id = name.toLowerCase();
+		const effect = settings.specialDayBehaviors?.find(b => b.id.toLowerCase() === id)?.flextimeEffect;
+		return effect === 'reduce_goal' || effect === 'withdraw';
+	},
+
+	// Whether an 'annet' template is configured as unpaid (case-insensitive id match)
+	isUnpaidAnnetTemplate: (settings: TimeFlowSettings, templateId?: string): boolean => {
+		if (!templateId) return false;
+		const id = templateId.toLowerCase();
+		return !!settings.annetTemplates?.find(tmpl => tmpl.id.toLowerCase() === id)?.unpaid;
+	},
+
 	// Compare two stored timestamps by instant, tolerating mixed formats
 	// (local ISO without Z vs UTC with Z vs missing)
 	sameTimestamp: (a: string | null | undefined, b: string | null | undefined): boolean => {
@@ -124,6 +138,17 @@ export const Utils = {
 			m = 0;
 		}
 		return `${isNegative ? '-' : ''}${h}${unit} ${m.toString().padStart(2, "0")}m`;
+	},
+
+	// Decimal hours with two decimals ("9.25"), from the same rounded minutes
+	// formatHoursToHM shows, so "8h 14m" always pairs with "8.23". Negative
+	// values keep their "-"; signed adds "+" to positive values. Zero is "0.00".
+	formatDecimalHours: (hours: number, signed = false): string => {
+		const minutes = Math.round(Math.abs(hours) * 60);
+		const value = (minutes / 60).toFixed(2);
+		if (minutes === 0) return value;
+		if (hours < 0) return `-${value}`;
+		return signed ? `+${value}` : value;
 	},
 
 	toLocalDateStr: (date: Date): string => {

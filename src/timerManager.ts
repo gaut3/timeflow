@@ -13,6 +13,7 @@ export interface Timer {
 	subEntries: Timer[] | null;
 	comment?: string;
 	overtimePayout?: number; // Hours of overtime marked for payout instead of flextime
+	exactTimes?: boolean; // Absence whose start/end are real clock times; only these trim overlapping work
 }
 
 export interface TimekeepData {
@@ -235,7 +236,8 @@ ${timekeepBlock}${settingsBlock}
 			name,
 			startTime: Utils.toLocalISOString(new Date()),
 			endTime: null,
-			subEntries: null
+			subEntries: null,
+			...(Utils.isTimedAbsenceType(this.settings, name) ? { exactTimes: true } : {})
 		};
 
 		this.data.entries.push(timer);
@@ -403,7 +405,8 @@ ${timekeepBlock}${settingsBlock}
 					startTime: entry.startTime,
 					endTime: entry.endTime ?? undefined,
 					subEntries: undefined,
-					overtimePayout: entry.overtimePayout
+					overtimePayout: entry.overtimePayout,
+					exactTimes: entry.exactTimes
 				});
 			}
 		};
@@ -523,7 +526,7 @@ ${timekeepBlock}${settingsBlock}
 
 	// Convert past planned days (from holidays.md) to timer entries
 	// This ensures planned days like ferie, avspasering appear in Historikk
-	async convertPastPlannedDays(holidays: Record<string, { type: string; description: string; halfDay: boolean; startTime?: string; endTime?: string }>, settings: TimeFlowSettings): Promise<number> {
+	async convertPastPlannedDays(holidays: Record<string, { type: string; description: string; halfDay: boolean; startTime?: string; endTime?: string; annetTemplateId?: string }>, settings: TimeFlowSettings): Promise<number> {
 		const today = new Date();
 		today.setHours(0, 0, 0, 0);
 		const todayStr = Utils.toLocalDateStr(today);
@@ -562,6 +565,7 @@ ${timekeepBlock}${settingsBlock}
 			// Use T08:00:00 instead of T00:00:00 to avoid timezone parsing issues
 			let startTime = `${dateStr}T08:00:00`;
 			let endTime = `${dateStr}T08:00:00`;
+			let exactTimes = false;
 
 			const behavior = settings.specialDayBehaviors.find(b => b.id === info.type);
 			if (behavior?.flextimeEffect === 'withdraw') {
@@ -569,6 +573,7 @@ ${timekeepBlock}${settingsBlock}
 				if (info.startTime && info.endTime) {
 					startTime = `${dateStr}T${info.startTime}:00`;
 					endTime = `${dateStr}T${info.endTime}:00`;
+					exactTimes = true;
 				} else {
 					// Fallback: full workday if no time specified
 					const hours = settings.baseWorkday * settings.workPercent;
@@ -577,9 +582,12 @@ ${timekeepBlock}${settingsBlock}
 					endTime = `${dateStr}T${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:00`;
 				}
 			} else if (info.type === 'annet' && info.startTime && info.endTime) {
-				// Partial day annet - use the specified time range
+				// Partial day annet - use the specified time range. Unpaid templates
+				// convert too: DataManager decides paid/unpaid when calculating, so
+				// toggling a template later applies consistently to past days.
 				startTime = `${dateStr}T${info.startTime}:00`;
 				endTime = `${dateStr}T${info.endTime}:00`;
+				exactTimes = true;
 			}
 			// ferie, velferdspermisjon, sykemelding, egenmelding: 08:00-08:00 (0 duration is fine)
 
@@ -587,7 +595,8 @@ ${timekeepBlock}${settingsBlock}
 				name: info.type,
 				startTime,
 				endTime,
-				subEntries: null
+				subEntries: null,
+				...(exactTimes ? { exactTimes } : {})
 			};
 
 			this.data.entries.push(entry);
