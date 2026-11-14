@@ -155,6 +155,7 @@ _The same dashboard adapts to a narrow sidebar — nothing is dropped on mobile:
 - **System Theme** - Automatically follows Obsidian's light/dark theme; structural colors use Obsidian's own variables, so any theme works with zero setup
 - **Optional Background Override** - Set a custom dashboard background per light/dark theme (off by default — the only sanctioned theme override; everything else defers to your theme)
 - **Hour Unit Preference** - Display hours as "h" or "t" (timer)
+- **Decimal Hours** - Durations and balances also show decimal hours, e.g. `9h 15m (9.25 hrs)`, for copying into timesheets. Click the decimal value (or focus it and press Enter) to copy just the number. On by default; turn off with **Show decimal hours** in settings
 - **Flexible View Location** - Open in sidebar or main window
   - Default location configurable in settings
   - Quick toggle button in the dashboard

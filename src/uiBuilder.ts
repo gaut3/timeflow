@@ -6,6 +6,7 @@ import { Utils, getSpecialDayColors, getSpecialDayTextColors } from './utils';
 import type TimeFlowPlugin from './main';
 import { t, tObj, plural, formatDate, formatTime, getDayNamesShort, getMonthName, getMonthShort, translateSpecialDayName, translateNoteTypeName, translateAnnetTemplateName } from './i18n';
 import { CommentModal } from './commentModal';
+import { appendDecimalHours } from './decimalHours';
 
 export interface SystemStatus {
 	validation?: ValidationResults;
@@ -1653,6 +1654,7 @@ export class UIBuilder {
 				const balanceP = menuInfo.createEl('p');
 				balanceP.createEl('strong', { text: t('ui.runningBalance') + ':' });
 				balanceP.appendText(' ' + (runningBalance >= 0 ? '+' : '') + Utils.formatHoursToHM(runningBalance, this.settings.hourUnit));
+				appendDecimalHours(balanceP, runningBalance, this.settings, true);
 			}
 		} else if (isPastDay && !isPlannedDay && runningTimersForDate.length === 0) {
 			menuInfo.createEl('p', { text: t('ui.noRegistration'), cls: 'tf-text-muted' });
@@ -4271,6 +4273,7 @@ export class UIBuilder {
 					const hoursCell = createEl('td');
 					const hoursText = Utils.formatHoursToHM(e.duration || 0, this.settings.hourUnit);
 					hoursCell.textContent = e.isActive ? `${hoursText}...` : hoursText;
+					if (!e.isActive) appendDecimalHours(hoursCell, e.duration || 0, this.settings);
 					row.appendChild(hoursCell);
 
 					// Flextime cell (subtract overtime payout if present)
@@ -4287,6 +4290,8 @@ export class UIBuilder {
 							flextimeCell.textContent = flexMag;
 							flextimeCell.addClass('tf-history-flex-zero');
 						}
+						// The zero branch shows the unsigned magnitude, so its decimal does too
+						if (!e.isActive) appendDecimalHours(flextimeCell, Math.abs(netFlextime) > 1 / 60 ? netFlextime : Math.abs(netFlextime), this.settings, Math.abs(netFlextime) > 1 / 60);
 					row.appendChild(flextimeCell);
 
 					// Action cell
@@ -4761,6 +4766,7 @@ export class UIBuilder {
 						const hoursCell = createEl('td');
 						const hoursText = Utils.formatHoursToHM(e.duration || 0, this.settings.hourUnit);
 						hoursCell.textContent = e.isActive ? `${hoursText}...` : hoursText;
+						if (!e.isActive) appendDecimalHours(hoursCell, e.duration || 0, this.settings);
 						row.appendChild(hoursCell);
 
 						// Flextime cell (always read-only, subtract overtime payout if present)
@@ -4777,6 +4783,8 @@ export class UIBuilder {
 							flextimeCell.textContent = flexMag;
 							flextimeCell.addClass('tf-history-flex-zero');
 						}
+						// The zero branch shows the unsigned magnitude, so its decimal does too
+						if (!e.isActive) appendDecimalHours(flextimeCell, Math.abs(netFlextime) > 1 / 60 ? netFlextime : Math.abs(netFlextime), this.settings, Math.abs(netFlextime) > 1 / 60);
 						row.appendChild(flextimeCell);
 
 						// Delete button (only in edit mode)
@@ -5874,7 +5882,8 @@ export class UIBuilder {
 		// Today row — flat siblings: label | value | track | goal
 		const todayRow = strip.createDiv({ cls: 'tf-strip-row' });
 		todayRow.createDiv({ cls: 'tf-strip-label', text: t('ui.today') });
-		todayRow.createDiv({ cls: 'tf-strip-hours', text: Utils.formatHoursToHM(todayHours, this.settings.hourUnit) });
+		const todayHoursEl = todayRow.createDiv({ cls: 'tf-strip-hours', text: Utils.formatHoursToHM(todayHours, this.settings.hourUnit) });
+		appendDecimalHours(todayHoursEl, todayHours, this.settings);
 		const todayTrack = todayRow.createDiv({ cls: 'tf-strip-bar-track' });
 		const todayFill = todayTrack.createDiv({ cls: 'tf-strip-bar-fill' });
 		todayFill.style.width = `${dailyGoal > 0 ? Math.min((todayHours / dailyGoal) * 100, 100) : 0}%`;
@@ -5891,7 +5900,8 @@ export class UIBuilder {
 
 		const weekRow = strip.createDiv({ cls: 'tf-strip-row' });
 		weekRow.createDiv({ cls: 'tf-strip-label current-week', text: `${t('v3.weekLabelPrefix')} ${weekNum}` });
-		weekRow.createDiv({ cls: 'tf-strip-hours', text: Utils.formatHoursToHM(weekHours, this.settings.hourUnit) });
+		const weekHoursEl = weekRow.createDiv({ cls: 'tf-strip-hours', text: Utils.formatHoursToHM(weekHours, this.settings.hourUnit) });
+		appendDecimalHours(weekHoursEl, weekHours, this.settings);
 		const weekTrack = weekRow.createDiv({ cls: 'tf-strip-bar-track' });
 		const weekFill = weekTrack.createDiv({ cls: `tf-strip-bar-fill${weekFillCls ? ' ' + weekFillCls : ''}` });
 		weekFill.style.width = `${weekGoal > 0 ? Math.min((weekHours / weekGoal) * 100, 100) : 0}%`;
@@ -6168,7 +6178,8 @@ export class UIBuilder {
 		const dot = workLeft.createDiv({ cls: 'tf-drawer-type-dot' });
 		if (typeBehavior?.color) dot.style.background = typeBehavior.color;
 		const typeLabel = typeBehavior ? translateSpecialDayName(typeBehavior.id, typeBehavior.label) : t('specialDays.work');
-		workLeft.createSpan({ cls: 'tf-drawer-work-label', text: `${typeLabel} · ${Utils.formatHoursToHM(totalHours, this.settings.hourUnit)}` });
+		const workLabel = workLeft.createSpan({ cls: 'tf-drawer-work-label', text: `${typeLabel} · ${Utils.formatHoursToHM(totalHours, this.settings.hourUnit)}` });
+		appendDecimalHours(workLabel, totalHours, this.settings);
 
 		// Parse, don't slice raw strings: legacy entries may still be stored in
 		// UTC 'Z' format, where substring(11,16) shows the wrong clock time and
@@ -6192,7 +6203,8 @@ export class UIBuilder {
 			const flexColorClass = dayFlex >= 0 ? 'tf-ok' : 'tf-warn';
 			const balRow = drawer.createDiv({ cls: 'tf-drawer-balance-row' });
 			balRow.createSpan({ cls: 'tf-drawer-balance-label', text: t('v3.dailyBalance') });
-			balRow.createSpan({ cls: `tf-drawer-balance-value ${flexColorClass}`, text: `${sign}${Utils.formatHoursToHM(Math.abs(dayFlex), this.settings.hourUnit)}` });
+			const balValue = balRow.createSpan({ cls: `tf-drawer-balance-value ${flexColorClass}`, text: `${sign}${Utils.formatHoursToHM(Math.abs(dayFlex), this.settings.hourUnit)}` });
+			appendDecimalHours(balValue, dayFlex, this.settings, true);
 		}
 
 		// Actions
@@ -7087,10 +7099,11 @@ export class UIBuilder {
 			});
 			if (b) chip.setCssStyles({ color: b.textColor || '#fff', backgroundColor: b.color });
 			const sign = flex >= 0 ? '+' : '−';
-			row.createSpan({
+			const flexEl = row.createSpan({
 				cls: `tf-compact-hist-flex ${flex >= 0 ? 'tf-trend-pos' : 'tf-trend-neg'}`,
 				text: `${sign}${Utils.formatHoursToHM(Math.abs(flex), unit)}`,
 			});
+			appendDecimalHours(flexEl, flex, this.settings, true);
 		};
 
 		if (opts.showAll) {

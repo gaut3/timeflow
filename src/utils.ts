@@ -140,6 +140,17 @@ export const Utils = {
 		return `${isNegative ? '-' : ''}${h}${unit} ${m.toString().padStart(2, "0")}m`;
 	},
 
+	// Decimal hours with two decimals ("9.25"), from the same rounded minutes
+	// formatHoursToHM shows, so "8h 14m" always pairs with "8.23". Negative
+	// values keep their "-"; signed adds "+" to positive values. Zero is "0.00".
+	formatDecimalHours: (hours: number, signed = false): string => {
+		const minutes = Math.round(Math.abs(hours) * 60);
+		const value = (minutes / 60).toFixed(2);
+		if (minutes === 0) return value;
+		if (hours < 0) return `-${value}`;
+		return signed ? `+${value}` : value;
+	},
+
 	toLocalDateStr: (date: Date): string => {
 		const y = date.getFullYear();
 		const m = String(date.getMonth() + 1).padStart(2, "0");

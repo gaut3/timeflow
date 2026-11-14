@@ -226,6 +226,7 @@ const translations: Record<Language, TranslationStrings> = {
 			activeTimers: 'Aktive timer',
 			activeTimer: 'Aktiv timer (pågår)',
 			ongoing: 'Pågående',
+			copy: 'Kopier',
 			total: 'Totalt',
 			year: 'År',
 			month: 'Måned',
@@ -380,9 +381,12 @@ const translations: Record<Language, TranslationStrings> = {
 			day: 'dag',
 			days: 'dager',
 			hours: 'timer',
+			decimalHours: 'h',
 		},
 		notifications: {
 			added: 'Lagt til',
+			copiedValue: 'Kopierte {value}',
+			copyFailed: 'Kunne ikke kopiere til utklippstavlen',
 			updated: 'Oppdatert',
 			deleted: 'Slettet',
 			exported: 'Eksportert til CSV',
@@ -566,6 +570,8 @@ const translations: Record<Language, TranslationStrings> = {
 			showWeekNumbersDesc: 'Vis ukenummer i kalender og uke-kortet (ISO 8601 ukenummer)',
 			hideEmptyStats: 'Skjul tomme statistikker',
 			hideEmptyStatsDesc: 'Skjul statistikker med 0 timer/dager',
+			showDecimalHours: 'Vis desimaltimer',
+			showDecimalHoursDesc: 'Vis varigheter også som desimaltimer, f.eks. 9t 15m (9.25 t). Klikk på desimalverdien for å kopiere den.',
 			startingFlextimeBalance: 'Startbalanse fleksitid',
 			startingFlextimeBalanceDesc: 'Fleksitidssaldo å starte med (bruk dette hvis du migrerer fra et annet system)',
 			importData: 'Importer data',
@@ -704,6 +710,7 @@ const translations: Record<Language, TranslationStrings> = {
 			activeTimers: 'Active timers',
 			activeTimer: 'Active timer (in progress)',
 			ongoing: 'Ongoing',
+			copy: 'Copy',
 			total: 'Total',
 			year: 'Year',
 			month: 'Month',
@@ -858,9 +865,12 @@ const translations: Record<Language, TranslationStrings> = {
 			day: 'day',
 			days: 'days',
 			hours: 'hours',
+			decimalHours: 'hrs',
 		},
 		notifications: {
 			added: 'Added',
+			copiedValue: 'Copied {value}',
+			copyFailed: 'Could not copy to the clipboard',
 			updated: 'Updated',
 			deleted: 'Deleted',
 			exported: 'Exported to CSV',
@@ -1044,6 +1054,8 @@ const translations: Record<Language, TranslationStrings> = {
 			showWeekNumbersDesc: 'Show week numbers in calendar and week card (ISO 8601 week numbers)',
 			hideEmptyStats: 'Hide empty statistics',
 			hideEmptyStatsDesc: 'Hide statistics with 0 hours/days',
+			showDecimalHours: 'Show decimal hours',
+			showDecimalHoursDesc: 'Also show durations as decimal hours, e.g. 9h 15m (9.25 hrs). Click the decimal value to copy it.',
 			startingFlextimeBalance: 'Starting flextime balance',
 			startingFlextimeBalanceDesc: 'Initial flextime balance to start with (use this if migrating from another system)',
 			importData: 'Import data',
@@ -1184,6 +1196,7 @@ interface TranslationStrings {
 		activeTimers: string;
 		activeTimer: string;
 		ongoing: string;
+		copy: string;
 		total: string;
 		year: string;
 		month: string;
@@ -1338,9 +1351,12 @@ interface TranslationStrings {
 		day: string;
 		days: string;
 		hours: string;
+		decimalHours: string;
 	};
 	notifications: {
 		added: string;
+		copiedValue: string;
+		copyFailed: string;
 		updated: string;
 		deleted: string;
 		exported: string;
@@ -1524,6 +1540,8 @@ interface TranslationStrings {
 		showWeekNumbersDesc: string;
 		hideEmptyStats: string;
 		hideEmptyStatsDesc: string;
+		showDecimalHours: string;
+		showDecimalHoursDesc: string;
 		startingFlextimeBalance: string;
 		startingFlextimeBalanceDesc: string;
 		importData: string;

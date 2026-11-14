@@ -4836,7 +4836,7 @@
 .timeflow-dashboard .tf-compact-hist-list { display: flex; flex-direction: column; gap: 7px; }
 .timeflow-dashboard .tf-compact-hist-row {
 	display: grid;
-	grid-template-columns: 46px 1fr 60px;
+	grid-template-columns: 46px 1fr minmax(60px, auto);
 	align-items: center;
 	gap: 8px;
 }
@@ -5059,3 +5059,42 @@
    the bar stays pinned to the bottom. */
 [data-layout="sidebar"] .tf-bar-cal-cell { min-height: 44px; }
 
+/* ========================================
+   Decimal hours ("9h 15m (9.25 hrs)"), click to copy
+   ======================================== */
+.tf-decimal-hours {
+	opacity: 0.7;
+	font-weight: normal;
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+	cursor: pointer;
+	border-radius: var(--radius-s);
+	transition: opacity 0.15s ease, color 0.15s ease;
+}
+.tf-decimal-hours:hover {
+	opacity: 1;
+	text-decoration: underline dotted;
+	text-underline-offset: 2px;
+}
+.tf-decimal-hours:focus-visible {
+	opacity: 1;
+	outline: 2px solid var(--interactive-accent);
+	outline-offset: 1px;
+}
+.tf-decimal-hours.tf-decimal-hours-copied {
+	opacity: 1;
+	color: var(--color-green);
+}
+/* Fixed-width slots grow to fit the decimal; the min-width keeps stacked strip bars aligned */
+.tf-strip-hours:has(.tf-decimal-hours) {
+	width: auto;
+	min-width: 9.5em;
+}
+.tf-strip-hours .tf-decimal-hours {
+	font-size: 12px;
+}
+/* Narrow history cells clip with an ellipsis: put the decimal on its own line */
+.tf-history-table-narrow .tf-decimal-hours {
+	display: block;
+	font-size: 11px;
+}

@@ -12,6 +12,11 @@ last `1.x` release (`1.3.13`); earlier history is tracked in the git tags and th
 ## [Unreleased]
 
 ### Added
+- **Decimal hours.** Work entries, daily and running balances, today/week totals and the day
+  drawer show decimal hours next to hours and minutes — `9h 15m (9.25 hrs)`, `+1h 21m (+1.35 hrs)`.
+  Click the decimal value (or press Enter/Space on it) to copy just the number for a timesheet.
+  On by default, including for existing users; turn off with *Show decimal hours* in settings.
+  Display only — no calculations or stored values change.
 - **Unpaid "Other" templates.** A template can be marked *Unpaid* (template settings, or the
   *Unpaid* checkbox when saving a custom absence as a template). A partial-day unpaid absence
   is removed from overlapping work time and does not reduce the daily goal. Existing templates

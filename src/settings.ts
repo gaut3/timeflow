@@ -15,6 +15,7 @@ export interface TimeFlowSettings {
 	hourUnitExplicit: boolean;
 	showWeekNumbers: boolean;
 	hideEmptyStats: boolean;
+	showDecimalHours: boolean;
 	workPercent: number;
 	baseWorkday: number;
 	baseWorkweek: number;
@@ -268,6 +269,7 @@ export const DEFAULT_SETTINGS: TimeFlowSettings = {
 	hourUnitExplicit: false,
 	showWeekNumbers: true,
 	hideEmptyStats: false,
+	showDecimalHours: true,
 	workPercent: 1.0,
 	baseWorkday: 7.5,
 	baseWorkweek: 37.5,
@@ -2159,6 +2161,17 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.hideEmptyStats ?? false)
 				.onChange(async (value) => {
 					this.plugin.settings.hideEmptyStats = value;
+					await this.plugin.saveSettings();
+					await this.refreshView();
+				}));
+
+		new Setting(settingsContainer)
+			.setName(t('settings.showDecimalHours'))
+			.setDesc(t('settings.showDecimalHoursDesc'))
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.showDecimalHours ?? true)
+				.onChange(async (value) => {
+					this.plugin.settings.showDecimalHours = value;
 					await this.plugin.saveSettings();
 					await this.refreshView();
 				}));
