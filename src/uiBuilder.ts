@@ -3209,7 +3209,8 @@ export class UIBuilder {
 							name: dayType,
 							startTime: Utils.toLocalISOString(entryStartDate),
 							endTime: Utils.toLocalISOString(entryEndDate),
-							subEntries: null
+							subEntries: null,
+							exactTimes: true
 						});
 						await this.saveWithErrorHandling();
 						new Notice(`✅ ${translateSpecialDayName(dayType)}: ${sickHours.toFixed(1)}${this.settings.hourUnit || 't'} for ${Utils.toLocalDateStr(dateObj)}`);
@@ -5019,12 +5020,14 @@ export class UIBuilder {
 				}
 			}
 
-			// Add new entry
+			// Add new entry. Duration-only (reduce_goal) entries sit at an arbitrary
+			// noon anchor, so only entries entered with real times are marked exact
 			this.timerManager.data.entries.push({
 				name: typeSelect.value,
 				startTime: Utils.toLocalISOString(startDate),
 				endTime: Utils.toLocalISOString(endDate),
-				subEntries: null
+				subEntries: null,
+				...(!isReduceGoalType(typeSelect.value) && Utils.isTimedAbsenceType(this.settings, typeSelect.value) ? { exactTimes: true } : {})
 			});
 
 			await this.saveWithErrorHandling();
@@ -6136,11 +6139,7 @@ export class UIBuilder {
 		// On a day with work, show worked time only: absence durations (sick,
 		// annet, avspasering) are credited or withdrawn, not worked, and adding
 		// them inflated the total
-		const isAbsence = (e: TimeEntry) => {
-			const effect = this.data.getSpecialDayBehavior(e.name)?.flextimeEffect;
-			return effect === 'reduce_goal' || effect === 'withdraw';
-		};
-		const workedEntries = dayEntries.filter(e => !isAbsence(e));
+		const workedEntries = dayEntries.filter(e => !Utils.isTimedAbsenceType(this.settings, e.name));
 		const shownEntries = workedEntries.length > 0 ? workedEntries : dayEntries;
 		const totalHours = shownEntries.reduce((s, e) => s + (e.duration || 0), 0);
 
@@ -6489,7 +6488,10 @@ export class UIBuilder {
 			const end = new Date(dateObj); end.setHours(parsedEnd.hours, parsedEnd.minutes, 0, 0);
 			if (end <= start) { new Notice(`❌ ${t('validation.endAfterStart')}`); return; }
 			if (this.checkProhibitedOverlap(dateStr, name, start, end)) { new Notice(`❌ ${t('validation.overlappingEntry')}`); return; }
-			this.timerManager.data.entries.push({ name, startTime: Utils.toLocalISOString(start), endTime: Utils.toLocalISOString(end), subEntries: null });
+			this.timerManager.data.entries.push({
+				name, startTime: Utils.toLocalISOString(start), endTime: Utils.toLocalISOString(end), subEntries: null,
+				...(Utils.isTimedAbsenceType(this.settings, name) ? { exactTimes: true } : {})
+			});
 			await this.saveWithErrorHandling();
 			new Notice(`✅ ${t('notifications.entryUpdated')}`);
 			this.timerManager.onTimerChange?.();

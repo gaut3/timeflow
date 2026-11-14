@@ -21,8 +21,10 @@ last `1.x` release (`1.3.13`); earlier history is tracked in the git tags and th
 - Timed absences (partial sick leave, partial "Other", avspasering) that overlapped a work entry
   were counted as both worked and absent — e.g. a 45-minute appointment inside a work entry
   added 45 minutes of flextime instead of none. The overlap is now removed from the work entry
-  (overlapping absences once, before the lunch deduction). Balances change for days that
-  already have such overlaps.
+  (overlapping absences once, across midnight, before the lunch deduction; running timers too).
+  Only absences with real start and end times count — those added with a time range or as a
+  timer from this version on. Sick leave entered as a duration (stored at a placeholder time)
+  and existing entries are left as they were, so past balances do not change.
 - The day drawer total no longer adds absence durations to worked hours.
 
 ## [2.1.1] - 2026-08-04

@@ -86,6 +86,13 @@ export const Utils = {
 
 	hoursDiff: (start: Date, end: Date): number => (end.getTime() - start.getTime()) / 3600000,
 
+	// Absence types whose time range matters: credited (reduce_goal) or withdrawn (withdraw)
+	isTimedAbsenceType: (settings: TimeFlowSettings, name: string): boolean => {
+		const id = name.toLowerCase();
+		const effect = settings.specialDayBehaviors?.find(b => b.id.toLowerCase() === id)?.flextimeEffect;
+		return effect === 'reduce_goal' || effect === 'withdraw';
+	},
+
 	// Whether an 'annet' template is configured as unpaid (case-insensitive id match)
 	isUnpaidAnnetTemplate: (settings: TimeFlowSettings, templateId?: string): boolean => {
 		if (!templateId) return false;

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { App, TFile } from 'obsidian';
 import { DataManager, TimeEntry } from '../src/dataManager';
 import { TimerManager } from '../src/timerManager';
@@ -22,7 +22,13 @@ function makeSettings(): TimeFlowSettings {
 	return settings;
 }
 
+// Entries with real clock times (timers, time-range absences) carry exactTimes
 function entry(name: string, date: string, from: string, to: string): TimeEntry {
+	return { name, startTime: `${date}T${from}:00`, endTime: `${date}T${to}:00`, exactTimes: true };
+}
+
+// Duration-only or pre-exactTimes entries: their clock times are not trusted
+function legacyEntry(name: string, date: string, from: string, to: string): TimeEntry {
 	return { name, startTime: `${date}T${from}:00`, endTime: `${date}T${to}:00` };
 }
 
@@ -193,15 +199,82 @@ describe('partial-day absences and work time', () => {
 });
 
 describe('convertPastPlannedDays', () => {
-	it('skips unpaid partial annet but still converts credited annet', async () => {
+	it('converts paid and unpaid partial annet with exact times, but not untimed avspasering', async () => {
 		const settings = makeSettings();
 		const tm = new TimerManager({} as App, settings);
 		tm.save = async () => {};
 		await tm.convertPastPlannedDays({
 			'2026-11-09': { type: 'annet', description: '', halfDay: false, startTime: '07:00', endTime: '07:45', annetTemplateId: 'car_service' },
 			'2026-11-10': { type: 'annet', description: '', halfDay: false, startTime: '07:00', endTime: '07:45', annetTemplateId: 'appointment' },
+			'2026-11-11': { type: 'avspasering', description: '', halfDay: false },
 		}, settings);
-		expect(tm.data.entries.map(e => e.startTime)).toEqual(['2026-11-10T07:00:00']);
+		expect(tm.data.entries.map(e => [e.startTime, e.exactTimes])).toEqual([
+			['2026-11-09T07:00:00', true],
+			['2026-11-10T07:00:00', true],
+			// Full-workday fallback has made-up times, so it must not trim work
+			['2026-11-11T08:00:00', undefined],
+		]);
+	});
+});
+
+describe('review fixes', () => {
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
+	it('duration-only and older absences without exact times never trim work', async () => {
+		// 3h egenmelding entered as a duration is stored at a noon anchor (12:00-15:00)
+		const dm = await buildDay([entry('jobb', MON, '08:00', '13:00'), legacyEntry('egenmelding', MON, '12:00', '15:00')]);
+		expect(worked(dm, MON)).toBeCloseTo(4.5, 6); // 5h - lunch, no trim
+		expect(dayFlex(dm, MON)).toBeCloseTo(4.5 - 4.4, 6); // goal 7.4 - 3h credited
+	});
+
+	it('marking a template unpaid after conversion still counts the day as unpaid', async () => {
+		const holiday = [`- ${MON}: annet:car_service:07:00-07:45: Car Service`];
+		const entries = () => [entry('jobb', MON, '06:07', '16:30'), entry('annet', MON, '07:00', '07:45')];
+
+		const unpaid = await buildDay(entries(), holiday);
+		expect(unpaid.daily[MON].map(e => e.name)).toEqual(['jobb']);
+		expect(worked(unpaid, MON)).toBeCloseTo(hm(9, 8), 6);
+		expect(dayFlex(unpaid, MON)).toBeCloseTo(hm(1, 44), 6);
+
+		// Toggling unpaid off again only changes the calculation; no data is rewritten
+		const settings = makeSettings();
+		settings.annetTemplates.find(tmpl => tmpl.id === 'car_service')!.unpaid = false;
+		const paid = await buildDay(entries(), holiday, settings);
+		expect(dayFlex(paid, MON)).toBeCloseTo(hm(2, 29), 6);
+	});
+
+	it('a past unpaid partial day without work is flagged as a missing entry, not charged', async () => {
+		// Missing-entry checks start at the first registered day, so register the Friday before
+		const dm = await buildDay(
+			[entry('jobb', '2026-11-06', '08:00', '15:54'), entry('annet', MON, '07:00', '07:45')],
+			[`- ${MON}: annet:car_service:07:00-07:45: Car Service`]
+		);
+		expect(dm.daily[MON]).toBeUndefined();
+		expect(dm.getBalanceUpToDate(MON)).toBeCloseTo(0, 6);
+		expect(dm.getAnnetBehavior(dm.getHolidayInfo(MON)!).flextimeEffect).toBe('none');
+		const missing = dm.validateData().issues.warnings.filter(w => w.type === 'Missing Entry').map(w => w.date);
+		expect(missing).toContain(MON);
+	});
+
+	it('an absence after midnight trims an overnight shift that started the day before', async () => {
+		const dm = await buildDay([
+			{ name: 'jobb', startTime: `${MON}T22:00:00`, endTime: '2026-11-10T06:00:00' },
+			entry('avspasering', '2026-11-10', '04:00', '06:00'),
+		]);
+		expect(worked(dm, MON)).toBeCloseTo(8 - 2 - 0.5, 6);
+	});
+
+	it('a running work timer excludes time it overlaps with a logged absence', async () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date(2026, 10, 9, 12, 0, 0));
+		const running: TimeEntry = { name: 'jobb', startTime: `${MON}T08:00:00` };
+		const dm = await buildDay([running, entry('egenmelding', MON, '10:00', '11:00')]);
+
+		// 4h elapsed - 1h sick - 30m lunch (no completed jobb entry yet)
+		expect(dm.liveActiveDuration(running)).toBeCloseTo(2.5, 6);
+		expect(worked(dm, MON)).toBeCloseTo(2.5, 6);
 	});
 });
 
