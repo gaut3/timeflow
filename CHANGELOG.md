@@ -9,6 +9,24 @@ This log begins with `2.0.0`. Everything below summarizes what changed since the
 last `1.x` release (`1.3.13`); earlier history is tracked in the git tags and the
 [Releases page](https://github.com/gaut3/timeflow/releases).
 
+## [Unreleased]
+
+### Added
+- **Unpaid "Other" templates.** A template can be marked *Unpaid* (template settings, or the
+  *Unpaid* checkbox when saving a custom absence as a template). A partial-day unpaid absence
+  is removed from overlapping work time and does not reduce the daily goal. Existing templates
+  stay credited.
+
+### Fixed
+- Timed absences (partial sick leave, partial "Other", avspasering) that overlapped a work entry
+  were counted as both worked and absent — e.g. a 45-minute appointment inside a work entry
+  added 45 minutes of flextime instead of none. The overlap is now removed from the work entry
+  (overlapping absences once, across midnight, before the lunch deduction; running timers too).
+  Only absences with real start and end times count — those added with a time range or as a
+  timer from this version on. Sick leave entered as a duration (stored at a placeholder time)
+  and existing entries are left as they were, so past balances do not change.
+- The day drawer total no longer adds absence durations to worked hours.
+
 ## [2.1.1] - 2026-08-04
 
 Maintenance release. Clears the Obsidian automated-review warnings behind the "caution"

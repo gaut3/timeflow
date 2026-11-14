@@ -450,6 +450,8 @@ const translations: Record<Language, TranslationStrings> = {
 			custom: 'Egendefinert',
 			fullDay: 'Hel dag',
 			saveAsTemplate: 'Lagre som mal',
+			unpaid: 'Ulønnet',
+			unpaidDesc: 'Gjelder delvis fravær: tiden trekkes fra arbeidstiden og reduserer ikke dagsmålet. Hele dager er uendret – ingen timer forventes, og fleksitiden påvirkes ikke.',
 			templateName: 'Mal-navn',
 			templateIcon: 'Ikon',
 			addTemplate: 'Legg til mal',
@@ -926,6 +928,8 @@ const translations: Record<Language, TranslationStrings> = {
 			custom: 'Custom',
 			fullDay: 'Full day',
 			saveAsTemplate: 'Save as template',
+			unpaid: 'Unpaid',
+			unpaidDesc: 'Applies to partial-day absences: the time is removed from work time and does not reduce the daily goal. Full days are unchanged: no hours are expected and flextime is not affected.',
 			templateName: 'Template name',
 			templateIcon: 'Icon',
 			addTemplate: 'Add template',
@@ -1404,6 +1408,8 @@ interface TranslationStrings {
 		custom: string;
 		fullDay: string;
 		saveAsTemplate: string;
+		unpaid: string;
+		unpaidDesc: string;
 		templateName: string;
 		templateIcon: string;
 		addTemplate: string;

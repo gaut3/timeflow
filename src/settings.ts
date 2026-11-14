@@ -242,6 +242,7 @@ export interface AnnetTemplate {
 	id: string;      // "lege", "tannlege", "begravelse"
 	label: string;   // Display name
 	icon: string;    // Emoji icon
+	unpaid?: boolean; // Partial-day time is removed from work and does not reduce the daily goal
 }
 
 export const DEFAULT_ANNET_TEMPLATES: AnnetTemplate[] = [
@@ -781,6 +782,7 @@ export class AnnetTemplateModal extends Modal {
 			id: this.template?.id || '',
 			label: this.template?.label || '',
 			icon: this.template?.icon || '📋',
+			unpaid: this.template?.unpaid ?? false,
 		};
 
 		// ID field (readonly if editing)
@@ -814,6 +816,14 @@ export class AnnetTemplateModal extends Modal {
 				.setPlaceholder('🏥')
 				.setValue(formData.icon)
 				.onChange(value => formData.icon = value));
+
+		// Unpaid toggle
+		new Setting(contentEl)
+			.setName(t('annet.unpaid'))
+			.setDesc(t('annet.unpaidDesc'))
+			.addToggle(toggle => toggle
+				.setValue(formData.unpaid)
+				.onChange(value => formData.unpaid = value));
 
 		// Buttons
 		const buttonDiv = contentEl.createDiv({ cls: 'tf-settings-button-row' });
@@ -854,6 +864,7 @@ export class AnnetTemplateModal extends Modal {
 				label: formData.label,
 				icon: formData.icon,
 			};
+			if (formData.unpaid) template.unpaid = true;
 
 			void this.onSave(template, this.index);
 			this.close();
@@ -2039,7 +2050,7 @@ export class TimeFlowSettingTab extends PluginSettingTab {
 			const translatedName = translateAnnetTemplateName(template.id, template.label);
 			new Setting(settingsContainer)
 				.setName(`${template.icon} ${translatedName}`)
-				.setDesc(`ID: ${template.id}`)
+				.setDesc(template.unpaid ? `ID: ${template.id} · ${t('annet.unpaid')}` : `ID: ${template.id}`)
 				.addButton(btn => btn
 					.setButtonText(t('common.edit'))
 					.onClick(() => {

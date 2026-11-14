@@ -1571,7 +1571,7 @@ export class UIBuilder {
 				const startTimeStr = `${startTime.getHours().toString().padStart(2, '0')}:${startTime.getMinutes().toString().padStart(2, '0')}`;
 				const now = new Date();
 				const elapsed = ((now.getTime() - startTime.getTime()) / (1000 * 60 * 60)).toFixed(1);
-				menuInfo.createEl('p', { text: '⏱️ ' + timer.name + ': ' + startTimeStr + ' - Pågår (' + elapsed + 't)', cls: 'tf-ml-8' });
+				menuInfo.createEl('p', { text: '⏱️ ' + timer.name + ': ' + startTimeStr + ' - ' + t('ui.ongoing') + ' (' + elapsed + this.settings.hourUnit + ')', cls: 'tf-ml-8' });
 			});
 		}
 
@@ -2660,9 +2660,9 @@ export class UIBuilder {
 				const [tH, tM] = to.split(':').map(Number);
 				const hours = (tH + tM/60) - (fH + fM/60);
 				if (hours > 0) {
-					durationDisplay.textContent = `Varighet: ${hours.toFixed(1)} timer`;
+					durationDisplay.textContent = `${t('ui.duration')}: ${hours.toFixed(1)} ${t('ui.hours').toLowerCase()}`;
 				} else {
-					durationDisplay.textContent = 'Ugyldig tidsperiode';
+					durationDisplay.textContent = t('validation.invalidTimePeriod');
 				}
 			}
 		};
@@ -2920,6 +2920,31 @@ export class UIBuilder {
 
 		saveAsTemplateContainer.appendChild(saveAsTemplateRow);
 
+		// Unpaid checkbox row - stored on the template, so it implies saving one
+		const unpaidRow = createDiv();
+		unpaidRow.className = 'tf-save-template-row';
+
+		const unpaidCheckbox = createEl('input');
+		unpaidCheckbox.type = 'checkbox';
+		unpaidCheckbox.id = 'annetUnpaidCheckbox';
+		unpaidRow.appendChild(unpaidCheckbox);
+
+		const unpaidLabel = createEl('label');
+		unpaidLabel.htmlFor = 'annetUnpaidCheckbox';
+		unpaidLabel.textContent = t('annet.unpaid');
+		unpaidLabel.title = t('annet.unpaidDesc');
+		unpaidLabel.className = 'tf-cursor-pointer';
+		unpaidRow.appendChild(unpaidLabel);
+
+		unpaidCheckbox.onchange = () => {
+			if (unpaidCheckbox.checked) saveAsTemplateCheckbox.checked = true;
+		};
+		saveAsTemplateCheckbox.onchange = () => {
+			if (!saveAsTemplateCheckbox.checked) unpaidCheckbox.checked = false;
+		};
+
+		saveAsTemplateContainer.appendChild(unpaidRow);
+
 		annetContainer.appendChild(saveAsTemplateContainer);
 
 		// Now set up onclick handlers for template buttons (after saveAsTemplateContainer exists)
@@ -2936,6 +2961,7 @@ export class UIBuilder {
 				// Hide custom entry section
 				saveAsTemplateContainer.addClass('tf-hidden');
 				saveAsTemplateCheckbox.checked = false;
+				unpaidCheckbox.checked = false;
 				// Clear custom fields
 				templateNameInput.value = '';
 				templateIconInput.value = '';
@@ -3126,7 +3152,8 @@ export class UIBuilder {
 						this.settings.annetTemplates.push({
 							id: newTemplateId,
 							label: customName,
-							icon: customIcon
+							icon: customIcon,
+							...(unpaidCheckbox.checked ? { unpaid: true } : {})
 						});
 						await this.plugin.saveSettings();
 						new Notice(`✅ ${t('annet.addTemplate')}: ${customIcon} ${customName}`);
@@ -3182,7 +3209,8 @@ export class UIBuilder {
 							name: dayType,
 							startTime: Utils.toLocalISOString(entryStartDate),
 							endTime: Utils.toLocalISOString(entryEndDate),
-							subEntries: null
+							subEntries: null,
+							exactTimes: true
 						});
 						await this.saveWithErrorHandling();
 						new Notice(`✅ ${translateSpecialDayName(dayType)}: ${sickHours.toFixed(1)}${this.settings.hourUnit || 't'} for ${Utils.toLocalDateStr(dateObj)}`);
@@ -4992,12 +5020,14 @@ export class UIBuilder {
 				}
 			}
 
-			// Add new entry
+			// Add new entry. Duration-only (reduce_goal) entries sit at an arbitrary
+			// noon anchor, so only entries entered with real times are marked exact
 			this.timerManager.data.entries.push({
 				name: typeSelect.value,
 				startTime: Utils.toLocalISOString(startDate),
 				endTime: Utils.toLocalISOString(endDate),
-				subEntries: null
+				subEntries: null,
+				...(!isReduceGoalType(typeSelect.value) && Utils.isTimedAbsenceType(this.settings, typeSelect.value) ? { exactTimes: true } : {})
 			});
 
 			await this.saveWithErrorHandling();
@@ -5407,7 +5437,7 @@ export class UIBuilder {
 
 		const deleteBtn = createEl('button');
 		deleteBtn.className = 'tf-confirm-delete';
-		deleteBtn.textContent = 'Slett';
+		deleteBtn.textContent = t('buttons.delete');
 		deleteBtn.onclick = () => {
 			overlay.remove();
 			void onConfirm();
@@ -6106,10 +6136,15 @@ export class UIBuilder {
 		const drawer = createDiv({ cls: 'tf-inline-drawer' });
 
 		const dayEntries = this.data.daily[dateKey] || [];
-		const totalHours = dayEntries.reduce((s, e) => s + (e.duration || 0), 0);
+		// On a day with work, show worked time only: absence durations (sick,
+		// annet, avspasering) are credited or withdrawn, not worked, and adding
+		// them inflated the total
+		const workedEntries = dayEntries.filter(e => !Utils.isTimedAbsenceType(this.settings, e.name));
+		const shownEntries = workedEntries.length > 0 ? workedEntries : dayEntries;
+		const totalHours = shownEntries.reduce((s, e) => s + (e.duration || 0), 0);
 
 		// Determine type
-		const specialEntry = dayEntries.find(e => {
+		const specialEntry = shownEntries.find(e => {
 			const b = this.settings.specialDayBehaviors.find(beh => beh.id === e.name);
 			return b && !b.isWorkType;
 		});
@@ -6453,7 +6488,10 @@ export class UIBuilder {
 			const end = new Date(dateObj); end.setHours(parsedEnd.hours, parsedEnd.minutes, 0, 0);
 			if (end <= start) { new Notice(`❌ ${t('validation.endAfterStart')}`); return; }
 			if (this.checkProhibitedOverlap(dateStr, name, start, end)) { new Notice(`❌ ${t('validation.overlappingEntry')}`); return; }
-			this.timerManager.data.entries.push({ name, startTime: Utils.toLocalISOString(start), endTime: Utils.toLocalISOString(end), subEntries: null });
+			this.timerManager.data.entries.push({
+				name, startTime: Utils.toLocalISOString(start), endTime: Utils.toLocalISOString(end), subEntries: null,
+				...(Utils.isTimedAbsenceType(this.settings, name) ? { exactTimes: true } : {})
+			});
 			await this.saveWithErrorHandling();
 			new Notice(`✅ ${t('notifications.entryUpdated')}`);
 			this.timerManager.onTimerChange?.();
