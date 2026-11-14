@@ -3245,6 +3245,30 @@ export class UIBuilder {
 		}
 	}
 
+	/**
+	 * Locate the code block under the planned days section of the holidays file.
+	 * Accepts the heading from both the Norwegian and English holiday templates.
+	 * Shows a notice and returns null if the section or code block is missing.
+	 */
+	private findPlannedDaysBlock(content: string): { codeBlockStart: number; codeBlockEnd: number } | null {
+		const sectionMatch = /^##\s+(Planlagte egne fridager|Your Planned Days Off)\s*$/im.exec(content);
+
+		if (!sectionMatch) {
+			new Notice(`❌ ${t('notifications.sectionNotFound')}`);
+			return null;
+		}
+
+		const codeBlockStart = content.indexOf('```', sectionMatch.index);
+		const codeBlockEnd = codeBlockStart === -1 ? -1 : content.indexOf('```', codeBlockStart + 3);
+
+		if (codeBlockStart === -1 || codeBlockEnd === -1) {
+			new Notice(`❌ ${t('notifications.codeBlockNotFound')}`);
+			return null;
+		}
+
+		return { codeBlockStart, codeBlockEnd };
+	}
+
 	async addSpecialDay(dateObj: Date, dayType: string, note: string = '', startTime?: string, endTime?: string): Promise<void> {
 		try {
 			const filePath = this.settings.holidaysFilePath;
@@ -3264,23 +3288,10 @@ export class UIBuilder {
 			// Read the file content
 			let content = await this.app.vault.read(file);
 
-			// Find the "Planlagte egne fridager" section
-			const sectionMarker = '## Planlagte egne fridager';
-			const sectionIndex = content.indexOf(sectionMarker);
-
-			if (sectionIndex === -1) {
-				new Notice(`❌ ${t('notifications.sectionNotFound')}`);
-				return;
-			}
-
-			// Find the code block after the section
-			const codeBlockStart = content.indexOf('```', sectionIndex);
-			const codeBlockEnd = content.indexOf('```', codeBlockStart + 3);
-
-			if (codeBlockStart === -1 || codeBlockEnd === -1) {
-				new Notice(`❌ ${t('notifications.codeBlockNotFound')}`);
-				return;
-			}
+			// Find the code block in the planned days section
+			const block = this.findPlannedDaysBlock(content);
+			if (!block) return;
+			const { codeBlockEnd } = block;
 
 			// Create the new entry line with the selected type and optional note
 			// For avspasering, include time range: - 2025-01-15: avspasering:14:00-16:00: comment
@@ -3339,23 +3350,10 @@ export class UIBuilder {
 			// Read the file content
 			let content = await this.app.vault.read(file);
 
-			// Find the "Planlagte egne fridager" section
-			const sectionMarker = '## Planlagte egne fridager';
-			const sectionIndex = content.indexOf(sectionMarker);
-
-			if (sectionIndex === -1) {
-				new Notice(`❌ ${t('notifications.sectionNotFound')}`);
-				return;
-			}
-
-			// Find the code block after the section
-			const codeBlockStart = content.indexOf('```', sectionIndex);
-			const codeBlockEnd = content.indexOf('```', codeBlockStart + 3);
-
-			if (codeBlockStart === -1 || codeBlockEnd === -1) {
-				new Notice(`❌ ${t('notifications.codeBlockNotFound')}`);
-				return;
-			}
+			// Find the code block in the planned days section
+			const block = this.findPlannedDaysBlock(content);
+			if (!block) return;
+			const { codeBlockEnd } = block;
 
 			// Build the annet entry string
 			// Format: annet:templateId:HH:MM-HH:MM (with time) or annet:templateId (full day)
@@ -3561,23 +3559,10 @@ export class UIBuilder {
 
 			let content = await this.app.vault.read(file);
 
-			// Find the "Planlagte egne fridager" section
-			const sectionMarker = '## Planlagte egne fridager';
-			const sectionIndex = content.indexOf(sectionMarker);
-
-			if (sectionIndex === -1) {
-				new Notice(`❌ ${t('notifications.sectionNotFound')}`);
-				return;
-			}
-
-			// Find the code block after the section
-			const codeBlockStart = content.indexOf('```', sectionIndex);
-			const codeBlockEnd = content.indexOf('```', codeBlockStart + 3);
-
-			if (codeBlockStart === -1 || codeBlockEnd === -1) {
-				new Notice(`❌ ${t('notifications.codeBlockNotFound')}`);
-				return;
-			}
+			// Find the code block in the planned days section
+			const block = this.findPlannedDaysBlock(content);
+			if (!block) return;
+			const { codeBlockStart, codeBlockEnd } = block;
 
 			// Get the code block content
 			const codeBlockContent = content.substring(codeBlockStart, codeBlockEnd + 3);
@@ -3622,23 +3607,10 @@ export class UIBuilder {
 
 			let content = await this.app.vault.read(file);
 
-			// Find the "Planlagte egne fridager" section
-			const sectionMarker = '## Planlagte egne fridager';
-			const sectionIndex = content.indexOf(sectionMarker);
-
-			if (sectionIndex === -1) {
-				new Notice(`❌ ${t('notifications.sectionNotFound')}`);
-				return;
-			}
-
-			// Find the code block after the section
-			const codeBlockStart = content.indexOf('```', sectionIndex);
-			const codeBlockEnd = content.indexOf('```', codeBlockStart + 3);
-
-			if (codeBlockStart === -1 || codeBlockEnd === -1) {
-				new Notice(`❌ ${t('notifications.codeBlockNotFound')}`);
-				return;
-			}
+			// Find the code block in the planned days section
+			const block = this.findPlannedDaysBlock(content);
+			if (!block) return;
+			const { codeBlockStart, codeBlockEnd } = block;
 
 			// Get the code block content
 			const codeBlockContent = content.substring(codeBlockStart, codeBlockEnd + 3);

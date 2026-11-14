@@ -25,12 +25,12 @@ You can add your own planned days by following the same format as the holidays:
 **Example:**
 
 ```
-- 2025-07-01: ferie: Summer vacation week 1
-- 2025-07-02: ferie: Summer vacation week 1
-- 2025-08-15: avspasering: Extra day off
-- 2025-09-10: kurs: AWS certification
-- 2025-12-23: half: Christmas Eve eve (half workday)
-- 2025-12-27: ferie:half: Half vacation day (alternative syntax)
+- YYYY-MM-DD: ferie: Summer vacation week 1
+- YYYY-MM-DD: ferie: Summer vacation week 1
+- YYYY-MM-DD: avspasering: Extra day off
+- YYYY-MM-DD: kurs: AWS certification
+- YYYY-MM-DD: half: Christmas Eve eve (half workday)
+- YYYY-MM-DD: ferie:half: Half vacation day (alternative syntax)
 ```
 
 ---
@@ -78,7 +78,7 @@ You can add your own planned days by following the same format as the holidays:
 ---
 ## Your Planned Days Off
 
-Add your own planned days off here. Follow the format above.
+Add your own planned days off here. Follow the format above. Keep this heading and code block as they are — the plugin adds, edits and deletes entries in this code block.
 
 ```
 
