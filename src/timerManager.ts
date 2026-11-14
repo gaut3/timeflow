@@ -523,7 +523,7 @@ ${timekeepBlock}${settingsBlock}
 
 	// Convert past planned days (from holidays.md) to timer entries
 	// This ensures planned days like ferie, avspasering appear in Historikk
-	async convertPastPlannedDays(holidays: Record<string, { type: string; description: string; halfDay: boolean; startTime?: string; endTime?: string }>, settings: TimeFlowSettings): Promise<number> {
+	async convertPastPlannedDays(holidays: Record<string, { type: string; description: string; halfDay: boolean; startTime?: string; endTime?: string; annetTemplateId?: string }>, settings: TimeFlowSettings): Promise<number> {
 		const today = new Date();
 		today.setHours(0, 0, 0, 0);
 		const todayStr = Utils.toLocalDateStr(today);
@@ -547,6 +547,12 @@ ${timekeepBlock}${settingsBlock}
 
 			if (!shouldConvert) continue; // studie, kurs, unknown types don't convert
 			if (info.type === 'helligdag') continue; // System holiday
+
+			// Unpaid partial annet stays in holidays.md only: as an 'annet' entry it
+			// would reduce the goal (credited time). DataManager removes its time
+			// range from overlapping work instead.
+			if (info.type === 'annet' && info.startTime && info.endTime &&
+				Utils.isUnpaidAnnetTemplate(settings, info.annetTemplateId)) continue;
 
 			// Check if entry of same type already exists for this date
 			const hasEntry = this.data.entries.some(e => {

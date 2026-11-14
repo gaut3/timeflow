@@ -450,6 +450,8 @@ const translations: Record<Language, TranslationStrings> = {
 			custom: 'Egendefinert',
 			fullDay: 'Hel dag',
 			saveAsTemplate: 'Lagre som mal',
+			unpaid: 'Ulønnet',
+			unpaidDesc: 'Delvis fravær trekkes fra arbeidstiden og reduserer ikke dagsmålet',
 			templateName: 'Mal-navn',
 			templateIcon: 'Ikon',
 			addTemplate: 'Legg til mal',
@@ -926,6 +928,8 @@ const translations: Record<Language, TranslationStrings> = {
 			custom: 'Custom',
 			fullDay: 'Full day',
 			saveAsTemplate: 'Save as template',
+			unpaid: 'Unpaid',
+			unpaidDesc: 'Partial-day time is removed from work time and does not reduce the daily goal',
 			templateName: 'Template name',
 			templateIcon: 'Icon',
 			addTemplate: 'Add template',
@@ -1404,6 +1408,8 @@ interface TranslationStrings {
 		custom: string;
 		fullDay: string;
 		saveAsTemplate: string;
+		unpaid: string;
+		unpaidDesc: string;
 		templateName: string;
 		templateIcon: string;
 		addTemplate: string;

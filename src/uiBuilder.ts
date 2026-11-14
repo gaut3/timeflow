@@ -2920,6 +2920,31 @@ export class UIBuilder {
 
 		saveAsTemplateContainer.appendChild(saveAsTemplateRow);
 
+		// Unpaid checkbox row - stored on the template, so it implies saving one
+		const unpaidRow = createDiv();
+		unpaidRow.className = 'tf-save-template-row';
+
+		const unpaidCheckbox = createEl('input');
+		unpaidCheckbox.type = 'checkbox';
+		unpaidCheckbox.id = 'annetUnpaidCheckbox';
+		unpaidRow.appendChild(unpaidCheckbox);
+
+		const unpaidLabel = createEl('label');
+		unpaidLabel.htmlFor = 'annetUnpaidCheckbox';
+		unpaidLabel.textContent = t('annet.unpaid');
+		unpaidLabel.title = t('annet.unpaidDesc');
+		unpaidLabel.className = 'tf-cursor-pointer';
+		unpaidRow.appendChild(unpaidLabel);
+
+		unpaidCheckbox.onchange = () => {
+			if (unpaidCheckbox.checked) saveAsTemplateCheckbox.checked = true;
+		};
+		saveAsTemplateCheckbox.onchange = () => {
+			if (!saveAsTemplateCheckbox.checked) unpaidCheckbox.checked = false;
+		};
+
+		saveAsTemplateContainer.appendChild(unpaidRow);
+
 		annetContainer.appendChild(saveAsTemplateContainer);
 
 		// Now set up onclick handlers for template buttons (after saveAsTemplateContainer exists)
@@ -2936,6 +2961,7 @@ export class UIBuilder {
 				// Hide custom entry section
 				saveAsTemplateContainer.addClass('tf-hidden');
 				saveAsTemplateCheckbox.checked = false;
+				unpaidCheckbox.checked = false;
 				// Clear custom fields
 				templateNameInput.value = '';
 				templateIconInput.value = '';
@@ -3126,7 +3152,8 @@ export class UIBuilder {
 						this.settings.annetTemplates.push({
 							id: newTemplateId,
 							label: customName,
-							icon: customIcon
+							icon: customIcon,
+							...(unpaidCheckbox.checked ? { unpaid: true } : {})
 						});
 						await this.plugin.saveSettings();
 						new Notice(`✅ ${t('annet.addTemplate')}: ${customIcon} ${customName}`);
@@ -6106,10 +6133,19 @@ export class UIBuilder {
 		const drawer = createDiv({ cls: 'tf-inline-drawer' });
 
 		const dayEntries = this.data.daily[dateKey] || [];
-		const totalHours = dayEntries.reduce((s, e) => s + (e.duration || 0), 0);
+		// On a day with work, show worked time only: absence durations (sick,
+		// annet, avspasering) are credited or withdrawn, not worked, and adding
+		// them inflated the total
+		const isAbsence = (e: TimeEntry) => {
+			const effect = this.data.getSpecialDayBehavior(e.name)?.flextimeEffect;
+			return effect === 'reduce_goal' || effect === 'withdraw';
+		};
+		const workedEntries = dayEntries.filter(e => !isAbsence(e));
+		const shownEntries = workedEntries.length > 0 ? workedEntries : dayEntries;
+		const totalHours = shownEntries.reduce((s, e) => s + (e.duration || 0), 0);
 
 		// Determine type
-		const specialEntry = dayEntries.find(e => {
+		const specialEntry = shownEntries.find(e => {
 			const b = this.settings.specialDayBehaviors.find(beh => beh.id === e.name);
 			return b && !b.isWorkType;
 		});

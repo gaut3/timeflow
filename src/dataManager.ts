@@ -411,6 +411,15 @@ export class DataManager {
 	}
 
 	/**
+	 * A partial-day 'annet' whose template is marked unpaid: its time is removed
+	 * from overlapping work and the daily goal is NOT reduced.
+	 */
+	isUnpaidAnnet(holidayInfo: HolidayInfo): boolean {
+		if (holidayInfo.type !== 'annet' || !holidayInfo.startTime || !holidayInfo.endTime) return false;
+		return Utils.isUnpaidAnnetTemplate(this.settings, holidayInfo.annetTemplateId);
+	}
+
+	/**
 	 * Get the behavior for an 'annet' holiday entry with dynamic properties based on time range.
 	 * - Full day (no time range): noHoursRequired=true, flextimeEffect='none'
 	 * - Partial day (with time range): noHoursRequired=false, flextimeEffect='reduce_goal'
@@ -623,9 +632,79 @@ export class DataManager {
 			if (!this.daily[dayKey]) this.daily[dayKey] = [];
 			this.daily[dayKey].push({ ...e, duration, date: start });
 		});
+		this.excludeAbsenceOverlaps();
 		this.deductDailyLunchBreak();
 		this.calculateFlextime();
 		this.groupByMonths();
+	}
+
+	/**
+	 * Remove time covered by timed absences from overlapping work entries.
+	 * Work and an absence at the same clock time were both counted: the work
+	 * hours AND the absence's goal reduction (sick/annet) or withdrawal
+	 * (avspasering). Absence intervals are merged first so overlapping absences
+	 * deduct once; absences outside work hours deduct nothing. Runs before the
+	 * lunch deduction so lunch is still taken once, from the trimmed work.
+	 */
+	private excludeAbsenceOverlaps(): void {
+		for (const dayKey in this.daily) {
+			const absences: Array<[number, number]> = [];
+			const workEntries: TimeEntry[] = [];
+
+			for (const entry of this.daily[dayKey]) {
+				if (entry.isActive) continue;
+				const effect = this.getSpecialDayBehavior(entry.name)?.flextimeEffect;
+				if (effect === 'reduce_goal' || effect === 'withdraw') {
+					const interval = this.getEntryInterval(entry.startTime, entry.endTime);
+					if (interval) absences.push(interval);
+				} else {
+					workEntries.push(entry);
+				}
+			}
+
+			// Unpaid annet is never converted to an entry (it must not reduce the
+			// goal), so its time range comes from the holidays file
+			const holidayInfo = this.getHolidayInfo(dayKey);
+			if (holidayInfo && this.isUnpaidAnnet(holidayInfo)) {
+				const interval = this.getEntryInterval(
+					`${dayKey}T${holidayInfo.startTime}:00`,
+					`${dayKey}T${holidayInfo.endTime}:00`
+				);
+				if (interval) absences.push(interval);
+			}
+
+			if (absences.length === 0 || workEntries.length === 0) continue;
+
+			absences.sort((a, b) => a[0] - b[0]);
+			const merged: Array<[number, number]> = [];
+			for (const [start, end] of absences) {
+				const last = merged[merged.length - 1];
+				if (last && start <= last[1]) {
+					last[1] = Math.max(last[1], end);
+				} else {
+					merged.push([start, end]);
+				}
+			}
+
+			for (const entry of workEntries) {
+				const interval = this.getEntryInterval(entry.startTime, entry.endTime);
+				if (!interval) continue;
+				let overlapMs = 0;
+				for (const [start, end] of merged) {
+					overlapMs += Math.max(0, Math.min(interval[1], end) - Math.max(interval[0], start));
+				}
+				if (overlapMs > 0) {
+					entry.duration = Math.max(0, (entry.duration || 0) - overlapMs / 3600000);
+				}
+			}
+		}
+	}
+
+	private getEntryInterval(startTime: string, endTime?: string): [number, number] | null {
+		const start = Utils.parseDate(startTime);
+		const end = endTime ? Utils.parseDate(endTime) : null;
+		if (!start || !end || end.getTime() <= start.getTime()) return null;
+		return [start.getTime(), end.getTime()];
 	}
 
 	/**

@@ -264,7 +264,7 @@ Format: `- YYYY-MM-DD: type[:modifier]: description`
 
 Modifiers:
 - `:half` - Half day (4 hours instead of full workday)
-- `:HH:MM-HH:MM` - Time range for avspasering (e.g., `14:00-16:00` for leaving early)
+- `:HH:MM-HH:MM` - Time range for avspasering (e.g., `14:00-16:00` for leaving early) or `annet`
 
 Supported types:
 - `helligdag` - Public holiday (counts as full workday, no flextime change)
@@ -275,6 +275,11 @@ Supported types:
 - `velferdspermisjon` - Welfare leave (reduces daily goal by sick hours)
 - `kurs` - Course/Training (regular workday applies)
 - `studie` - Study leave (regular workday applies)
+- `annet[:templateId]` - Other absence. Full day: no hours required. Partial day (`annet:templateId:HH:MM-HH:MM:`): credited — reduces the daily goal by its duration — unless the template is marked **Unpaid**, in which case the goal is unchanged
+
+Timed absences (partial sick leave, `annet`, avspasering) that overlap a work entry are removed from that work entry, so the same time is never counted as both worked and absent. Overlapping absences are merged first, so shared time is deducted once; absences outside work hours deduct nothing. The lunch break is still deducted once per day.
+
+To record an unpaid personal appointment, use **Add absence → Other**, pick a template marked **Unpaid** (or choose **Custom**, tick **Unpaid** and save it as a template), untick **Full day** and set the time range. Mark existing templates unpaid in **Settings → Other templates**.
 
 ## Importing Data
 
